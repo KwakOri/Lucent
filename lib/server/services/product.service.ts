@@ -109,7 +109,12 @@ export class ProductService {
     const { data, error, count } = await query;
 
     if (error) {
-      throw new ApiError('상품 목록 조회 실패', 500, 'PRODUCTS_FETCH_FAILED');
+      console.error('Supabase error:', error);
+      throw new ApiError(
+        `상품 목록 조회 실패: ${error.message}`,
+        500,
+        'PRODUCTS_FETCH_FAILED'
+      );
     }
 
     return {

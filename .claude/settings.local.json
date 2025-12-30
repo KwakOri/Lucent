@@ -16,7 +16,8 @@
       "Bash(for file in /Users/kwakori/projects/promotion/vshop/src/components/ui/{checkbox,loading,radio,select,switch}/*/stories.tsx)",
       "Bash(do if [ -f \"$file\" ])",
       "Bash(then grep -A 2 \"export const AllVariants\" \"$file\")",
-      "Bash({} ;)"
+      "Bash({} ;)",
+      "Bash(npm run dev:*)"
     ]
   }
 }
