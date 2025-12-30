@@ -1,15 +1,11 @@
 @import "tailwindcss";
 
+/* =========================
+   Next.js Default Variables
+   ========================= */
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -19,6 +15,83 @@
   }
 }
 
+/* =========================
+   Tailwind Theme Configuration
+   ========================= */
+@theme {
+  /* Fonts */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Background & Foreground */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* =========================
+     Primary Colors (Blue 계열)
+     ========================= */
+  --color-primary-50: #e3f2fd;
+  --color-primary-100: #bbdefb;
+  --color-primary-200: #90caf9;
+  --color-primary-300: #64b5f6;
+  --color-primary-400: #42a5f5;
+  --color-primary-500: #2196f3;
+  --color-primary-600: #1e88e5;
+  --color-primary-700: #1976d2;
+  --color-primary-800: #1565c0;
+  --color-primary-900: #0d47a1;
+
+  /* =========================
+     Neutral Colors (Gray 계열)
+     ========================= */
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #f8f9fa;
+  --color-neutral-100: #f1f3f4;
+  --color-neutral-200: #e8eaed;
+  --color-neutral-300: #dadce0;
+  --color-neutral-400: #bdc1c6;
+  --color-neutral-500: #9aa0a6;
+  --color-neutral-600: #80868b;
+  --color-neutral-700: #5f6368;
+  --color-neutral-800: #3c4043;
+  --color-neutral-900: #202124;
+
+  /* =========================
+     Semantic Colors (저채도)
+     ========================= */
+
+  /* Success */
+  --color-success-100: #e6f4ea;
+  --color-success-500: #34a853;
+  --color-success-600: #2e7d32;
+
+  /* Error */
+  --color-error-100: #fce8e6;
+  --color-error-500: #d93025;
+  --color-error-600: #c5221f;
+
+  /* Warning */
+  --color-warning-100: #fef7e0;
+  --color-warning-500: #f9ab00;
+  --color-warning-600: #f57c00;
+
+  /* Info */
+  --color-info-100: #e8f0fe;
+  --color-info-500: #1a73e8;
+  --color-info-600: #1967d2;
+
+  /* =========================
+     Text Colors
+     ========================= */
+  --color-text-primary: #2d2d2d;
+  --color-text-secondary: #5f6368;
+  --color-text-muted: #8a8f94;
+  --color-text-inverse: #ffffff;
+}
+
+/* =========================
+   Base Styles
+   ========================= */
 body {
   background: var(--background);
   color: var(--foreground);
