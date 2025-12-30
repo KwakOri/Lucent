@@ -7,11 +7,11 @@
  * - 주문 알림 (2차 확장)
  */
 
-import nodemailer from 'nodemailer';
+import * as nodemailer from 'nodemailer';
 
 // ===== Nodemailer 설정 =====
 
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '587'),
   secure: false, // true for 465, false for other ports

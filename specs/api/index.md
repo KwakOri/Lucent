@@ -20,21 +20,21 @@ Client Services (ProductsAPI.getProducts) - fetch로 API 호출
        ↓
 Next.js API Route (인증, 권한 검증, 요청/응답 처리)
        ↓
-Server Service (ProductService.getProducts) - 비즈니스 로직, DB 접근
+Server Service (s) - 비즈니스 로직, DB 접근
        ↓
 Supabase DB
 ```
 
 ### 1-1. 레이어별 역할
 
-| 레이어 | 위치 | 역할 | 문서 |
-|--------|------|------|------|
-| **Frontend Component** | `/app`, `/components` | UI 렌더링, 사용자 인터랙션 | - |
-| **React Query Hook** | `/lib/client/hooks` | 데이터 fetching 상태 관리, 캐싱 | [`/specs/api/client/hooks/index.md`](/specs/api/client/hooks/index.md) |
-| **Client Services** | `/lib/client/services` | API Route 호출 (fetch), 타입 안전성 | [`/specs/api/client/services/index.md`](/specs/api/client/services/index.md) |
-| **API Route** | `/app/api` | HTTP 처리, 인증/권한 검증, 에러 핸들링 | [`/specs/api/server/routes/index.md`](/specs/api/server/routes/index.md) |
-| **Server Service** | `/lib/server/services` | 비즈니스 로직, DB 접근, 트랜잭션 | [`/specs/api/server/services/index.md`](/specs/api/server/services/index.md) |
-| **Database** | Supabase | 데이터 저장소 | - |
+| 레이어                 | 위치                   | 역할                                   | 문서                                                                         |
+| ---------------------- | ---------------------- | -------------------------------------- | ---------------------------------------------------------------------------- |
+| **Frontend Component** | `/app`, `/components`  | UI 렌더링, 사용자 인터랙션             | -                                                                            |
+| **React Query Hook**   | `/lib/client/hooks`    | 데이터 fetching 상태 관리, 캐싱        | [`/specs/api/client/hooks/index.md`](/specs/api/client/hooks/index.md)       |
+| **Client Services**    | `/lib/client/services` | API Route 호출 (fetch), 타입 안전성    | [`/specs/api/client/services/index.md`](/specs/api/client/services/index.md) |
+| **API Route**          | `/app/api`             | HTTP 처리, 인증/권한 검증, 에러 핸들링 | [`/specs/api/server/routes/index.md`](/specs/api/server/routes/index.md)     |
+| **Server Service**     | `/lib/server/services` | 비즈니스 로직, DB 접근, 트랜잭션       | [`/specs/api/server/services/index.md`](/specs/api/server/services/index.md) |
+| **Database**           | Supabase               | 데이터 저장소                          | -                                                                            |
 
 ### 1-2. 예시 코드
 
@@ -48,7 +48,7 @@ function ProductList() {
 // 2. React Query Hook
 export function useProducts() {
   return useQuery({
-    queryKey: ['products'],
+    queryKey: ["products"],
     queryFn: () => ProductsAPI.getProducts(), // Client Services
   });
 }
@@ -56,21 +56,21 @@ export function useProducts() {
 // 3. Client Services
 export const ProductsAPI = {
   async getProducts() {
-    return apiClient.get('/api/products'); // fetch
-  }
+    return apiClient.get("/api/products"); // fetch
+  },
 };
 
 // 4. API Route
 export async function GET(request: Request) {
   const products = await ProductService.getProducts(); // Server Service
-  return NextResponse.json({ status: 'success', data: products });
+  return NextResponse.json({ status: "success", data: products });
 }
 
 // 5. Server Service
 export class ProductService {
   static async getProducts() {
     const supabase = createServerClient(); // DB 접근
-    const { data } = await supabase.from('products').select('*');
+    const { data } = await supabase.from("products").select("*");
     return data;
   }
 }
@@ -91,42 +91,50 @@ export class ProductService {
 ### 2-2. 주요 타입
 
 ```ts
-import { Database, Tables, TablesInsert, TablesUpdate, Enums } from '@/types/database';
+import {
+  Database,
+  Tables,
+  TablesInsert,
+  TablesUpdate,
+  Enums,
+} from "@/types/database";
 
 // 테이블 Row 타입 (조회 시)
-type Product = Tables<'products'>;
-type Order = Tables<'orders'>;
-type Artist = Tables<'artists'>;
+type Product = Tables<"products">;
+type Order = Tables<"orders">;
+type Artist = Tables<"artists">;
 
 // Insert 타입 (생성 시)
-type ProductInsert = TablesInsert<'products'>;
-type OrderInsert = TablesInsert<'orders'>;
+type ProductInsert = TablesInsert<"products">;
+type OrderInsert = TablesInsert<"orders">;
 
 // Update 타입 (수정 시)
-type ProductUpdate = TablesUpdate<'products'>;
-type OrderUpdate = TablesUpdate<'orders'>;
+type ProductUpdate = TablesUpdate<"products">;
+type OrderUpdate = TablesUpdate<"orders">;
 
 // Enum 타입
-type OrderStatus = Enums<'order_status'>; // 'PENDING' | 'PAID' | 'MAKING' | 'SHIPPING' | 'DONE'
-type ProductType = Enums<'product_type'>; // 'VOICE_PACK' | 'PHYSICAL_GOODS'
-type VerificationPurpose = Enums<'verification_purpose'>; // 'signup' | 'reset_password' | 'change_email'
+type OrderStatus = Enums<"order_status">; // 'PENDING' | 'PAID' | 'MAKING' | 'SHIPPING' | 'DONE'
+type ProductType = Enums<"product_type">; // 'VOICE_PACK' | 'PHYSICAL_GOODS'
+type VerificationPurpose = Enums<"verification_purpose">; // 'signup' | 'reset_password' | 'change_email'
 ```
 
 ### 2-3. 사용 규칙
 
 **필수 사항**:
+
 1. **API Route 작성 시**: `Tables<'테이블명'>` 타입 사용
 2. **Service Layer 작성 시**: database.ts에서 타입 import
 3. **데이터 삽입/수정 시**: `TablesInsert`, `TablesUpdate` 타입 사용
 4. **Enum 값 사용 시**: `Enums<'enum명'>` 타입 또는 `Constants.public.Enums` 사용
 
 **예시 - API Route**:
+
 ```ts
 // app/api/products/route.ts
-import { Tables, TablesInsert } from '@/types/database';
+import { Tables, TablesInsert } from "@/types/database";
 
-type Product = Tables<'products'>;
-type ProductInsert = TablesInsert<'products'>;
+type Product = Tables<"products">;
+type ProductInsert = TablesInsert<"products">;
 
 export async function POST(request: Request) {
   const body: ProductInsert = await request.json();
@@ -135,12 +143,13 @@ export async function POST(request: Request) {
 ```
 
 **예시 - Service Layer**:
+
 ```ts
 // lib/services/product.service.ts
-import { Tables, TablesInsert, Enums } from '@/types/database';
+import { Tables, TablesInsert, Enums } from "@/types/database";
 
-type Product = Tables<'products'>;
-type ProductType = Enums<'product_type'>;
+type Product = Tables<"products">;
+type ProductType = Enums<"product_type">;
 
 export class ProductService {
   static async getProducts(type?: ProductType): Promise<Product[]> {
@@ -292,12 +301,12 @@ images 테이블 (메타데이터 + URL 관리)
 
 ### 7-3. 이미지 참조 방식
 
-| 테이블 | 이미지 컬럼 | 관계 | 설명 |
-|--------|-------------|------|------|
-| `projects` | `cover_image_id` | N:1 | 프로젝트 커버 이미지 |
-| `artists` | `profile_image_id` | N:1 | 아티스트 프로필 이미지 |
-| `products` | `main_image_id` | N:1 | 상품 메인 이미지 |
-| `product_images` | `image_id` | N:M | 상품 갤러리 이미지 (중간 테이블) |
+| 테이블           | 이미지 컬럼        | 관계 | 설명                             |
+| ---------------- | ------------------ | ---- | -------------------------------- |
+| `projects`       | `cover_image_id`   | N:1  | 프로젝트 커버 이미지             |
+| `artists`        | `profile_image_id` | N:1  | 아티스트 프로필 이미지           |
+| `products`       | `main_image_id`    | N:1  | 상품 메인 이미지                 |
+| `product_images` | `image_id`         | N:M  | 상품 갤러리 이미지 (중간 테이블) |
 
 ### 7-4. 이미지 업로드 플로우
 
@@ -495,31 +504,32 @@ Cloudflare R2 기반 이미지 중앙 관리
 
 #### 필수 로깅 (1차 MVP)
 
-| 카테고리 | 이벤트 타입 | 로깅 시점 |
-|---------|------------|----------|
-| **인증** | `user.signup.success` | 회원가입 성공 |
-| | `user.signup.failed` | 회원가입 실패 |
-| | `user.login.success` | 로그인 성공 |
-| | `user.login.failed` | 로그인 실패 |
-| | `user.logout` | 로그아웃 |
-| | `user.email_verification.sent` | 이메일 인증 발송 |
-| | `user.email_verification.success` | 이메일 인증 완료 |
-| | `user.password_reset.requested` | 비밀번호 재설정 요청 |
-| **주문** | `order.created` | 주문 생성 |
-| | `order.status.changed` | 주문 상태 변경 |
-| | `order.cancelled` | 주문 취소 |
-| | `order.refund.requested` | 환불 요청 |
-| **다운로드** | `digital_product.download` | 디지털 상품 다운로드 |
-| | `digital_product.download.unauthorized` | 권한 없는 다운로드 시도 |
-| **보안** | `security.unauthorized.access` | 권한 없는 API 접근 |
-| | `security.rate_limit.exceeded` | API 호출 제한 초과 |
-| | `security.suspicious.activity` | 의심스러운 활동 감지 |
+| 카테고리     | 이벤트 타입                             | 로깅 시점               |
+| ------------ | --------------------------------------- | ----------------------- |
+| **인증**     | `user.signup.success`                   | 회원가입 성공           |
+|              | `user.signup.failed`                    | 회원가입 실패           |
+|              | `user.login.success`                    | 로그인 성공             |
+|              | `user.login.failed`                     | 로그인 실패             |
+|              | `user.logout`                           | 로그아웃                |
+|              | `user.email_verification.sent`          | 이메일 인증 발송        |
+|              | `user.email_verification.success`       | 이메일 인증 완료        |
+|              | `user.password_reset.requested`         | 비밀번호 재설정 요청    |
+| **주문**     | `order.created`                         | 주문 생성               |
+|              | `order.status.changed`                  | 주문 상태 변경          |
+|              | `order.cancelled`                       | 주문 취소               |
+|              | `order.refund.requested`                | 환불 요청               |
+| **다운로드** | `digital_product.download`              | 디지털 상품 다운로드    |
+|              | `digital_product.download.unauthorized` | 권한 없는 다운로드 시도 |
+| **보안**     | `security.unauthorized.access`          | 권한 없는 API 접근      |
+|              | `security.rate_limit.exceeded`          | API 호출 제한 초과      |
+|              | `security.suspicious.activity`          | 의심스러운 활동 감지    |
 
 ### 10-3. 구현 방법
 
 **기본 사용**:
+
 ```typescript
-import { LogService } from '@/lib/server/services/log.service';
+import { LogService } from "@/lib/server/services/log.service";
 
 // API Route에서 사용
 export async function POST(request: NextRequest) {
@@ -530,17 +540,13 @@ export async function POST(request: NextRequest) {
     await LogService.logLoginSuccess(
       user.id,
       request.ip,
-      request.headers.get('user-agent') || undefined
+      request.headers.get("user-agent") || undefined
     );
 
     return successResponse(user);
   } catch (error) {
     // ✅ 실패 시 로그 기록
-    await LogService.logLoginFailed(
-      email,
-      error.message,
-      request.ip
-    );
+    await LogService.logLoginFailed(email, error.message, request.ip);
 
     return handleApiError(error);
   }
@@ -548,33 +554,37 @@ export async function POST(request: NextRequest) {
 ```
 
 **편의 메서드**:
+
 ```typescript
 // 인증
-LogService.logLoginSuccess(userId, ip, userAgent)
-LogService.logLoginFailed(email, reason, ip)
-LogService.logSignupSuccess(userId, email, ip)
+LogService.logLoginSuccess(userId, ip, userAgent);
+LogService.logLoginFailed(email, reason, ip);
+LogService.logSignupSuccess(userId, email, ip);
 
 // 주문
-LogService.logOrderCreated(orderId, userId, amount, metadata)
-LogService.logOrderStatusChanged(orderId, userId, adminId, before, after)
+LogService.logOrderCreated(orderId, userId, amount, metadata);
+LogService.logOrderStatusChanged(orderId, userId, adminId, before, after);
 
 // 다운로드
-LogService.logDigitalProductDownload(productId, orderId, userId, ip)
-LogService.logUnauthorizedDownload(productId, userId, ip)
+LogService.logDigitalProductDownload(productId, orderId, userId, ip);
+LogService.logUnauthorizedDownload(productId, userId, ip);
 
 // 보안
-LogService.logUnauthorizedAccess(userId, path, ip)
-LogService.logSuspiciousActivity(userId, description, ip, metadata)
+LogService.logUnauthorizedAccess(userId, path, ip);
+LogService.logSuspiciousActivity(userId, description, ip, metadata);
 ```
 
 ### 10-4. 중요 사항
 
 **절대 원칙**:
+
 1. ❌ **로그 기록 실패로 서비스가 중단되어서는 안 됨**
+
    - `LogService.log()`는 내부적으로 에러를 처리함
    - 로그 실패 시 콘솔 출력만 하고 계속 진행
 
 2. ❌ **민감 정보를 로그에 포함하지 말 것**
+
    - 비밀번호, 토큰 등 절대 기록 금지
    - 이메일, IP 주소는 기록 가능
 
@@ -583,15 +593,17 @@ LogService.logSuspiciousActivity(userId, description, ip, metadata)
    - 실패/경고: `severity: 'warning'` 또는 `'error'`
 
 **성능 최적화**:
+
 ```typescript
 // Fire and Forget (await 생략 가능)
 LogService.logLoginSuccess(userId, request.ip);
-return NextResponse.json({ status: 'success' });
+return NextResponse.json({ status: "success" });
 ```
 
 ### 10-5. 예시 코드 참조
 
 상세한 구현 예시는 다음 문서 참조:
+
 - 📄 인증 API 로깅: `/examples/logging/auth-api-example.ts`
 - 📄 주문 API 로깅: `/examples/logging/order-api-example.ts`
 - 📄 다운로드 API 로깅: `/examples/logging/download-api-example.ts`
@@ -601,6 +613,7 @@ return NextResponse.json({ status: 'success' });
 ### 10-6. 로그 조회 (관리자)
 
 로그 조회 API는 이미 구현되어 있음:
+
 - `GET /api/logs` - 로그 목록 조회 (필터링, 페이지네이션)
 - `GET /api/logs/:id` - 로그 단일 조회
 - `GET /api/logs/stats` - 로그 통계

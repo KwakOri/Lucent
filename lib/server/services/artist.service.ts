@@ -30,7 +30,7 @@ export class ArtistService {
    * 아티스트 목록 조회
    */
   static async getArtists(): Promise<ArtistWithDetails[]> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('artists')
@@ -63,7 +63,7 @@ export class ArtistService {
    * 아티스트 상세 조회
    */
   static async getArtistById(id: string): Promise<ArtistWithDetails> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('artists')
@@ -101,7 +101,7 @@ export class ArtistService {
    * Slug로 아티스트 조회
    */
   static async getArtistBySlug(slug: string): Promise<ArtistWithDetails> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('artists')

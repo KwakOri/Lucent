@@ -50,7 +50,7 @@ export class OrderService {
     input: CreateOrderInput,
     ipAddress?: string
   ): Promise<OrderWithDetails> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { userId, items, shippingName, shippingPhone, shippingAddress, shippingMemo } = input;
 
     // 상품 정보 조회
@@ -170,7 +170,7 @@ export class OrderService {
     userId: string,
     options: { page?: number; limit?: number } = {}
   ): Promise<{ orders: OrderWithDetails[]; total: number }> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { page = 1, limit = 20 } = options;
 
     let query = supabase
@@ -215,7 +215,7 @@ export class OrderService {
     orderId: string,
     userId?: string
   ): Promise<OrderWithDetails> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('orders')
@@ -261,7 +261,7 @@ export class OrderService {
     newStatus: OrderStatus,
     adminId: string
   ): Promise<Order> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     // 기존 주문 조회
     const { data: order } = await supabase
@@ -308,7 +308,7 @@ export class OrderService {
     userId: string,
     reason?: string
   ): Promise<Order> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     // 주문 확인
     const { data: order } = await supabase
@@ -365,7 +365,7 @@ export class OrderService {
       dateTo?: string;
     } = {}
   ): Promise<{ orders: OrderWithDetails[]; total: number }> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { page = 1, limit = 50, status, dateFrom, dateTo } = options;
 
     let query = supabase

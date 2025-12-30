@@ -32,7 +32,7 @@ export class AuthService {
    * 이메일 인증 토큰 생성 및 발송
    */
   static async sendEmailVerification(email: string): Promise<void> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     // 이메일 유효성 검사
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -110,7 +110,7 @@ export class AuthService {
    * 이메일 인증 확인
    */
   static async verifyEmail(token: string): Promise<EmailVerificationResult> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data: verification, error } = await supabase
       .from('email_verifications')
@@ -188,7 +188,7 @@ export class AuthService {
     userAgent?: string
   ): Promise<AuthResponse> {
     const { email, password, name } = input;
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     // 비밀번호 검증
     if (password.length < 8) {
@@ -228,7 +228,7 @@ export class AuthService {
       },
     });
 
-    if (authError || !authData.user) {
+    if (authError || !authData.user || !authData.session) {
       // ✅ 로그 기록 (실패)
       await LogService.logSignupFailed(
         email,
@@ -279,7 +279,7 @@ export class AuthService {
     userAgent?: string
   ): Promise<AuthResponse> {
     const { email, password } = input;
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -318,7 +318,7 @@ export class AuthService {
    * 로그아웃
    */
   static async logout(userId: string): Promise<void> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { error } = await supabase.auth.signOut();
 
@@ -338,7 +338,7 @@ export class AuthService {
    * 현재 세션 확인
    */
   static async getSession(): Promise<SessionResponse> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase.auth.getSession();
 
@@ -356,7 +356,7 @@ export class AuthService {
    * 비밀번호 재설정 요청
    */
   static async requestPasswordReset(email: string): Promise<void> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     // 사용자 존재 여부 확인
     const { data: profile } = await supabase
@@ -415,7 +415,7 @@ export class AuthService {
     token: string,
     newPassword: string
   ): Promise<PasswordResetResult> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     // 비밀번호 검증
     if (newPassword.length < 8) {

@@ -84,7 +84,7 @@ export class LogService {
    */
   static async log(input: LogEventInput): Promise<void> {
     try {
-      const supabase = createServerClient();
+      const supabase = await createServerClient();
 
       // 이벤트 카테고리 자동 추출
       const eventCategory = input.eventCategory || input.eventType.split('.')[0];
@@ -118,7 +118,7 @@ export class LogService {
   static async getLogs(
     options: GetLogsOptions = {}
   ): Promise<{ logs: LogWithRelations[]; total: number }> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const {
       page = 1,
       limit = 50,
@@ -203,7 +203,7 @@ export class LogService {
    * 로그 단일 조회
    */
   static async getLogById(id: string): Promise<LogWithRelations | null> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('logs')
@@ -241,7 +241,7 @@ export class LogService {
     byCategory: Record<string, number>;
     bySeverity: Record<string, number>;
   }> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { dateFrom, dateTo } = options;
 
     // 전체 카운트

@@ -121,6 +121,12 @@
 /
 ├── app/                      # Next.js 15 App Router
 │   ├── api/                 # API Routes
+│   │   ├── auth/            # 인증 API (signup, login, logout, etc.)
+│   │   ├── products/        # 상품 API
+│   │   ├── orders/          # 주문 API
+│   │   ├── projects/        # 프로젝트 API
+│   │   ├── artists/         # 아티스트 API
+│   │   ├── profiles/        # 프로필 API
 │   │   └── logs/            # 로그 API (관리자 전용)
 │   ├── layout.tsx
 │   ├── page.tsx
@@ -129,9 +135,15 @@
 ├── lib/                      # 서버 사이드 라이브러리
 │   └── server/
 │       ├── services/        # 비즈니스 로직 (Service Layer)
-│       │   └── log.service.ts
+│       │   ├── auth.service.ts
+│       │   ├── product.service.ts
+│       │   ├── order.service.ts
+│       │   ├── log.service.ts
+│       │   └── ...
 │       └── utils/           # 서버 유틸리티
 │           ├── supabase.ts       # Supabase 클라이언트
+│           ├── email.ts          # 이메일 발송 (Nodemailer)
+│           ├── request.ts        # Request 유틸리티
 │           ├── errors.ts         # 에러 클래스
 │           └── api-response.ts   # API 응답 헬퍼
 │
@@ -143,6 +155,11 @@
 │   └── services/
 │       ├── client/          # 클라이언트 서비스
 │       └── server/          # 서버 서비스
+│
+├── docs/                     # 개발 문서 ✅
+│   ├── README.md            # 문서 인덱스
+│   ├── api-testing-guide.md # API 테스트 가이드 (Postman)
+│   └── email-setup.md       # 이메일 설정 가이드
 │
 ├── specs/                    # 스펙 문서 (설계 문서)
 │   ├── index.md             # 프로젝트 전체 스펙
@@ -170,24 +187,45 @@
 │       ├── download-api-example.ts
 │       └── security-example.ts
 │
+├── scripts/                  # 유틸리티 스크립트 ✅
+│   └── test-email.ts        # 이메일 설정 테스트
+│
+├── tests/                    # 자동화 테스트 ✅
+│   ├── README.md            # 테스트 가이드
+│   ├── setup.ts             # 테스트 설정
+│   ├── utils/               # 테스트 유틸리티
+│   └── api/                 # API 테스트
+│       ├── auth.test.ts
+│       ├── products.test.ts
+│       ├── orders.test.ts
+│       └── logs.test.ts
+│
 ├── supabase/                 # Supabase 설정
 │   └── migrations/          # 데이터베이스 마이그레이션
 │       ├── 20250101000000_initial_schema.sql
 │       ├── 20250101000001_seed_data.sql
 │       └── create_logs_table.sql
 │
-├── types/                    # TypeScript 타입 정의
-│   └── database.ts          # Supabase 생성 타입
+├── types/                    # TypeScript 타입 정의 ✅
+│   ├── database.ts          # Supabase 생성 타입
+│   ├── auth.ts              # 인증 타입
+│   ├── api.ts               # API 요청/응답 타입
+│   └── index.ts             # 타입 중앙 export
 │
 ├── public/                   # 정적 파일
 ├── stories/                  # Storybook 스토리
 ├── .storybook/              # Storybook 설정
 │
 ├── CLAUDE.md                # 본 문서 (프로젝트 가이드)
+├── .env.local               # 환경변수 (로컬)
+├── .env.example             # 환경변수 템플릿
 ├── package.json
 ├── tsconfig.json
+├── vitest.config.ts         # Vitest 설정
 └── next.config.ts
 ```
+
+**✅ 표시**: 최근 추가/업데이트된 항목
 
 ---
 
@@ -354,16 +392,78 @@ await LogService.logLoginFailed(email, '잘못된 비밀번호', request.ip);
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# SMTP (이메일 발송)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM="Lucent Management <your-email@gmail.com>"
 
 # 관리자 이메일 (쉼표로 구분)
 ADMIN_EMAILS=admin@example.com,manager@example.com
 
-# Cloudflare R2 (디지털 상품 저장소)
+# Cloudflare R2 (디지털 상품 저장소, 선택사항)
 R2_ACCOUNT_ID=your-account-id
 R2_ACCESS_KEY_ID=your-access-key
 R2_SECRET_ACCESS_KEY=your-secret-key
 R2_BUCKET_NAME=your-bucket-name
+R2_PUBLIC_URL=https://your-bucket.r2.dev
 ```
+
+**자세한 설정 방법**: `/docs/email-setup.md` 참조
+
+---
+
+## 개발 문서
+
+프로젝트 개발에 필요한 실용적인 가이드 문서들:
+
+### 📘 [API 테스트 가이드](/docs/api-testing-guide.md)
+**Postman을 사용한 API 테스트 완벽 가이드**
+
+- 모든 API 엔드포인트 목록 및 Request/Response 예시
+- Postman Collection 임포트용 JSON
+- 테스트 시나리오 및 문제 해결
+
+**사용 시기:**
+- `npm run dev`로 서버를 실행한 후 API를 테스트할 때
+- 프론트엔드 개발 전 API 동작을 확인할 때
+- API 스펙을 이해하고 싶을 때
+
+### 📧 [이메일 설정 가이드](/docs/email-setup.md)
+**Nodemailer SMTP 설정 완벽 가이드**
+
+- Gmail, Naver, SendGrid SMTP 설정 방법
+- 이메일 템플릿 커스터마이징
+- 설정 테스트 방법 (`npx tsx scripts/test-email.ts`)
+- 문제 해결
+
+**사용 시기:**
+- 회원가입 이메일 인증 기능을 테스트할 때
+- 비밀번호 재설정 이메일을 테스트할 때
+- 프로덕션 배포 전 SMTP 설정을 확인할 때
+
+### ☁️ [Cloudflare R2 설정 가이드](/docs/r2-setup.md)
+**R2 객체 스토리지 설정 완벽 가이드**
+
+- R2 환경변수 찾는 방법 (Account ID, API Token, Bucket Name 등)
+- 버킷 생성 및 공개 URL 설정
+- 커스텀 도메인 연결 방법
+- 연결 테스트 스크립트
+- 비용 안내 및 보안 권장사항
+
+**사용 시기:**
+- 이미지 업로드 기능을 구현할 때
+- 디지털 상품(보이스팩) 파일을 저장할 때
+- 프로덕션 배포 전 스토리지 설정을 확인할 때
+
+### 📂 [문서 인덱스](/docs/README.md)
+모든 개발 문서의 목차 및 빠른 링크
 
 ---
 
@@ -405,7 +505,35 @@ npm run dev
 npx supabase gen types typescript --project-id YOUR_PROJECT_ID > types/database.ts
 ```
 
-### 3. 문서 참조 순서
+### 3. API 테스트
+
+```bash
+# API 테스트 문서 확인
+cat docs/api-testing-guide.md
+
+# 개발 서버 실행 후 Postman으로 테스트
+# 또는 cURL 사용 예시:
+curl http://localhost:3000/api/products
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"test1234"}'
+```
+
+**자세한 내용**: `/docs/api-testing-guide.md` 참조
+
+### 4. 이메일 설정 (선택사항)
+
+```bash
+# SMTP 연결 테스트
+npx tsx scripts/test-email.ts
+
+# 실제 이메일 발송 테스트
+npx tsx scripts/test-email.ts your-email@example.com
+```
+
+**자세한 내용**: `/docs/email-setup.md` 참조
+
+### 5. 문서 참조 순서
 
 새로운 기능 개발 시:
 1. **스펙 문서 먼저 읽기**: `/specs/api/server/`
@@ -414,10 +542,11 @@ npx supabase gen types typescript --project-id YOUR_PROJECT_ID > types/database.
 4. **구현 후 스펙 업데이트**
 
 주요 문서:
-- 전체 프로젝트 스펙: `/specs/index.md`
-- UI 시스템 가이드: `/specs/ui/index.md`
-- API 스펙: `/specs/api/index.md`
-- 로깅 시스템 가이드: `/examples/logging/README.md`
+- **개발 문서**: `/docs/README.md` (API 테스트, 이메일 설정 등)
+- **전체 프로젝트 스펙**: `/specs/index.md`
+- **UI 시스템 가이드**: `/specs/ui/index.md`
+- **API 스펙**: `/specs/api/index.md`
+- **로깅 시스템 가이드**: `/examples/logging/README.md`
 
 **기억하십시오: 작업 전에 항상 스펙을 먼저 읽고, 기존 코드를 먼저 확인하십시오.**
 
@@ -426,13 +555,22 @@ npx supabase gen types typescript --project-id YOUR_PROJECT_ID > types/database.
 ## 참고 자료
 
 ### 프로젝트 핵심 문서
-- 본 문서 (CLAUDE.md): 프로젝트 개요 및 작업 방법론
-- /specs/: 상세 설계 문서
-- /examples/: 구현 예시 코드
+- **본 문서 (CLAUDE.md)**: 프로젝트 개요 및 작업 방법론
+- **/docs/**: 개발 실무 가이드
+  - [API 테스트 가이드](/docs/api-testing-guide.md)
+  - [이메일 설정 가이드](/docs/email-setup.md)
+  - [R2 설정 가이드](/docs/r2-setup.md)
+  - [문서 인덱스](/docs/README.md)
+- **/specs/**: 상세 설계 문서 (API, UI, 컴포넌트)
+- **/examples/**: 구현 예시 코드 (로깅 시스템 등)
+- **/tests/**: 자동화 테스트 문서
 
 ### 외부 문서
 - [Next.js 15 문서](https://nextjs.org/docs)
 - [Supabase 문서](https://supabase.com/docs)
+- [Cloudflare R2 문서](https://developers.cloudflare.com/r2/)
 - [Tailwind CSS](https://tailwindcss.com/docs)
 - [CVA (Class Variance Authority)](https://cva.style/docs)
 - [Storybook](https://storybook.js.org/docs)
+- [Vitest](https://vitest.dev/guide/)
+- [Nodemailer](https://nodemailer.com/)

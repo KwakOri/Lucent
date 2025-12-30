@@ -18,7 +18,7 @@ export class ProfileService {
    * 프로필 조회
    */
   static async getProfile(userId: string): Promise<Profile> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('profiles')
@@ -50,7 +50,7 @@ export class ProfileService {
       throw new AuthorizationError('본인의 프로필만 수정할 수 있습니다');
     }
 
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     // 이메일 변경 불가 (email은 TablesUpdate<'profiles'>에서 optional이므로 구조분해 가능)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

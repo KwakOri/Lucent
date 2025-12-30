@@ -31,17 +31,20 @@ interface ProductWithDetails extends Product {
     id: string;
     name: string;
     slug: string;
-  };
+    description: string | null;
+  } | null;
   main_image?: {
     id: string;
     public_url: string;
     alt_text: string | null;
-  };
+  } | null;
   gallery_images?: Array<{
-    id: string;
-    public_url: string;
-    alt_text: string | null;
     display_order: number;
+    image: {
+      id: string;
+      public_url: string;
+      alt_text: string | null;
+    } | null;
   }>;
 }
 
@@ -52,7 +55,7 @@ export class ProductService {
   static async getProducts(
     options: GetProductsOptions = {}
   ): Promise<{ products: ProductWithDetails[]; total: number }> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const {
       page = 1,
       limit = 20,
@@ -119,7 +122,7 @@ export class ProductService {
    * 상품 상세 조회
    */
   static async getProductById(id: string): Promise<ProductWithDetails> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('products')
@@ -165,7 +168,7 @@ export class ProductService {
    * Slug로 상품 조회
    */
   static async getProductBySlug(slug: string): Promise<ProductWithDetails> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('products')
@@ -205,7 +208,7 @@ export class ProductService {
     productData: ProductInsert,
     adminId: string
   ): Promise<Product> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('products')
@@ -231,7 +234,7 @@ export class ProductService {
     productData: ProductUpdate,
     adminId: string
   ): Promise<Product> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('products')
@@ -257,7 +260,7 @@ export class ProductService {
    * 상품 삭제 (관리자)
    */
   static async deleteProduct(id: string, adminId: string): Promise<void> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { error } = await supabase
       .from('products')
@@ -279,7 +282,7 @@ export class ProductService {
     stock: number,
     adminId: string
   ): Promise<Product> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     // 기존 재고 조회
     const { data: product } = await supabase

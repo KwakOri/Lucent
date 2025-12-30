@@ -7,6 +7,7 @@
 import { NextRequest } from 'next/server';
 import { AuthService } from '@/lib/server/services/auth.service';
 import { handleApiError, successResponse } from '@/lib/server/utils/api-response';
+import { getClientIp } from '@/lib/server/utils/request';
 import type { SignUpRequest } from '@/types/api';
 
 export async function POST(request: NextRequest) {
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     // 회원가입 처리 (로깅 포함)
     const { user, session } = await AuthService.signUp(
       { email, password, name },
-      request.ip,
+      getClientIp(request),
       request.headers.get('user-agent') || undefined
     );
 

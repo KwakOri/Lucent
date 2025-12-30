@@ -31,7 +31,7 @@ export class ProjectService {
    * 프로젝트 목록 조회 (활성화된 것만)
    */
   static async getProjects(): Promise<ProjectWithDetails[]> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('projects')
@@ -65,7 +65,7 @@ export class ProjectService {
    * 프로젝트 상세 조회
    */
   static async getProjectById(id: string): Promise<ProjectWithDetails> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('projects')
@@ -108,7 +108,7 @@ export class ProjectService {
    * Slug로 프로젝트 조회
    */
   static async getProjectBySlug(slug: string): Promise<ProjectWithDetails> {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data, error } = await supabase
       .from('projects')

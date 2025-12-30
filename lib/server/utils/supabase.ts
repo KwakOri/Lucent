@@ -13,8 +13,8 @@ import { Database } from '@/types/database';
  *
  * Next.js API Routes, Server Components, Server Actions에서 사용
  */
-export function createServerClient() {
-  const cookieStore = cookies();
+export async function createServerClient() {
+  const cookieStore = await cookies();
 
   return createSupabaseServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,7 +43,7 @@ export function createServerClient() {
  * 현재 사용자 정보 가져오기
  */
 export async function getCurrentUser() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (error || !user) {

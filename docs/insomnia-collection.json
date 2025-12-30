@@ -1,0 +1,395 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2025-01-15T00:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v2023.5.8",
+  "resources": [
+    {
+      "_id": "wrk_lucent",
+      "_type": "workspace",
+      "name": "Lucent Management API",
+      "description": "Lucent Management 프로젝트 API 테스트",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "name": "Base Environment",
+      "data": {
+        "baseUrl": "http://localhost:3000",
+        "accessToken": "",
+        "productId": "",
+        "orderId": "",
+        "userId": ""
+      },
+      "parentId": "wrk_lucent"
+    },
+    {
+      "_id": "jar_cookies",
+      "_type": "cookie_jar",
+      "name": "Default Jar",
+      "cookies": [],
+      "parentId": "wrk_lucent"
+    },
+    {
+      "_id": "fld_auth",
+      "_type": "request_group",
+      "name": "Auth (인증)",
+      "parentId": "wrk_lucent"
+    },
+    {
+      "_id": "req_signup",
+      "_type": "request",
+      "name": "회원가입",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/auth/signup",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"test1234\",\n  \"name\": \"테스트 유저\"\n}"
+      },
+      "parentId": "fld_auth"
+    },
+    {
+      "_id": "req_login",
+      "_type": "request",
+      "name": "로그인",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/auth/login",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"test1234\"\n}"
+      },
+      "parentId": "fld_auth"
+    },
+    {
+      "_id": "req_logout",
+      "_type": "request",
+      "name": "로그아웃",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/auth/logout",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.accessToken }}"
+        }
+      ],
+      "parentId": "fld_auth"
+    },
+    {
+      "_id": "req_session",
+      "_type": "request",
+      "name": "세션 확인",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/auth/session",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.accessToken }}"
+        }
+      ],
+      "parentId": "fld_auth"
+    },
+    {
+      "_id": "req_send_verification",
+      "_type": "request",
+      "name": "이메일 인증 요청",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/auth/send-verification",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"test@example.com\"\n}"
+      },
+      "parentId": "fld_auth"
+    },
+    {
+      "_id": "req_verify_email",
+      "_type": "request",
+      "name": "이메일 인증 확인",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/auth/verify-email?token=ABC123",
+      "parentId": "fld_auth"
+    },
+    {
+      "_id": "req_reset_password",
+      "_type": "request",
+      "name": "비밀번호 재설정 요청",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/auth/reset-password",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"test@example.com\"\n}"
+      },
+      "parentId": "fld_auth"
+    },
+    {
+      "_id": "req_update_password",
+      "_type": "request",
+      "name": "비밀번호 변경",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/auth/update-password",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"token\": \"reset-token-xyz\",\n  \"newPassword\": \"newpass1234\"\n}"
+      },
+      "parentId": "fld_auth"
+    },
+    {
+      "_id": "fld_products",
+      "_type": "request_group",
+      "name": "Products (상품)",
+      "parentId": "wrk_lucent"
+    },
+    {
+      "_id": "req_products_list",
+      "_type": "request",
+      "name": "상품 목록",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/products?page=1&limit=12",
+      "parentId": "fld_products"
+    },
+    {
+      "_id": "req_products_list_filter",
+      "_type": "request",
+      "name": "상품 목록 (필터링)",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/products?page=1&limit=12&filter[type]=VOICE_PACK&filter[artist]=miruru",
+      "parentId": "fld_products"
+    },
+    {
+      "_id": "req_product_detail",
+      "_type": "request",
+      "name": "상품 상세 (ID)",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/products/{{ _.productId }}",
+      "parentId": "fld_products"
+    },
+    {
+      "_id": "req_product_detail_slug",
+      "_type": "request",
+      "name": "상품 상세 (Slug)",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/products/slug/voicepack-vol1",
+      "parentId": "fld_products"
+    },
+    {
+      "_id": "fld_orders",
+      "_type": "request_group",
+      "name": "Orders (주문)",
+      "parentId": "wrk_lucent"
+    },
+    {
+      "_id": "req_orders_create",
+      "_type": "request",
+      "name": "주문 생성",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/orders",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.accessToken }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"items\": [\n    {\n      \"product_id\": \"{{ _.productId }}\",\n      \"quantity\": 1\n    }\n  ],\n  \"shipping\": {\n    \"name\": \"테스트 유저\",\n    \"phone\": \"010-1234-5678\",\n    \"address\": \"서울시 강남구 테헤란로 123\",\n    \"memo\": \"배송 전 연락주세요\"\n  }\n}"
+      },
+      "parentId": "fld_orders"
+    },
+    {
+      "_id": "req_orders_list",
+      "_type": "request",
+      "name": "내 주문 목록",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/orders?page=1&limit=10",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.accessToken }}"
+        }
+      ],
+      "parentId": "fld_orders"
+    },
+    {
+      "_id": "req_orders_list_filter",
+      "_type": "request",
+      "name": "내 주문 목록 (필터링)",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/orders?page=1&limit=10&status=PAID",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.accessToken }}"
+        }
+      ],
+      "parentId": "fld_orders"
+    },
+    {
+      "_id": "req_order_detail",
+      "_type": "request",
+      "name": "주문 상세",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/orders/{{ _.orderId }}",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.accessToken }}"
+        }
+      ],
+      "parentId": "fld_orders"
+    },
+    {
+      "_id": "fld_projects",
+      "_type": "request_group",
+      "name": "Projects (프로젝트)",
+      "parentId": "wrk_lucent"
+    },
+    {
+      "_id": "req_projects_list",
+      "_type": "request",
+      "name": "프로젝트 목록",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/projects?page=1&limit=12",
+      "parentId": "fld_projects"
+    },
+    {
+      "_id": "req_project_detail",
+      "_type": "request",
+      "name": "프로젝트 상세",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/projects/0th",
+      "parentId": "fld_projects"
+    },
+    {
+      "_id": "fld_artists",
+      "_type": "request_group",
+      "name": "Artists (아티스트)",
+      "parentId": "wrk_lucent"
+    },
+    {
+      "_id": "req_artists_list",
+      "_type": "request",
+      "name": "아티스트 목록",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/artists?page=1&limit=12",
+      "parentId": "fld_artists"
+    },
+    {
+      "_id": "req_artist_detail",
+      "_type": "request",
+      "name": "아티스트 상세",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/artists/miruru",
+      "parentId": "fld_artists"
+    },
+    {
+      "_id": "fld_profiles",
+      "_type": "request_group",
+      "name": "Profiles (프로필)",
+      "parentId": "wrk_lucent"
+    },
+    {
+      "_id": "req_profile_get",
+      "_type": "request",
+      "name": "내 프로필 조회",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/profiles",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.accessToken }}"
+        }
+      ],
+      "parentId": "fld_profiles"
+    },
+    {
+      "_id": "req_profile_update",
+      "_type": "request",
+      "name": "프로필 수정",
+      "method": "PATCH",
+      "url": "{{ _.baseUrl }}/api/profiles/{{ _.userId }}",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.accessToken }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"새로운 이름\",\n  \"phone\": \"010-9999-8888\",\n  \"address\": \"서울시 서초구 강남대로 456\"\n}"
+      },
+      "parentId": "fld_profiles"
+    },
+    {
+      "_id": "fld_logs",
+      "_type": "request_group",
+      "name": "Logs (로그, 관리자)",
+      "parentId": "wrk_lucent"
+    },
+    {
+      "_id": "req_logs_list",
+      "_type": "request",
+      "name": "로그 목록",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/logs?page=1&limit=50&filter[category]=AUTH",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.accessToken }}"
+        }
+      ],
+      "parentId": "fld_logs"
+    },
+    {
+      "_id": "req_logs_stats",
+      "_type": "request",
+      "name": "로그 통계",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/logs/stats?filter[start_date]=2025-01-01&filter[end_date]=2025-01-31",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.accessToken }}"
+        }
+      ],
+      "parentId": "fld_logs"
+    }
+  ]
+}

@@ -9,6 +9,7 @@ import { NextRequest } from 'next/server';
 import { OrderService } from '@/lib/server/services/order.service';
 import { handleApiError, paginatedResponse, successResponse } from '@/lib/server/utils/api-response';
 import { getCurrentUser, isAdmin } from '@/lib/server/utils/supabase';
+import { getClientIp } from '@/lib/server/utils/request';
 import type { CreateOrderRequest, GetOrdersQuery } from '@/types/api';
 import type { Enums } from '@/types/database';
 
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
         shippingAddress,
         shippingMemo,
       },
-      request.ip
+      getClientIp(request)
     );
 
     return successResponse(order, 201);
