@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, FormEvent, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,10 +10,29 @@ import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // OAuth 에러 처리
+  useEffect(() => {
+    const error = searchParams.get('error');
+    const message = searchParams.get('message');
+
+    if (error) {
+      const errorMessages: Record<string, string> = {
+        auth_failed: 'Google 로그인에 실패했습니다. 다시 시도해주세요.',
+        email_exists: message || '이미 가입된 이메일입니다. 기존 계정으로 로그인하세요.',
+        profile_failed: '프로필 생성에 실패했습니다. 다시 시도해주세요.',
+        no_code: '인증 코드가 없습니다. 다시 시도해주세요.',
+        unexpected: '예상치 못한 오류가 발생했습니다.',
+      };
+
+      setErrors({ general: errorMessages[error] || '로그인 중 오류가 발생했습니다.' });
+    }
+  }, [searchParams]);
 
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
