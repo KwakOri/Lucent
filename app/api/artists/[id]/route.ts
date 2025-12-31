@@ -1,18 +1,36 @@
 /**
- * Project Admin API Routes (ID-based)
+ * Artist Detail API Routes
  *
- * PATCH /api/projects/:id - 프로젝트 수정 (관리자)
- * DELETE /api/projects/:id - 프로젝트 삭제 (관리자)
+ * GET /api/artists/:id - 아티스트 상세 조회
+ * PATCH /api/artists/:id - 아티스트 수정 (관리자)
+ * DELETE /api/artists/:id - 아티스트 삭제 (관리자)
  */
 
 import { NextRequest } from 'next/server';
-import { ProjectService } from '@/lib/server/services/project.service';
+import { ArtistService } from '@/lib/server/services/artist.service';
 import { handleApiError, successResponse } from '@/lib/server/utils/api-response';
 import { getCurrentUser, isAdmin } from '@/lib/server/utils/supabase';
-import type { UpdateProjectRequest } from '@/types/api';
+import type { UpdateArtistRequest } from '@/types/api';
 
 /**
- * 프로젝트 수정 (관리자)
+ * 아티스트 상세 조회
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const artist = await ArtistService.getArtistById(id);
+
+    return successResponse(artist);
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+/**
+ * 아티스트 수정 (관리자)
  */
 export async function PATCH(
   request: NextRequest,
@@ -29,19 +47,19 @@ export async function PATCH(
       return handleApiError(new Error('관리자 권한이 필요합니다'));
     }
 
-    const body = await request.json() as UpdateProjectRequest;
+    const body = await request.json() as UpdateArtistRequest;
     const { id } = await params;
 
-    const project = await ProjectService.updateProject(id, body, user.id);
+    const artist = await ArtistService.updateArtist(id, body, user.id);
 
-    return successResponse(project);
+    return successResponse(artist);
   } catch (error) {
     return handleApiError(error);
   }
 }
 
 /**
- * 프로젝트 삭제 (관리자)
+ * 아티스트 삭제 (관리자)
  */
 export async function DELETE(
   request: NextRequest,
@@ -60,9 +78,9 @@ export async function DELETE(
 
     const { id } = await params;
 
-    await ProjectService.deleteProject(id, user.id);
+    await ArtistService.deleteArtist(id, user.id);
 
-    return successResponse({ message: '프로젝트가 삭제되었습니다' });
+    return successResponse({ message: '아티스트가 삭제되었습니다' });
   } catch (error) {
     return handleApiError(error);
   }

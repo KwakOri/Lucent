@@ -131,3 +131,64 @@ export interface UpdatePasswordRequest {
   token: string;
   newPassword: string;
 }
+
+/**
+ * Artist API Types
+ */
+export interface CreateArtistRequest {
+  name: string;
+  slug: string;
+  project_id: string;
+  profile_image_id: string;
+  description?: string;
+  is_active?: boolean;
+}
+
+export interface UpdateArtistRequest {
+  name?: string;
+  slug?: string;
+  project_id?: string;
+  profile_image_id?: string;
+  description?: string;
+  is_active?: boolean;
+}
+
+/**
+ * Project API Types
+ */
+export interface CreateProjectRequest {
+  name: string;
+  slug: string;
+  cover_image_id: string;
+  description?: string;
+  release_date?: string; // ISO 8601
+  external_links?: {
+    youtube?: string;
+    spotify?: string;
+    other?: string;
+  };
+  order_index?: number;
+  is_active?: boolean;
+}
+
+export interface UpdateProjectRequest {
+  name?: string;
+  slug?: string;
+  cover_image_id?: string;
+  description?: string;
+  release_date?: string;
+  external_links?: {
+    youtube?: string;
+    spotify?: string;
+    other?: string;
+  };
+  order_index?: number;
+  is_active?: boolean;
+}
+
+export interface ReorderProjectsRequest {
+  orders: Array<{
+    id: string;
+    order_index: number;
+  }>;
+}

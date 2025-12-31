@@ -2,17 +2,22 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Play, Pause, ShoppingCart } from 'lucide-react';
-import { useMiruruProducts, usePlaySample } from '@/hooks';
+import { Play, Pause, ShoppingCart, Package } from 'lucide-react';
+import { useProducts, usePlaySample } from '@/hooks';
 
-export default function MiruruGoodsShopPage() {
+export default function ShopPage() {
   const router = useRouter();
-  const { voicePacks, physicalGoods, isLoading, error } = useMiruruProducts();
+  const { data: productsData, isLoading, error } = useProducts();
   const { mutate: playSample, isPending: isPlaying } = usePlaySample();
   const [currentPlaying, setCurrentPlaying] = useState<string | null>(null);
+
+  const products = productsData?.data || [];
+  const voicePacks = products.filter((p: any) => p.product_type === 'VOICE_PACK');
+  const physicalGoods = products.filter((p: any) => p.product_type === 'GOODS');
 
   const handlePlaySample = (productId: string) => {
     if (currentPlaying === productId) {
@@ -31,10 +36,8 @@ export default function MiruruGoodsShopPage() {
     }
   };
 
-  const handlePurchase = (productId: string, productType: 'voice' | 'physical') => {
-    // TODO: Check login status and redirect to order page
-    console.log('Purchase:', productId, productType);
-    router.push(`/order/${productId}`);
+  const handleProductClick = (productId: string) => {
+    router.push(`/shop/${productId}`);
   };
 
   if (isLoading) {
@@ -57,19 +60,19 @@ export default function MiruruGoodsShopPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#E3F2FD] to-neutral-50">
+    <div className="min-h-screen bg-neutral-50">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-[#E3F2FD] to-[#A8D5E2] py-20 px-4">
+      <section className="relative bg-gradient-to-r from-primary-50 to-primary-100 py-20 px-4">
         <div className="max-w-6xl mx-auto text-center">
           <div className="mb-6">
             <div className="w-32 h-32 mx-auto mb-6 rounded-full bg-white/50 backdrop-blur-sm flex items-center justify-center">
-              <span className="text-6xl">🌸</span>
+              <ShoppingCart className="w-16 h-16 text-primary-700" />
             </div>
             <h1 className="text-5xl font-bold text-text-primary mb-4">
-              미루루 굿즈샵
+              Shop
             </h1>
             <p className="text-xl text-text-secondary mb-8">
-              포근하고 다정한 동물의 숲에 오신 것을 환영합니다
+              Lucent Management의 모든 상품을 만나보세요
             </p>
           </div>
         </div>
@@ -78,31 +81,34 @@ export default function MiruruGoodsShopPage() {
       {/* Voice Packs Section */}
       <section className="py-16 px-4">
         <div className="max-w-6xl mx-auto">
-          <div className="mb-12 text-center">
+          <div className="mb-12">
             <h2 className="text-3xl font-bold text-text-primary mb-3">
               Voice Packs
             </h2>
             <p className="text-lg text-text-secondary">
-              미루루의 다양한 보이스팩을 만나보세요
+              다양한 아티스트의 보이스팩을 만나보세요
             </p>
           </div>
 
           {voicePacks.length === 0 ? (
-            <EmptyState
-              title="준비 중입니다"
-              description="곧 멋진 보이스팩을 만나보실 수 있어요"
-            />
+            <div className="bg-white rounded-xl border border-neutral-200 p-12">
+              <EmptyState
+                title="준비 중입니다"
+                description="곧 멋진 보이스팩을 만나보실 수 있어요"
+              />
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {voicePacks.map((pack) => (
+              {voicePacks.map((pack: any) => (
                 <div
                   key={pack.id}
-                  className="bg-white rounded-2xl border-2 border-[#A8D5E2] overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105"
+                  className="bg-white rounded-2xl border-2 border-primary-200 overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer"
+                  onClick={() => handleProductClick(pack.id)}
                 >
                   {/* CD Cover Style Thumbnail */}
-                  <div className="aspect-square bg-gradient-to-br from-[#E3F2FD] to-[#A8D5E2] relative flex items-center justify-center">
+                  <div className="aspect-square bg-gradient-to-br from-primary-50 to-primary-100 relative flex items-center justify-center">
                     <div className="w-40 h-40 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
-                      <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#A8D5E2] to-[#E3F2FD] flex items-center justify-center">
+                      <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-200 to-primary-100 flex items-center justify-center">
                         <span className="text-4xl">🎵</span>
                       </div>
                     </div>
@@ -113,8 +119,8 @@ export default function MiruruGoodsShopPage() {
                     <h3 className="text-xl font-bold text-text-primary mb-2">
                       {pack.name}
                     </h3>
-                    <p className="text-sm text-text-secondary mb-4">
-                      {pack.description || '미루루의 보이스팩'}
+                    <p className="text-sm text-text-secondary mb-4 line-clamp-2">
+                      {pack.description || '보이스팩'}
                     </p>
                     <p className="text-2xl font-bold text-primary-700 mb-4">
                       {pack.price.toLocaleString()}원
@@ -127,7 +133,10 @@ export default function MiruruGoodsShopPage() {
                           intent="secondary"
                           size="md"
                           fullWidth
-                          onClick={() => handlePlaySample(pack.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlaySample(pack.id);
+                          }}
                           disabled={isPlaying}
                         >
                           {currentPlaying === pack.id ? (
@@ -145,15 +154,14 @@ export default function MiruruGoodsShopPage() {
                       </div>
                     )}
 
-                    {/* Purchase Button */}
+                    {/* View Details Button */}
                     <Button
                       intent="primary"
                       size="md"
                       fullWidth
-                      onClick={() => handlePurchase(pack.id, 'voice')}
                     >
                       <ShoppingCart className="w-4 h-4" />
-                      구매하기
+                      자세히 보기
                     </Button>
                   </div>
                 </div>
@@ -166,26 +174,36 @@ export default function MiruruGoodsShopPage() {
       {/* Physical Goods Section */}
       <section className="py-16 px-4 bg-white">
         <div className="max-w-6xl mx-auto">
-          <div className="mb-12 text-center">
+          <div className="mb-12">
             <h2 className="text-3xl font-bold text-text-primary mb-3">
               Goods
             </h2>
             <p className="text-lg text-text-secondary">
-              미루루와 함께하는 실물 굿즈
+              실물 굿즈 컬렉션
             </p>
           </div>
 
           {physicalGoods.length === 0 ? (
-            <EmptyState
-              title="준비 중입니다"
-              description="곧 다양한 굿즈를 만나보실 수 있어요"
-            />
+            <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-12">
+              <EmptyState
+                title="준비 중입니다"
+                description="곧 다양한 굿즈를 만나보실 수 있어요"
+              >
+                <Link href="/projects">
+                  <Button intent="primary" size="md">
+                    <Package className="w-4 h-4" />
+                    프로젝트 보러가기
+                  </Button>
+                </Link>
+              </EmptyState>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {physicalGoods.map((goods) => (
+              {physicalGoods.map((goods: any) => (
                 <div
                   key={goods.id}
-                  className="bg-neutral-50 rounded-2xl border border-neutral-200 overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105"
+                  className="bg-neutral-50 rounded-2xl border border-neutral-200 overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer"
+                  onClick={() => handleProductClick(goods.id)}
                 >
                   {/* Goods Image */}
                   <div className="aspect-square bg-gradient-to-br from-neutral-100 to-neutral-200 relative flex items-center justify-center">
@@ -197,8 +215,8 @@ export default function MiruruGoodsShopPage() {
                     <h3 className="text-xl font-bold text-text-primary mb-2">
                       {goods.name}
                     </h3>
-                    <p className="text-sm text-text-secondary mb-4">
-                      {goods.description || '미루루 굿즈'}
+                    <p className="text-sm text-text-secondary mb-4 line-clamp-2">
+                      {goods.description || '굿즈'}
                     </p>
                     <p className="text-2xl font-bold text-primary-700 mb-4">
                       {goods.price.toLocaleString()}원
@@ -209,16 +227,15 @@ export default function MiruruGoodsShopPage() {
                       <p className="text-sm text-red-600 mb-2">품절</p>
                     )}
 
-                    {/* Purchase Button */}
+                    {/* View Details Button */}
                     <Button
                       intent="primary"
                       size="md"
                       fullWidth
-                      onClick={() => handlePurchase(goods.id, 'physical')}
                       disabled={goods.stock !== null && goods.stock <= 0}
                     >
                       <ShoppingCart className="w-4 h-4" />
-                      {goods.stock !== null && goods.stock <= 0 ? '품절' : '구매하기'}
+                      {goods.stock !== null && goods.stock <= 0 ? '품절' : '자세히 보기'}
                     </Button>
                   </div>
                 </div>

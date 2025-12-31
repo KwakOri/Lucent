@@ -1,10 +1,33 @@
-# Projects API – Overview
+# Projects API Routes (Public)
 
-이 문서는 **프로젝트(Projects) API** 전체 개요와 엔드포인트 목록을 정의한다.
+이 문서는 **공개 프로젝트 API** 엔드포인트를 정의한다.
+
+> **범위**: 공개 API (인증 불필요)
+> **식별자**: Slug 기반 (사람이 읽을 수 있는 URL)
+> **용도**: 프론트엔드에서 프로젝트 정보 조회
+> **관련 문서**:
+> - Admin API: `/specs/api/server/routes/projects/admin.md` (관리자 전용, ID 기반)
+> - Projects Service: `/specs/api/server/services/projects/index.md`
 
 ---
 
-## 1. 프로젝트 시스템 개요
+## 1. API 구조 개요
+
+### 1.1 ID vs Slug 기반 API
+
+| 구분 | 엔드포인트 | 용도 | 권한 |
+|------|-----------|------|------|
+| **Slug 기반** | `GET /api/projects/slug/:slug` | 프론트엔드 페이지 (사람이 읽을 수 있는 URL) | 공개 |
+| **ID 기반** | `GET /api/projects/:id` | 관리자 페이지 (UUID 기반 조회) | 관리자 |
+
+**중요**:
+- 프론트엔드에서는 **Slug 기반 API** 사용 (예: `/projects/0th`, `/projects/1st`)
+- 관리자 페이지에서는 **ID 기반 API** 사용
+- 생성/수정/삭제는 Admin API 참조
+
+---
+
+## 2. 프로젝트 시스템 개요
 
 - **목적**: Lucent 레이블이 진행하는 프로젝트 정보를 제공
 - **공개 범위**: 모든 프로젝트는 공개 정보 (인증 불필요)
@@ -13,9 +36,9 @@
 
 ---
 
-## 2. 프로젝트 개념
+## 3. 프로젝트 개념
 
-### 2.1 프로젝트란?
+### 3.1 프로젝트란?
 
 - 레이블이 기록하는 활동 단위
 - 예시:
@@ -25,7 +48,7 @@
   - 굿즈 출시
   - 라이브 방송
 
-### 2.2 프로젝트와 아티스트
+### 3.2 프로젝트와 아티스트
 
 - **프로젝트**: 레이블의 활동을 기록하는 단위 (예: 0th, 1st)
 - **아티스트**: 프로젝트에 속하는 버츄얼 캐릭터 (예: 미루루, Drips)
@@ -33,7 +56,7 @@
 
 📄 아티스트 상세: `specs/api/artists/`
 
-### 2.3 프로젝트 vs 상품
+### 3.3 프로젝트 vs 상품
 
 - **프로젝트**: 레이블의 활동 기록 (정보 제공 목적)
 - **상품**: 판매 가능한 굿즈 (구매 목적)
@@ -41,18 +64,40 @@
 
 ---
 
-## 3. API 엔드포인트 목록
+## 4. API 엔드포인트
 
-| Method | Endpoint                 | 설명             | 인증 필요 | 스펙 문서  |
-| ------ | ------------------------ | ---------------- | --------- | ---------- |
-| GET    | `/api/projects`          | 프로젝트 목록    | ❌        | list.md    |
-| GET    | `/api/projects/:slug`    | 프로젝트 상세    | ❌        | detail.md  |
+### 4.1 프로젝트 목록
+
+```
+GET /api/projects
+```
+
+**용도**: 프로젝트 목록 페이지
+
+**인증**: 불필요 (공개)
+
+**참조**: `/specs/api/server/routes/projects/list.md`
+
+### 4.2 프로젝트 상세 (Slug 기반)
+
+```
+GET /api/projects/slug/:slug
+```
+
+**용도**: 프론트엔드 프로젝트 상세 페이지 (예: `/projects/0th`)
+
+**인증**: 불필요 (공개)
+
+**Path Parameters**:
+- `slug`: 프로젝트 slug (예: `0th`, `1st`)
+
+**참조**: `/specs/api/server/routes/projects/detail.md`
 
 ---
 
-## 4. 데이터 모델
+## 5. 데이터 모델
 
-### 4.1 Project 기본 구조 (DB 스키마 기반)
+### 5.1 Project 기본 구조 (DB 스키마 기반)
 
 ```ts
 interface Project {

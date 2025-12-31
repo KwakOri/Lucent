@@ -3,7 +3,8 @@
  *
  * 프로젝트 관련 비즈니스 로직
  * - 프로젝트 목록/상세 조회
- * - 프로젝트별 아티스트 목록
+ * - 프로젝트 생성/수정/삭제 (관리자)
+ * - 프로젝트 순서 변경 (관리자)
  */
 
 import { createServerClient } from '@/lib/server/utils/supabase';
@@ -140,5 +141,231 @@ export class ProjectService {
     }
 
     return data as ProjectWithDetails;
+  }
+
+  /**
+   * 프로젝트 생성 (관리자)
+   */
+  static async createProject(
+    projectData: {
+      name: string;
+      slug: string;
+      cover_image_id: string;
+      description?: string;
+      release_date?: string;
+      external_links?: {
+        youtube?: string;
+        spotify?: string;
+        other?: string;
+      };
+      order_index?: number;
+      is_active?: boolean;
+    },
+    adminId: string
+  ): Promise<Project> {
+    const supabase = await createServerClient();
+
+    // 1. 슬러그 중복 확인
+    const { data: existing } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('slug', projectData.slug)
+      .single();
+
+    if (existing) {
+      throw new ApiError('이미 사용 중인 슬러그입니다', 409, 'SLUG_ALREADY_EXISTS');
+    }
+
+    // 2. 이미지 존재 확인
+    const { data: image, error: imageError } = await supabase
+      .from('images')
+      .select('id')
+      .eq('id', projectData.cover_image_id)
+      .single();
+
+    if (imageError || !image) {
+      throw new NotFoundError('이미지를 찾을 수 없습니다', 'IMAGE_NOT_FOUND');
+    }
+
+    // 3. 프로젝트 생성
+    const { data, error } = await supabase
+      .from('projects')
+      .insert({
+        name: projectData.name,
+        slug: projectData.slug,
+        cover_image_id: projectData.cover_image_id,
+        description: projectData.description || null,
+        release_date: projectData.release_date || null,
+        external_links: projectData.external_links || null,
+        order_index: projectData.order_index ?? 0,
+        is_active: projectData.is_active ?? true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new ApiError('프로젝트 생성 실패', 500, 'PROJECT_CREATE_FAILED');
+    }
+
+    return data as Project;
+  }
+
+  /**
+   * 프로젝트 수정 (관리자)
+   */
+  static async updateProject(
+    id: string,
+    projectData: {
+      name?: string;
+      slug?: string;
+      cover_image_id?: string;
+      description?: string;
+      release_date?: string;
+      external_links?: {
+        youtube?: string;
+        spotify?: string;
+        other?: string;
+      };
+      order_index?: number;
+      is_active?: boolean;
+    },
+    adminId: string
+  ): Promise<Project> {
+    const supabase = await createServerClient();
+
+    // 1. 프로젝트 존재 확인
+    const { data: existing, error: existingError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .single();
+
+    if (existingError || !existing) {
+      throw new NotFoundError('프로젝트를 찾을 수 없습니다', 'PROJECT_NOT_FOUND');
+    }
+
+    // 2. 슬러그 중복 확인 (슬러그 변경 시)
+    if (projectData.slug) {
+      const { data: duplicate } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('slug', projectData.slug)
+        .neq('id', id)
+        .single();
+
+      if (duplicate) {
+        throw new ApiError('이미 사용 중인 슬러그입니다', 409, 'SLUG_ALREADY_EXISTS');
+      }
+    }
+
+    // 3. 이미지 존재 확인 (이미지 변경 시)
+    if (projectData.cover_image_id) {
+      const { data: image, error: imageError } = await supabase
+        .from('images')
+        .select('id')
+        .eq('id', projectData.cover_image_id)
+        .single();
+
+      if (imageError || !image) {
+        throw new NotFoundError('이미지를 찾을 수 없습니다', 'IMAGE_NOT_FOUND');
+      }
+    }
+
+    // 4. 프로젝트 수정
+    const updateData: any = {};
+    if (projectData.name !== undefined) updateData.name = projectData.name;
+    if (projectData.slug !== undefined) updateData.slug = projectData.slug;
+    if (projectData.cover_image_id !== undefined) updateData.cover_image_id = projectData.cover_image_id;
+    if (projectData.description !== undefined) updateData.description = projectData.description;
+    if (projectData.release_date !== undefined) updateData.release_date = projectData.release_date;
+    if (projectData.external_links !== undefined) updateData.external_links = projectData.external_links;
+    if (projectData.order_index !== undefined) updateData.order_index = projectData.order_index;
+    if (projectData.is_active !== undefined) updateData.is_active = projectData.is_active;
+
+    const { data, error } = await supabase
+      .from('projects')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new ApiError('프로젝트 수정 실패', 500, 'PROJECT_UPDATE_FAILED');
+    }
+
+    return data as Project;
+  }
+
+  /**
+   * 프로젝트 삭제 (소프트 삭제)
+   */
+  static async deleteProject(id: string, adminId: string): Promise<void> {
+    const supabase = await createServerClient();
+
+    // 1. 프로젝트 존재 확인
+    const { data: existing, error: existingError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .single();
+
+    if (existingError || !existing) {
+      throw new NotFoundError('프로젝트를 찾을 수 없습니다', 'PROJECT_NOT_FOUND');
+    }
+
+    // 2. 소프트 삭제 (is_active = false)
+    const { error } = await supabase
+      .from('projects')
+      .update({ is_active: false })
+      .eq('id', id);
+
+    if (error) {
+      throw new ApiError('프로젝트 삭제 실패', 500, 'PROJECT_DELETE_FAILED');
+    }
+  }
+
+  /**
+   * 프로젝트 순서 변경 (관리자)
+   */
+  static async reorderProjects(
+    orders: Array<{ id: string; order_index: number }>,
+    adminId: string
+  ): Promise<{ count: number }> {
+    const supabase = await createServerClient();
+
+    // 1. 모든 프로젝트 존재 확인
+    const projectIds = orders.map((o) => o.id);
+    const { data: projects, error: fetchError } = await supabase
+      .from('projects')
+      .select('id')
+      .in('id', projectIds);
+
+    if (fetchError) {
+      throw new ApiError('프로젝트 조회 실패', 500, 'PROJECT_FETCH_FAILED');
+    }
+
+    if (!projects || projects.length !== projectIds.length) {
+      const foundIds = projects?.map((p) => p.id) || [];
+      const missingIds = projectIds.filter((id) => !foundIds.includes(id));
+      throw new NotFoundError('일부 프로젝트를 찾을 수 없습니다', 'PROJECT_NOT_FOUND', {
+        missing_ids: missingIds,
+      });
+    }
+
+    // 2. 순서 업데이트 (트랜잭션 없이 순차 실행)
+    let updatedCount = 0;
+    for (const order of orders) {
+      const { error } = await supabase
+        .from('projects')
+        .update({ order_index: order.order_index })
+        .eq('id', order.id);
+
+      if (error) {
+        throw new ApiError('프로젝트 순서 변경 실패', 500, 'PROJECT_REORDER_FAILED');
+      }
+      updatedCount++;
+    }
+
+    return { count: updatedCount };
   }
 }

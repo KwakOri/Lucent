@@ -1,7 +1,7 @@
 /**
- * Artist Detail API Routes
+ * Artist Detail API Routes (Slug-based)
  *
- * GET /api/artists/:slug - 아티스트 상세 조회 (slug 기반)
+ * GET /api/artists/slug/:slug - 아티스트 상세 조회 (slug 기반)
  */
 
 import { NextRequest } from 'next/server';

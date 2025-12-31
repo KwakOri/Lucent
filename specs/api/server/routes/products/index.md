@@ -156,7 +156,7 @@ GET /api/products/:id/sample
 ### 3.4 아티스트별 상품 목록
 
 ```
-GET /api/artists/:slug/products
+GET /api/artists/slug/:slug/products
 ```
 
 **Path Parameters**:
@@ -267,10 +267,11 @@ import { ApiError } from '@/lib/server/utils/errors';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const product = await ProductService.getProductById(params.id);
+    const { id } = await params;
+    const product = await ProductService.getProductById(id);
 
     if (!product) {
       throw new ApiError('상품을 찾을 수 없습니다', 404, 'PRODUCT_NOT_FOUND');
@@ -296,10 +297,11 @@ import { ApiError } from '@/lib/server/utils/errors';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const product = await ProductService.getProductById(params.id);
+    const { id } = await params;
+    const product = await ProductService.getProductById(id);
 
     if (!product) {
       throw new ApiError('상품을 찾을 수 없습니다', 404, 'PRODUCT_NOT_FOUND');

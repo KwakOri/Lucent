@@ -88,19 +88,19 @@ export default function ProjectDetailPage({
       </section>
 
       {/* Shop Link Section */}
-      {project.is_active && displayConfig.shopSlug && (
+      {project.is_active && (
         <section className="py-20 px-4 bg-white">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-3xl font-bold text-text-primary mb-6">
-              굿즈샵에서 만나보세요
+              상점에서 만나보세요
             </h2>
             <p className="text-lg text-text-secondary mb-8">
               다양한 보이스팩과 굿즈를 구매하실 수 있습니다
             </p>
-            <Link href={`/goods/${displayConfig.shopSlug}`}>
+            <Link href="/shop">
               <Button intent="primary" size="lg">
                 <ShoppingCart className="w-5 h-5" />
-                굿즈샵 보러가기
+                상점 보러가기
               </Button>
             </Link>
           </div>

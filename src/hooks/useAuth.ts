@@ -30,15 +30,21 @@ export function useSession() {
       if (!response.ok) {
         return null;
       }
-      const data: SessionResponse = await response.json();
-      return data.session;
+      const result: ApiResponse<{ user: any; session: any }> = await response.json();
+
+      // API 응답 구조: { status: 'success', data: { user, session } }
+      if (!result.data || !result.data.session) {
+        return null;
+      }
+
+      return result.data;
     },
     retry: false,
   });
 
   return {
-    session: query.data,
-    user: query.data?.user,
+    session: query.data?.session ?? null,
+    user: query.data?.user ?? null,
     isLoading: query.isLoading,
     isAuthenticated: !!query.data?.user,
     refetch: query.refetch,

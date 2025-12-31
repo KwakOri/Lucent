@@ -118,12 +118,12 @@ export default function MyPage() {
             <div className="bg-white rounded-xl border border-neutral-200 p-12">
               <EmptyState
                 title="아직 주문 내역이 없습니다"
-                description="굿즈샵에서 마음에 드는 상품을 찾아보세요"
+                description="상점에서 마음에 드는 상품을 찾아보세요"
               >
-                <Link href="/goods">
+                <Link href="/shop">
                   <Button intent="primary" size="md">
                     <Package className="w-4 h-4" />
-                    굿즈샵 보러가기
+                    상점 보러가기
                   </Button>
                 </Link>
               </EmptyState>
