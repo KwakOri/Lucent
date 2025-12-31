@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     const project = await ProjectService.createProject(body, user.id);
 
-    return successResponse(project, 201);
+    return successResponse(project, undefined, 201);
   } catch (error) {
     return handleApiError(error);
   }

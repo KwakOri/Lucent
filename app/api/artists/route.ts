@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     const artist = await ArtistService.createArtist(body, user.id);
 
-    return successResponse(artist, 201);
+    return successResponse(artist, undefined, 201);
   } catch (error) {
     return handleApiError(error);
   }

@@ -62,7 +62,7 @@ export default function SignupCompletePage() {
         <div className="bg-white rounded-lg border border-neutral-200 p-8">
           {status === 'loading' && (
             <>
-              <Loading size="large" />
+              <Loading size="lg" />
               <h2 className="mt-4 text-lg font-semibold text-text-primary">
                 회원가입 처리 중...
               </h2>

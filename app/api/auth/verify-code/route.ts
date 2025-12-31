@@ -33,11 +33,11 @@ export async function POST(request: NextRequest) {
     // 3. 로그 기록
     const clientIp = getClientIp(request);
     await LogService.log({
-      category: 'auth',
-      action: 'verify_code',
-      description: `이메일 인증 코드 검증 성공: ${email}`,
+      eventType: 'EMAIL_CODE_VERIFIED',
+      eventCategory: 'auth',
+      message: `이메일 인증 코드 검증 성공: ${email}`,
       metadata: { email },
-      ip_address: clientIp,
+      ipAddress: clientIp,
     });
 
     // 4. 성공 응답
@@ -52,11 +52,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const clientIp = getClientIp(request);
     await LogService.log({
-      category: 'auth',
-      action: 'verify_code',
-      description: `이메일 인증 코드 검증 실패: ${error.message}`,
+      eventType: 'EMAIL_CODE_VERIFY_FAILED',
+      eventCategory: 'auth',
+      message: `이메일 인증 코드 검증 실패: ${error.message}`,
       metadata: { email: body.email, error: error.message },
-      ip_address: clientIp,
+      ipAddress: clientIp,
       severity: 'error',
     });
 

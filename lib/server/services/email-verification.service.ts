@@ -22,7 +22,7 @@ export interface EmailVerificationRecord {
   code: string | null;
   token: string;
   hashed_password: string | null;
-  purpose: 'signup' | 'reset-password';
+  purpose: 'signup' | 'reset_password';
   expires_at: string;
   verified_at: string | null;
   attempts: number;
@@ -32,7 +32,7 @@ export interface EmailVerificationRecord {
 export interface CreateVerificationParams {
   email: string;
   password: string;
-  purpose: 'signup' | 'reset-password';
+  purpose: 'signup' | 'reset_password';
 }
 
 export interface VerifyCodeParams {
@@ -161,7 +161,7 @@ export class EmailVerificationService {
     }
 
     // 3. 시도 횟수 확인
-    if (verification.attempts >= 5) {
+    if ((verification.attempts || 0) >= 5) {
       throw new ApiError('인증 시도 횟수를 초과했습니다. 코드를 재발송해주세요.', 429);
     }
 

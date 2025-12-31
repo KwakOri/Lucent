@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       getClientIp(request)
     );
 
-    return successResponse(order, 201);
+    return successResponse(order, undefined, 201);
   } catch (error) {
     return handleApiError(error);
   }

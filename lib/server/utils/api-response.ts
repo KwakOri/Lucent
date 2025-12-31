@@ -10,11 +10,16 @@ import { ApiError } from './errors';
 /**
  * 성공 응답
  */
-export function successResponse<T>(data: T, status: number = 200) {
+export function successResponse<T>(
+  data: T,
+  message?: string,
+  status: number = 200
+) {
   return NextResponse.json(
     {
       status: 'success',
       data,
+      ...(message && { message }),
     },
     { status }
   );
@@ -68,7 +73,7 @@ export function errorResponse(
  *
  * try-catch의 catch 블록에서 사용
  */
-export function handleApiError(error: unknown) {
+export function handleApiError(error: unknown, defaultStatusCode?: number) {
   console.error('[API Error]:', error);
 
   if (error instanceof ApiError) {
@@ -76,8 +81,8 @@ export function handleApiError(error: unknown) {
   }
 
   if (error instanceof Error) {
-    return errorResponse(error.message, 500, 'INTERNAL_ERROR');
+    return errorResponse(error.message, defaultStatusCode || 500, 'INTERNAL_ERROR');
   }
 
-  return errorResponse('알 수 없는 오류가 발생했습니다', 500, 'UNKNOWN_ERROR');
+  return errorResponse('알 수 없는 오류가 발생했습니다', defaultStatusCode || 500, 'UNKNOWN_ERROR');
 }

@@ -46,7 +46,7 @@ export class OAuthService {
         userId: user.id,
         metadata: {
           provider: 'google',
-          email: user.email,
+          email: user.email || '',
           isNewUser: false,
         },
       });
@@ -95,7 +95,7 @@ export class OAuthService {
       userId: user.id,
       metadata: {
         provider: 'google',
-        email: user.email,
+        email: user.email || '',
         name: newProfile.name,
       },
     });
@@ -136,7 +136,8 @@ export class OAuthService {
         email: email,
         name: name,
         phone: null, // 추후 입력
-        address: null, // 추후 입력
+        main_address: null, // 추후 입력
+        detail_address: null, // 추후 입력
       })
       .select()
       .single();

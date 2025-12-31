@@ -18,7 +18,7 @@ interface Project {
   } | null;
   description?: string | null;
   release_date?: string | null;
-  external_links?: any;
+  external_links?: Record<string, unknown> | null;
   order_index?: number | null;
   is_active: boolean;
 }

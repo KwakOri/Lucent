@@ -31,11 +31,11 @@ export async function GET(request: NextRequest) {
     // 3. 로그 기록
     const clientIp = getClientIp(request);
     await LogService.log({
-      category: 'auth',
-      action: 'verify_email_link',
-      description: `이메일 링크 인증 성공: ${verification.email}`,
+      eventType: 'EMAIL_LINK_VERIFIED',
+      eventCategory: 'auth',
+      message: `이메일 링크 인증 성공: ${verification.email}`,
       metadata: { email: verification.email, token },
-      ip_address: clientIp,
+      ipAddress: clientIp,
     });
 
     // 4. 회원가입 완료 페이지로 리디렉트 (토큰 포함)
@@ -47,11 +47,11 @@ export async function GET(request: NextRequest) {
     // 로그 기록
     const clientIp = getClientIp(request);
     await LogService.log({
-      category: 'auth',
-      action: 'verify_email_link',
-      description: `이메일 링크 인증 실패: ${error.message}`,
+      eventType: 'EMAIL_LINK_VERIFY_FAILED',
+      eventCategory: 'auth',
+      message: `이메일 링크 인증 실패: ${error.message}`,
       metadata: { error: error.message },
-      ip_address: clientIp,
+      ipAddress: clientIp,
       severity: 'error',
     });
 

@@ -92,12 +92,12 @@ export async function POST(request: NextRequest) {
     // 8. 로그 기록
     const clientIp = getClientIp(request);
     await LogService.log({
-      category: 'auth',
-      action: 'signup',
-      user_id: authData.user.id,
-      description: `회원가입 성공: ${userEmail}`,
+      eventType: 'SIGNUP_SUCCESS',
+      eventCategory: 'auth',
+      userId: authData.user.id,
+      message: `회원가입 성공: ${userEmail}`,
       metadata: { email: userEmail },
-      ip_address: clientIp,
+      ipAddress: clientIp,
     });
 
     // 9. 성공 응답
@@ -120,11 +120,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const clientIp = getClientIp(request);
     await LogService.log({
-      category: 'auth',
-      action: 'signup',
-      description: `회원가입 실패: ${error.message}`,
+      eventType: 'SIGNUP_FAILED',
+      eventCategory: 'auth',
+      message: `회원가입 실패: ${error.message}`,
       metadata: { email: body.email, error: error.message },
-      ip_address: clientIp,
+      ipAddress: clientIp,
       severity: 'error',
     });
 

@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 
     const product = await ProductService.createProduct(productData, adminId);
 
-    return successResponse(product, 201);
+    return successResponse(product, undefined, 201);
   } catch (error) {
     return handleApiError(error);
   }
@@ -224,7 +224,7 @@ async function createVoicePackProduct(request: NextRequest) {
       },
     });
 
-    return successResponse(product, 201);
+    return successResponse(product, undefined, 201);
   } catch (error) {
     console.error('[Product] 보이스팩 생성 실패:', error);
 

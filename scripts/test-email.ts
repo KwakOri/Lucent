@@ -34,7 +34,11 @@ async function testEmail() {
   if (testEmailAddress) {
     console.log(`2️⃣ 테스트 이메일 발송 중... (수신: ${testEmailAddress})`);
     try {
-      await sendVerificationEmail(testEmailAddress, 'TEST123');
+      await sendVerificationEmail({
+        email: testEmailAddress,
+        code: '123456',
+        token: 'TEST123',
+      });
       console.log('✅ 테스트 이메일 발송 성공!');
       console.log(`📬 ${testEmailAddress}에서 이메일을 확인해주세요.\n`);
     } catch (error) {

@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
         image_type: image.image_type,
         created_at: image.created_at,
       },
+      undefined,
       201
     );
   } catch (error) {

@@ -30,7 +30,7 @@ export function useSession() {
       if (!response.ok) {
         return null;
       }
-      const result: ApiResponse<{ user: any; session: any }> = await response.json();
+      const result: ApiResponse<SessionResponse> = await response.json();
 
       // API 응답 구조: { status: 'success', data: { user, session } }
       if (!result.data || !result.data.session) {

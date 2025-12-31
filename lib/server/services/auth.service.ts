@@ -57,6 +57,7 @@ export class AuthService {
 
     // 인증 토큰 생성 (6자리 랜덤 문자)
     const token = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6자리 코드
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10분 후
 
     // 기존 미사용 토큰 삭제 (동일 이메일)
@@ -86,7 +87,7 @@ export class AuthService {
 
     // 이메일 발송
     try {
-      await sendVerificationEmail(email, token);
+      await sendVerificationEmail({ email, code, token });
     } catch (error) {
       // 이메일 발송 실패 시 토큰 삭제
       await supabase

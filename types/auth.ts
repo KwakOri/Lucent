@@ -75,7 +75,8 @@ export interface OAuthCallbackResult {
     email: string;
     name: string | null;
     phone: string | null;
-    address: string | null;
+    main_address: string | null;
+    detail_address: string | null;
     created_at: string;
     updated_at: string;
   };

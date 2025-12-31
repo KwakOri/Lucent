@@ -15,8 +15,8 @@ interface Log {
   ip_address: string | null;
   user_agent: string | null;
   request_path: string | null;
-  metadata: any;
-  changes: any;
+  metadata: Record<string, unknown> | null;
+  changes: Record<string, unknown> | null;
   created_at: string;
   user?: {
     email: string;
