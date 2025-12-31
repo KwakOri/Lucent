@@ -23,6 +23,18 @@ export default function ProductDetailPage() {
   const isVoicePack = product?.type === 'VOICE_PACK';
   const isPhysicalGoods = product?.type === 'PHYSICAL_GOODS';
 
+  // 오디오 완전 정지 헬퍼 함수
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = ''; // 소스 완전 제거
+      audioRef.current.onended = null; // 이벤트 리스너 제거
+      audioRef.current.onerror = null;
+      audioRef.current = null;
+    }
+    setIsPlayingSample(false);
+  };
+
   // 초기 음량 설정 로드 (localStorage)
   useEffect(() => {
     const savedVolume = localStorage.getItem('sampleVolume');
@@ -34,10 +46,7 @@ export default function ProductDetailPage() {
   // Cleanup: 컴포넌트 언마운트 시 오디오 정지
   useEffect(() => {
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+      stopAudio();
     };
   }, []);
 
@@ -46,9 +55,7 @@ export default function ProductDetailPage() {
 
     // 이미 재생 중이면 정지
     if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-      setIsPlayingSample(false);
+      stopAudio();
     } else {
       // 새로 재생
       try {
@@ -57,16 +64,14 @@ export default function ProductDetailPage() {
 
         // 재생 종료 시 상태 업데이트
         audio.onended = () => {
-          setIsPlayingSample(false);
-          audioRef.current = null;
+          stopAudio();
         };
 
         // 에러 처리
         audio.onerror = () => {
           console.error('샘플 로드 실패');
           alert('샘플을 불러올 수 없습니다.');
-          setIsPlayingSample(false);
-          audioRef.current = null;
+          stopAudio();
         };
 
         // ✅ Race Condition 방지: 재생 전에 먼저 참조와 상태 설정
@@ -77,13 +82,12 @@ export default function ProductDetailPage() {
         audio.play().catch((error) => {
           console.error('샘플 재생 실패:', error);
           alert('샘플 재생에 실패했습니다. 다시 시도해주세요.');
-          setIsPlayingSample(false);
-          audioRef.current = null;
+          stopAudio();
         });
       } catch (error) {
         console.error('샘플 재생 중 오류:', error);
         alert('샘플 재생에 실패했습니다.');
-        setIsPlayingSample(false);
+        stopAudio();
       }
     }
   };
