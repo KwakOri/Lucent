@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser, isAdmin } from '@/lib/server/utils/supabase';
 import { AdminSidebar } from '@/src/components/admin/AdminSidebar';
-import { AdminHeader } from '@/src/components/admin/AdminHeader';
 
 export const metadata = {
   title: 'Admin - Lucent Management',
@@ -32,9 +31,6 @@ export default async function AdminLayout({
 
       {/* Main Content */}
       <div className="lg:pl-64">
-        {/* Header */}
-        <AdminHeader user={user} />
-
         {/* Page Content */}
         <main className="py-8 px-4 sm:px-6 lg:px-8">
           {children}
