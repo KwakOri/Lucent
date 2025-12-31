@@ -9,6 +9,7 @@
 
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
+import ffprobeStatic from 'ffprobe-static';
 import AdmZip from 'adm-zip';
 import path from 'path';
 import fs from 'fs/promises';
@@ -18,6 +19,11 @@ import { v4 as uuidv4 } from 'uuid';
 // ffmpeg 바이너리 경로 설정
 if (ffmpegStatic) {
   ffmpeg.setFfmpegPath(ffmpegStatic);
+}
+
+// ffprobe 바이너리 경로 설정
+if (ffprobeStatic.path) {
+  ffmpeg.setFfprobePath(ffprobeStatic.path);
 }
 
 /**
