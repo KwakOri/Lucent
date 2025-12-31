@@ -16,29 +16,22 @@ export interface BuyerInfo {
 }
 
 interface BuyerInfoFormProps {
-  initialValues?: Partial<BuyerInfo>;
+  value: BuyerInfo;
   onChange: (values: BuyerInfo) => void;
 }
 
 export function BuyerInfoForm({
-  initialValues,
+  value,
   onChange,
 }: BuyerInfoFormProps) {
-  const [values, setValues] = useState<BuyerInfo>({
-    name: initialValues?.name || '',
-    email: initialValues?.email || '',
-    phone: initialValues?.phone || '',
-  });
-
   const [errors, setErrors] = useState<Partial<Record<keyof BuyerInfo, string>>>({});
 
-  const handleChange = (field: keyof BuyerInfo, value: string) => {
-    const newValues = { ...values, [field]: value };
-    setValues(newValues);
+  const handleChange = (field: keyof BuyerInfo, newValue: string) => {
+    const newValues = { ...value, [field]: newValue };
     onChange(newValues);
 
     // 실시간 검증
-    validateField(field, value);
+    validateField(field, newValue);
   };
 
   const validateField = (field: keyof BuyerInfo, value: string) => {
@@ -85,7 +78,7 @@ export function BuyerInfoForm({
         name="buyerName"
         required
         placeholder="이름을 입력하세요"
-        value={values.name}
+        value={value.name}
         onChange={(e) => handleChange('name', e.target.value)}
         error={errors.name}
       />
@@ -96,7 +89,7 @@ export function BuyerInfoForm({
         type="email"
         required
         placeholder="email@example.com"
-        value={values.email}
+        value={value.email}
         onChange={(e) => handleChange('email', e.target.value)}
         error={errors.email}
       />
@@ -107,7 +100,7 @@ export function BuyerInfoForm({
         type="tel"
         required
         placeholder="010-0000-0000"
-        value={values.phone}
+        value={value.phone}
         onChange={(e) => handleChange('phone', e.target.value)}
         error={errors.phone}
       />

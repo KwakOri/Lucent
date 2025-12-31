@@ -176,7 +176,7 @@ export default function CheckoutPage() {
             {/* 주문자 정보 */}
             <section className="bg-white rounded-lg border border-gray-200 p-6">
               <BuyerInfoForm
-                initialValues={buyerInfo}
+                value={buyerInfo}
                 onChange={setBuyerInfo}
               />
             </section>
