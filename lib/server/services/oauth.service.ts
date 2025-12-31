@@ -38,23 +38,32 @@ export class OAuthService {
       .single();
 
     if (existingProfile) {
-      // 기존 사용자 - 프로필 반환
+      // 프로필이 방금 생성되었는지 확인 (5초 이내 = 트리거로 방금 생성됨)
+      const profileCreatedAt = new Date(existingProfile.created_at);
+      const now = new Date();
+      const diffSeconds = (now.getTime() - profileCreatedAt.getTime()) / 1000;
+
+      const isNewUser = diffSeconds <= 5;
+
       await LogService.log({
         eventCategory: 'auth',
-        eventType: 'oauth_login_success',
-        message: 'Google OAuth 로그인 성공',
+        eventType: isNewUser ? 'oauth_signup_success' : 'oauth_login_success',
+        message: isNewUser
+          ? 'Google OAuth 회원가입 성공 (신규 사용자)'
+          : 'Google OAuth 로그인 성공',
         userId: user.id,
         metadata: {
           provider: 'google',
           email: user.email || '',
-          isNewUser: false,
+          isNewUser,
+          profileAge: diffSeconds,
         },
       });
 
       return {
         user,
         profile: existingProfile,
-        isNewUser: false,
+        isNewUser,
       };
     }
 
