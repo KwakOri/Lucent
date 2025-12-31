@@ -1,70 +1,30 @@
-import { createServerClient } from '@/lib/server/utils/supabase';
-
-async function getStats() {
-  const supabase = await createServerClient();
-
-  // 최근 주문 수
-  const { count: totalOrders } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true });
-
-  // 입금 대기 주문
-  const { count: pendingOrders } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'PENDING_PAYMENT');
-
-  // 활성 상품 수
-  const { count: activeProducts } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true })
-    .eq('is_active', true);
-
-  // 활성 아티스트 수
-  const { count: activeArtists } = await supabase
-    .from('artists')
-    .select('*', { count: 'exact', head: true })
-    .eq('is_active', true);
-
-  return {
-    totalOrders: totalOrders || 0,
-    pendingOrders: pendingOrders || 0,
-    activeProducts: activeProducts || 0,
-    activeArtists: activeArtists || 0,
-  };
-}
-
-async function getRecentOrders() {
-  const supabase = await createServerClient();
-
-  const { data: orders } = await supabase
-    .from('orders')
-    .select(`
-      id,
-      order_number,
-      buyer_name,
-      total_amount,
-      status,
-      created_at
-    `)
-    .order('created_at', { ascending: false })
-    .limit(5);
-
-  return orders || [];
-}
+import { OrderService } from '@/lib/server/services/order.service';
+import { ProductService } from '@/lib/server/services/product.service';
+import { ArtistService } from '@/lib/server/services/artist.service';
 
 const statusLabels: Record<string, string> = {
-  PENDING_PAYMENT: '입금대기',
+  PENDING: '입금대기',
   PAID: '결제완료',
-  PREPARING: '준비중',
-  SHIPPED: '배송중',
-  DELIVERED: '배송완료',
-  CANCELLED: '취소됨',
+  MAKING: '제작중',
+  SHIPPING: '배송중',
+  DONE: '완료',
 };
 
 export default async function AdminDashboard() {
-  const stats = await getStats();
-  const recentOrders = await getRecentOrders();
+  // Service Layer를 통해 통계 및 최근 주문 조회
+  const [orderStats, productStats, artistStats, recentOrders] = await Promise.all([
+    OrderService.getOrdersStats(),
+    ProductService.getProductsStats(),
+    ArtistService.getArtistsStats(),
+    OrderService.getRecentOrders(5),
+  ]);
+
+  const stats = {
+    totalOrders: orderStats.totalOrders,
+    pendingOrders: orderStats.pendingOrders,
+    activeProducts: productStats.activeProducts,
+    activeArtists: artistStats.activeArtists,
+  };
 
   return (
     <div>
@@ -163,11 +123,11 @@ export default async function AdminDashboard() {
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
                             <span className={`
                               inline-flex rounded-full px-2 text-xs font-semibold leading-5
-                              ${order.status === 'PENDING_PAYMENT' ? 'bg-yellow-100 text-yellow-800' : ''}
+                              ${order.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : ''}
                               ${order.status === 'PAID' ? 'bg-green-100 text-green-800' : ''}
-                              ${order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : ''}
-                              ${order.status === 'PREPARING' || order.status === 'SHIPPED' ? 'bg-blue-100 text-blue-800' : ''}
-                              ${order.status === 'DELIVERED' ? 'bg-gray-100 text-gray-800' : ''}
+                              ${order.status === 'MAKING' ? 'bg-blue-100 text-blue-800' : ''}
+                              ${order.status === 'SHIPPING' ? 'bg-indigo-100 text-indigo-800' : ''}
+                              ${order.status === 'DONE' ? 'bg-gray-100 text-gray-800' : ''}
                             `}>
                               {statusLabels[order.status] || order.status}
                             </span>

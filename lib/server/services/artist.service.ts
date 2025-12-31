@@ -357,4 +357,26 @@ export class ArtistService {
       throw new ApiError('아티스트 삭제 실패', 500, 'ARTIST_DELETE_FAILED');
     }
   }
+
+  /**
+   * 아티스트 통계 조회 (관리자용)
+   */
+  static async getArtistsStats(): Promise<{
+    activeArtists: number;
+  }> {
+    const supabase = await createServerClient();
+
+    const { count, error } = await supabase
+      .from('artists')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true);
+
+    if (error) {
+      throw new ApiError('아티스트 통계 조회 실패', 500, 'ARTISTS_STATS_FETCH_FAILED');
+    }
+
+    return {
+      activeArtists: count || 0,
+    };
+  }
 }

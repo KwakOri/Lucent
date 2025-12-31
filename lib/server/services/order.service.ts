@@ -534,4 +534,55 @@ export class OrderService {
       expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
     };
   }
+
+  /**
+   * 주문 통계 조회 (관리자용)
+   */
+  static async getOrdersStats(): Promise<{
+    totalOrders: number;
+    pendingOrders: number;
+  }> {
+    const supabase = await createServerClient();
+
+    const [totalResult, pendingResult] = await Promise.all([
+      supabase.from('orders').select('*', { count: 'exact', head: true }),
+      supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'PENDING'),
+    ]);
+
+    return {
+      totalOrders: totalResult.count || 0,
+      pendingOrders: pendingResult.count || 0,
+    };
+  }
+
+  /**
+   * 최근 주문 조회 (관리자용)
+   */
+  static async getRecentOrders(limit: number = 5): Promise<any[]> {
+    const supabase = await createServerClient();
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select(
+        `
+        id,
+        order_number,
+        buyer_name,
+        total_amount,
+        status,
+        created_at
+      `
+      )
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw new ApiError('최근 주문 조회 실패', 500, 'RECENT_ORDERS_FETCH_FAILED');
+    }
+
+    return data || [];
+  }
 }

@@ -314,4 +314,26 @@ export class ProductService {
 
     return data;
   }
+
+  /**
+   * 상품 통계 조회 (관리자용)
+   */
+  static async getProductsStats(): Promise<{
+    activeProducts: number;
+  }> {
+    const supabase = await createServerClient();
+
+    const { count, error } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true);
+
+    if (error) {
+      throw new ApiError('상품 통계 조회 실패', 500, 'PRODUCTS_STATS_FETCH_FAILED');
+    }
+
+    return {
+      activeProducts: count || 0,
+    };
+  }
 }
