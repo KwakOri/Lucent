@@ -39,10 +39,12 @@ export async function GET(request: NextRequest) {
       console.log('[OAuth Callback] Session established for user:', data.user.id);
 
       // 프로필 자동 생성/확인
+      let isNewUser = false;
       try {
         console.log('[OAuth Callback] Processing profile...');
         const result = await OAuthService.handleOAuthCallback(data.user);
         console.log('[OAuth Callback] Profile processed. New user:', result.isNewUser);
+        isNewUser = result.isNewUser;
       } catch (profileError: any) {
         console.error('[OAuth Callback] Profile processing error:', profileError);
 
@@ -59,9 +61,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(`${origin}/login?error=profile_failed`);
       }
 
-      // 로그인 성공 - 메인 페이지로 리디렉션
-      console.log('[OAuth Callback] Success! Redirecting to home...');
-      return NextResponse.redirect(`${origin}/`);
+      // 로그인 성공 - 신규 사용자는 welcome 페이지로, 기존 사용자는 메인 페이지로
+      if (isNewUser) {
+        console.log('[OAuth Callback] New user! Redirecting to welcome page...');
+        return NextResponse.redirect(`${origin}/welcome`);
+      } else {
+        console.log('[OAuth Callback] Existing user! Redirecting to home...');
+        return NextResponse.redirect(`${origin}/`);
+      }
     } catch (error) {
       console.error('[OAuth Callback] Unexpected error:', error);
       return NextResponse.redirect(`${origin}/login?error=unexpected`);

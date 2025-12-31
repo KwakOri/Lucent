@@ -14,10 +14,6 @@ export default function VerifyEmailPage() {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isResending, setIsResending] = useState(false);
-
-  // 재발송 쿨타임 (60초)
-  const [resendCooldown, setResendCooldown] = useState(0);
 
   // 만료 타이머 (10분 = 600초)
   const [expiresIn, setExpiresIn] = useState(600);
@@ -30,7 +26,7 @@ export default function VerifyEmailPage() {
       setExpiresIn((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          setError('인증 코드가 만료되었습니다. 코드를 재발송해주세요.');
+          setError('인증 코드가 만료되었습니다. 회원가입 페이지로 돌아가서 다시 시도해주세요.');
           return 0;
         }
         return prev - 1;
@@ -39,23 +35,6 @@ export default function VerifyEmailPage() {
 
     return () => clearInterval(timer);
   }, [expiresIn]);
-
-  // 재발송 쿨타임 카운트다운
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-
-    const timer = setInterval(() => {
-      setResendCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [resendCooldown]);
 
   // 시간 포맷팅 (600 -> "10:00")
   const formatTime = (seconds: number): string => {
@@ -81,7 +60,7 @@ export default function VerifyEmailPage() {
     }
 
     if (expiresIn <= 0) {
-      setError('인증 코드가 만료되었습니다. 코드를 재발송해주세요.');
+      setError('인증 코드가 만료되었습니다. 회원가입 페이지로 돌아가서 다시 시도해주세요.');
       return;
     }
 
@@ -125,30 +104,6 @@ export default function VerifyEmailPage() {
       setError('네트워크 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setIsVerifying(false);
-    }
-  };
-
-  // 코드 재발송
-  const handleResendCode = async () => {
-    if (resendCooldown > 0) return;
-
-    setIsResending(true);
-    setError(null);
-
-    try {
-      // send-verification API를 다시 호출해야 하는데, password가 없음
-      // 이 경우 백엔드에서 기존 email_verifications 레코드의 hashed_password를 재사용하도록 수정 필요
-      // 또는 프론트에서 password를 저장하고 재발송 시 사용
-
-      // 간단한 해결책: 회원가입 페이지로 돌아가기
-      setError('코드 재발송은 회원가입 페이지에서 다시 시도해주세요.');
-      setTimeout(() => {
-        router.push('/signup');
-      }, 2000);
-    } catch (error) {
-      setError('코드 재발송에 실패했습니다.');
-    } finally {
-      setIsResending(false);
     }
   };
 
@@ -227,29 +182,18 @@ export default function VerifyEmailPage() {
             >
               {isVerifying ? '인증 중...' : '인증하기'}
             </Button>
-
-            {/* Resend Button */}
-            <Button
-              type="button"
-              intent="secondary"
-              fullWidth
-              onClick={handleResendCode}
-              loading={isResending}
-              disabled={resendCooldown > 0}
-            >
-              {resendCooldown > 0
-                ? `코드 재발송 (${resendCooldown}초 후)`
-                : isResending
-                ? '발송 중...'
-                : '코드 재발송'}
-            </Button>
           </form>
 
           {/* Info */}
-          <div className="mt-6 text-center">
+          <div className="mt-6 space-y-2 text-center">
             <p className="text-xs text-text-secondary">
               이메일에서 링크를 클릭해도 인증됩니다
             </p>
+            {expiresIn <= 0 && (
+              <p className="text-xs text-error-600">
+                코드가 만료되었습니다. 회원가입 페이지로 돌아가서 다시 시도해주세요.
+              </p>
+            )}
           </div>
         </div>
       </div>

@@ -95,27 +95,36 @@ export type Database = {
       }
       email_verifications: {
         Row: {
+          attempts: number | null
+          code: string | null
           created_at: string
           email: string
           expires_at: string
+          hashed_password: string | null
           id: string
           purpose: Database["public"]["Enums"]["verification_purpose"]
           token: string
           verified_at: string | null
         }
         Insert: {
+          attempts?: number | null
+          code?: string | null
           created_at?: string
           email: string
           expires_at: string
+          hashed_password?: string | null
           id?: string
           purpose: Database["public"]["Enums"]["verification_purpose"]
           token: string
           verified_at?: string | null
         }
         Update: {
+          attempts?: number | null
+          code?: string | null
           created_at?: string
           email?: string
           expires_at?: string
+          hashed_password?: string | null
           id?: string
           purpose?: Database["public"]["Enums"]["verification_purpose"]
           token?: string
@@ -660,7 +669,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_verification_attempts: {
+        Args: { p_email: string }
+        Returns: undefined
+      }
     }
     Enums: {
       order_item_status:
