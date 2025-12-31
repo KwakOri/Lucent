@@ -414,7 +414,100 @@ export async function GET(request: NextRequest) {
 
 ---
 
-## 7. 1차 MVP 범위
+## 7. Order System V2: 배송 추적 API
+
+### 7.1 배송 정보 조회
+
+```
+GET /api/orders/:orderId/items/:itemId/shipment
+```
+
+**인증**: 필수 (본인 주문만)
+
+**Path Parameters**:
+- `orderId`: 주문 ID (UUID)
+- `itemId`: 주문 항목 ID (UUID)
+
+**Response (200 OK)**:
+```json
+{
+  "status": "success",
+  "data": {
+    "carrier": "CJ대한통운",
+    "trackingNumber": "123456789012",
+    "shippingStatus": "SHIPPED",
+    "shippedAt": "2025-01-20T10:00:00Z",
+    "deliveredAt": null
+  }
+}
+```
+
+**Response (404 Not Found)** - 배송 정보 없음:
+```json
+{
+  "status": "success",
+  "data": null,
+  "message": "배송 정보가 없습니다"
+}
+```
+
+**Error (403 Forbidden)**:
+```json
+{
+  "status": "error",
+  "message": "배송 정보 조회 권한이 없습니다",
+  "errorCode": "UNAUTHORIZED"
+}
+```
+
+### 7.2 구현 예시
+
+```ts
+// app/api/orders/[orderId]/items/[itemId]/shipment/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { OrderService } from '@/lib/server/services/order.service';
+import { getSession } from '@/lib/server/utils/auth';
+import { handleApiError } from '@/lib/server/utils/api-response';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { orderId: string; itemId: string } }
+) {
+  try {
+    const session = await getSession(request);
+    if (!session) {
+      return NextResponse.json(
+        { status: 'error', message: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
+    const tracking = await OrderService.getShipmentTracking(
+      params.itemId,
+      session.user.id
+    );
+
+    if (!tracking) {
+      return NextResponse.json({
+        status: 'success',
+        data: null,
+        message: '배송 정보가 없습니다',
+      });
+    }
+
+    return NextResponse.json({
+      status: 'success',
+      data: tracking,
+    });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+```
+
+---
+
+## 8. 1차 MVP 범위
 
 ### 포함
 
@@ -425,11 +518,12 @@ export async function GET(request: NextRequest) {
 - ✅ 주문 상태 관리 (PENDING → DONE)
 - ✅ 주문자 정보 profiles 참조
 - ✅ 배송 정보 스냅샷
+- ✅ **배송 추적 조회** (v2) ⭐ NEW
 
 ### 제외 (2차 확장)
 
 - ⏸️ 주문 취소/환불
-- ⏸️ 배송 추적
+- ⏸️ 관리자 배송 정보 생성/업데이트 API (서비스는 구현됨)
 - ⏸️ 다운로드 기한 제한
 - ⏸️ 다운로드 횟수 제한
 - ⏸️ 자동 입금 확인
@@ -437,8 +531,9 @@ export async function GET(request: NextRequest) {
 
 ---
 
-## 8. 참고 문서
+## 9. 참고 문서
 
+- **Order System V2 설계**: `/specs/database/order-system-v2.md` ⭐ NEW
 - Server Service: `/specs/api/server/services/orders/index.md`
 - Client Services: `/specs/api/client/services/orders/index.md`
 - React Query Hooks: `/specs/api/client/hooks/orders/index.md`

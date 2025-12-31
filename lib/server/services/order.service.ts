@@ -868,8 +868,8 @@ export class OrderService {
       throw new NotFoundError('주문 상품을 찾을 수 없습니다', 'ORDER_ITEM_NOT_FOUND');
     }
 
-    // 실물 상품인지 확인
-    if (item.product_type === 'VOICE_PACK' || item.product_type === 'DIGITAL') {
+    // 실물 상품인지 확인 (PHYSICAL_GOODS, PHYSICAL, BUNDLE만 가능)
+    if (item.product_type === 'VOICE_PACK') {
       throw new ApiError(
         '디지털 상품은 배송 정보를 생성할 수 없습니다',
         400,
@@ -1042,9 +1042,9 @@ export class OrderService {
       userId: adminId,
       metadata: {
         shipmentId,
-        updates,
+        updates: JSON.parse(JSON.stringify(updates)),
         oldStatus,
-        newStatus: updates.shippingStatus,
+        newStatus: updates.shippingStatus || null,
       },
     });
 
@@ -1073,7 +1073,7 @@ export class OrderService {
     return {
       carrier: shipment.carrier,
       trackingNumber: shipment.tracking_number,
-      shippingStatus: shipment.shipping_status,
+      shippingStatus: shipment.shipping_status || 'PREPARING',
       shippedAt: shipment.shipped_at,
       deliveredAt: shipment.delivered_at,
     };

@@ -637,8 +637,231 @@ if (product.stock < quantity) {
 
 ---
 
-## 10. 참고 문서
+## 10. Order System V2: 개별 주문 상품 상태 관리
 
+### 10.1 개별 주문 상품 상태 업데이트
+
+```ts
+/**
+ * 개별 주문 상품 상태 업데이트
+ */
+static async updateItemStatus(
+  itemId: string,
+  newStatus: OrderItemStatus,
+  adminId?: string
+): Promise<OrderItem>
+```
+
+**사용 예시:**
+```ts
+// 디지털 상품: 입금 확인 시 다운로드 가능 상태로
+await OrderService.updateItemStatus(itemId, 'READY', adminId);
+
+// 실물 상품: 발송 완료 시
+await OrderService.updateItemStatus(itemId, 'SHIPPED', adminId);
+```
+
+### 10.2 주문 내 모든 상품 상태 일괄 업데이트
+
+```ts
+/**
+ * 주문 상태 변경 시 모든 order_items의 상태도 함께 업데이트
+ */
+static async updateAllItemsStatus(
+  orderId: string,
+  newStatus: OrderItemStatus
+): Promise<void>
+```
+
+**주문 상태 매핑:**
+- `PAID` → `READY` (입금 확인 시 다운로드/발송 준비)
+- `MAKING` → `PROCESSING` (제작 중)
+- `SHIPPING` → `SHIPPED` (발송됨)
+- `DONE` → `COMPLETED` (완료)
+
+---
+
+## 11. Order System V2: 배송 정보 관리
+
+### 11.1 배송 정보 생성
+
+```ts
+/**
+ * 배송 정보 생성 (실물 상품)
+ */
+static async createShipment(
+  input: {
+    orderItemId: string;
+    recipientName: string;
+    recipientPhone: string;
+    recipientAddress: string;
+    deliveryMemo?: string;
+    carrier?: string;
+    trackingNumber?: string;
+  },
+  adminId?: string
+): Promise<Shipment>
+```
+
+**사용 예시:**
+```ts
+const shipment = await OrderService.createShipment({
+  orderItemId: 'uuid',
+  recipientName: '홍길동',
+  recipientPhone: '010-1234-5678',
+  recipientAddress: '서울시 강남구...',
+  deliveryMemo: '문 앞에 놓아주세요',
+  carrier: 'CJ대한통운',
+  trackingNumber: '123456789012'
+}, adminId);
+```
+
+**검증:**
+- order_item 존재 여부 확인
+- 디지털 상품(VOICE_PACK, DIGITAL)은 배송 정보 생성 불가
+- 실물 상품(PHYSICAL_GOODS, PHYSICAL, BUNDLE)만 가능
+
+### 11.2 배송 정보 조회
+
+```ts
+/**
+ * 배송 정보 조회
+ */
+static async getShipmentInfo(
+  orderItemId: string,
+  userId?: string
+): Promise<Shipment | null>
+```
+
+**사용 예시:**
+```ts
+// 관리자 조회
+const shipment = await OrderService.getShipmentInfo(orderItemId);
+
+// 고객 조회 (권한 확인)
+const shipment = await OrderService.getShipmentInfo(orderItemId, userId);
+```
+
+**반환값:**
+- 배송 정보가 없으면 `null` 반환 (에러 아님)
+- userId 제공 시 권한 확인 (본인 주문만)
+
+### 11.3 배송 정보 업데이트
+
+```ts
+/**
+ * 배송 정보 업데이트 (관리자)
+ */
+static async updateShipment(
+  shipmentId: string,
+  updates: {
+    carrier?: string;
+    trackingNumber?: string;
+    shippingStatus?: string;
+    recipientName?: string;
+    recipientPhone?: string;
+    recipientAddress?: string;
+    deliveryMemo?: string;
+    adminMemo?: string;
+  },
+  adminId?: string
+): Promise<Shipment>
+```
+
+**사용 예시:**
+```ts
+// 운송장 번호 입력 및 발송 처리
+await OrderService.updateShipment(shipmentId, {
+  carrier: 'CJ대한통운',
+  trackingNumber: '123456789012',
+  shippingStatus: 'SHIPPED'
+}, adminId);
+
+// 배송 완료 처리
+await OrderService.updateShipment(shipmentId, {
+  shippingStatus: 'DELIVERED'
+}, adminId);
+```
+
+**자동 처리:**
+- `shippingStatus: 'SHIPPED'` 변경 시 → `shipped_at` 자동 기록
+- `shippingStatus: 'DELIVERED'` 변경 시 → `delivered_at` 자동 기록
+
+### 11.4 배송 추적 정보 조회 (고객용)
+
+```ts
+/**
+ * 배송 추적 정보 조회 (고객용)
+ */
+static async getShipmentTracking(
+  orderItemId: string,
+  userId: string
+): Promise<{
+  carrier: string | null;
+  trackingNumber: string | null;
+  shippingStatus: string;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+} | null>
+```
+
+**사용 예시:**
+```ts
+const tracking = await OrderService.getShipmentTracking(orderItemId, userId);
+
+if (tracking) {
+  console.log(`택배사: ${tracking.carrier}`);
+  console.log(`운송장 번호: ${tracking.trackingNumber}`);
+  console.log(`배송 상태: ${tracking.shippingStatus}`);
+}
+```
+
+---
+
+## 12. Order System V2: 에러 코드
+
+### 12.1 추가 에러 코드
+
+| 에러 코드 | 상태 코드 | 설명 |
+|-----------|-----------|------|
+| `ORDER_ITEM_NOT_FOUND` | 404 | 주문 상품을 찾을 수 없음 |
+| `ITEM_STATUS_UPDATE_FAILED` | 500 | 주문 상품 상태 변경 실패 |
+| `ITEMS_STATUS_UPDATE_FAILED` | 500 | 주문 상품 상태 일괄 변경 실패 |
+| `NOT_PHYSICAL_PRODUCT` | 400 | 실물 상품이 아님 (배송 정보 생성 불가) |
+| `SHIPMENT_CREATE_FAILED` | 500 | 배송 정보 생성 실패 |
+| `SHIPMENT_NOT_FOUND` | 404 | 배송 정보를 찾을 수 없음 |
+| `SHIPMENT_FETCH_FAILED` | 500 | 배송 정보 조회 실패 |
+| `SHIPMENT_UPDATE_FAILED` | 500 | 배송 정보 업데이트 실패 |
+
+---
+
+## 13. Order System V2: 타입 정의
+
+### 13.1 추가 타입
+
+```ts
+type OrderItemStatus = Enums<'order_item_status'>;
+type Shipment = Tables<'shipments'>;
+type ShipmentInsert = TablesInsert<'shipments'>;
+```
+
+### 13.2 OrderItemStatus ENUM
+
+```ts
+type OrderItemStatus =
+  | 'PENDING'      // 입금 대기 중
+  | 'PROCESSING'   // 처리 중 (입금 확인됨, 준비 시작)
+  | 'READY'        // 준비 완료 (디지털: 다운로드 가능, 실물: 발송 대기)
+  | 'SHIPPED'      // 발송됨 (실물만)
+  | 'DELIVERED'    // 배송 완료 (실물만)
+  | 'COMPLETED';   // 완료 (디지털/실물 모두 완료)
+```
+
+---
+
+## 14. 참고 문서
+
+- **Order System V2 설계**: `/specs/database/order-system-v2.md` ⭐ NEW
 - Server Service 패턴: `/specs/api/server/services/index.md`
 - API Routes: `/specs/api/server/routes/orders/index.md`
 - Client Services: `/specs/api/client/services/orders/index.md`
