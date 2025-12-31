@@ -18,6 +18,8 @@ export default function ProductDetailPage() {
   const { data: product, isLoading, error } = useProduct(productId);
   const [isPlayingSample, setIsPlayingSample] = useState(false);
   const [volume, setVolume] = useState(0.3); // 기본 음량 30%
+  const [currentTime, setCurrentTime] = useState(0); // 현재 재생 시간
+  const [duration, setDuration] = useState(0); // 총 재생 시간
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const isVoicePack = product?.type === 'VOICE_PACK';
@@ -30,9 +32,13 @@ export default function ProductDetailPage() {
       audioRef.current.src = ''; // 소스 완전 제거
       audioRef.current.onended = null; // 이벤트 리스너 제거
       audioRef.current.onerror = null;
+      audioRef.current.ontimeupdate = null;
+      audioRef.current.onloadedmetadata = null;
       audioRef.current = null;
     }
     setIsPlayingSample(false);
+    setCurrentTime(0);
+    setDuration(0);
   };
 
   // 초기 음량 설정 로드 (localStorage)
@@ -61,6 +67,16 @@ export default function ProductDetailPage() {
       try {
         const audio = new Audio(product.sample_audio_url);
         audio.volume = volume; // 음량 설정
+
+        // 메타데이터 로드 시 총 재생 시간 설정
+        audio.onloadedmetadata = () => {
+          setDuration(audio.duration);
+        };
+
+        // 재생 시간 업데이트
+        audio.ontimeupdate = () => {
+          setCurrentTime(audio.currentTime);
+        };
 
         // 재생 종료 시 상태 업데이트
         audio.onended = () => {
@@ -103,6 +119,25 @@ export default function ProductDetailPage() {
 
     // localStorage에 저장
     localStorage.setItem('sampleVolume', newVolume.toString());
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !duration) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = x / rect.width;
+    const newTime = percentage * duration;
+
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handlePurchase = () => {
@@ -213,6 +248,23 @@ export default function ProductDetailPage() {
             {/* Sample Play Button for Voice Packs */}
             {isVoicePack && product.sample_audio_url && (
               <div className="mb-6 space-y-3">
+                {/* Progress Bar */}
+                <div className="space-y-1">
+                  <div
+                    className="h-2 bg-neutral-200 rounded-full cursor-pointer overflow-hidden group"
+                    onClick={handleSeek}
+                  >
+                    <div
+                      className="h-full bg-primary-600 transition-all duration-100 group-hover:bg-primary-700"
+                      style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-text-secondary px-1">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(duration)}</span>
+                  </div>
+                </div>
+
                 <Button
                   intent="secondary"
                   size="lg"
