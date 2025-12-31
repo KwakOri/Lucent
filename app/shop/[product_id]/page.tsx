@@ -20,8 +20,8 @@ export default function ProductDetailPage() {
   const [isPlayingSample, setIsPlayingSample] = useState(false);
 
   const product = productData?.data;
-  const isVoicePack = product?.product_type === 'VOICE_PACK';
-  const isPhysicalGoods = product?.product_type === 'GOODS';
+  const isVoicePack = product?.type === 'VOICE_PACK';
+  const isPhysicalGoods = product?.type === 'PHYSICAL_GOODS';
 
   const handlePlaySample = () => {
     if (!product?.sample_audio_url) return;

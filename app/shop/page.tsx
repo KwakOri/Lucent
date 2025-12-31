@@ -16,8 +16,8 @@ export default function ShopPage() {
   const [currentPlaying, setCurrentPlaying] = useState<string | null>(null);
 
   const products = productsData?.data || [];
-  const voicePacks = products.filter((p: any) => p.product_type === 'VOICE_PACK');
-  const physicalGoods = products.filter((p: any) => p.product_type === 'GOODS');
+  const voicePacks = products.filter((p: any) => p.type === 'VOICE_PACK');
+  const physicalGoods = products.filter((p: any) => p.type === 'PHYSICAL_GOODS');
 
   const handlePlaySample = (productId: string) => {
     if (currentPlaying === productId) {
