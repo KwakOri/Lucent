@@ -26,6 +26,9 @@ interface CreateOrderInput {
     productId: string;
     quantity: number;
   }>;
+  buyerName?: string;
+  buyerEmail?: string;
+  buyerPhone?: string;
   shippingName?: string;
   shippingPhone?: string;
   shippingAddress?: string;
@@ -51,7 +54,17 @@ export class OrderService {
     ipAddress?: string
   ): Promise<OrderWithDetails> {
     const supabase = await createServerClient();
-    const { userId, items, shippingName, shippingPhone, shippingAddress, shippingMemo } = input;
+    const {
+      userId,
+      items,
+      buyerName,
+      buyerEmail,
+      buyerPhone,
+      shippingName,
+      shippingPhone,
+      shippingAddress,
+      shippingMemo
+    } = input;
 
     // 상품 정보 조회
     const productIds = items.map((item) => item.productId);
@@ -103,6 +116,9 @@ export class OrderService {
         order_number: orderNumber,
         total_price: totalPrice,
         status: 'PENDING',
+        buyer_name: buyerName || null,
+        buyer_email: buyerEmail || null,
+        buyer_phone: buyerPhone || null,
         shipping_name: shippingName || null,
         shipping_phone: shippingPhone || null,
         shipping_address: shippingAddress || null,

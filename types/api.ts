@@ -65,6 +65,9 @@ export interface CreateOrderRequest {
     productId: string;
     quantity: number;
   }>;
+  buyerName?: string;
+  buyerEmail?: string;
+  buyerPhone?: string;
   shippingName?: string;
   shippingPhone?: string;
   shippingAddress?: string;

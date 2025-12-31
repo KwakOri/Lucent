@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -15,9 +15,10 @@ import { Loading } from '@/components/ui/loading';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/ui/form-field';
-import { OrderSummary, ShippingForm, type ShippingInfo } from '@/components/order';
+import { OrderSummary, ShippingForm, BuyerInfoForm, type ShippingInfo, type BuyerInfo } from '@/components/order';
 import { useProduct } from '@/hooks/useProducts';
 import { useCreateOrder } from '@/hooks/useOrders';
+import { useSession } from '@/hooks/useAuth';
 
 export default function CheckoutPage() {
   const params = useParams();
@@ -26,7 +27,13 @@ export default function CheckoutPage() {
 
   const { data: product, isLoading, error } = useProduct(productId);
   const { mutate: createOrder, isPending: isCreatingOrder } = useCreateOrder();
+  const { user, isLoading: isLoadingUser } = useSession();
 
+  const [buyerInfo, setBuyerInfo] = useState<BuyerInfo>({
+    name: '',
+    email: '',
+    phone: '',
+  });
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo>({
     name: '',
     phone: '',
@@ -35,6 +42,17 @@ export default function CheckoutPage() {
   });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
+  // 사용자 정보로 기본값 설정
+  useEffect(() => {
+    if (user) {
+      setBuyerInfo({
+        name: (user as any).name || (user as any).user_metadata?.name || '',
+        email: user.email || '',
+        phone: (user as any).phone || (user as any).user_metadata?.phone || '',
+      });
+    }
+  }, [user]);
+
   const isPhysicalGoods = product?.type === 'PHYSICAL_GOODS';
   const isOutOfStock = product?.stock !== null && product.stock <= 0;
 
@@ -42,13 +60,18 @@ export default function CheckoutPage() {
   const shippingFee = isPhysicalGoods ? 3000 : 0;
 
   // 검증
+  const isBuyerInfoValid =
+    buyerInfo.name.trim().length >= 2 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyerInfo.email) &&
+    /^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/.test(buyerInfo.phone.replace(/-/g, ''));
+
   const isShippingValid = !isPhysicalGoods || (
     shippingInfo.name.trim().length >= 2 &&
     /^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/.test(shippingInfo.phone.replace(/-/g, '')) &&
     shippingInfo.address.trim().length >= 10
   );
 
-  const isFormValid = agreedToTerms && isShippingValid;
+  const isFormValid = agreedToTerms && isBuyerInfoValid && isShippingValid;
 
   const handleSubmit = () => {
     if (!product || !isFormValid) return;
@@ -58,6 +81,10 @@ export default function CheckoutPage() {
         productId: product.id,
         quantity: 1,
       }],
+      // 주문자 정보
+      buyerName: buyerInfo.name,
+      buyerEmail: buyerInfo.email,
+      buyerPhone: buyerInfo.phone,
     };
 
     // 실물 굿즈인 경우 배송 정보 추가
@@ -146,20 +173,12 @@ export default function CheckoutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Section - Form */}
           <div className="lg:col-span-2 space-y-6">
-            {/* 주문자 정보 안내 */}
+            {/* 주문자 정보 */}
             <section className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                주문자 정보
-              </h2>
-              <p className="text-sm text-gray-600 mb-4">
-                주문자 정보는 로그인한 계정 정보를 사용합니다.
-                정보 수정이 필요하면 마이페이지에서 변경해주세요.
-              </p>
-              <Link href="/mypage/profile">
-                <Button variant="outline" size="sm">
-                  프로필 수정
-                </Button>
-              </Link>
+              <BuyerInfoForm
+                initialValues={buyerInfo}
+                onChange={setBuyerInfo}
+              />
             </section>
 
             {/* 배송 정보 (실물 굿즈만) */}

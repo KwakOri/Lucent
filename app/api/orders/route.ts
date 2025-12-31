@@ -69,7 +69,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json() as CreateOrderRequest;
-    const { items, shippingName, shippingPhone, shippingAddress, shippingMemo } = body;
+    const {
+      items,
+      buyerName,
+      buyerEmail,
+      buyerPhone,
+      shippingName,
+      shippingPhone,
+      shippingAddress,
+      shippingMemo
+    } = body;
 
     if (!items || items.length === 0) {
       return handleApiError(new Error('주문 상품이 없습니다'));
@@ -79,6 +88,9 @@ export async function POST(request: NextRequest) {
       {
         userId: user.id,
         items,
+        buyerName,
+        buyerEmail,
+        buyerPhone,
         shippingName,
         shippingPhone,
         shippingAddress,
