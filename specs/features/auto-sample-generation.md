@@ -16,14 +16,20 @@
 
 ### 상품 등록 시
 
-관리자가 보이스팩 상품을 등록할 때:
+관리자가 보이스팩 상품을 등록할 때 두 개의 별도 인풋 제공:
 
 ```
-1. 메인 파일 업로드 (필수)
-2. 샘플 파일 업로드 (선택)
+1. 보이스팩 파일 업로드 (mainFile) - 필수 ⭐
+2. 샘플 오디오 파일 업로드 (sampleFile) - 선택
 
-   - 샘플 파일이 있는 경우 → 그대로 사용
-   - 샘플 파일이 없는 경우 → 자동 생성 프로세스 실행 ⭐
+   [케이스 1] mainFile이 null
+   → 상품 생성 불가 (에러 반환) ❌
+
+   [케이스 2] mainFile 있음 + sampleFile 있음
+   → 둘 다 그대로 사용 ✅
+
+   [케이스 3] mainFile 있음 + sampleFile이 null
+   → 자동 샘플 생성 프로세스 실행 ⭐
 ```
 
 ### API 엔드포인트
@@ -32,16 +38,35 @@
 POST /api/admin/products
 ```
 
-**요청 예시:**
+**Form Data 구조:**
 
-```json
-{
-  "name": "미루루 봄 보이스팩",
-  "type": "VOICE_PACK",
-  "price": 15000,
-  "mainFile": "File (multipart/form-data)",
-  "sampleFile": null,  // 없음 → 자동 생성
-  "artistId": "uuid"
+```
+Content-Type: multipart/form-data
+
+name: "미루루 봄 보이스팩"
+type: "VOICE_PACK"
+price: 15000
+artistId: "uuid"
+mainFile: File (required) ⭐
+sampleFile: File (optional)
+```
+
+**케이스별 처리:**
+
+```typescript
+// 케이스 1: mainFile이 null
+if (!mainFile) {
+  throw new ApiError('보이스팩 파일은 필수입니다', 400);
+}
+
+// 케이스 2: mainFile + sampleFile 둘 다 있음
+if (mainFile && sampleFile) {
+  // 둘 다 R2에 업로드
+}
+
+// 케이스 3: mainFile만 있고 sampleFile은 null
+if (mainFile && !sampleFile) {
+  // 자동 샘플 생성 ⭐
 }
 ```
 
@@ -52,10 +77,16 @@ POST /api/admin/products
 ### 전체 흐름
 
 ```
-메인 파일 업로드 (R2)
+관리자: 상품 등록 폼 작성
     ↓
-샘플 파일 있는가?
+mainFile 업로드? ─NO→ 에러: "보이스팩 파일은 필수입니다" ❌
+    ↓ YES
+mainFile을 R2에 업로드
+    ↓
+sampleFile 업로드? ─YES→ sampleFile을 R2에 업로드 → DB 저장 ✅
     ↓ NO
+자동 샘플 생성 시작 ⭐
+    ↓
 파일 형식 확인 (ZIP vs 단일 오디오)
     ↓
 [ZIP인 경우]                    [단일 오디오인 경우]
@@ -67,10 +98,12 @@ POST /api/admin/products
 ffmpeg로 앞 20초 추출             R2에 sample.mp3 업로드
     ↓                               ↓
 MP3로 변환                      DB에 sample_url 저장
-    ↓
-R2에 sample.mp3 업로드
+    ↓                               ↓
+R2에 sample.mp3 업로드           has_custom_sample = false
     ↓
 DB에 sample_url 저장
+    ↓
+has_custom_sample = false
     ↓
 임시 파일 정리
 ```
@@ -397,14 +430,20 @@ export class SampleGenerationService {
 
 import { SampleGenerationService } from '@/lib/server/services/sample-generation.service';
 import { uploadToR2 } from '@/lib/server/utils/r2';
+import { ApiError } from '@/lib/server/utils/errors';
 
 export async function POST(request: NextRequest) {
   try {
     // ... 관리자 권한 확인 ...
 
     const formData = await request.formData();
-    const mainFile = formData.get('mainFile') as File;
+    const mainFile = formData.get('mainFile') as File | null;
     const sampleFile = formData.get('sampleFile') as File | null;
+
+    // 0. 필수 파일 검증 ⭐
+    if (!mainFile) {
+      throw new ApiError('보이스팩 파일은 필수입니다', 400);
+    }
 
     // 1. 메인 파일 업로드
     const mainFileBuffer = Buffer.from(await mainFile.arrayBuffer());
@@ -416,17 +455,22 @@ export async function POST(request: NextRequest) {
 
     // 2. 샘플 파일 처리
     let sampleFileUrl: string;
+    let hasCustomSample: boolean;
 
     if (sampleFile) {
-      // 샘플 파일이 있으면 그대로 업로드
+      // 케이스 2: 샘플 파일이 있으면 그대로 업로드 ✅
+      console.log('[Product] 커스텀 샘플 파일 업로드');
+
       const sampleBuffer = Buffer.from(await sampleFile.arrayBuffer());
       sampleFileUrl = await uploadToR2({
         key: `voicepacks/${productId}/sample.mp3`,
         body: sampleBuffer,
         contentType: 'audio/mpeg',
       });
+
+      hasCustomSample = true;
     } else {
-      // 샘플 파일이 없으면 자동 생성 ⭐
+      // 케이스 3: 샘플 파일이 없으면 자동 생성 ⭐
       console.log('[Product] 샘플 파일 자동 생성 시작...');
 
       const sampleBuffer = await SampleGenerationService.generateSample(
@@ -440,6 +484,8 @@ export async function POST(request: NextRequest) {
         contentType: 'audio/mpeg',
       });
 
+      hasCustomSample = false;
+
       console.log('[Product] 샘플 파일 자동 생성 완료');
     }
 
@@ -450,7 +496,7 @@ export async function POST(request: NextRequest) {
       price,
       digital_file_url: mainFileUrl,
       sample_audio_url: sampleFileUrl,
-      has_custom_sample: !!sampleFile, // 별도 샘플 여부
+      has_custom_sample: hasCustomSample,
     });
 
     return successResponse(product);
@@ -468,6 +514,7 @@ export async function POST(request: NextRequest) {
 
 | 에러 상황 | 처리 방법 |
 |----------|----------|
+| **보이스팩 파일(mainFile)이 null** | **에러 반환: "보이스팩 파일은 필수입니다" ⭐** |
 | ZIP 파일 내 오디오 파일 없음 | 에러 반환, 관리자에게 샘플 파일 직접 업로드 요청 |
 | 지원하지 않는 오디오 형식 | 에러 반환, 지원 형식 안내 (MP3, WAV, FLAC 등) |
 | 파일이 20초보다 짧음 | 경고 로그 출력, 전체 길이를 샘플로 사용 |
@@ -479,6 +526,7 @@ export async function POST(request: NextRequest) {
 
 ```typescript
 const ERROR_MESSAGES = {
+  MAIN_FILE_REQUIRED: '보이스팩 파일은 필수입니다.', // ⭐ 추가
   NO_AUDIO_IN_ZIP: 'ZIP 파일 내에 오디오 파일이 없습니다. 샘플 파일을 별도로 업로드해주세요.',
   UNSUPPORTED_FORMAT: '지원하지 않는 파일 형식입니다. MP3, WAV, FLAC, M4A 형식을 사용해주세요.',
   FFMPEG_ERROR: '샘플 생성 중 오류가 발생했습니다. 샘플 파일을 별도로 업로드해주세요.',
@@ -573,46 +621,76 @@ await LogService.log({
 
 ## 테스트 시나리오
 
-### 1. ZIP 파일 (정상)
+### 0. 보이스팩 파일 없음 (필수 검증) ⭐
 
 **입력:**
-- `voicepack.zip` (내부: `track1.mp3`, `track2.mp3`, `cover.jpg`)
+- mainFile: null
+- sampleFile: null
+
+**기대 결과:**
+- 에러 발생: "보이스팩 파일은 필수입니다"
+- 상품 생성 불가
+
+### 1. 커스텀 샘플 제공
+
+**입력:**
+- mainFile: `voicepack.zip`
+- sampleFile: `custom-sample.mp3`
+
+**기대 결과:**
+- 둘 다 R2에 업로드
+- 자동 생성 프로세스 실행 안 함
+- `has_custom_sample = true`
+
+### 2. ZIP 파일 (샘플 자동 생성)
+
+**입력:**
+- mainFile: `voicepack.zip` (내부: `track1.mp3`, `track2.mp3`, `cover.jpg`)
+- sampleFile: null
 
 **기대 결과:**
 - `track1.mp3`의 앞 20초 추출
 - `sample.mp3` 생성 및 R2 업로드
+- `has_custom_sample = false`
 
-### 2. 단일 MP3 파일 (정상)
+### 3. 단일 MP3 파일 (샘플 자동 생성)
 
 **입력:**
-- `voicepack.mp3` (길이: 180초)
+- mainFile: `voicepack.mp3` (길이: 180초)
+- sampleFile: null
 
 **기대 결과:**
 - 앞 20초 추출
 - `sample.mp3` 생성 및 R2 업로드
+- `has_custom_sample = false`
 
-### 3. WAV 파일 (형식 변환)
+### 4. WAV 파일 (형식 변환)
 
 **입력:**
-- `voicepack.wav` (길이: 120초)
+- mainFile: `voicepack.wav` (길이: 120초)
+- sampleFile: null
 
 **기대 결과:**
 - 앞 20초 추출 + MP3로 변환
 - `sample.mp3` 생성 및 R2 업로드
+- `has_custom_sample = false`
 
-### 4. 짧은 파일 (15초)
+### 5. 짧은 파일 (15초)
 
 **입력:**
-- `short.mp3` (길이: 15초)
+- mainFile: `short.mp3` (길이: 15초)
+- sampleFile: null
 
 **기대 결과:**
 - 전체 15초를 샘플로 사용
 - 경고 로그 출력
+- `has_custom_sample = false`
 
-### 5. ZIP 파일 (오디오 없음)
+### 6. ZIP 파일 (오디오 없음)
 
 **입력:**
-- `images.zip` (내부: `cover.jpg`, `back.jpg`)
+- mainFile: `images.zip` (내부: `cover.jpg`, `back.jpg`)
+- sampleFile: null
 
 **기대 결과:**
 - 에러 발생: "ZIP 파일 내에 오디오 파일이 없습니다"
