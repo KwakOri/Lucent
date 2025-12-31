@@ -7,29 +7,27 @@ import Link from 'next/link';
 interface Order {
   id: string;
   order_number: string;
-  buyer_name: string;
-  buyer_email: string;
-  buyer_phone?: string;
-  recipient_name?: string;
-  recipient_phone?: string;
-  shipping_address?: string;
-  shipping_memo?: string;
-  total_amount: number;
+  user_id: string;
+  shipping_name?: string | null;
+  shipping_phone?: string | null;
+  shipping_address?: string | null;
+  shipping_memo?: string | null;
+  total_price: number;
   status: string;
   created_at: string;
-  order_items: Array<{
+  admin_memo?: string | null;
+  items: Array<{
     id: string;
     quantity: number;
-    unit_price: number;
+    price_snapshot: number;
+    product_name: string;
+    product_type: string;
     product: {
       id: string;
       name: string;
       type: string;
-      slug: string;
-      main_image: {
-        public_url: string;
-        cdn_url?: string;
-      } | null;
+      digital_file_url?: string | null;
+      sample_audio_url?: string | null;
     } | null;
   }>;
 }
@@ -39,12 +37,11 @@ interface OrderDetailProps {
 }
 
 const statusLabels: Record<string, string> = {
-  PENDING_PAYMENT: '입금대기',
-  PAID: '결제완료',
-  PREPARING: '준비중',
-  SHIPPED: '배송중',
-  DELIVERED: '배송완료',
-  CANCELLED: '취소됨',
+  PENDING: '입금대기',
+  PAID: '입금완료',
+  MAKING: '제작중',
+  SHIPPING: '배송중',
+  DONE: '완료',
 };
 
 const typeLabels: Record<string, string> = {
@@ -146,20 +143,10 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
             <div>
               <h4 className="text-sm font-semibold text-gray-900 mb-3">고객 정보</h4>
               <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">이름</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{order.buyer_name}</dd>
+                <div className="sm:col-span-2">
+                  <dt className="text-sm font-medium text-gray-500">고객 ID</dt>
+                  <dd className="mt-1 text-sm text-gray-900 font-mono">{order.user_id}</dd>
                 </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">이메일</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{order.buyer_email}</dd>
-                </div>
-                {order.buyer_phone && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">전화번호</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{order.buyer_phone}</dd>
-                  </div>
-                )}
               </dl>
             </div>
 
@@ -168,16 +155,16 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-3">배송 정보</h4>
                 <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-                  {order.recipient_name && (
+                  {order.shipping_name && (
                     <div>
                       <dt className="text-sm font-medium text-gray-500">수령인</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{order.recipient_name}</dd>
+                      <dd className="mt-1 text-sm text-gray-900">{order.shipping_name}</dd>
                     </div>
                   )}
-                  {order.recipient_phone && (
+                  {order.shipping_phone && (
                     <div>
                       <dt className="text-sm font-medium text-gray-500">연락처</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{order.recipient_phone}</dd>
+                      <dd className="mt-1 text-sm text-gray-900">{order.shipping_phone}</dd>
                     </div>
                   )}
                   <div className="sm:col-span-2">
@@ -198,25 +185,21 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
             <div>
               <h4 className="text-sm font-semibold text-gray-900 mb-3">주문 상품</h4>
               <ul className="divide-y divide-gray-200 border-t border-b border-gray-200">
-                {order.order_items.map((item) => (
+                {order.items.map((item) => (
                   <li key={item.id} className="flex py-4">
-                    {item.product?.main_image && (
-                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
-                        <img
-                          src={item.product.main_image.cdn_url || item.product.main_image.public_url}
-                          alt={item.product.name}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                    )}
+                    <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-100 flex items-center justify-center">
+                      <span className="text-2xl">
+                        {item.product_type === 'VOICE_PACK' ? '🎵' : '📦'}
+                      </span>
+                    </div>
                     <div className="ml-4 flex flex-1 flex-col">
                       <div>
                         <div className="flex justify-between text-sm font-medium text-gray-900">
-                          <h5>{item.product?.name}</h5>
-                          <p className="ml-4">{(item.unit_price * item.quantity).toLocaleString()}원</p>
+                          <h5>{item.product_name}</h5>
+                          <p className="ml-4">{(item.price_snapshot * item.quantity).toLocaleString()}원</p>
                         </div>
                         <p className="mt-1 text-sm text-gray-500">
-                          {typeLabels[item.product?.type || '']} • {item.unit_price.toLocaleString()}원 × {item.quantity}개
+                          {typeLabels[item.product_type || '']} • {item.price_snapshot.toLocaleString()}원 × {item.quantity}개
                         </p>
                       </div>
                     </div>
@@ -229,7 +212,7 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
                 <div className="text-right">
                   <dt className="text-sm font-medium text-gray-500">총 금액</dt>
                   <dd className="mt-1 text-2xl font-bold text-gray-900">
-                    {order.total_amount.toLocaleString()}원
+                    {order.total_price.toLocaleString()}원
                   </dd>
                 </div>
               </div>
