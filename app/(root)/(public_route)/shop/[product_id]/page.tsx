@@ -74,11 +74,11 @@ export default function ProductDetailPage() {
           stopAudio();
         };
 
-        // ✅ Race Condition 방지: 재생 전에 먼저 참조와 상태 설정
+        // Race Condition 방지: 재생 전에 먼저 참조와 상태 설정
         audioRef.current = audio;
         setIsPlayingSample(true);
 
-        // ✅ 그 다음 재생 시작
+        // 그 다음 재생 시작
         audio.play().catch((error) => {
           console.error('샘플 재생 실패:', error);
           alert('샘플 재생에 실패했습니다. 다시 시도해주세요.');

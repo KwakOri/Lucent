@@ -1,40 +1,20 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Play, Pause, ShoppingCart, Package } from 'lucide-react';
-import { useProducts, usePlaySample } from '@/hooks';
+import { ShoppingCart, Package } from 'lucide-react';
+import { useProducts } from '@/hooks';
 
 export default function ShopPage() {
   const router = useRouter();
   const { data: productsData, isLoading, error } = useProducts();
-  const { mutate: playSample, isPending: isPlaying } = usePlaySample();
-  const [currentPlaying, setCurrentPlaying] = useState<string | null>(null);
 
   const products = productsData?.data || [];
   const voicePacks = products.filter((p: any) => p.type === 'VOICE_PACK');
   const physicalGoods = products.filter((p: any) => p.type === 'PHYSICAL_GOODS');
-
-  const handlePlaySample = (productId: string) => {
-    if (currentPlaying === productId) {
-      setCurrentPlaying(null);
-      // TODO: Stop current audio
-    } else {
-      playSample(productId, {
-        onSuccess: () => {
-          setCurrentPlaying(productId);
-        },
-        onError: (error) => {
-          console.error('샘플 재생 실패:', error);
-          alert('샘플 재생에 실패했습니다. 다시 시도해주세요.');
-        },
-      });
-    }
-  };
 
   const handleProductClick = (productId: string) => {
     router.push(`/shop/${productId}`);
@@ -125,34 +105,6 @@ export default function ShopPage() {
                     <p className="text-2xl font-bold text-primary-700 mb-4">
                       {pack.price.toLocaleString()}원
                     </p>
-
-                    {/* Sample Play Button */}
-                    {pack.sample_audio_url && (
-                      <div className="flex gap-3 mb-4">
-                        <Button
-                          intent="secondary"
-                          size="md"
-                          fullWidth
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePlaySample(pack.id);
-                          }}
-                          disabled={isPlaying}
-                        >
-                          {currentPlaying === pack.id ? (
-                            <>
-                              <Pause className="w-4 h-4" />
-                              일시정지
-                            </>
-                          ) : (
-                            <>
-                              <Play className="w-4 h-4" />
-                              샘플 듣기
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    )}
 
                     {/* View Details Button */}
                     <Button
