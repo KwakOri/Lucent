@@ -19,6 +19,9 @@ type Order = Tables<'orders'>;
 type OrderInsert = TablesInsert<'orders'>;
 type OrderItem = Tables<'order_items'>;
 type OrderStatus = Enums<'order_status'>;
+type OrderItemStatus = Enums<'order_item_status'>;
+type Shipment = Tables<'shipments'>;
+type ShipmentInsert = TablesInsert<'shipments'>;
 
 interface CreateOrderInput {
   userId: string;
@@ -229,6 +232,8 @@ export class OrderService {
 
   /**
    * 주문 상세 조회
+   *
+   * v2: shipments 정보 포함
    */
   static async getOrderById(
     orderId: string,
@@ -249,6 +254,14 @@ export class OrderService {
             type,
             digital_file_url,
             sample_audio_url
+          ),
+          shipment:shipments (
+            id,
+            carrier,
+            tracking_number,
+            shipping_status,
+            shipped_at,
+            delivered_at
           )
         )
       `
@@ -274,6 +287,8 @@ export class OrderService {
 
   /**
    * 주문 상태 변경 (관리자)
+   *
+   * v2: order_items의 item_status도 함께 업데이트
    */
   static async updateOrderStatus(
     orderId: string,
@@ -316,6 +331,20 @@ export class OrderService {
     if (error) {
       throw new ApiError('주문 상태 변경 실패', 500, 'ORDER_STATUS_UPDATE_FAILED');
     }
+
+    // v2: order_items의 item_status도 함께 업데이트
+    let itemStatus: OrderItemStatus = 'PENDING';
+    if (newStatus === 'PAID') {
+      itemStatus = 'READY'; // 입금 확인 시 다운로드/발송 준비
+    } else if (newStatus === 'MAKING') {
+      itemStatus = 'PROCESSING'; // 제작 중
+    } else if (newStatus === 'SHIPPING') {
+      itemStatus = 'SHIPPED'; // 발송됨
+    } else if (newStatus === 'DONE') {
+      itemStatus = 'COMPLETED'; // 완료
+    }
+
+    await this.updateAllItemsStatus(orderId, itemStatus);
 
     // ✅ 로그 기록
     await LogService.logOrderStatusChanged(
@@ -724,5 +753,329 @@ export class OrderService {
     }));
 
     return voicepacks;
+  }
+
+  // =====================================================
+  // Order System V2: 개별 주문 상품 상태 관리
+  // =====================================================
+
+  /**
+   * 개별 주문 상품 상태 업데이트
+   */
+  static async updateItemStatus(
+    itemId: string,
+    newStatus: OrderItemStatus,
+    adminId?: string
+  ): Promise<OrderItem> {
+    const supabase = await createServerClient();
+
+    // 기존 상태 조회
+    const { data: item } = await supabase
+      .from('order_items')
+      .select('id, item_status, order_id, product_id')
+      .eq('id', itemId)
+      .single();
+
+    if (!item) {
+      throw new NotFoundError('주문 상품을 찾을 수 없습니다', 'ORDER_ITEM_NOT_FOUND');
+    }
+
+    const oldStatus = item.item_status;
+
+    // 상태 업데이트
+    const { data, error } = await supabase
+      .from('order_items')
+      .update({ item_status: newStatus })
+      .eq('id', itemId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new ApiError('주문 상품 상태 변경 실패', 500, 'ITEM_STATUS_UPDATE_FAILED');
+    }
+
+    // 로그 기록
+    await LogService.log({
+      severity: 'info',
+      eventCategory: 'ORDER',
+      eventType: 'ORDER_ITEM_STATUS_CHANGED',
+      message: `주문 상품 상태 변경: ${oldStatus} → ${newStatus}`,
+      userId: adminId,
+      metadata: {
+        itemId,
+        orderId: item.order_id,
+        productId: item.product_id,
+        oldStatus,
+        newStatus,
+      },
+    });
+
+    return data;
+  }
+
+  /**
+   * 주문 상태 변경 시 모든 order_items의 상태도 함께 업데이트
+   */
+  static async updateAllItemsStatus(
+    orderId: string,
+    newStatus: OrderItemStatus
+  ): Promise<void> {
+    const supabase = await createServerClient();
+
+    const { error } = await supabase
+      .from('order_items')
+      .update({ item_status: newStatus })
+      .eq('order_id', orderId);
+
+    if (error) {
+      throw new ApiError(
+        '주문 상품 상태 일괄 변경 실패',
+        500,
+        'ITEMS_STATUS_UPDATE_FAILED'
+      );
+    }
+  }
+
+  // =====================================================
+  // Order System V2: 배송 정보 관리
+  // =====================================================
+
+  /**
+   * 배송 정보 생성 (실물 상품)
+   */
+  static async createShipment(
+    input: {
+      orderItemId: string;
+      recipientName: string;
+      recipientPhone: string;
+      recipientAddress: string;
+      deliveryMemo?: string;
+      carrier?: string;
+      trackingNumber?: string;
+    },
+    adminId?: string
+  ): Promise<Shipment> {
+    const supabase = await createServerClient();
+
+    // order_item 확인
+    const { data: item } = await supabase
+      .from('order_items')
+      .select('id, order_id, product_type')
+      .eq('id', input.orderItemId)
+      .single();
+
+    if (!item) {
+      throw new NotFoundError('주문 상품을 찾을 수 없습니다', 'ORDER_ITEM_NOT_FOUND');
+    }
+
+    // 실물 상품인지 확인
+    if (item.product_type === 'VOICE_PACK' || item.product_type === 'DIGITAL') {
+      throw new ApiError(
+        '디지털 상품은 배송 정보를 생성할 수 없습니다',
+        400,
+        'NOT_PHYSICAL_PRODUCT'
+      );
+    }
+
+    // 배송 정보 생성
+    const { data, error } = await supabase
+      .from('shipments')
+      .insert({
+        order_item_id: input.orderItemId,
+        recipient_name: input.recipientName,
+        recipient_phone: input.recipientPhone,
+        recipient_address: input.recipientAddress,
+        delivery_memo: input.deliveryMemo || null,
+        carrier: input.carrier || null,
+        tracking_number: input.trackingNumber || null,
+        shipping_status: 'PREPARING',
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new ApiError('배송 정보 생성 실패', 500, 'SHIPMENT_CREATE_FAILED');
+    }
+
+    // 로그 기록
+    await LogService.log({
+      severity: 'info',
+      eventCategory: 'ORDER',
+      eventType: 'SHIPMENT_CREATED',
+      message: '배송 정보 생성',
+      userId: adminId,
+      metadata: {
+        shipmentId: data.id,
+        orderItemId: input.orderItemId,
+        orderId: item.order_id,
+        recipientName: input.recipientName,
+      },
+    });
+
+    return data;
+  }
+
+  /**
+   * 배송 정보 조회
+   */
+  static async getShipmentInfo(
+    orderItemId: string,
+    userId?: string
+  ): Promise<Shipment | null> {
+    const supabase = await createServerClient();
+
+    const { data, error } = await supabase
+      .from('shipments')
+      .select(
+        `
+        *,
+        order_item:order_items (
+          id,
+          order_id,
+          order:orders (
+            id,
+            user_id
+          )
+        )
+      `
+      )
+      .eq('order_item_id', orderItemId)
+      .single();
+
+    if (error && error.code === 'PGRST116') {
+      // 배송 정보 없음 (정상)
+      return null;
+    }
+
+    if (error) {
+      throw new ApiError('배송 정보 조회 실패', 500, 'SHIPMENT_FETCH_FAILED');
+    }
+
+    // 권한 확인 (userId 제공 시)
+    if (userId) {
+      const orderItem = data.order_item as any;
+      if (orderItem?.order?.user_id !== userId) {
+        throw new AuthorizationError('배송 정보 조회 권한이 없습니다');
+      }
+    }
+
+    return data;
+  }
+
+  /**
+   * 배송 정보 업데이트 (관리자)
+   */
+  static async updateShipment(
+    shipmentId: string,
+    updates: {
+      carrier?: string;
+      trackingNumber?: string;
+      shippingStatus?: string;
+      recipientName?: string;
+      recipientPhone?: string;
+      recipientAddress?: string;
+      deliveryMemo?: string;
+      adminMemo?: string;
+    },
+    adminId?: string
+  ): Promise<Shipment> {
+    const supabase = await createServerClient();
+
+    // 배송 정보 확인
+    const { data: existingShipment } = await supabase
+      .from('shipments')
+      .select('id, shipping_status')
+      .eq('id', shipmentId)
+      .single();
+
+    if (!existingShipment) {
+      throw new NotFoundError('배송 정보를 찾을 수 없습니다', 'SHIPMENT_NOT_FOUND');
+    }
+
+    const oldStatus = existingShipment.shipping_status;
+
+    // 업데이트 데이터 준비
+    const updateData: any = {};
+    if (updates.carrier !== undefined) updateData.carrier = updates.carrier;
+    if (updates.trackingNumber !== undefined)
+      updateData.tracking_number = updates.trackingNumber;
+    if (updates.shippingStatus !== undefined)
+      updateData.shipping_status = updates.shippingStatus;
+    if (updates.recipientName !== undefined)
+      updateData.recipient_name = updates.recipientName;
+    if (updates.recipientPhone !== undefined)
+      updateData.recipient_phone = updates.recipientPhone;
+    if (updates.recipientAddress !== undefined)
+      updateData.recipient_address = updates.recipientAddress;
+    if (updates.deliveryMemo !== undefined)
+      updateData.delivery_memo = updates.deliveryMemo;
+    if (updates.adminMemo !== undefined) updateData.admin_memo = updates.adminMemo;
+
+    // 발송 시간 기록 (상태가 SHIPPED로 변경될 때)
+    if (updates.shippingStatus === 'SHIPPED' && oldStatus !== 'SHIPPED') {
+      updateData.shipped_at = new Date().toISOString();
+    }
+
+    // 배송 완료 시간 기록 (상태가 DELIVERED로 변경될 때)
+    if (updates.shippingStatus === 'DELIVERED' && oldStatus !== 'DELIVERED') {
+      updateData.delivered_at = new Date().toISOString();
+    }
+
+    // 업데이트 실행
+    const { data, error } = await supabase
+      .from('shipments')
+      .update(updateData)
+      .eq('id', shipmentId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new ApiError('배송 정보 업데이트 실패', 500, 'SHIPMENT_UPDATE_FAILED');
+    }
+
+    // 로그 기록
+    await LogService.log({
+      severity: 'info',
+      eventCategory: 'ORDER',
+      eventType: 'SHIPMENT_UPDATED',
+      message: `배송 정보 업데이트`,
+      userId: adminId,
+      metadata: {
+        shipmentId,
+        updates,
+        oldStatus,
+        newStatus: updates.shippingStatus,
+      },
+    });
+
+    return data;
+  }
+
+  /**
+   * 배송 추적 정보 조회 (고객용)
+   */
+  static async getShipmentTracking(
+    orderItemId: string,
+    userId: string
+  ): Promise<{
+    carrier: string | null;
+    trackingNumber: string | null;
+    shippingStatus: string;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+  } | null> {
+    const shipment = await this.getShipmentInfo(orderItemId, userId);
+
+    if (!shipment) {
+      return null;
+    }
+
+    return {
+      carrier: shipment.carrier,
+      trackingNumber: shipment.tracking_number,
+      shippingStatus: shipment.shipping_status,
+      shippedAt: shipment.shipped_at,
+      deliveredAt: shipment.delivered_at,
+    };
   }
 }

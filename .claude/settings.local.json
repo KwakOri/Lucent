@@ -27,7 +27,9 @@
       "Bash(curl:*)",
       "Bash(python3:*)",
       "Bash(git diff:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(node -e:*)",
+      "WebSearch"
     ]
   }
 }

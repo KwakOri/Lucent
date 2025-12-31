@@ -258,6 +258,8 @@ export type Database = {
           download_count: number
           download_url: string | null
           id: string
+          item_status: Database["public"]["Enums"]["order_item_status"]
+          last_downloaded_at: string | null
           order_id: string
           price_snapshot: number
           product_id: string
@@ -270,6 +272,8 @@ export type Database = {
           download_count?: number
           download_url?: string | null
           id?: string
+          item_status?: Database["public"]["Enums"]["order_item_status"]
+          last_downloaded_at?: string | null
           order_id: string
           price_snapshot: number
           product_id: string
@@ -282,6 +286,8 @@ export type Database = {
           download_count?: number
           download_url?: string | null
           id?: string
+          item_status?: Database["public"]["Enums"]["order_item_status"]
+          last_downloaded_at?: string | null
           order_id?: string
           price_snapshot?: number
           product_id?: string
@@ -362,6 +368,45 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      product_bundles: {
+        Row: {
+          bundle_product_id: string
+          component_product_id: string
+          created_at: string
+          id: string
+          quantity: number
+        }
+        Insert: {
+          bundle_product_id: string
+          component_product_id: string
+          created_at?: string
+          id?: string
+          quantity?: number
+        }
+        Update: {
+          bundle_product_id?: string
+          component_product_id?: string
+          created_at?: string
+          id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_bundles_bundle_product_id_fkey"
+            columns: ["bundle_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_bundles_component_product_id_fkey"
+            columns: ["component_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_images: {
         Row: {
@@ -551,6 +596,65 @@ export type Database = {
           },
         ]
       }
+      shipments: {
+        Row: {
+          admin_memo: string | null
+          carrier: string | null
+          created_at: string
+          delivered_at: string | null
+          delivery_memo: string | null
+          id: string
+          order_item_id: string
+          recipient_address: string
+          recipient_name: string
+          recipient_phone: string
+          shipped_at: string | null
+          shipping_status: string | null
+          tracking_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_memo?: string | null
+          carrier?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          delivery_memo?: string | null
+          id?: string
+          order_item_id: string
+          recipient_address: string
+          recipient_name: string
+          recipient_phone: string
+          shipped_at?: string | null
+          shipping_status?: string | null
+          tracking_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_memo?: string | null
+          carrier?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          delivery_memo?: string | null
+          id?: string
+          order_item_id?: string
+          recipient_address?: string
+          recipient_name?: string
+          recipient_phone?: string
+          shipped_at?: string | null
+          shipping_status?: string | null
+          tracking_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipments_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -559,8 +663,15 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      order_item_status:
+        | "PENDING"
+        | "PROCESSING"
+        | "READY"
+        | "SHIPPED"
+        | "DELIVERED"
+        | "COMPLETED"
       order_status: "PENDING" | "PAID" | "MAKING" | "SHIPPING" | "DONE"
-      product_type: "VOICE_PACK" | "PHYSICAL_GOODS"
+      product_type: "VOICE_PACK" | "PHYSICAL_GOODS" | "BUNDLE"
       verification_purpose: "signup" | "reset_password" | "change_email"
     }
     CompositeTypes: {
@@ -692,8 +803,16 @@ export const Constants = {
   },
   public: {
     Enums: {
+      order_item_status: [
+        "PENDING",
+        "PROCESSING",
+        "READY",
+        "SHIPPED",
+        "DELIVERED",
+        "COMPLETED",
+      ],
       order_status: ["PENDING", "PAID", "MAKING", "SHIPPING", "DONE"],
-      product_type: ["VOICE_PACK", "PHYSICAL_GOODS"],
+      product_type: ["VOICE_PACK", "PHYSICAL_GOODS", "BUNDLE"],
       verification_purpose: ["signup", "reset_password", "change_email"],
     },
   },
