@@ -55,9 +55,38 @@ export function ProductForm({ projects, product }: ProductFormProps) {
     is_active: product?.is_active ?? true,
   });
 
+  // 가격 표시용 포맷된 문자열
+  const [priceDisplay, setPriceDisplay] = useState(
+    product?.price ? product.price.toLocaleString('ko-KR') : ''
+  );
+
   // 보이스팩 파일 상태
   const [mainFile, setMainFile] = useState<File | null>(null);
   const [sampleFile, setSampleFile] = useState<File | null>(null);
+
+  // 가격 입력 핸들러
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+
+    // 숫자와 쉼표만 허용
+    const numbersOnly = input.replace(/[^\d]/g, '');
+
+    // 빈 값 처리
+    if (numbersOnly === '') {
+      setPriceDisplay('');
+      setFormData({ ...formData, price: 0 });
+      return;
+    }
+
+    // 숫자로 변환
+    const numericValue = parseInt(numbersOnly, 10);
+
+    // 포맷된 값으로 표시
+    setPriceDisplay(numericValue.toLocaleString('ko-KR'));
+
+    // 실제 숫자값 저장
+    setFormData({ ...formData, price: numericValue });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -231,17 +260,25 @@ export function ProductForm({ projects, product }: ProductFormProps) {
           <label htmlFor="price" className="block text-sm font-medium leading-6 text-gray-900">
             가격 (원) <span className="text-red-500">*</span>
           </label>
-          <input
-            type="number"
-            id="price"
-            required
-            min="0"
-            step="100"
-            value={formData.price}
-            onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
-            className="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 px-3"
-            placeholder="10000"
-          />
+          <div className="relative mt-2">
+            <input
+              type="text"
+              id="price"
+              required
+              value={priceDisplay}
+              onChange={handlePriceChange}
+              className="block w-full rounded-md border-0 py-1.5 pr-12 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 px-3"
+              placeholder="10,000"
+            />
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+              <span className="text-gray-500 sm:text-sm">원</span>
+            </div>
+          </div>
+          {formData.price > 0 && (
+            <p className="mt-1 text-xs text-gray-500">
+              숫자: {formData.price.toLocaleString('ko-KR')}원
+            </p>
+          )}
         </div>
 
         {/* 재고 (실물 굿즈만) */}

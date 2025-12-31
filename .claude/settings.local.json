@@ -29,7 +29,8 @@
       "Bash(git diff:*)",
       "Bash(tree:*)",
       "Bash(node -e:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(timeout 10 npm run dev)"
     ]
   }
 }
