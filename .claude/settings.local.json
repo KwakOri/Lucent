@@ -21,7 +21,12 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git revert:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "WebFetch(domain:developers.kakao.com)",
+      "Bash(git check-ignore:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(git diff:*)"
     ]
   }
 }

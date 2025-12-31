@@ -309,11 +309,14 @@ export type Database = {
       orders: {
         Row: {
           admin_memo: string | null
+          buyer_email: string | null
+          buyer_name: string | null
+          buyer_phone: string | null
           created_at: string
           id: string
           order_number: string
-          shipping_main_address: string | null
           shipping_detail_address: string | null
+          shipping_main_address: string | null
           shipping_memo: string | null
           shipping_name: string | null
           shipping_phone: string | null
@@ -324,11 +327,14 @@ export type Database = {
         }
         Insert: {
           admin_memo?: string | null
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
           created_at?: string
           id?: string
           order_number: string
-          shipping_main_address?: string | null
           shipping_detail_address?: string | null
+          shipping_main_address?: string | null
           shipping_memo?: string | null
           shipping_name?: string | null
           shipping_phone?: string | null
@@ -339,11 +345,14 @@ export type Database = {
         }
         Update: {
           admin_memo?: string | null
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
           created_at?: string
           id?: string
           order_number?: string
-          shipping_main_address?: string | null
           shipping_detail_address?: string | null
+          shipping_main_address?: string | null
           shipping_memo?: string | null
           shipping_name?: string | null
           shipping_phone?: string | null
@@ -461,31 +470,31 @@ export type Database = {
       }
       profiles: {
         Row: {
-          main_address: string | null
-          detail_address: string | null
           created_at: string
+          detail_address: string | null
           email: string
           id: string
+          main_address: string | null
           name: string | null
           phone: string | null
           updated_at: string
         }
         Insert: {
-          main_address?: string | null
-          detail_address?: string | null
           created_at?: string
+          detail_address?: string | null
           email: string
           id: string
+          main_address?: string | null
           name?: string | null
           phone?: string | null
           updated_at?: string
         }
         Update: {
-          main_address?: string | null
-          detail_address?: string | null
           created_at?: string
+          detail_address?: string | null
           email?: string
           id?: string
+          main_address?: string | null
           name?: string | null
           phone?: string | null
           updated_at?: string
