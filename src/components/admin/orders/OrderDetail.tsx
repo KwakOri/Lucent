@@ -22,11 +22,11 @@ interface Order {
     quantity: number;
     price_snapshot: number;
     product_name: string;
-    product_type: 'VOICE_PACK' | 'PHYSICAL_GOODS';
+    product_type: 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE';
     product?: {
       id: string;
       name: string;
-      type: 'VOICE_PACK' | 'PHYSICAL_GOODS';
+      type: 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE';
       digital_file_url?: string | null;
       sample_audio_url?: string | null;
     };
@@ -48,6 +48,7 @@ const statusLabels: Record<string, string> = {
 const typeLabels: Record<string, string> = {
   VOICE_PACK: '디지털 상품',
   PHYSICAL_GOODS: '실물 상품',
+  BUNDLE: '세트 상품', // TODO: 추후 실물 상품 출시 시 활성화
 };
 
 export function OrderDetail({ order: initialOrder }: OrderDetailProps) {

@@ -10,7 +10,7 @@ interface OrderSummaryProps {
   product: {
     id: string;
     name: string;
-    type: 'VOICE_PACK' | 'PHYSICAL_GOODS';
+    type: 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE';
     price: number;
     main_image?: {
       public_url?: string;

@@ -13,9 +13,12 @@ import { handleApiError } from '@/lib/server/utils/api-response';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderId: string; itemId: string } }
+  { params }: { params: Promise<{ orderId: string; itemId: string }> }
 ) {
   try {
+    // params await (Next.js 15)
+    const { orderId, itemId } = await params;
+
     // 인증 확인
     const supabase = await createServerClient();
     const {
@@ -31,7 +34,7 @@ export async function GET(
 
     // 배송 추적 정보 조회
     const tracking = await OrderService.getShipmentTracking(
-      params.itemId,
+      itemId,
       user.id
     );
 

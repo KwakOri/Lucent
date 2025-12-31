@@ -17,7 +17,7 @@ export interface GetProductsParams {
   page?: number;
   limit?: number;
   artistId?: string;
-  type?: 'VOICE_PACK' | 'PHYSICAL_GOODS';
+  type?: 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE';
   isActive?: boolean;
   sortBy?: 'created_at' | 'price' | 'name';
   order?: 'asc' | 'desc';

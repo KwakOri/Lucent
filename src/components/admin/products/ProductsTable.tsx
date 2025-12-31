@@ -8,7 +8,7 @@ interface Product {
   id: string;
   name: string;
   slug: string;
-  type: 'VOICE_PACK' | 'PHYSICAL_GOODS';
+  type: 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE';
   price: number;
   stock: number | null;
   is_active: boolean;
@@ -39,6 +39,7 @@ interface ProductsTableProps {
 const typeLabels: Record<string, string> = {
   VOICE_PACK: '보이스팩',
   PHYSICAL_GOODS: '실물 굿즈',
+  BUNDLE: '세트 상품', // TODO: 추후 실물 상품 출시 시 활성화
 };
 
 export function ProductsTable({ products: initialProducts, projects }: ProductsTableProps) {

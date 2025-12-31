@@ -34,7 +34,7 @@ export interface OrderWithItems extends Order {
     product?: {
       id: string;
       name: string;
-      type: 'VOICE_PACK' | 'PHYSICAL_GOODS';
+      type: 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE';
     };
   }>;
 }

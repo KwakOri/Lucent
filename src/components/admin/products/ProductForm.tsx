@@ -15,7 +15,7 @@ interface Product {
   id: string;
   name: string;
   slug: string;
-  type: 'VOICE_PACK' | 'PHYSICAL_GOODS';
+  type: 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE';
   project_id: string | null;
   main_image_id: string | null;
   main_image?: {
@@ -45,7 +45,7 @@ export function ProductForm({ projects, product }: ProductFormProps) {
   const [formData, setFormData] = useState({
     name: product?.name || '',
     slug: product?.slug || '',
-    type: product?.type || 'VOICE_PACK' as 'VOICE_PACK' | 'PHYSICAL_GOODS',
+    type: product?.type || 'VOICE_PACK' as 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE',
     project_id: product?.project_id || projects[0]?.id || '',
     main_image_id: product?.main_image_id || '',
     price: product?.price || 0,

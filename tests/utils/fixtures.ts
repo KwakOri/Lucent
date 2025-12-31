@@ -131,6 +131,8 @@ export const mockOrderItem: Tables<'order_items'> = {
   price_snapshot: 5000,
   download_url: null,
   download_count: 0,
+  item_status: 'PENDING',
+  last_downloaded_at: null,
   created_at: '2024-01-01T00:00:00Z',
 };
 
