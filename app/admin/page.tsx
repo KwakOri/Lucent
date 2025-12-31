@@ -115,10 +115,10 @@ export default async function AdminDashboard() {
                             {order.order_number}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {order.buyer_name}
+                            {order.shipping_name || '-'}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {order.total_amount.toLocaleString()}원
+                            {order.total_price.toLocaleString()}원
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
                             <span className={`

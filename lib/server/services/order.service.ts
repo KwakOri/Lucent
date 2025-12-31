@@ -570,8 +570,8 @@ export class OrderService {
         `
         id,
         order_number,
-        buyer_name,
-        total_amount,
+        shipping_name,
+        total_price,
         status,
         created_at
       `
