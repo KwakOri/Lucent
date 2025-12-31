@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Loading } from '@/components/ui/loading';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Play, Pause, ShoppingCart, ArrowLeft, Package } from 'lucide-react';
-import { useProduct, usePlaySample } from '@/hooks';
+import { useProduct } from '@/hooks';
 
 export default function ProductDetailPage() {
   const router = useRouter();
@@ -16,28 +16,63 @@ export default function ProductDetailPage() {
   const productId = params.product_id as string;
 
   const { data: product, isLoading, error } = useProduct(productId);
-  const { mutate: playSample, isPending: isPlaying } = usePlaySample();
   const [isPlayingSample, setIsPlayingSample] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const isVoicePack = product?.type === 'VOICE_PACK';
   const isPhysicalGoods = product?.type === 'PHYSICAL_GOODS';
 
+  // Cleanup: 컴포넌트 언마운트 시 오디오 정지
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
   const handlePlaySample = () => {
     if (!product?.sample_audio_url) return;
 
-    if (isPlayingSample) {
+    // 이미 재생 중이면 정지
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
       setIsPlayingSample(false);
-      // TODO: Stop current audio
     } else {
-      playSample(productId, {
-        onSuccess: () => {
-          setIsPlayingSample(true);
-        },
-        onError: (error) => {
+      // 새로 재생
+      try {
+        const audio = new Audio(product.sample_audio_url);
+
+        // 재생 시작
+        audio.play().catch((error) => {
           console.error('샘플 재생 실패:', error);
           alert('샘플 재생에 실패했습니다. 다시 시도해주세요.');
-        },
-      });
+          setIsPlayingSample(false);
+        });
+
+        // 재생 종료 시 상태 업데이트
+        audio.onended = () => {
+          setIsPlayingSample(false);
+          audioRef.current = null;
+        };
+
+        // 에러 처리
+        audio.onerror = () => {
+          console.error('샘플 로드 실패');
+          alert('샘플을 불러올 수 없습니다.');
+          setIsPlayingSample(false);
+          audioRef.current = null;
+        };
+
+        audioRef.current = audio;
+        setIsPlayingSample(true);
+      } catch (error) {
+        console.error('샘플 재생 중 오류:', error);
+        alert('샘플 재생에 실패했습니다.');
+        setIsPlayingSample(false);
+      }
     }
   };
 
@@ -154,7 +189,6 @@ export default function ProductDetailPage() {
                   size="lg"
                   fullWidth
                   onClick={handlePlaySample}
-                  disabled={isPlaying}
                 >
                   {isPlayingSample ? (
                     <>
