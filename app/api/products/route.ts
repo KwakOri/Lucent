@@ -99,14 +99,15 @@ async function createVoicePackProduct(request: NextRequest) {
   const { ApiError } = await import('@/lib/server/utils/errors');
   const { LogService } = await import('@/lib/server/services/log.service');
 
+  let formData: FormData | undefined;
+
   try {
-    const formData = await request.formData();
+    formData = await request.formData();
 
     // Form fields
     const name = formData.get('name') as string;
     const price = parseInt(formData.get('price') as string);
     const description = formData.get('description') as string | null;
-    const artistId = formData.get('artistId') as string;
     const projectId = formData.get('projectId') as string | null;
 
     // Files
@@ -118,8 +119,8 @@ async function createVoicePackProduct(request: NextRequest) {
       throw new ApiError('보이스팩 파일은 필수입니다', 400);
     }
 
-    if (!name || !price || !artistId) {
-      throw new ApiError('상품명, 가격, 아티스트는 필수입니다', 400);
+    if (!name || !price || !projectId) {
+      throw new ApiError('상품명, 가격, 프로젝트는 필수입니다', 400);
     }
 
     const productId = uuidv4();
@@ -176,8 +177,9 @@ async function createVoicePackProduct(request: NextRequest) {
       // 샘플 생성 로그 기록
       await LogService.log({
         eventType: 'SAMPLE_GENERATED',
+        message: '보이스팩 샘플 자동 생성 완료',
         userId: 'admin-id', // TODO: 실제 관리자 ID
-        details: {
+        metadata: {
           productId,
           productName: name,
           mainFileName: mainFile.name,
@@ -190,17 +192,17 @@ async function createVoicePackProduct(request: NextRequest) {
     }
 
     // 3. DB에 상품 저장
+    const slug = `${name.toLowerCase().replace(/\s+/g, '-')}-${productId.substring(0, 8)}`;
     const productData = {
       id: productId,
       name,
+      slug,
       type: 'VOICE_PACK' as const,
       price,
       description: description || null,
-      artist_id: artistId,
-      project_id: projectId || null,
+      project_id: projectId,
       digital_file_url: mainFileUrl,
       sample_audio_url: sampleFileUrl,
-      has_custom_sample: hasCustomSample,
       is_active: true,
     };
 
@@ -211,8 +213,9 @@ async function createVoicePackProduct(request: NextRequest) {
     // 상품 생성 성공 로그
     await LogService.log({
       eventType: 'PRODUCT_CREATED',
+      message: '보이스팩 상품 생성 완료',
       userId: 'admin-id', // TODO: 실제 관리자 ID
-      details: {
+      metadata: {
         productId: product.id,
         productName: product.name,
         productType: 'VOICE_PACK',
@@ -228,12 +231,13 @@ async function createVoicePackProduct(request: NextRequest) {
     // 실패 로그 기록
     await LogService.log({
       eventType: 'PRODUCT_CREATION_FAILED',
+      message: '보이스팩 상품 생성 실패',
       userId: 'admin-id', // TODO: 실제 관리자 ID
-      details: {
+      metadata: {
         error: error instanceof Error ? error.message : String(error),
         formData: {
-          name: formData?.get('name'),
-          artistId: formData?.get('artistId'),
+          name: formData?.get('name')?.toString() || null,
+          projectId: formData?.get('projectId')?.toString() || null,
         },
       },
     });

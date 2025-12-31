@@ -9,12 +9,14 @@ interface Project {
   id: string;
   name: string;
   slug: string;
-  order_index: number;
+  order_index: number | null;
   is_active: boolean;
   created_at: string;
-  cover_image: {
+  cover_image?: {
+    id: string;
     public_url: string;
-    cdn_url?: string;
+    cdn_url?: string | null;
+    alt_text?: string | null;
   } | null;
 }
 

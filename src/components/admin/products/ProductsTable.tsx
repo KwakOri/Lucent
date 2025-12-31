@@ -14,8 +14,9 @@ interface Product {
   is_active: boolean;
   created_at: string;
   main_image: {
+    id: string;
     public_url: string;
-    cdn_url?: string;
+    cdn_url: string | null;
   } | null;
   project: {
     id: string;

@@ -20,6 +20,7 @@ interface Artist {
   profile_image?: {
     id: string;
     public_url: string;
+    cdn_url?: string | null;
     alt_text: string | null;
   };
   description?: string | null;

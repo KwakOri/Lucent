@@ -378,9 +378,10 @@ export class ProjectService {
     if (!projects || projects.length !== projectIds.length) {
       const foundIds = projects?.map((p) => p.id) || [];
       const missingIds = projectIds.filter((id) => !foundIds.includes(id));
-      throw new NotFoundError('일부 프로젝트를 찾을 수 없습니다', 'PROJECT_NOT_FOUND', {
-        missing_ids: missingIds,
-      });
+      throw new NotFoundError(
+        `일부 프로젝트를 찾을 수 없습니다 (누락: ${missingIds.join(', ')})`,
+        'PROJECT_NOT_FOUND'
+      );
     }
 
     // 2. 순서 업데이트 (트랜잭션 없이 순차 실행)

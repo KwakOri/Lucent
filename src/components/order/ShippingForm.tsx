@@ -124,7 +124,7 @@ export function ShippingForm({
         {customerInfo && (
           <Checkbox
             label="주문자 정보와 동일"
-            onChange={handleCopyFromCustomer}
+            onChange={(e) => handleCopyFromCustomer(e.target.checked)}
           />
         )}
       </div>
@@ -172,7 +172,7 @@ export function ShippingForm({
         <div className="space-y-2">
           <Button
             type="button"
-            variant="outline"
+            intent="neutral"
             size="md"
             onClick={() => setIsAddressModalOpen(true)}
             className="w-full"

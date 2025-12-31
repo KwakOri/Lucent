@@ -358,11 +358,11 @@ export class OrderService {
 
         // 이메일 발송 로그
         await LogService.log({
-          level: 'INFO',
-          category: 'EMAIL',
-          event: 'PURCHASE_COMPLETE_EMAIL_SENT',
+          severity: 'info',
+          eventCategory: 'EMAIL',
+          eventType: 'PURCHASE_COMPLETE_EMAIL_SENT',
           message: '보이스팩 구매 완료 이메일 발송',
-          user_id: orderData.user_id,
+          userId: orderData.user_id,
           metadata: {
             orderId,
             orderNumber: orderData.order_number,

@@ -75,7 +75,7 @@ export function AddressSearchModal({
             </div>
             <Button
               type="submit"
-              variant="primary"
+              intent="primary"
               size="md"
               disabled={isLoading || !query.trim()}
             >
@@ -172,7 +172,7 @@ export function AddressSearchModal({
         {/* Footer */}
         <div className="p-4 border-t border-gray-200">
           <Button
-            variant="outline"
+            intent="neutral"
             size="md"
             onClick={handleClose}
             className="w-full"

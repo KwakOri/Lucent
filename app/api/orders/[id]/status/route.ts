@@ -6,7 +6,7 @@
 
 import { NextRequest } from 'next/server';
 import { OrderService } from '@/lib/server/services/order.service';
-import { AuthService } from '@/lib/server/services/auth.service';
+import { getCurrentUser, isAdmin } from '@/lib/server/utils/supabase';
 import {
   handleApiError,
   successResponse,
@@ -24,14 +24,14 @@ export async function PATCH(
 ) {
   try {
     // 1. 인증 확인
-    const user = await AuthService.getCurrentUser();
+    const user = await getCurrentUser();
     if (!user) {
       throw new ApiError('로그인이 필요합니다', 401);
     }
 
     // 2. 관리자 권한 확인
-    const isAdmin = await AuthService.isAdmin(user.id);
-    if (!isAdmin) {
+    const adminCheck = await isAdmin();
+    if (!adminCheck) {
       throw new ApiError('관리자만 접근 가능합니다', 403);
     }
 

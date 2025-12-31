@@ -76,7 +76,8 @@ export async function POST(request: NextRequest) {
       buyerPhone,
       shippingName,
       shippingPhone,
-      shippingAddress,
+      shippingMainAddress,
+      shippingDetailAddress,
       shippingMemo
     } = body;
 
@@ -93,7 +94,8 @@ export async function POST(request: NextRequest) {
         buyerPhone,
         shippingName,
         shippingPhone,
-        shippingAddress,
+        shippingMainAddress,
+        shippingDetailAddress,
         shippingMemo,
       },
       getClientIp(request)

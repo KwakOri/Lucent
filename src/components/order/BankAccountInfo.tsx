@@ -126,7 +126,7 @@ export function BankAccountInfo({
       {/* 전체 복사 버튼 */}
       <Button
         onClick={handleCopyAll}
-        variant="outline"
+        intent="neutral"
         fullWidth
         className="bg-white/10 hover:bg-white/20 border-white/30 text-white"
       >

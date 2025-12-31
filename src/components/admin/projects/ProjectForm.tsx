@@ -9,20 +9,17 @@ interface Project {
   id: string;
   name: string;
   slug: string;
-  cover_image_id: string;
+  cover_image_id: string | null;
   cover_image?: {
     id: string;
     public_url: string;
-    cdn_url?: string;
+    cdn_url?: string | null;
+    alt_text?: string | null;
   } | null;
-  description?: string;
-  release_date?: string;
-  external_links?: {
-    youtube?: string;
-    spotify?: string;
-    other?: string;
-  };
-  order_index?: number;
+  description?: string | null;
+  release_date?: string | null;
+  external_links?: any;
+  order_index?: number | null;
   is_active: boolean;
 }
 

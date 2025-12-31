@@ -152,7 +152,7 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
             </div>
 
             {/* Shipping Info (if exists) */}
-            {order.shipping_address && (
+            {order.shipping_main_address && (
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-3">배송 정보</h4>
                 <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
@@ -170,7 +170,12 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
                   )}
                   <div className="sm:col-span-2">
                     <dt className="text-sm font-medium text-gray-500">주소</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{order.shipping_address}</dd>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {order.shipping_main_address}
+                      {order.shipping_detail_address && (
+                        <> {order.shipping_detail_address}</>
+                      )}
+                    </dd>
                   </div>
                   {order.shipping_memo && (
                     <div className="sm:col-span-2">

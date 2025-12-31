@@ -70,7 +70,8 @@ export interface CreateOrderRequest {
   buyerPhone?: string;
   shippingName?: string;
   shippingPhone?: string;
-  shippingAddress?: string;
+  shippingMainAddress?: string;
+  shippingDetailAddress?: string;
   shippingMemo?: string;
 }
 

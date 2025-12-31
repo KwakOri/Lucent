@@ -44,7 +44,7 @@ export class SampleGenerationService {
       // 파일 형식 판별
       const fileType = this.getFileType(mainFileName);
 
-      let audioPath: string;
+      let audioPath: string | null = null;
 
       if (fileType === 'zip') {
         // ZIP 파일에서 첫 번째 오디오 추출
@@ -58,6 +58,11 @@ export class SampleGenerationService {
         await fs.writeFile(audioPath, mainFileBuffer);
       } else {
         throw new Error('지원하지 않는 파일 형식입니다. MP3, WAV, FLAC, M4A 형식 또는 ZIP 파일을 사용해주세요.');
+      }
+
+      // TypeScript 타입 가드 - 여기 도달했다면 audioPath는 항상 string
+      if (!audioPath) {
+        throw new Error('오디오 파일 경로를 찾을 수 없습니다.');
       }
 
       // 오디오 길이 확인
