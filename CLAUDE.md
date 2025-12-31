@@ -219,6 +219,8 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 │
 ├── specs/                    # 스펙 문서 (설계 문서)
 │   ├── index.md             # 프로젝트 전체 스펙
+│   ├── database/            # 데이터베이스 스펙 ✅ NEW
+│   │   └── order-system-v2.md # 주문 시스템 v2 (디지털/실물/세트 통합)
 │   ├── api/                 # API 스펙
 │   │   ├── index.md
 │   │   ├── client/          # 클라이언트 API (hooks, services)
@@ -260,6 +262,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 │   └── migrations/          # 데이터베이스 마이그레이션
 │       ├── 20250101000000_initial_schema.sql
 │       ├── 20250101000001_seed_data.sql
+│       ├── 20250131000000_order_system_v2.sql ✅ NEW
 │       └── create_logs_table.sql
 │
 ├── types/                    # TypeScript 타입 정의 ✅
@@ -309,13 +312,22 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 - 프로젝트 및 아티스트 정보 열람
 - 보이스팩 구매 (샘플 청취 가능)
 - 실물 굿즈 구매
+- 세트 상품 구매 (디지털 + 실물 번들)
 - 주문 내역 및 상태 확인
 - 디지털 상품 재다운로드
+- 실물 상품 배송 추적
 
 ### 결제 정책
 - **계좌이체 전용** (PG 연동 없음)
 - 주문 생성 시 상태: `입금대기`
 - 관리자 수동 입금 확인 후 상태 변경
+
+### 주문 시스템 (v2)
+- **디지털/실물/세트 상품 통합 관리**
+- 개별 주문 상품별 상태 추적 (order_items.item_status)
+- 실물 상품 배송 정보 관리 (shipments 테이블)
+- 세트 상품 구성품 관리 (product_bundles 테이블)
+- **알림톡 연동 준비** (주문 생성, 입금 확인, 발송 완료 시 고객 알림, 2차 확장)
 
 ---
 
@@ -375,6 +387,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 - SNS 외부 임베드 다중화
 - 마이페이지 알림 / 프로필 설정
 - 관리자 대시보드 (로그 조회 API는 구현됨)
+- **알림톡 연동** (카카오 알림톡, 2-3차 확장, DB 준비는 완료됨)
 
 ---
 
