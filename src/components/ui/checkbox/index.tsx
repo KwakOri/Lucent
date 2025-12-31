@@ -1,4 +1,4 @@
-import { InputHTMLAttributes, forwardRef, ReactNode } from "react";
+import { InputHTMLAttributes, forwardRef, ReactNode, useId } from "react";
 import { Check } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -43,6 +43,9 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     },
     ref
   ) => {
+    const generatedId = useId();
+    const inputId = id || generatedId;
+
     const sizeClasses = {
       sm: "w-4 h-4",
       md: "w-5 h-5",
@@ -52,8 +55,6 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
       sm: "w-3 h-3",
       md: "w-4 h-4",
     };
-
-    const inputId = id || `checkbox-${Math.random().toString(36).substr(2, 9)}`;
 
     return (
       <div className={clsx("flex items-start gap-2", className)}>
