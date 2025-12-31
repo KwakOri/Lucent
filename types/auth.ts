@@ -59,3 +59,25 @@ export interface PasswordResetResult {
  * 세션 Response (nullable)
  */
 export type SessionResponse = AuthResponse | null;
+
+/**
+ * OAuth 제공자
+ */
+export type OAuthProvider = 'google' | 'kakao' | 'naver' | 'apple';
+
+/**
+ * OAuth 콜백 처리 결과
+ */
+export interface OAuthCallbackResult {
+  user: AuthUser;
+  profile: {
+    id: string;
+    email: string;
+    name: string | null;
+    phone: string | null;
+    address: string | null;
+    created_at: string;
+    updated_at: string;
+  };
+  isNewUser: boolean;
+}
