@@ -501,6 +501,7 @@ export class OrderService {
     downloadUrl: string;
     expiresIn: number;
     expiresAt: string;
+    filename: string;
   }> {
     const supabase = await createServerClient();
 
@@ -607,10 +608,14 @@ export class OrderService {
       }
     );
 
+    // 9. 파일명 생성 (상품명 + .zip)
+    const filename = `${product.name.replace(/[^a-zA-Z0-9가-힣\s]/g, '_')}.zip`;
+
     return {
       downloadUrl,
       expiresIn,
       expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+      filename,
     };
   }
 

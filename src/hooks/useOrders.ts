@@ -129,13 +129,19 @@ export function useDownloadDigitalProduct() {
         const error = await response.json();
         throw new Error(error.message || '다운로드 실패');
       }
-      const data: ApiResponse<{ downloadUrl: string; expiresAt: string }> =
+      const data: ApiResponse<{ downloadUrl: string; expiresAt: string; filename?: string }> =
         await response.json();
       return data.data;
     },
     onSuccess: (data) => {
-      // 다운로드 링크로 이동 (새 탭)
-      window.open(data.downloadUrl, '_blank');
+      // 파일 다운로드 (새 탭이 아닌 직접 다운로드)
+      const link = document.createElement('a');
+      link.href = data.downloadUrl;
+      link.download = data.filename || 'voicepack.zip'; // 파일명 지정
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     },
   });
 }
