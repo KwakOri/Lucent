@@ -129,6 +129,42 @@ export function useDownloadDigitalProduct() {
 }
 
 /**
+ * 내 보이스팩 목록 조회 Hook
+ *
+ * GET /api/users/me/voicepacks
+ *
+ * @example
+ * const { data, isLoading } = useMyVoicePacks();
+ */
+export function useMyVoicePacks() {
+  return useQuery({
+    queryKey: ['my-voicepacks'],
+    queryFn: async () => {
+      const response = await fetch('/api/users/me/voicepacks');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || '보이스팩 목록 조회 실패');
+      }
+      const data: ApiResponse<{
+        voicepacks: Array<{
+          itemId: string;
+          orderId: string;
+          orderNumber: string;
+          productId: string;
+          productName: string;
+          purchasedAt: string;
+          downloadCount: number;
+          lastDownloadedAt: string | null;
+          canDownload: boolean;
+        }>;
+        total: number;
+      }> = await response.json();
+      return data.data;
+    },
+  });
+}
+
+/**
  * 내 주문 목록 조회 Hook (편의 함수)
  *
  * @example

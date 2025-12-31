@@ -279,21 +279,31 @@ export class OrderService {
     orderId: string,
     newStatus: OrderStatus,
     adminId: string
-  ): Promise<Order> {
+  ): Promise<{ order: Order; emailSent: boolean; sentTo?: string }> {
     const supabase = await createServerClient();
 
-    // 기존 주문 조회
-    const { data: order } = await supabase
+    // 기존 주문 조회 (주문 항목 포함)
+    const { data: orderData } = await supabase
       .from('orders')
-      .select('status, user_id')
+      .select(`
+        *,
+        items:order_items (
+          *,
+          product:products (
+            id,
+            name,
+            type
+          )
+        )
+      `)
       .eq('id', orderId)
       .single();
 
-    if (!order) {
+    if (!orderData) {
       throw new NotFoundError('주문을 찾을 수 없습니다', 'ORDER_NOT_FOUND');
     }
 
-    const oldStatus = order.status;
+    const oldStatus = orderData.status;
 
     // 상태 업데이트
     const { data, error } = await supabase
@@ -310,13 +320,60 @@ export class OrderService {
     // ✅ 로그 기록
     await LogService.logOrderStatusChanged(
       orderId,
-      order.user_id,
+      orderData.user_id,
       adminId,
       oldStatus,
       newStatus
     );
 
-    return data;
+    let emailSent = false;
+    let sentTo: string | undefined;
+
+    // 입금 확인 시 (PENDING → PAID) 보이스팩이 포함되어 있으면 이메일 발송
+    if (newStatus === 'PAID' && oldStatus === 'PENDING') {
+      const hasVoicePack = (orderData.items as any[]).some(
+        (item: any) => item.product?.type === 'VOICE_PACK'
+      );
+
+      if (hasVoicePack && orderData.buyer_email) {
+        // 구매 완료 이메일 발송
+        const { sendPurchaseCompleteEmail } = await import('@/lib/server/utils/email');
+
+        // 첫 번째 보이스팩 상품명 사용
+        const voicePackItem = (orderData.items as any[]).find(
+          (item: any) => item.product?.type === 'VOICE_PACK'
+        );
+        const productName = voicePackItem?.product?.name || '보이스팩';
+
+        await sendPurchaseCompleteEmail({
+          email: orderData.buyer_email,
+          buyerName: orderData.buyer_name || '고객',
+          productName,
+          orderNumber: orderData.order_number,
+          totalPrice: orderData.total_price,
+        });
+
+        emailSent = true;
+        sentTo = orderData.buyer_email;
+
+        // 이메일 발송 로그
+        await LogService.log({
+          level: 'INFO',
+          category: 'EMAIL',
+          event: 'PURCHASE_COMPLETE_EMAIL_SENT',
+          message: '보이스팩 구매 완료 이메일 발송',
+          user_id: orderData.user_id,
+          metadata: {
+            orderId,
+            orderNumber: orderData.order_number,
+            email: orderData.buyer_email,
+            productName,
+          },
+        });
+      }
+    }
+
+    return { order: data, emailSent, sentTo };
   }
 
   /**
@@ -528,11 +585,14 @@ export class OrderService {
       expiresIn,
     });
 
-    // 7. 다운로드 횟수 증가
+    // 7. 다운로드 횟수 증가 및 마지막 다운로드 시간 업데이트
     const newDownloadCount = (orderItem.download_count || 0) + 1;
     await supabase
       .from('order_items')
-      .update({ download_count: newDownloadCount })
+      .update({
+        download_count: newDownloadCount,
+        last_downloaded_at: new Date().toISOString(),
+      })
       .eq('id', itemId);
 
     // 8. 로그 기록
@@ -603,5 +663,60 @@ export class OrderService {
     }
 
     return data || [];
+  }
+
+  /**
+   * 내 보이스팩 목록 조회 (사용자)
+   */
+  static async getMyVoicePacks(userId: string): Promise<any[]> {
+    const supabase = await createServerClient();
+
+    const { data, error } = await supabase
+      .from('order_items')
+      .select(
+        `
+        id,
+        order_id,
+        download_count,
+        last_downloaded_at,
+        product:products (
+          id,
+          name,
+          type,
+          digital_file_url,
+          sample_audio_url
+        ),
+        order:orders (
+          id,
+          order_number,
+          status,
+          created_at,
+          user_id
+        )
+      `
+      )
+      .eq('order.user_id', userId)
+      .in('order.status', ['PAID', 'DONE'])
+      .eq('product.type', 'VOICE_PACK')
+      .order('order.created_at', { ascending: false });
+
+    if (error) {
+      throw new ApiError('보이스팩 목록 조회 실패', 500, 'VOICEPACKS_FETCH_FAILED');
+    }
+
+    // 데이터 변환
+    const voicepacks = (data || []).map((item: any) => ({
+      itemId: item.id,
+      orderId: item.order_id,
+      orderNumber: item.order?.order_number,
+      productId: item.product?.id,
+      productName: item.product?.name,
+      purchasedAt: item.order?.created_at,
+      downloadCount: item.download_count || 0,
+      lastDownloadedAt: item.last_downloaded_at,
+      canDownload: true, // PAID 또는 DONE 상태만 조회했으므로 항상 true
+    }));
+
+    return voicepacks;
   }
 }

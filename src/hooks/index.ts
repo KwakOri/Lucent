@@ -30,6 +30,7 @@ export {
   useCreateOrder,
   useDownloadDigitalProduct,
   useMyOrders,
+  useMyVoicePacks,
 } from './useOrders';
 
 // Project Hooks

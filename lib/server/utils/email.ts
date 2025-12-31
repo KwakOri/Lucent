@@ -4,7 +4,7 @@
  * 이메일 발송 유틸리티
  * - 회원가입 이메일 인증
  * - 비밀번호 재설정
- * - 주문 알림 (2차 확장)
+ * - 보이스팩 구매 완료 알림
  */
 
 import * as nodemailer from 'nodemailer';
@@ -260,6 +260,202 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
   } catch (error) {
     console.error('[Email] 비밀번호 재설정 이메일 발송 실패:', error);
     throw new Error('이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  }
+}
+
+/**
+ * 보이스팩 구매 완료 이메일 템플릿
+ */
+function getPurchaseCompleteEmailTemplate(params: {
+  buyerName: string;
+  productName: string;
+  orderNumber: string;
+  totalPrice: number;
+}): string {
+  const { buyerName, productName, orderNumber, totalPrice } = params;
+  const mypageUrl = `${process.env.NEXT_PUBLIC_APP_URL}/mypage`;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 30px;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+          }
+          .header h1 {
+            color: #6366f1;
+            margin: 0;
+          }
+          .content {
+            background-color: white;
+            border-radius: 6px;
+            padding: 25px;
+            margin-bottom: 20px;
+          }
+          .order-info {
+            background-color: #f3f4f6;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+          }
+          .order-info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .order-info-row:last-child {
+            border-bottom: none;
+          }
+          .label {
+            font-weight: 600;
+            color: #6b7280;
+          }
+          .value {
+            color: #111827;
+          }
+          .download-steps {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+          }
+          .download-steps ol {
+            margin: 10px 0;
+            padding-left: 20px;
+          }
+          .download-steps li {
+            margin: 8px 0;
+          }
+          .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #6366f1;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            text-align: center;
+            margin: 20px 0;
+          }
+          .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 20px;
+          }
+          .notice {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-size: 14px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Lucent Management</h1>
+            <p>🎁 구매가 완료되었습니다</p>
+          </div>
+
+          <div class="content">
+            <h2>안녕하세요, ${buyerName}님!</h2>
+            <p>주문하신 보이스팩의 결제가 확인되었습니다.<br>
+            마이페이지에서 다운로드하실 수 있습니다.</p>
+
+            <div class="order-info">
+              <div class="order-info-row">
+                <span class="label">📦 상품명</span>
+                <span class="value">${productName}</span>
+              </div>
+              <div class="order-info-row">
+                <span class="label">💰 결제 금액</span>
+                <span class="value">${totalPrice.toLocaleString()}원</span>
+              </div>
+              <div class="order-info-row">
+                <span class="label">📅 주문 번호</span>
+                <span class="value">${orderNumber}</span>
+              </div>
+            </div>
+
+            <div class="download-steps">
+              <strong>🎁 다운로드 방법</strong>
+              <ol>
+                <li>마이페이지 접속</li>
+                <li>주문 내역에서 "다운로드" 버튼 클릭</li>
+                <li>보이스팩 다운로드 완료!</li>
+              </ol>
+            </div>
+
+            <div style="text-align: center;">
+              <a href="${mypageUrl}" class="button">마이페이지로 이동</a>
+            </div>
+
+            <div class="notice">
+              💡 <strong>언제든지 재다운로드 가능합니다</strong><br>
+              마이페이지에서 횟수 제한 없이 다운로드하실 수 있습니다.
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>© 2025 Lucent Management. All rights reserved.</p>
+            <p>이 이메일은 발신 전용입니다. 답장하지 마세요.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+/**
+ * 보이스팩 구매 완료 이메일 발송
+ */
+export async function sendPurchaseCompleteEmail(params: {
+  email: string;
+  buyerName: string;
+  productName: string;
+  orderNumber: string;
+  totalPrice: number;
+}): Promise<void> {
+  try {
+    const { email, buyerName, productName, orderNumber, totalPrice } = params;
+
+    await transporter.sendMail({
+      from: `"Lucent Management" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      to: email,
+      subject: `[Lucent Management] ${productName} 구매가 완료되었습니다`,
+      html: getPurchaseCompleteEmailTemplate({
+        buyerName,
+        productName,
+        orderNumber,
+        totalPrice,
+      }),
+    });
+
+    console.log(`[Email] 구매 완료 이메일 발송 성공: ${email}`);
+  } catch (error) {
+    console.error('[Email] 구매 완료 이메일 발송 실패:', error);
+    // 이메일 발송 실패는 주문 프로세스를 중단시키지 않음
+    // 로그만 남기고 에러를 던지지 않음
   }
 }
 
