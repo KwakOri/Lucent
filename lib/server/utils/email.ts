@@ -24,10 +24,11 @@ const transporter = nodemailer.createTransport({
 // ===== 이메일 템플릿 =====
 
 /**
- * 이메일 인증 템플릿
+ * 이메일 인증 템플릿 (Signup v2 - 코드 + 링크)
  */
-function getVerificationEmailTemplate(token: string): string {
-  const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify?token=${token}`;
+function getVerificationEmailTemplate(params: { code: string; token: string }): string {
+  const { code, token } = params;
+  const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify-email?token=${token}`;
 
   return `
     <!DOCTYPE html>
@@ -62,32 +63,47 @@ function getVerificationEmailTemplate(token: string): string {
             padding: 25px;
             margin-bottom: 20px;
           }
-          .token {
-            font-size: 32px;
+          .code {
+            font-size: 40px;
             font-weight: bold;
             color: #6366f1;
             text-align: center;
-            letter-spacing: 4px;
-            padding: 20px;
+            letter-spacing: 8px;
+            padding: 25px;
             background-color: #f3f4f6;
-            border-radius: 6px;
-            margin: 20px 0;
+            border-radius: 8px;
+            margin: 25px 0;
+            font-family: 'Courier New', monospace;
+          }
+          .divider {
+            text-align: center;
+            margin: 30px 0;
+            color: #9ca3af;
+            font-size: 14px;
           }
           .button {
             display: inline-block;
-            padding: 12px 24px;
+            padding: 14px 28px;
             background-color: #6366f1;
             color: white;
             text-decoration: none;
             border-radius: 6px;
             text-align: center;
-            margin: 20px 0;
+            font-weight: 600;
           }
           .footer {
             text-align: center;
             font-size: 12px;
             color: #6b7280;
             margin-top: 20px;
+          }
+          .notice {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-size: 14px;
           }
         </style>
       </head>
@@ -99,21 +115,23 @@ function getVerificationEmailTemplate(token: string): string {
           </div>
 
           <div class="content">
-            <h2>안녕하세요,</h2>
+            <h2>안녕하세요!</h2>
             <p>Lucent Management에 가입해 주셔서 감사합니다.</p>
-            <p>아래 인증 코드를 입력하여 회원가입을 완료해주세요.</p>
+            <p>아래 <strong>인증 코드</strong>를 입력하여 회원가입을 완료해주세요.</p>
 
-            <div class="token">${token}</div>
+            <div class="code">${code}</div>
 
-            <p>또는 아래 버튼을 클릭하여 인증을 완료할 수 있습니다:</p>
+            <div class="divider">또는</div>
+
+            <p style="text-align: center;">아래 버튼을 클릭하여 인증을 완료할 수 있습니다:</p>
             <div style="text-align: center;">
               <a href="${verificationUrl}" class="button">이메일 인증하기</a>
             </div>
 
-            <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
-              이 인증 코드는 10분간 유효합니다.<br>
+            <div class="notice">
+              ⏱️ 이 인증 코드는 <strong>10분간 유효</strong>합니다.<br>
               본인이 요청하지 않은 경우 이 이메일을 무시하셔도 됩니다.
-            </p>
+            </div>
           </div>
 
           <div class="footer">
@@ -226,18 +244,24 @@ function getPasswordResetEmailTemplate(token: string): string {
 // ===== 이메일 발송 함수 =====
 
 /**
- * 이메일 인증 발송
+ * 이메일 인증 발송 (Signup v2 - 코드 + 링크)
  */
-export async function sendVerificationEmail(email: string, token: string): Promise<void> {
+export async function sendVerificationEmail(params: {
+  email: string;
+  code: string;
+  token: string;
+}): Promise<void> {
   try {
+    const { email, code, token } = params;
+
     await transporter.sendMail({
       from: `"Lucent Management" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
       to: email,
       subject: '[Lucent Management] 이메일 인증',
-      html: getVerificationEmailTemplate(token),
+      html: getVerificationEmailTemplate({ code, token }),
     });
 
-    console.log(`[Email] 인증 이메일 발송 성공: ${email}`);
+    console.log(`[Email] 인증 이메일 발송 성공: ${email} (코드: ${code})`);
   } catch (error) {
     console.error('[Email] 인증 이메일 발송 실패:', error);
     throw new Error('이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.');
