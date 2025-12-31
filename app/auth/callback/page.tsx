@@ -35,11 +35,12 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // 백엔드에 프로필 확인/생성 요청
+        // 백엔드에 프로필 확인/생성 요청 (세션 토큰 포함)
         const response = await fetch('/api/auth/oauth/callback', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${data.session.access_token}`,
           },
         });
 

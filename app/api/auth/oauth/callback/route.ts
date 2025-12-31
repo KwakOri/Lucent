@@ -22,18 +22,34 @@ import { handleApiError } from '@/lib/server/utils/api-response';
  */
 export async function POST(request: NextRequest) {
   try {
-    // 인증 확인
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Authorization 헤더에서 토큰 가져오기
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
 
-    if (!user) {
+    if (!token) {
       return NextResponse.json(
         {
           status: 'error',
-          message: '로그인이 필요합니다',
+          message: '인증 토큰이 필요합니다',
           errorCode: 'UNAUTHORIZED',
+        },
+        { status: 401 }
+      );
+    }
+
+    // 토큰으로 사용자 정보 가져오기
+    const supabase = await createServerClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      return NextResponse.json(
+        {
+          status: 'error',
+          message: '유효하지 않은 인증 토큰입니다',
+          errorCode: 'INVALID_TOKEN',
         },
         { status: 401 }
       );
