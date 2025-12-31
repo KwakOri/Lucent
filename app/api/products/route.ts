@@ -97,6 +97,7 @@ async function createVoicePackProduct(request: NextRequest) {
   const { uploadFile } = await import('@/lib/server/utils/r2');
   const { v4: uuidv4 } = await import('uuid');
   const { ApiError } = await import('@/lib/server/utils/errors');
+  const { LogService } = await import('@/lib/server/services/log.service');
 
   try {
     const formData = await request.formData();
@@ -154,10 +155,14 @@ async function createVoicePackProduct(request: NextRequest) {
       // 케이스 3: 자동 샘플 생성
       console.log('[Product] 샘플 파일 자동 생성 시작...');
 
+      const startTime = Date.now();
+
       const sampleBuffer = await SampleGenerationService.generateSample(
         mainFileBuffer,
         mainFile.name
       );
+
+      const processingTime = Date.now() - startTime;
 
       sampleFileUrl = await uploadFile({
         key: `voicepacks/${productId}/sample.mp3`,
@@ -167,6 +172,21 @@ async function createVoicePackProduct(request: NextRequest) {
 
       hasCustomSample = false;
       console.log('[Product] 샘플 파일 자동 생성 완료');
+
+      // 샘플 생성 로그 기록
+      await LogService.log({
+        eventType: 'SAMPLE_GENERATED',
+        userId: 'admin-id', // TODO: 실제 관리자 ID
+        details: {
+          productId,
+          productName: name,
+          mainFileName: mainFile.name,
+          mainFileSize: mainFileBuffer.length,
+          sampleSize: sampleBuffer.length,
+          processingTimeMs: processingTime,
+          hasCustomSample: false,
+        },
+      });
     }
 
     // 3. DB에 상품 저장
@@ -188,9 +208,36 @@ async function createVoicePackProduct(request: NextRequest) {
 
     console.log('[Product] 상품 생성 완료:', product.id);
 
+    // 상품 생성 성공 로그
+    await LogService.log({
+      eventType: 'PRODUCT_CREATED',
+      userId: 'admin-id', // TODO: 실제 관리자 ID
+      details: {
+        productId: product.id,
+        productName: product.name,
+        productType: 'VOICE_PACK',
+        price: product.price,
+        hasCustomSample,
+      },
+    });
+
     return successResponse(product, 201);
   } catch (error) {
     console.error('[Product] 보이스팩 생성 실패:', error);
+
+    // 실패 로그 기록
+    await LogService.log({
+      eventType: 'PRODUCT_CREATION_FAILED',
+      userId: 'admin-id', // TODO: 실제 관리자 ID
+      details: {
+        error: error instanceof Error ? error.message : String(error),
+        formData: {
+          name: formData?.get('name'),
+          artistId: formData?.get('artistId'),
+        },
+      },
+    });
+
     throw error;
   }
 }
