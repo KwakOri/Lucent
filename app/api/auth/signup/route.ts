@@ -64,7 +64,8 @@ export async function POST(request: NextRequest) {
       email: verification.email,
       name: null,
       phone: null,
-      address: null,
+      main_address: null,
+      detail_address: null,
     });
 
     if (profileError) {
