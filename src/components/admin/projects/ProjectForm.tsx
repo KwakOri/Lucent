@@ -4,32 +4,28 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ImageUpload } from '@/src/components/admin/ImageUpload';
-
-interface Project {
-  id: string;
-  name: string;
-  slug: string;
-  cover_image_id: string | null;
-  cover_image?: {
-    id: string;
-    public_url: string;
-    cdn_url?: string | null;
-    alt_text?: string | null;
-  } | null;
-  description?: string | null;
-  release_date?: string | null;
-  external_links?: Record<string, unknown> | null;
-  order_index?: number | null;
-  is_active: boolean;
-}
+import type { ProjectWithDetails } from '@/lib/server/services/project.service';
 
 interface ProjectFormProps {
-  project?: Project;
+  project?: ProjectWithDetails;
 }
 
 export function ProjectForm({ project }: ProjectFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Helper to safely access external_links
+  const getExternalLinks = () => {
+    if (!project?.external_links || typeof project.external_links !== 'object') {
+      return { youtube: '', spotify: '', other: '' };
+    }
+    const links = project.external_links as Record<string, any>;
+    return {
+      youtube: (links.youtube as string) || '',
+      spotify: (links.spotify as string) || '',
+      other: (links.other as string) || '',
+    };
+  };
 
   const [formData, setFormData] = useState({
     name: project?.name || '',
@@ -37,11 +33,7 @@ export function ProjectForm({ project }: ProjectFormProps) {
     cover_image_id: project?.cover_image_id || '',
     description: project?.description || '',
     release_date: project?.release_date || '',
-    external_links: {
-      youtube: project?.external_links?.youtube || '',
-      spotify: project?.external_links?.spotify || '',
-      other: project?.external_links?.other || '',
-    },
+    external_links: getExternalLinks(),
     is_active: project?.is_active ?? true,
   });
 

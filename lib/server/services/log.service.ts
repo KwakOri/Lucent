@@ -48,7 +48,7 @@ interface GetLogsOptions {
   search?: string;
 }
 
-interface LogWithRelations {
+export interface LogWithRelations {
   id: string;
   event_type: string;
   event_category: string;

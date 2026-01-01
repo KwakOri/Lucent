@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loading } from '@/components/ui/loading';
 
-export default function SignupCompletePage() {
+function SignupCompleteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -101,5 +101,17 @@ export default function SignupCompletePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupCompletePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <Loading size="lg" />
+      </div>
+    }>
+      <SignupCompleteContent />
+    </Suspense>
   );
 }

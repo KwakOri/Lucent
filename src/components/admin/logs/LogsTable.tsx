@@ -1,35 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-
-interface Log {
-  id: string;
-  event_category: string;
-  event_type: string;
-  severity: string;
-  user_id: string | null;
-  admin_id: string | null;
-  resource_type: string | null;
-  resource_id: string | null;
-  message: string;
-  ip_address: string | null;
-  user_agent: string | null;
-  request_path: string | null;
-  metadata: Record<string, unknown> | null;
-  changes: Record<string, unknown> | null;
-  created_at: string;
-  user?: {
-    email: string;
-    name: string | null;
-  } | null;
-  admin?: {
-    email: string;
-    name: string | null;
-  } | null;
-}
+import type { LogWithRelations } from '@/lib/server/services/log.service';
 
 interface LogsTableProps {
-  logs: Log[];
+  logs: LogWithRelations[];
 }
 
 const categoryLabels: Record<string, string> = {

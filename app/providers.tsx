@@ -1,13 +1,14 @@
 /**
- * React Query Provider
+ * React Query Provider & Modal Provider
  *
- * Next.js 15 App Router용 QueryClient Provider
+ * Next.js 15 App Router용 QueryClient Provider 및 ModalProvider
  */
 
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { ModalProvider } from '@/components/modal';
 import { useState } from 'react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -35,11 +36,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
-      {/* 개발 환경에서만 DevTools 표시 */}
-      {process.env.NODE_ENV === 'development' && (
-        <ReactQueryDevtools initialIsOpen={false} />
-      )}
+      <ModalProvider>
+        {children}
+        {/* 개발 환경에서만 DevTools 표시 */}
+        {process.env.NODE_ENV === 'development' && (
+          <ReactQueryDevtools initialIsOpen={false} />
+        )}
+      </ModalProvider>
     </QueryClientProvider>
   );
 }

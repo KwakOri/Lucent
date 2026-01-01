@@ -13,10 +13,11 @@ import { Tables } from '@/types/database';
 
 type Project = Tables<'projects'>;
 
-interface ProjectWithDetails extends Project {
+export interface ProjectWithDetails extends Project {
   cover_image?: {
     id: string;
     public_url: string;
+    cdn_url?: string | null;
     alt_text: string | null;
   };
   artists?: Array<{

@@ -164,6 +164,8 @@ Modal은 CVA를 통해 variant 기반으로 관리한다.
 
 ## 10. 문서 참조 관계
 
+### UI 관련 문서
+
 - `ui/index.md`
 
   - UI 철학 및 CVA 시스템 정책
@@ -172,12 +174,44 @@ Modal은 CVA를 통해 variant 기반으로 관리한다.
 
   - CTA 구성 및 intent 규칙
 
+### 기능 구현 문서 (아키텍처)
+
+본 문서는 **UI/UX 정책**을 다룹니다. 실제 구현을 위한 기능적 스펙은 아래 문서를 참조하세요:
+
+- `/specs/components/modal/index.md`
+
+  - 전체 아키텍처 개요 (ContextAPI, useModal Hook, Promise 기반 비동기 처리)
+
+- `/specs/components/modal/context.md`
+
+  - ModalContext 및 ModalProvider 구현 스펙
+
+- `/specs/components/modal/hook.md`
+
+  - useModal Hook 구현 스펙 (라이프사이클 관리, 렌더링 로직)
+
+- `/specs/components/modal/types.md`
+
+  - TypeScript 타입 정의 (Modal, ModalProps, ModalOptions 등)
+
+- `/specs/components/modal/layout.md`
+
+  - 레이아웃 컴포넌트 구현 스펙 (Overlay, ModalContainer, Header, Content, Footer)
+
 ---
 
 ### 요약
 
+**UI/UX 정책** (본 문서):
 - Mobile First 기반 Modal 설계
 - 타입 명확 분리 (Alert / Confirm / Dialog / BottomSheet)
 - CVA 기반 variant 관리
 - 접근성과 UX를 기본 요건으로 포함
 - 상태는 외부에서 관리
+
+**기능 구현** (`/specs/components/modal/`):
+- ContextAPI 기반 전역 상태 관리
+- useModal Hook을 통한 로직 캡슐화
+- Promise 기반 비동기 처리
+- 자동 cleanup (페이지 이동 시)
+- 모듈화된 레이아웃 컴포넌트
