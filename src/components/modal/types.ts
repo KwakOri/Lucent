@@ -11,12 +11,12 @@ export interface Modal<T = any> {
   component: ComponentType<ModalProps<T>>;
   options?: ModalOptions;
   resolve: (value: T) => void;
-  reject: (reason?: any) => void;
+  reject: (reason?: unknown) => void;
 }
 
 export interface ModalProps<T = void> {
   onSubmit: (value: T) => void;
-  onAbort: (reason?: any) => void;
+  onAbort: (reason?: unknown) => void;
 }
 
 export interface ModalOptions {

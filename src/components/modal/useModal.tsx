@@ -109,12 +109,12 @@ export function useModal(): UseModalReturn {
 }
 
 // ModalRenderer 내부 컴포넌트
-function ModalRenderer({ modal }: { modal: Modal }) {
+function ModalRenderer<T = unknown>({ modal }: { modal: Modal<T> }) {
   const { id, component: Component, options, resolve, reject } = modal;
   const context = useModalContext();
 
   const handleSubmit = useCallback(
-    (value: any) => {
+    (value: T) => {
       resolve(value);
       context.closeModal(id);
     },
@@ -122,8 +122,8 @@ function ModalRenderer({ modal }: { modal: Modal }) {
   );
 
   const handleAbort = useCallback(
-    (reason?: any) => {
-      reject(reason || 'aborted');
+    (reason?: unknown) => {
+      reject(reason ?? 'aborted');
       context.closeModal(id);
     },
     [reject, context, id]
