@@ -9,6 +9,7 @@ import type { Modal, ModalOptions, ModalProps } from './types';
 
 interface UseModalReturn {
   openModal: <T = void>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     component: React.ComponentType<any>,
     options?: ModalOptions
   ) => Promise<T>;
@@ -29,6 +30,7 @@ export function useModal(): UseModalReturn {
   // openModal 래핑
   const openModal = useCallback(
     async <T = void>(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       component: React.ComponentType<any>,
       options?: ModalOptions
     ): Promise<T> => {

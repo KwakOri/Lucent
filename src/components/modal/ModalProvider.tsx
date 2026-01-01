@@ -17,6 +17,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
 
   const openModal = useCallback(
     <T = void>(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       component: React.ComponentType<any>,
       options?: ModalOptions
     ): Promise<T> => {

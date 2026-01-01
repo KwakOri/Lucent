@@ -6,8 +6,10 @@ import type { ReactNode, ComponentType } from 'react';
 // 핵심 타입
 // ========================================
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface Modal<T = any> {
   id: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   component: ComponentType<any>;
   options?: ModalOptions;
   resolve: (value: T) => void;
@@ -31,12 +33,14 @@ export interface ModalOptions {
   disableAnimation?: boolean;
   zIndex?: number;
   className?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
 export interface ModalContextValue {
   modals: Modal[];
   openModal: <T = void>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     component: ComponentType<any>,
     options?: ModalOptions
   ) => Promise<T>;
@@ -86,6 +90,7 @@ export interface FooterProps {
 // 유틸리티 타입
 // ========================================
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ModalComponent<T = void> = ComponentType<any>;
 
 export type OpenModalFunction = <T = void>(
