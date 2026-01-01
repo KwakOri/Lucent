@@ -30,7 +30,11 @@
       "Bash(tree:*)",
       "Bash(node -e:*)",
       "WebSearch",
-      "Bash(timeout 10 npm run dev)"
+      "Bash(timeout 10 npm run dev)",
+      "WebFetch(domain:heeheehoho.tistory.com)",
+      "WebFetch(domain:www.highjoon-dev.com)",
+      "Bash(npm run lint:*)",
+      "Bash(tee:*)"
     ]
   }
 }
