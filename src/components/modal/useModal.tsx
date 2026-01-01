@@ -19,6 +19,12 @@ interface UseModalReturn {
 export function useModal(): UseModalReturn {
   const context = useModalContext();
   const modalIdsRef = useRef<Set<string>>(new Set());
+  const closeModalRef = useRef(context.closeModal);
+
+  // closeModal 함수를 항상 최신으로 유지
+  useEffect(() => {
+    closeModalRef.current = context.closeModal;
+  }, [context.closeModal]);
 
   // openModal 래핑
   const openModal = useCallback(
@@ -60,16 +66,17 @@ export function useModal(): UseModalReturn {
     [context]
   );
 
-  // cleanup
+  // cleanup (컴포넌트 언마운트 시에만 실행)
   useEffect(() => {
     return () => {
       // cleanup: 모든 모달 닫기
       modalIdsRef.current.forEach((id) => {
-        context.closeModal(id);
+        closeModalRef.current(id);
       });
       modalIdsRef.current.clear();
     };
-  }, [context]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 빈 배열: 마운트/언마운트 시에만 실행
 
   // renderModal
   const renderModal = useCallback(() => {
