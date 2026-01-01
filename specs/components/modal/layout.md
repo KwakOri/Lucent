@@ -57,6 +57,7 @@ interface OverlayProps {
   id: string;
   onClose: () => void;
   disableBackdropClick?: boolean;
+  disableEscapeKey?: boolean;
   zIndex?: number;
   children: React.ReactNode;
 }
@@ -80,14 +81,14 @@ const handleBackdropClick = (e: React.MouseEvent) => {
 ```tsx
 useEffect(() => {
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' && !disableEscapeKey) {
       onClose();
     }
   };
 
   document.addEventListener('keydown', handleKeyDown);
   return () => document.removeEventListener('keydown', handleKeyDown);
-}, [onClose]);
+}, [onClose, disableEscapeKey]);
 ```
 
 #### 3. 스크롤 잠금
@@ -156,6 +157,7 @@ export function Overlay({
   id,
   onClose,
   disableBackdropClick = false,
+  disableEscapeKey = false,
   zIndex = 1000,
   children,
 }: OverlayProps) {
@@ -169,14 +171,14 @@ export function Overlay({
   // ESC 키 처리
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !disableEscapeKey) {
         onClose();
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, disableEscapeKey]);
 
   // 스크롤 잠금
   useEffect(() => {
@@ -552,7 +554,7 @@ export function ConfirmModal({
   onAbort,
 }: ModalProps<'confirm' | 'cancel'> & { title: string; message: string }) {
   return (
-    <Overlay id="confirm-modal" onClose={onAbort} disableBackdropClick>
+    <Overlay id="confirm-modal" onClose={onAbort} disableBackdropClick disableEscapeKey>
       <ModalContainer size="sm" tone="danger">
         <Header title={title} showCloseButton={false} />
         <Content>
@@ -571,6 +573,130 @@ export function ConfirmModal({
   );
 }
 ```
+
+---
+
+## 📝 폼 통합 패턴
+
+Modal 내부에서 폼을 사용하는 경우, 다음 패턴을 따릅니다.
+
+### 기본 패턴
+
+```tsx
+import { Overlay, ModalContainer, Header, Content, Footer } from '@/components/modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import type { ModalProps } from '@/components/modal/types';
+
+interface FormData {
+  username: string;
+  email: string;
+}
+
+export function FormModal({ onSubmit, onAbort }: ModalProps<FormData>) {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      username: formData.get('username') as string,
+      email: formData.get('email') as string,
+    };
+    onSubmit(data);
+  };
+
+  return (
+    <Overlay id="form-modal" onClose={onAbort}>
+      <ModalContainer>
+        <form onSubmit={handleSubmit}>
+          <Header title="사용자 정보 입력" onClose={onAbort} />
+          <Content>
+            <div className="space-y-4">
+              <Input name="username" label="이름" required />
+              <Input name="email" type="email" label="이메일" required />
+            </div>
+          </Content>
+          <Footer>
+            <Button type="button" variant="secondary" onClick={onAbort}>
+              취소
+            </Button>
+            <Button type="submit">제출</Button>
+          </Footer>
+        </form>
+      </ModalContainer>
+    </Overlay>
+  );
+}
+```
+
+### React Hook Form 사용
+
+```tsx
+import { useForm } from 'react-hook-form';
+
+export function FormModalWithRHF({ onSubmit, onAbort }: ModalProps<FormData>) {
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>();
+
+  const onFormSubmit = (data: FormData) => {
+    onSubmit(data);
+  };
+
+  return (
+    <Overlay id="form-modal" onClose={onAbort}>
+      <ModalContainer>
+        <form onSubmit={handleSubmit(onFormSubmit)}>
+          <Header title="사용자 정보 입력" onClose={onAbort} />
+          <Content>
+            <div className="space-y-4">
+              <Input
+                {...register('username', { required: '이름을 입력하세요' })}
+                label="이름"
+                error={errors.username?.message}
+              />
+              <Input
+                {...register('email', {
+                  required: '이메일을 입력하세요',
+                  pattern: {
+                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                    message: '유효한 이메일을 입력하세요',
+                  },
+                })}
+                label="이메일"
+                type="email"
+                error={errors.email?.message}
+              />
+            </div>
+          </Content>
+          <Footer>
+            <Button type="button" variant="secondary" onClick={onAbort}>
+              취소
+            </Button>
+            <Button type="submit">제출</Button>
+          </Footer>
+        </form>
+      </ModalContainer>
+    </Overlay>
+  );
+}
+```
+
+### 주의사항
+
+1. **`<form>` 태그 위치**
+   - `<form>` 태그는 **ModalContainer 내부**에 위치해야 합니다
+   - Header, Content, Footer를 모두 감싸야 합니다
+
+2. **버튼 타입**
+   - 제출 버튼: `type="submit"` (폼 제출 트리거)
+   - 취소 버튼: `type="button"` (폼 제출하지 않음)
+   - 기타 버튼: `type="button"` (기본값)
+
+3. **Enter 키 동작**
+   - `type="submit"` 버튼이 있으면 Enter 키로 폼 제출 가능
+   - `onSubmit` 핸들러에서 `e.preventDefault()` 필수
+
+4. **폼 유효성 검사**
+   - HTML5 기본 검증: `required`, `type="email"` 등 사용
+   - 라이브러리 사용: React Hook Form, Formik 등
 
 ---
 

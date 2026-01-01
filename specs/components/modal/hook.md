@@ -97,16 +97,13 @@ const openModal = useCallback(
     component: React.ComponentType<ModalProps<T>>,
     options?: ModalOptions
   ): Promise<T> => {
-    // Context의 openModal 호출
-    const promise = context.openModal(component, options);
-
-    // ID 추출 (Promise에 ID를 첨부하는 방식으로 구현)
-    // 또는 openModal 함수가 { id, promise }를 반환하도록 수정
-    const id = extractIdFromPromise(promise); // 구현 필요
+    // 고유 ID 생성
+    const id = crypto.randomUUID();
     modalIdsRef.current.add(id);
 
     try {
-      const result = await promise;
+      // ID를 options에 포함하여 Context의 openModal 호출
+      const result = await context.openModal(component, { ...options, id });
       return result;
     } finally {
       // 모달이 닫히면 ID 제거
@@ -117,7 +114,9 @@ const openModal = useCallback(
 );
 ```
 
-**개선 방안**: Context의 `openModal`이 `{ id, promise }`를 반환하도록 수정
+**동작 방식**:
+- useModal Hook에서 ID를 생성하여 options에 포함
+- Context는 options에 ID가 있으면 사용하고, 없으면 생성 (폴백)
 
 ### 4. closeModal 래핑
 
@@ -261,6 +260,7 @@ function ModalRenderer({ modal }: { modal: Modal }) {
       id={id}
       onClose={() => handleAbort('backdrop')}
       disableBackdropClick={options?.disableBackdropClick}
+      disableEscapeKey={options?.disableEscapeKey}
     >
       <ModalContainer>
         <Component
@@ -275,8 +275,8 @@ function ModalRenderer({ modal }: { modal: Modal }) {
 ```
 
 **주의**:
-- `onSubmit`, `onAbort`는 `cloneElement` 또는 직접 props 전달로 주입
-- 모달 컴포넌트는 이 props를 받아 사용
+- `onSubmit`, `onAbort`는 직접 props로 전달됩니다
+- 모달 컴포넌트는 `ModalProps<T>`를 확장하여 이 props를 받아 사용합니다
 
 ---
 
@@ -355,13 +355,22 @@ export function useModal(): UseModalReturn {
   const renderModal = useCallback(() => {
     if (context.modals.length === 0) return null;
 
+    // SSR 체크: 서버 사이드에서는 렌더링하지 않음
+    if (typeof window === 'undefined') return null;
+
+    const modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) {
+      console.warn('modal-root element not found');
+      return null;
+    }
+
     return createPortal(
       <>
         {context.modals.map((modal) => (
           <ModalRenderer key={modal.id} modal={modal} />
         ))}
       </>,
-      document.getElementById('modal-root')!
+      modalRoot
     );
   }, [context.modals]);
 
@@ -398,6 +407,7 @@ function ModalRenderer({ modal }: { modal: Modal }) {
       id={id}
       onClose={() => handleAbort('backdrop')}
       disableBackdropClick={options?.disableBackdropClick}
+      disableEscapeKey={options?.disableEscapeKey}
     >
       <ModalContainer>
         <Component
@@ -469,6 +479,221 @@ const modalId = await openModal(MyModal);
 // 나중에 특정 모달만 닫기
 closeModal(modalId);
 ```
+
+---
+
+## 🎯 사용 패턴 및 최적화
+
+### 패턴 1: 최상위에서 한 번만 호출 (권장)
+
+단일 모달 또는 소수의 모달을 사용하는 경우, 최상위 컴포넌트에서 한 번만 호출하여 사용합니다:
+
+```tsx
+'use client';
+
+import { useModal } from '@/hooks/useModal';
+import { ConfirmModal } from '@/components/modal';
+
+export default function MyPage() {
+  const { openModal, renderModal } = useModal();
+
+  const handleDelete = async () => {
+    const result = await openModal(ConfirmModal, {
+      title: '삭제 확인',
+      message: '정말 삭제하시겠습니까?',
+    });
+
+    if (result === 'confirm') {
+      // 삭제 로직
+    }
+  };
+
+  const handleUpdate = async () => {
+    const result = await openModal(ConfirmModal, {
+      title: '수정 확인',
+      message: '정말 수정하시겠습니까?',
+    });
+
+    if (result === 'confirm') {
+      // 수정 로직
+    }
+  };
+
+  return (
+    <div>
+      <button onClick={handleDelete}>삭제</button>
+      <button onClick={handleUpdate}>수정</button>
+      {renderModal()}
+    </div>
+  );
+}
+```
+
+**장점**:
+- 하나의 `renderModal()`로 모든 모달 관리
+- 불필요한 포털 중복 생성 방지
+- 간결한 코드 유지
+
+---
+
+### 패턴 2: 여러 모달 독립 관리
+
+여러 종류의 모달을 **독립적으로** 관리해야 하는 경우, 각 모달마다 별도의 `useModal` 호출을 권장합니다:
+
+```tsx
+'use client';
+
+import { useModal } from '@/hooks/useModal';
+import { ConfirmModal, AlertModal, FormModal } from '@/components/modal';
+
+export default function MyPage() {
+  const confirmModal = useModal();
+  const alertModal = useModal();
+  const formModal = useModal();
+
+  const handleDelete = async () => {
+    const result = await confirmModal.openModal(ConfirmModal, {
+      title: '삭제 확인',
+      message: '정말 삭제하시겠습니까?',
+    });
+
+    if (result === 'confirm') {
+      // 삭제 성공 후 알림
+      await alertModal.openModal(AlertModal, {
+        title: '삭제 완료',
+        message: '성공적으로 삭제되었습니다.',
+      });
+    }
+  };
+
+  return (
+    <div>
+      <button onClick={handleDelete}>삭제</button>
+      {confirmModal.renderModal()}
+      {alertModal.renderModal()}
+      {formModal.renderModal()}
+    </div>
+  );
+}
+```
+
+**장점**:
+- 각 모달의 라이프사이클을 독립적으로 관리
+- 모달 타입별로 분리된 상태 관리
+- 여러 모달을 순차적으로 열 때 유용
+
+**사용 시나리오**:
+- 확인 → 성공 알림 → 추가 입력 등 여러 단계의 모달 흐름
+- 서로 다른 컨텍스트에서 사용되는 모달들
+
+---
+
+### 패턴 3: 하위 컴포넌트에 전달
+
+최상위 컴포넌트에서 `useModal`을 호출하고, 하위 컴포넌트에 `openModal` 함수만 전달할 수 있습니다:
+
+```tsx
+'use client';
+
+import { useModal } from '@/hooks/useModal';
+import { DeleteButton } from './DeleteButton';
+
+export default function MyPage() {
+  const { openModal, renderModal } = useModal();
+
+  return (
+    <div>
+      <DeleteButton openModal={openModal} />
+      {renderModal()}
+    </div>
+  );
+}
+```
+
+```tsx
+// DeleteButton.tsx
+import { ConfirmModal } from '@/components/modal';
+import type { OpenModalFunction } from '@/components/modal/types';
+
+interface DeleteButtonProps {
+  openModal: OpenModalFunction;
+}
+
+export function DeleteButton({ openModal }: DeleteButtonProps) {
+  const handleClick = async () => {
+    const result = await openModal(ConfirmModal, {
+      title: '삭제 확인',
+      message: '정말 삭제하시겠습니까?',
+    });
+
+    if (result === 'confirm') {
+      // 삭제 로직
+    }
+  };
+
+  return <button onClick={handleClick}>삭제</button>;
+}
+```
+
+**장점**:
+- 하위 컴포넌트에서 `useModal` 호출하지 않아도 됨
+- 포털 중복 생성 방지
+- Props Drilling 최소화 (필요한 함수만 전달)
+
+---
+
+### ❌ 안티패턴: 여러 컴포넌트에서 각각 호출
+
+**비추천**: 여러 컴포넌트에서 각각 `useModal`을 호출하고 각자 `renderModal()` 호출
+
+```tsx
+// ❌ 나쁜 예시
+function ParentComponent() {
+  const { openModal, renderModal } = useModal();
+
+  return (
+    <div>
+      <ChildComponent />
+      {renderModal()} {/* 부모에서 렌더링 */}
+    </div>
+  );
+}
+
+function ChildComponent() {
+  const { openModal, renderModal } = useModal();
+
+  return (
+    <div>
+      <button onClick={() => openModal(MyModal)}>모달 열기</button>
+      {renderModal()} {/* 자식에서도 렌더링 */}
+    </div>
+  );
+}
+```
+
+**문제점**:
+- `modal-root`에 중복된 포털이 생성됨
+- 불필요한 렌더링 발생
+- 예상치 못한 z-index 충돌 가능
+
+**해결책**: 패턴 1 또는 패턴 3 사용
+
+---
+
+### 💡 권장 사항
+
+1. **기본적으로 패턴 1 사용**
+   - 대부분의 경우 최상위에서 한 번만 호출하면 충분
+
+2. **복잡한 모달 흐름이 있다면 패턴 2 사용**
+   - 여러 단계의 모달을 순차적으로 열 때
+   - 각 모달의 라이프사이클을 독립적으로 관리해야 할 때
+
+3. **하위 컴포넌트에서 모달이 필요하다면 패턴 3 사용**
+   - 함수만 전달하여 불필요한 Hook 호출 방지
+
+4. **여러 페이지에서 공통으로 사용한다면 Context 고려**
+   - 전역 모달 관리가 필요한 경우 별도의 ModalContext 생성 고려
 
 ---
 

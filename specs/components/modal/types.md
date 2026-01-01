@@ -194,6 +194,9 @@ interface OverlayProps {
   // 배경 클릭으로 닫기 비활성화
   disableBackdropClick?: boolean;
 
+  // ESC 키로 닫기 비활성화
+  disableEscapeKey?: boolean;
+
   // z-index
   zIndex?: number;
 
@@ -413,6 +416,7 @@ export interface OverlayProps {
   id: string;
   onClose: () => void;
   disableBackdropClick?: boolean;
+  disableEscapeKey?: boolean;
   zIndex?: number;
   children: ReactNode;
 }

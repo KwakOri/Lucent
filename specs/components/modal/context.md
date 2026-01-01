@@ -104,7 +104,8 @@ const openModal = useCallback(
     options?: ModalOptions
   ): Promise<T> => {
     return new Promise<T>((resolve, reject) => {
-      const id = crypto.randomUUID();
+      // options에서 id를 가져오거나, 없으면 생성
+      const id = options?.id || crypto.randomUUID();
 
       const newModal: Modal = {
         id,
@@ -275,7 +276,8 @@ export function ModalProvider({ children }: { children: ReactNode }) {
       options?: ModalOptions
     ): Promise<T> => {
       return new Promise<T>((resolve, reject) => {
-        const id = crypto.randomUUID();
+        // options에서 id를 가져오거나, 없으면 생성
+        const id = options?.id || crypto.randomUUID();
 
         const newModal: Modal = {
           id,
