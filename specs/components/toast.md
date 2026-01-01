@@ -1,9 +1,9 @@
 # Toast Notification System 구현 계획
 
-전역 모달과 동일한 패턴으로 구현하는 토스트 알림 시스템
+전역 관리 토스트 알림 시스템 - 모달보다 간단한 구조
 
 > **작성일**: 2025-01-02
-> **참고**: 기존 Modal 시스템 (`src/components/modal/`)
+> **참고**: 기존 Modal 시스템 (`src/components/modal/`) 패턴 일부 차용
 > **목적**: 사용자에게 간단한 피드백을 제공하는 비침투적 알림
 
 ---
@@ -15,7 +15,7 @@
 - **전역 관리**: Context API를 사용한 중앙 집중식 상태 관리
 - **Portal 렌더링**: React Portal로 DOM 트리 최상위에 렌더링
 - **접근성 우선**: WCAG 2.1 AA 준수 (ARIA 속성, 키보드 네비게이션)
-- **모달과 유사한 API**: 기존 `useModal()` 패턴과 동일한 `useToast()` API
+- **단순한 구조**: 모달과 달리 제네릭 타입, Promise 불필요 (문자열 메시지만 표시)
 
 ### 1.2 기존 Modal 시스템과의 비교
 
@@ -24,9 +24,12 @@
 | **렌더링** | Portal (`#modal-root`) | Portal (`#toast-root`) |
 | **상태 관리** | ModalProvider + Context | ToastProvider + Context |
 | **Hook** | `useModal()` | `useToast()` |
+| **반환 타입** | `Promise<T>` (결과 대기) | `string` (ID만 반환) |
+| **제네릭 타입** | 필요 (사용자 입력) | 불필요 (문자열만) |
 | **사용자 액션** | 필수 (확인/취소) | 선택적 (자동 닫힘) |
 | **포커스** | 모달로 이동 | 포커스 이동 없음 |
 | **다중 표시** | 스택 (새 모달이 위) | 큐 (새 토스트가 아래) |
+| **복잡도** | 높음 (resolve/reject) | 낮음 (단순 추가/제거) |
 
 ---
 
@@ -198,6 +201,12 @@ export interface ToastContextValue {
 
 **역할**: Context로 토스트 상태 관리
 
+**Modal과의 차이점**:
+- ❌ Promise 반환 없음 (단순히 ID만 반환)
+- ❌ resolve/reject 없음 (사용자 입력 대기 불필요)
+- ❌ 제네릭 타입 없음 (문자열 메시지만 처리)
+- ✅ 단순한 배열 추가/제거만 수행
+
 ```typescript
 'use client';
 
@@ -209,6 +218,7 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+  // Modal과 달리 Promise를 반환하지 않고 ID만 반환
   const addToast = useCallback((message: string, options?: ToastOptions): string => {
     const id = crypto.randomUUID();
     const newToast: Toast = {
@@ -227,7 +237,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       return newToasts.slice(-3);
     });
 
-    return id;
+    return id; // 단순히 ID만 반환
   }, []);
 
   const removeToast = useCallback((id: string) => {
@@ -699,7 +709,25 @@ showToast('새로운 업데이트가 있습니다', { type: 'info', position: 't
 
 따라서 별도 시스템으로 관리하는 것이 맞습니다.
 
-### Q3. 토스트가 너무 많으면 어떻게 되나요?
+### Q3. 왜 Modal처럼 제네릭 타입과 Promise를 안 쓰나요?
+
+**A**: Toast는 **단순히 메시지만 표시**하는 컴포넌트입니다:
+- **Modal**: 사용자 입력을 받고 결과를 반환 (`Promise<T>`)
+- **Toast**: 일방적으로 알림만 표시 (반환값 불필요)
+
+따라서 제네릭 타입, Promise, resolve/reject 등의 복잡한 구조가 필요 없습니다. 단순히 `showToast()`를 호출하면 ID만 반환하고, 필요시 그 ID로 수동 닫기만 가능하면 됩니다.
+
+**코드 비교**:
+```typescript
+// Modal (복잡) - 사용자 입력 대기
+const result = await openModal<boolean>(ConfirmModal);
+if (result) { /* ... */ }
+
+// Toast (간단) - 단순 알림
+showToast('저장되었습니다', { type: 'success' });
+```
+
+### Q4. 토스트가 너무 많으면 어떻게 되나요?
 
 **A**: **최대 3개 제한**을 두어, 오래된 토스트를 자동으로 제거합니다. UX 연구에 따르면 3개 이상의 토스트는 사용자에게 혼란을 줍니다.
 
