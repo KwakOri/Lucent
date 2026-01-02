@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loading } from '@/components/ui/loading';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Download, LogOut, Package } from 'lucide-react';
-import { useSession, useMyOrders, useLogout, useDownloadDigitalProduct } from '@/hooks';
+import { useSession, useMyOrders, useLogout, useDownloadDigitalProduct, type OrderWithItems } from '@/hooks';
 import { useToast } from '@/src/components/toast';
 import type { Enums } from '@/types';
 
@@ -211,8 +211,8 @@ export default function MyPage() {
         </section>
 
         {/* Digital Products Section */}
-        {orders.some((order:any) =>
-          order.items?.some((item:any) => item.product_type === 'VOICE_PACK')
+        {orders.some((order) =>
+          order.items?.some((item) => item.product_type === 'VOICE_PACK')
         ) && (
           <section>
             <h2 className="text-2xl font-bold text-text-primary mb-6">
@@ -222,11 +222,11 @@ export default function MyPage() {
             <div className="bg-white rounded-xl border border-neutral-200 p-6">
               <div className="space-y-4">
                 {orders
-                  .filter((order:any) => order.status !== 'PENDING')
-                  .flatMap((order:any) =>
+                  .filter((order) => order.status !== 'PENDING')
+                  .flatMap((order) =>
                     order.items
-                      ?.filter((item:any) => item.product_type === 'VOICE_PACK')
-                      .map((item:any) => (
+                      ?.filter((item) => item.product_type === 'VOICE_PACK')
+                      .map((item) => (
                         <div
                           key={`${order.id}-${item.id}`}
                           className="flex items-center justify-between p-4 rounded-lg bg-neutral-50"
