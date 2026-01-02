@@ -6,6 +6,7 @@
 
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   AuthSession,
@@ -23,6 +24,8 @@ import { useRouter } from 'next/navigation';
  * const { session, user, isLoading, isAuthenticated } = useSession();
  */
 export function useSession() {
+  const queryClient = useQueryClient();
+
   const query = useQuery({
     queryKey: ['auth', 'session'],
     queryFn: async () => {
@@ -46,6 +49,31 @@ export function useSession() {
     refetchOnWindowFocus: false, // 윈도우 포커스 시 refetch 방지
     refetchOnReconnect: false, // 재연결 시 refetch 방지
   });
+
+  // 실시간 세션 변경 감지 (다른 탭에서의 로그인/로그아웃, 세션 만료 등)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let unsubscribe: (() => void) | undefined;
+
+    // Supabase 클라이언트 동적 import (client 컴포넌트에서만)
+    import('@/utils/supabase/client').then(({ createClient }) => {
+      const supabase = createClient();
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, _session) => {
+        // 세션 변경 감지 시 React Query 캐시 무효화
+        queryClient.invalidateQueries({ queryKey: ['auth', 'session'] });
+      });
+
+      unsubscribe = () => subscription.unsubscribe();
+    });
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [queryClient]);
 
   return {
     session: query.data?.session ?? null,
