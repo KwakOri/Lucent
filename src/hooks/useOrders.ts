@@ -47,6 +47,7 @@ export function useOrders(params?: GetOrdersQuery) {
       const data: PaginatedResponse<OrderWithItems> = await response.json();
       return data;
     },
+    staleTime: 1000 * 60 * 3, // 3분 (주문 상태가 변경될 수 있음)
   });
 }
 
@@ -69,6 +70,7 @@ export function useOrder(orderId: string | null) {
       return data.data;
     },
     enabled: !!orderId,
+    staleTime: 1000 * 60 * 3, // 3분
   });
 }
 
@@ -179,6 +181,7 @@ export function useMyVoicePacks() {
       }> = await response.json();
       return data.data;
     },
+    staleTime: 1000 * 60 * 5, // 5분 (구매한 보이스팩은 자주 변경되지 않음)
   });
 }
 

@@ -1,46 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { createClient } from '@/utils/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import { useSession, useLogout } from '@/hooks';
 
 export function Header() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const supabase = createClient();
+  const { user, isLoading } = useSession();
+  const { mutate: logout, isPending: isLoggingOut } = useLogout();
 
-  useEffect(() => {
-    // 초기 사용자 정보 가져오기
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      setLoading(false);
-    };
-
-    getUser();
-
-    // 세션 변경 감지 (로그인/로그아웃 시 자동 업데이트)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, [supabase]);
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      router.push('/');
-      router.refresh();
-    } catch (error) {
-      console.error('로그아웃 실패:', error);
-    }
+  const handleLogout = () => {
+    logout();
   };
 
   return (
@@ -69,7 +38,7 @@ export function Header() {
 
           {/* Auth Buttons */}
           <div className="flex items-center gap-3">
-            {loading ? (
+            {isLoading ? (
               // 로딩 중
               <div className="w-20 h-8 bg-neutral-100 rounded animate-pulse" />
             ) : user ? (
@@ -80,7 +49,12 @@ export function Header() {
                     마이페이지
                   </Button>
                 </Link>
-                <Button intent="neutral" size="sm" onClick={handleLogout}>
+                <Button
+                  intent="neutral"
+                  size="sm"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                >
                   로그아웃
                 </Button>
               </>

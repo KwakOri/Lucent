@@ -26,6 +26,7 @@ export function useProjects() {
       const data: ApiResponse<Tables<'projects'>[]> = await response.json();
       return data.data;
     },
+    staleTime: 1000 * 60 * 10, // 10분 (프로젝트 정보는 거의 변경되지 않음)
   });
 }
 
@@ -48,6 +49,7 @@ export function useProject(projectId: string | null) {
       return data.data;
     },
     enabled: !!projectId,
+    staleTime: 1000 * 60 * 10, // 10분
   });
 }
 
@@ -76,5 +78,6 @@ export function useProjectBySlug(slug: string | null) {
       return project;
     },
     enabled: !!slug,
+    staleTime: 1000 * 60 * 10, // 10분
   });
 }

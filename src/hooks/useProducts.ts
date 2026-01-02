@@ -34,6 +34,7 @@ export function useProducts(params?: GetProductsQuery) {
       const data: PaginatedResponse<Tables<'products'>> = await response.json();
       return data;
     },
+    staleTime: 1000 * 60 * 5, // 5분 (상품 정보는 자주 변경되지 않음)
   });
 }
 
@@ -56,6 +57,7 @@ export function useProduct(productId: string | null) {
       return data.data;
     },
     enabled: !!productId,
+    staleTime: 1000 * 60 * 10, // 10분 (상세 정보는 더 길게 캐시)
   });
 }
 
@@ -78,6 +80,7 @@ export function useProductBySlug(slug: string | null) {
       return data.data;
     },
     enabled: !!slug,
+    staleTime: 1000 * 60 * 10, // 10분
   });
 }
 
