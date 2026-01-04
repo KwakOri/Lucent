@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 
 // 임시 뉴스 데이터
@@ -63,14 +62,11 @@ export function NewsSection() {
                 <div className="relative flex items-center gap-8">
                   {/* 썸네일 이미지 */}
                   <div className="shrink-0 w-52 h-44 bg-white rounded-2xl overflow-hidden shadow-sm">
-                    <div className="relative w-full h-full">
-                      <Image
-                        src={news.image}
-                        alt={news.title}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
+                    <img
+                      src={news.image}
+                      alt={news.title}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
 
                   {/* 텍스트 콘텐츠 */}

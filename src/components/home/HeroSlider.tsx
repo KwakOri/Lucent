@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowRight, Sparkles } from "lucide-react";
 
 // Hero slides data (static)
@@ -156,18 +155,16 @@ export function HeroSlider() {
             {/* 이미지 영역 */}
             {slide.image && (
               <div className="hidden md:block relative w-1/2 h-full">
-                <Image
+                <img
                   src={slide.image}
                   alt={
                     slide.type === "slogan"
                       ? "Lucent Character"
                       : "Lucent Goods"
                   }
-                  fill
-                  className={`object-contain ${
+                  className={`absolute inset-0 w-full h-full object-contain ${
                     slide.type === "slogan" ? "object-bottom" : "object-center"
                   }`}
-                  priority
                 />
               </div>
             )}
