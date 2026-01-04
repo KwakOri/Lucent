@@ -4,11 +4,11 @@
  * 계좌이체 정보를 표시하는 컴포넌트
  */
 
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
+import { Check, Copy } from "lucide-react";
+import { useState } from "react";
 
 interface BankAccountInfoProps {
   depositorName: string;
@@ -17,9 +17,9 @@ interface BankAccountInfoProps {
 
 // 계좌 정보 (환경변수로 관리하는 것이 좋음)
 const BANK_INFO = {
-  bank: '국민은행',
-  accountNumber: '123-456-789012',
-  accountHolder: 'Lucent Management',
+  bank: "카카오뱅크",
+  accountNumber: "3333-15-8083518",
+  accountHolder: "이세영",
 };
 
 export function BankAccountInfo({
@@ -34,7 +34,7 @@ export function BankAccountInfo({
       setCopiedField(field);
       setTimeout(() => setCopiedField(null), 2000);
     } catch (err) {
-      console.error('복사 실패:', err);
+      console.error("복사 실패:", err);
     }
   };
 
@@ -47,7 +47,7 @@ export function BankAccountInfo({
 입금자명: ${depositorName}
     `.trim();
 
-    await copyToClipboard(allInfo, 'all');
+    await copyToClipboard(allInfo, "all");
   };
 
   return (
@@ -73,12 +73,12 @@ export function BankAccountInfo({
             </span>
             <button
               onClick={() =>
-                copyToClipboard(BANK_INFO.accountNumber, 'account')
+                copyToClipboard(BANK_INFO.accountNumber, "account")
               }
               className="p-1.5 hover:bg-white/20 rounded transition-colors"
               aria-label="계좌번호 복사"
             >
-              {copiedField === 'account' ? (
+              {copiedField === "account" ? (
                 <Check size={16} />
               ) : (
                 <Copy size={16} />
@@ -105,15 +105,13 @@ export function BankAccountInfo({
         <div className="flex justify-between items-center bg-yellow-400/20 -mx-4 px-4 py-3 rounded">
           <span className="text-sm font-semibold">입금자명 (필수)</span>
           <div className="flex items-center gap-2">
-            <span className="font-bold text-yellow-200">
-              {depositorName}
-            </span>
+            <span className="font-bold text-yellow-200">{depositorName}</span>
             <button
-              onClick={() => copyToClipboard(depositorName, 'depositorName')}
+              onClick={() => copyToClipboard(depositorName, "depositorName")}
               className="p-1.5 hover:bg-white/20 rounded transition-colors"
               aria-label="입금자명 복사"
             >
-              {copiedField === 'depositorName' ? (
+              {copiedField === "depositorName" ? (
                 <Check size={16} />
               ) : (
                 <Copy size={16} />
@@ -130,7 +128,7 @@ export function BankAccountInfo({
         fullWidth
         className="bg-white/10 hover:bg-white/20 border-white/30 text-white"
       >
-        {copiedField === 'all' ? (
+        {copiedField === "all" ? (
           <>
             <Check size={18} />
             복사되었습니다
