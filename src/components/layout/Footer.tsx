@@ -17,11 +17,12 @@ export function Footer() {
           <div>
             <h3 className="text-lg font-bold mb-4">Quick Links</h3>
             <ul className="space-y-2">
-              <li>
+              {/* 프로젝트 페이지 개발 중 - 임시 비활성화 */}
+              {/* <li>
                 <Link href="/projects" className="text-neutral-400 hover:text-white transition-colors text-sm">
                   프로젝트
                 </Link>
-              </li>
+              </li> */}
               <li>
                 <Link href="/shop" className="text-neutral-400 hover:text-white transition-colors text-sm">
                   상점
