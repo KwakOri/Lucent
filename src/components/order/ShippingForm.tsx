@@ -43,6 +43,9 @@ export function ShippingForm({
     memo: initialValues?.memo || '',
   });
 
+  // "주문자 정보와 동일" 체크 상태
+  const [sameAsCustomer, setSameAsCustomer] = useState(false);
+
   const handleChange = (field: keyof ShippingInfo, value: string) => {
     const newValues = { ...values, [field]: value };
     setValues(newValues);
@@ -50,7 +53,10 @@ export function ShippingForm({
   };
 
   const handleCopyFromCustomer = (checked: boolean) => {
+    setSameAsCustomer(checked);
+
     if (checked && customerInfo) {
+      // 주문자 정보를 배송 정보로 복사
       const newValues = {
         ...values,
         name: customerInfo.name || '',
@@ -81,6 +87,7 @@ export function ShippingForm({
         onChange={(newValue) => handleChange('name', newValue)}
         placeholder="받으실 분의 이름을 입력하세요"
         required
+        disabled={sameAsCustomer}
       />
 
       <PhoneInput
@@ -90,6 +97,7 @@ export function ShippingForm({
         value={values.phone}
         onChange={(newValue) => handleChange('phone', newValue)}
         required
+        disabled={sameAsCustomer}
       />
 
       <AddressInput
@@ -103,6 +111,7 @@ export function ShippingForm({
         detailAddressValue={values.detailAddress}
         onDetailAddressChange={(newValue) => handleChange('detailAddress', newValue)}
         required
+        disabled={sameAsCustomer}
       />
 
       <FormField

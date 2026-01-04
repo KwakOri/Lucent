@@ -203,6 +203,10 @@ export default function CheckoutPage() {
               <section className="bg-white rounded-lg border border-gray-200 p-6">
                 <ShippingForm
                   initialValues={shippingInfo}
+                  customerInfo={{
+                    name: buyerInfo.name,
+                    phone: buyerInfo.phone,
+                  }}
                   onChange={setShippingInfo}
                 />
               </section>
