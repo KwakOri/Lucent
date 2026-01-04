@@ -107,14 +107,15 @@ export function Header() {
 
             {/* Right Navigation */}
             <div className="hidden md:flex items-center gap-2">
-              <Link href="/projects">
+              {/* 프로젝트 페이지 개발 중 - 임시 비활성화 */}
+              {/* <Link href="/projects">
                 <Button
                   intent={scrolled ? "headerScrolled" : "header"}
                   size="sm"
                 >
                   프로젝트
                 </Button>
-              </Link>
+              </Link> */}
               <Link href="/shop">
                 <Button
                   intent={scrolled ? "headerScrolled" : "header"}
