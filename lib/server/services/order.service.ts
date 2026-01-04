@@ -946,6 +946,31 @@ export class OrderService {
     }
   }
 
+  /**
+   * 특정 주문 아이템들의 상태 업데이트 (선택적)
+   */
+  static async updateItemsStatus(
+    orderId: string,
+    itemIds: string[],
+    newStatus: OrderItemStatus
+  ): Promise<void> {
+    const supabase = await createServerClient();
+
+    const { error } = await supabase
+      .from("order_items")
+      .update({ item_status: newStatus })
+      .eq("order_id", orderId)
+      .in("id", itemIds);
+
+    if (error) {
+      throw new ApiError(
+        "주문 상품 상태 변경 실패",
+        500,
+        "ITEMS_STATUS_UPDATE_FAILED"
+      );
+    }
+  }
+
   // =====================================================
   // Order System V2: 배송 정보 관리
   // =====================================================
