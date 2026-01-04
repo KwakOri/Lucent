@@ -779,6 +779,7 @@ export class OrderService {
         `
         id,
         order_number,
+        buyer_name,
         shipping_name,
         total_price,
         status,
