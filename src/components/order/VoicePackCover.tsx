@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 
 interface VoicePackCoverProps {
   index: number;
@@ -69,11 +68,10 @@ export function VoicePackCover({
       {/* 썸네일 이미지 (있을 경우) */}
       {thumbnail && (
         <div className="absolute top-12 left-11 w-14 h-14 rounded-md overflow-hidden shadow-lg border border-white/50">
-          <Image
+          <img
             src={thumbnail}
             alt={name || "Voice Pack"}
-            fill
-            className="object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
           />
         </div>
       )}
@@ -93,11 +91,10 @@ export function VoicePackCover({
           {/* 썸네일을 CD에도 표시 */}
           {thumbnail && (
             <div className="absolute inset-2 rounded-full overflow-hidden opacity-40">
-              <Image
+              <img
                 src={thumbnail}
                 alt={name || "Voice Pack"}
-                fill
-                className="object-cover"
+                className="absolute inset-0 w-full h-full object-cover"
               />
             </div>
           )}

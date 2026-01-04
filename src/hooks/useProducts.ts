@@ -13,6 +13,7 @@ import type {
   PaginatedResponse,
   ApiResponse,
 } from '@/types';
+import type { ProductWithDetails } from '@/lib/server/services/product.service';
 
 /**
  * 상품 목록 조회 Hook
@@ -31,7 +32,7 @@ export function useProducts(params?: GetProductsQuery) {
       if (!response.ok) {
         throw new Error('상품 목록 조회 실패');
       }
-      const data: PaginatedResponse<Tables<'products'>> = await response.json();
+      const data: PaginatedResponse<ProductWithDetails> = await response.json();
       return data;
     },
     staleTime: 1000 * 60 * 5, // 5분 (상품 정보는 자주 변경되지 않음)
@@ -53,7 +54,7 @@ export function useProduct(productId: string | null) {
       if (!response.ok) {
         throw new Error('상품 조회 실패');
       }
-      const data: ApiResponse<Tables<'products'>> = await response.json();
+      const data: ApiResponse<ProductWithDetails> = await response.json();
       return data.data;
     },
     enabled: !!productId,
@@ -76,7 +77,7 @@ export function useProductBySlug(slug: string | null) {
       if (!response.ok) {
         throw new Error('상품 조회 실패');
       }
-      const data: ApiResponse<Tables<'products'>> = await response.json();
+      const data: ApiResponse<ProductWithDetails> = await response.json();
       return data.data;
     },
     enabled: !!slug,

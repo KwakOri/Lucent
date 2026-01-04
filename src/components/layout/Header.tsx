@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import { useLogout, useSession } from "@/hooks";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -95,7 +94,7 @@ export function Header() {
               onClick={scrollToTop}
               className="absolute left-1/2 -translate-x-1/2"
             >
-              <Image
+              <img
                 src="/logo.svg"
                 alt="Lucent Logo"
                 width={30}

@@ -191,7 +191,15 @@ export default function ProductDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Product Image/Preview */}
           <div>
-            {isVoicePack ? (
+            {product.main_image?.cdn_url || product.main_image?.public_url ? (
+              <div className="aspect-square bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-2xl overflow-hidden border-2 border-primary-200">
+                <img
+                  src={product.main_image.cdn_url || product.main_image.public_url}
+                  alt={product.main_image.alt_text || product.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : isVoicePack ? (
               <div className="aspect-square bg-gradient-to-br from-primary-50 to-primary-100 rounded-2xl flex items-center justify-center border-2 border-primary-200">
                 <div className="w-64 h-64 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
                   <div className="w-52 h-52 rounded-full bg-gradient-to-br from-primary-200 to-primary-100 flex items-center justify-center">

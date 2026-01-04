@@ -26,7 +26,7 @@ interface GetProductsOptions {
   order?: 'asc' | 'desc';
 }
 
-interface ProductWithDetails extends Product {
+export interface ProductWithDetails extends Product {
   project?: {
     id: string;
     name: string;
@@ -35,14 +35,18 @@ interface ProductWithDetails extends Product {
   } | null;
   main_image?: {
     id: string;
+    r2_key: string;
     public_url: string;
+    cdn_url: string | null;
     alt_text: string | null;
   } | null;
   gallery_images?: Array<{
     display_order: number;
     image: {
       id: string;
+      r2_key: string;
       public_url: string;
+      cdn_url: string | null;
       alt_text: string | null;
     } | null;
   }>;
@@ -78,7 +82,9 @@ export class ProductService {
         ),
         main_image:images!products_main_image_id_fkey (
           id,
+          r2_key,
           public_url,
+          cdn_url,
           alt_text
         )
       `,
@@ -142,14 +148,18 @@ export class ProductService {
         ),
         main_image:images!products_main_image_id_fkey (
           id,
+          r2_key,
           public_url,
+          cdn_url,
           alt_text
         ),
         gallery_images:product_images!product_images_product_id_fkey (
           display_order,
           image:images!product_images_image_id_fkey (
             id,
+            r2_key,
             public_url,
+            cdn_url,
             alt_text
           )
         )
@@ -188,7 +198,9 @@ export class ProductService {
         ),
         main_image:images!products_main_image_id_fkey (
           id,
+          r2_key,
           public_url,
+          cdn_url,
           alt_text
         )
       `
