@@ -1,7 +1,6 @@
 "use client";
 
 import { useProjects } from "@/hooks";
-import Image from "next/image";
 import Link from "next/link";
 
 // Project display config
@@ -85,11 +84,10 @@ export function ProjectsSection() {
                     {/* 캐릭터 이미지 - z-10 */}
                     {displayConfig.image && (
                       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-80 z-10 transition-all duration-500 scale-140 ease-out group-hover:translate-y-4 group-hover:scale-170 overflow-hidden">
-                        <Image
+                        <img
                           src={displayConfig.image}
                           alt={displayConfig.artist || project.name}
-                          fill
-                          className="object-contain object-top"
+                          className="absolute inset-0 w-full h-full object-contain object-top"
                         />
                       </div>
                     )}

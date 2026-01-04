@@ -6,17 +6,10 @@
 
 'use client';
 
+import type { ProductWithDetails } from '@/lib/server/services/product.service';
+
 interface OrderSummaryProps {
-  product: {
-    id: string;
-    name: string;
-    type: 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE';
-    price: number;
-    main_image?: {
-      public_url?: string;
-      alt_text?: string;
-    } | null;
-  };
+  product: ProductWithDetails;
   quantity?: number;
   shippingFee?: number;
 }
@@ -35,9 +28,9 @@ export function OrderSummary({
 
       {/* Product Card */}
       <div className="flex gap-4 mb-6 pb-6 border-b border-gray-200">
-        {product.main_image?.public_url ? (
+        {product.main_image?.cdn_url || product.main_image?.public_url ? (
           <img
-            src={product.main_image.public_url}
+            src={product.main_image.cdn_url || product.main_image.public_url}
             alt={product.main_image.alt_text || product.name}
             className="w-20 h-20 object-cover rounded-lg"
           />

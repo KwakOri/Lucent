@@ -94,7 +94,7 @@ export default function ShopPage() {
                   <VoicePackCover
                     index={index}
                     name={pack.name}
-                    thumbnail={""}
+                    thumbnail={pack.main_image?.cdn_url || pack.main_image?.public_url || ""}
                   />
 
                   {/* Pack Info */}
@@ -153,8 +153,16 @@ export default function ShopPage() {
                   onClick={() => handleProductClick(goods.id)}
                 >
                   {/* Goods Image */}
-                  <div className="aspect-square bg-linear-to-br from-neutral-100 to-neutral-200 relative flex items-center justify-center">
-                    <span className="text-6xl">📦</span>
+                  <div className="aspect-square bg-gradient-to-br from-neutral-100 to-neutral-200 relative flex items-center justify-center overflow-hidden">
+                    {goods.main_image?.cdn_url || goods.main_image?.public_url ? (
+                      <img
+                        src={goods.main_image.cdn_url || goods.main_image.public_url}
+                        alt={goods.main_image.alt_text || goods.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-6xl">📦</span>
+                    )}
                   </div>
 
                   {/* Goods Info */}
