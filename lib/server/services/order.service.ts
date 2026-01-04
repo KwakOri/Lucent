@@ -158,12 +158,12 @@ export class OrderService {
       throw new ApiError("주문 생성 실패", 500, "ORDER_CREATE_FAILED");
     }
 
-    // 주문 항목 상태 결정: 0원이면 즉시 완료, 아니면 입금대기
-    const itemStatus: OrderItemStatus = totalPrice === 0 ? "COMPLETED" : "PENDING";
-
-    // 주문 항목 생성
+    // 주문 항목 생성 (개별 아이템 가격에 따라 상태 결정)
     const orderItems = items.map((item) => {
       const product = products.find((p) => p.id === item.productId);
+      // 개별 아이템이 0원이면 즉시 완료, 아니면 입금대기
+      const itemStatus: OrderItemStatus = product!.price === 0 ? "COMPLETED" : "PENDING";
+
       return {
         order_id: order.id,
         product_id: item.productId,

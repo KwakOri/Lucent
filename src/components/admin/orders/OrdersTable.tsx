@@ -57,8 +57,8 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
   // 탭별 필터링 로직
   const filteredOrders = orders.filter((order) => {
     if (activeTab === 'pending') {
-      // 입금 대기: 모든 아이템이 PENDING
-      return order.items.every((item) => item.item_status === 'PENDING');
+      // 입금 대기: 하나라도 PENDING (0원 상품이 포함된 경우 고려)
+      return order.items.some((item) => item.item_status === 'PENDING');
     } else if (activeTab === 'ready') {
       // 배송 대기: 실물 상품이 있고, 실물 상품이 READY 상태
       const physicalItems = order.items.filter(
