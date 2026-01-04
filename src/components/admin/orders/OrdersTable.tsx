@@ -16,6 +16,8 @@ interface Order {
   user_id: string;
   items: Array<{
     id: string;
+    item_status?: string;
+    product_type?: 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE';
     product?: {
       id: string;
       name: string;
@@ -44,15 +46,45 @@ const statusColors: Record<string, string> = {
   DONE: 'bg-gray-100 text-gray-800',
 };
 
+type Tab = 'pending' | 'ready' | 'shipping';
+
 export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
   const [orders, setOrders] = useState(initialOrders);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<Tab>('pending');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
-  // Filter orders
+  // 탭별 필터링 로직
   const filteredOrders = orders.filter((order) => {
-    if (statusFilter !== 'all' && order.status !== statusFilter) return false;
+    if (activeTab === 'pending') {
+      // 입금 대기: 모든 아이템이 PENDING
+      return order.items.every((item) => item.item_status === 'PENDING');
+    } else if (activeTab === 'ready') {
+      // 배송 대기: 실물 상품이 있고, 실물 상품이 READY 상태
+      const physicalItems = order.items.filter(
+        (item) =>
+          (item.product?.type === 'PHYSICAL_GOODS' ||
+            item.product?.type === 'BUNDLE') ||
+          (item.product_type === 'PHYSICAL_GOODS' ||
+            item.product_type === 'BUNDLE')
+      );
+      return physicalItems.length > 0 && physicalItems.some((item) => item.item_status === 'READY');
+    } else if (activeTab === 'shipping') {
+      // 배송 중: 실물 상품이 있고, 실물 상품이 PROCESSING 또는 SHIPPED 상태
+      const physicalItems = order.items.filter(
+        (item) =>
+          (item.product?.type === 'PHYSICAL_GOODS' ||
+            item.product?.type === 'BUNDLE') ||
+          (item.product_type === 'PHYSICAL_GOODS' ||
+            item.product_type === 'BUNDLE')
+      );
+      return (
+        physicalItems.length > 0 &&
+        physicalItems.some(
+          (item) => item.item_status === 'PROCESSING' || item.item_status === 'SHIPPED'
+        )
+      );
+    }
     return true;
   });
 
@@ -76,10 +108,10 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
     }
   };
 
-  // 일괄 상태 변경
-  const handleBulkStatusChange = async (newStatus: string) => {
+  // 입금 확인 (입금 대기 탭)
+  const handleBulkPaymentConfirm = async () => {
     if (selectedOrderIds.length === 0) return;
-    if (!confirm(`선택한 ${selectedOrderIds.length}개 주문의 상태를 "${statusLabels[newStatus]}"로 변경하시겠습니까?`)) return;
+    if (!confirm(`선택한 ${selectedOrderIds.length}개 주문의 입금을 확인하시겠습니까?\n(디지털 상품은 자동으로 완료 처리되고, 실물 상품은 배송 대기 상태로 변경됩니다)`)) return;
 
     setIsBulkUpdating(true);
 
@@ -89,29 +121,82 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderIds: selectedOrderIds,
-          status: newStatus,
+          status: 'PAID',
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || '일괄 변경에 실패했습니다');
+        throw new Error(error.error || '입금 확인에 실패했습니다');
       }
 
-      // 로컬 상태 업데이트
-      setOrders(prev =>
-        prev.map(order =>
-          selectedOrderIds.includes(order.id)
-            ? { ...order, status: newStatus }
-            : order
-        )
+      // 페이지 새로고침하여 최신 상태 반영
+      window.location.reload();
+    } catch (error) {
+      console.error('Bulk payment confirm error:', error);
+      alert(error instanceof Error ? error.message : '입금 확인 중 오류가 발생했습니다');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  // 실물 상품 상태 일괄 변경 (배송 대기/배송 중 탭)
+  const handleBulkItemStatusChange = async (newItemStatus: string) => {
+    if (selectedOrderIds.length === 0) return;
+    if (!confirm(`선택한 ${selectedOrderIds.length}개 주문의 실물 상품 상태를 변경하시겠습니까?`)) return;
+
+    setIsBulkUpdating(true);
+
+    try {
+      // 선택된 주문들의 실물 상품 아이템 ID 수집
+      const physicalItemIds: string[] = [];
+      selectedOrderIds.forEach(orderId => {
+        const order = orders.find(o => o.id === orderId);
+        if (order) {
+          order.items.forEach(item => {
+            const isPhysical =
+              (item.product?.type === 'PHYSICAL_GOODS' || item.product?.type === 'BUNDLE') ||
+              (item.product_type === 'PHYSICAL_GOODS' || item.product_type === 'BUNDLE');
+            if (isPhysical) {
+              physicalItemIds.push(item.id);
+            }
+          });
+        }
+      });
+
+      // 각 주문의 실물 상품 상태 변경
+      await Promise.all(
+        selectedOrderIds.map(async (orderId) => {
+          const order = orders.find(o => o.id === orderId);
+          if (!order) return;
+
+          const orderPhysicalItemIds = order.items
+            .filter(item => {
+              const isPhysical =
+                (item.product?.type === 'PHYSICAL_GOODS' || item.product?.type === 'BUNDLE') ||
+                (item.product_type === 'PHYSICAL_GOODS' || item.product_type === 'BUNDLE');
+              return isPhysical;
+            })
+            .map(item => item.id);
+
+          if (orderPhysicalItemIds.length === 0) return;
+
+          await fetch(`/api/orders/${orderId}/items/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              itemIds: orderPhysicalItemIds,
+              status: newItemStatus,
+            }),
+          });
+        })
       );
 
-      setSelectedOrderIds([]);
-      alert(`${selectedOrderIds.length}개 주문의 상태가 변경되었습니다`);
+      // 페이지 새로고침하여 최신 상태 반영
+      window.location.reload();
     } catch (error) {
-      console.error('Bulk update error:', error);
-      alert(error instanceof Error ? error.message : '일괄 변경 중 오류가 발생했습니다');
+      console.error('Bulk item status update error:', error);
+      alert(error instanceof Error ? error.message : '상태 변경 중 오류가 발생했습니다');
     } finally {
       setIsBulkUpdating(false);
     }
@@ -119,6 +204,53 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
 
   return (
     <div>
+      {/* Tabs */}
+      <div className="mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+            <button
+              onClick={() => setActiveTab('pending')}
+              className={`
+                whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
+                ${
+                  activeTab === 'pending'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }
+              `}
+            >
+              입금 대기
+            </button>
+            <button
+              onClick={() => setActiveTab('ready')}
+              className={`
+                whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
+                ${
+                  activeTab === 'ready'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }
+              `}
+            >
+              배송 대기
+            </button>
+            <button
+              onClick={() => setActiveTab('shipping')}
+              className={`
+                whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
+                ${
+                  activeTab === 'shipping'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }
+              `}
+            >
+              배송 중
+            </button>
+          </nav>
+        </div>
+      </div>
+
       {/* Bulk Actions */}
       {selectedOrderIds.length > 0 && (
         <div className="mb-4 rounded-lg bg-blue-50 border border-blue-200 p-4">
@@ -127,23 +259,54 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
               <span className="text-sm font-medium text-blue-900">
                 {selectedOrderIds.length}개 주문 선택됨
               </span>
-              <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleBulkStatusChange(e.target.value);
-                    e.target.value = '';
-                  }
-                }}
-                disabled={isBulkUpdating}
-                className="rounded-md bg-white border-2 border-blue-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">상태 일괄 변경</option>
-                <option value="PENDING">입금대기</option>
-                <option value="PAID">입금완료</option>
-                <option value="MAKING">제작중</option>
-                <option value="SHIPPING">배송중</option>
-                <option value="DONE">완료</option>
-              </select>
+
+              {/* 입금 대기 탭: 입금 확인 버튼 */}
+              {activeTab === 'pending' && (
+                <Button
+                  intent="primary"
+                  size="sm"
+                  onClick={handleBulkPaymentConfirm}
+                  disabled={isBulkUpdating}
+                >
+                  {isBulkUpdating ? '처리 중...' : '입금 확인'}
+                </Button>
+              )}
+
+              {/* 배송 대기 탭: 제작중/발송 상태 변경 */}
+              {activeTab === 'ready' && (
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleBulkItemStatusChange(e.target.value);
+                      e.target.value = '';
+                    }
+                  }}
+                  disabled={isBulkUpdating}
+                  className="rounded-md bg-white border-2 border-blue-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">상태 변경</option>
+                  <option value="PROCESSING">제작중</option>
+                  <option value="SHIPPED">발송완료</option>
+                </select>
+              )}
+
+              {/* 배송 중 탭: 배송 상태 변경 */}
+              {activeTab === 'shipping' && (
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleBulkItemStatusChange(e.target.value);
+                      e.target.value = '';
+                    }
+                  }}
+                  disabled={isBulkUpdating}
+                  className="rounded-md bg-white border-2 border-blue-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">상태 변경</option>
+                  <option value="DELIVERED">배송완료</option>
+                  <option value="COMPLETED">수령확인</option>
+                </select>
+              )}
             </div>
             <Button
               intent="secondary"
@@ -156,22 +319,6 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
           </div>
         </div>
       )}
-
-      {/* Filters */}
-      <div className="mb-4 flex flex-wrap gap-3">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-md bg-white border-2 border-gray-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-primary-600 focus:ring-2 focus:ring-primary-500"
-        >
-          <option value="all">전체 상태</option>
-          <option value="PENDING">입금대기</option>
-          <option value="PAID">입금완료</option>
-          <option value="MAKING">제작중</option>
-          <option value="SHIPPING">배송중</option>
-          <option value="DONE">완료</option>
-        </select>
-      </div>
 
       {/* Table */}
       <div className="mt-4 flow-root">

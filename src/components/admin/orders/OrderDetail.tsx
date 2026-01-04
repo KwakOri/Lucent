@@ -112,10 +112,16 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
     }
   };
 
-  // 전체 선택/해제
+  // 전체 선택/해제 (완료된 디지털 상품 제외)
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedItems(new Set(order.items.map((item) => item.id)));
+      const selectableItems = order.items.filter((item) => {
+        // 완료된 디지털 상품은 선택 불가
+        const isDigital = item.product_type === 'VOICE_PACK' || item.product?.type === 'VOICE_PACK';
+        const isCompleted = item.item_status === 'COMPLETED';
+        return !(isDigital && isCompleted);
+      });
+      setSelectedItems(new Set(selectableItems.map((item) => item.id)));
     } else {
       setSelectedItems(new Set());
     }
@@ -309,40 +315,59 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
                 </li>
 
                 {/* 아이템 목록 */}
-                {order.items.map((item) => (
-                  <li key={item.id} className="flex items-center py-4">
-                    <div className="flex items-start flex-1">
-                      <Checkbox
-                        checked={selectedItems.has(item.id)}
-                        onChange={(e) => handleSelectItem(item.id, e.target.checked)}
-                        className="mt-5"
-                      />
-                      <div className="ml-3 h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-100 flex items-center justify-center">
-                        <span className="text-2xl">
-                          {item.product_type === 'VOICE_PACK' ? '🎵' : '📦'}
-                        </span>
-                      </div>
-                      <div className="ml-4 flex flex-1 flex-col">
-                        <div>
-                          <div className="flex justify-between text-sm font-medium text-gray-900">
-                            <h5>{item.product_name}</h5>
-                            <p className="ml-4">{(item.price_snapshot * item.quantity).toLocaleString()}원</p>
-                          </div>
-                          <p className="mt-1 text-sm text-gray-500">
-                            {typeLabels[item.product_type || '']} • {item.price_snapshot.toLocaleString()}원 × {item.quantity}개
-                          </p>
-                          {item.item_status && (
-                            <p className="mt-1">
-                              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
-                                {itemStatusLabels[item.item_status] || item.item_status}
-                              </span>
+                {order.items.map((item) => {
+                  const isDigital = item.product_type === 'VOICE_PACK' || item.product?.type === 'VOICE_PACK';
+                  const isCompleted = item.item_status === 'COMPLETED';
+                  const isDisabled = isDigital && isCompleted;
+
+                  return (
+                    <li
+                      key={item.id}
+                      className={`flex items-center py-4 ${isDisabled ? 'opacity-50 bg-gray-50' : ''}`}
+                    >
+                      <div className="flex items-start flex-1">
+                        <Checkbox
+                          checked={selectedItems.has(item.id)}
+                          onChange={(e) => handleSelectItem(item.id, e.target.checked)}
+                          disabled={isDisabled}
+                          className="mt-5"
+                        />
+                        <div className="ml-3 h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-100 flex items-center justify-center">
+                          <span className="text-2xl">
+                            {item.product_type === 'VOICE_PACK' ? '🎵' : '📦'}
+                          </span>
+                        </div>
+                        <div className="ml-4 flex flex-1 flex-col">
+                          <div>
+                            <div className="flex justify-between text-sm font-medium text-gray-900">
+                              <h5>{item.product_name}</h5>
+                              <p className="ml-4">{(item.price_snapshot * item.quantity).toLocaleString()}원</p>
+                            </div>
+                            <p className="mt-1 text-sm text-gray-500">
+                              {typeLabels[item.product_type || '']} • {item.price_snapshot.toLocaleString()}원 × {item.quantity}개
                             </p>
-                          )}
+                            {item.item_status && (
+                              <p className="mt-1">
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                    isCompleted
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-blue-100 text-blue-800'
+                                  }`}
+                                >
+                                  {itemStatusLabels[item.item_status] || item.item_status}
+                                </span>
+                                {isDisabled && (
+                                  <span className="ml-2 text-xs text-gray-500">(다운로드 가능)</span>
+                                )}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
 
               {/* Total */}

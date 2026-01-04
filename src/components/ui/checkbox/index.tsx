@@ -1,4 +1,4 @@
-import { InputHTMLAttributes, forwardRef, ReactNode, useId } from "react";
+import { InputHTMLAttributes, forwardRef, ReactNode, useId, useEffect, useRef } from "react";
 import { Check } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -16,6 +16,10 @@ export interface CheckboxProps
    * Size variant
    */
   size?: "sm" | "md";
+  /**
+   * Indeterminate state (for partial selection)
+   */
+  indeterminate?: boolean;
 }
 
 /**
@@ -39,12 +43,22 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
       disabled,
       size = "md",
       id,
+      indeterminate,
       ...props
     },
     ref
   ) => {
     const generatedId = useId();
     const inputId = id || generatedId;
+    const internalRef = useRef<HTMLInputElement>(null);
+
+    // Handle indeterminate state
+    useEffect(() => {
+      const input = internalRef.current;
+      if (input) {
+        input.indeterminate = indeterminate ?? false;
+      }
+    }, [indeterminate]);
 
     const sizeClasses = {
       sm: "w-4 h-4",
@@ -60,7 +74,14 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
       <div className={clsx("flex items-start gap-2", className)}>
         <div className="relative flex items-center">
           <input
-            ref={ref}
+            ref={(el) => {
+              internalRef.current = el;
+              if (typeof ref === 'function') {
+                ref(el);
+              } else if (ref) {
+                ref.current = el;
+              }
+            }}
             type="checkbox"
             id={inputId}
             className="peer sr-only"

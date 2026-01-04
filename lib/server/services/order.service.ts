@@ -374,18 +374,45 @@ export class OrderService {
     }
 
     // v2: order_items의 item_status도 함께 업데이트
-    let itemStatus: OrderItemStatus = "PENDING";
+    // PAID 상태일 때는 디지털/실물 상품을 구분하여 처리
     if (newStatus === "PAID") {
-      itemStatus = "READY"; // 입금 확인 시 다운로드/발송 준비
-    } else if (newStatus === "MAKING") {
-      itemStatus = "PROCESSING"; // 제작 중
-    } else if (newStatus === "SHIPPING") {
-      itemStatus = "SHIPPED"; // 발송됨
-    } else if (newStatus === "DONE") {
-      itemStatus = "COMPLETED"; // 완료
-    }
+      // 디지털 상품은 즉시 완료, 실물 상품은 준비 상태로
+      const digitalItems = orderData.items.filter(
+        (item) => item.product?.type === "VOICE_PACK"
+      );
+      const physicalItems = orderData.items.filter(
+        (item) =>
+          item.product?.type === "PHYSICAL_GOODS" ||
+          item.product?.type === "BUNDLE"
+      );
 
-    await this.updateAllItemsStatus(orderId, itemStatus);
+      if (digitalItems.length > 0) {
+        await this.updateItemsStatus(
+          orderId,
+          digitalItems.map((item) => item.id),
+          "COMPLETED"
+        );
+      }
+      if (physicalItems.length > 0) {
+        await this.updateItemsStatus(
+          orderId,
+          physicalItems.map((item) => item.id),
+          "READY"
+        );
+      }
+    } else {
+      // 다른 상태는 기존 로직 유지 (모든 아이템 동일하게 변경)
+      let itemStatus: OrderItemStatus = "PENDING";
+      if (newStatus === "MAKING") {
+        itemStatus = "PROCESSING"; // 제작 중
+      } else if (newStatus === "SHIPPING") {
+        itemStatus = "SHIPPED"; // 발송됨
+      } else if (newStatus === "DONE") {
+        itemStatus = "COMPLETED"; // 완료
+      }
+
+      await this.updateAllItemsStatus(orderId, itemStatus);
+    }
 
     // ✅ 로그 기록
     await LogService.logOrderStatusChanged(
