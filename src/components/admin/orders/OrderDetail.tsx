@@ -123,7 +123,7 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
                 <select
                   value={selectedStatus}
                   onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="rounded-md border-gray-300 py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="rounded-md bg-white border-2 border-gray-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-primary-600 focus:ring-2 focus:ring-primary-500"
                 >
                   {Object.entries(statusLabels).map(([value, label]) => (
                     <option key={value} value={value}>

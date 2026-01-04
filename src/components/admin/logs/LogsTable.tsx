@@ -39,7 +39,7 @@ export function LogsTable({ logs: initialLogs }: LogsTableProps) {
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="rounded-md border-gray-300 py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:ring-blue-500"
+          className="rounded-md bg-white border-2 border-gray-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-primary-600 focus:ring-2 focus:ring-primary-500"
         >
           <option value="all">전체 카테고리</option>
           <option value="AUTH">인증</option>
@@ -51,7 +51,7 @@ export function LogsTable({ logs: initialLogs }: LogsTableProps) {
         <select
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value)}
-          className="rounded-md border-gray-300 py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:ring-blue-500"
+          className="rounded-md bg-white border-2 border-gray-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-primary-600 focus:ring-2 focus:ring-primary-500"
         >
           <option value="all">전체 레벨</option>
           <option value="INFO">INFO</option>

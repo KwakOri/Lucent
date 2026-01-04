@@ -128,7 +128,7 @@ export function ArtistForm({ projects, artist }: ArtistFormProps) {
             required
             value={formData.project_id}
             onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
-            className="mt-2 block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600 sm:text-sm sm:leading-6"
+            className="mt-2 block w-full rounded-md bg-white border-2 border-gray-400 py-2 pl-3 pr-10 text-gray-900 font-medium focus:border-primary-600 focus:ring-2 focus:ring-primary-500 sm:text-sm"
           >
             {projects.map((project) => (
               <option key={project.id} value={project.id}>

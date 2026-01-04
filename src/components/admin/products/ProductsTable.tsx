@@ -94,7 +94,7 @@ export function ProductsTable({ products: initialProducts, projects }: ProductsT
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="rounded-md border-gray-300 py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:ring-blue-500"
+          className="rounded-md bg-white border-2 border-gray-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-primary-600 focus:ring-2 focus:ring-primary-500"
         >
           <option value="all">전체 타입</option>
           <option value="VOICE_PACK">보이스팩</option>
@@ -104,7 +104,7 @@ export function ProductsTable({ products: initialProducts, projects }: ProductsT
         <select
           value={projectFilter}
           onChange={(e) => setProjectFilter(e.target.value)}
-          className="rounded-md border-gray-300 py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:ring-blue-500"
+          className="rounded-md bg-white border-2 border-gray-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-primary-600 focus:ring-2 focus:ring-primary-500"
         >
           <option value="all">전체 프로젝트</option>
           {projects.map((project) => (
@@ -117,7 +117,7 @@ export function ProductsTable({ products: initialProducts, projects }: ProductsT
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-md border-gray-300 py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:ring-blue-500"
+          className="rounded-md bg-white border-2 border-gray-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-primary-600 focus:ring-2 focus:ring-primary-500"
         >
           <option value="all">전체 상태</option>
           <option value="active">활성</option>

@@ -134,7 +134,7 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
                   }
                 }}
                 disabled={isBulkUpdating}
-                className="rounded-md border-blue-300 py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:ring-blue-500"
+                className="rounded-md bg-white border-2 border-blue-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">상태 일괄 변경</option>
                 <option value="PENDING">입금대기</option>
@@ -161,7 +161,7 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-md border-gray-300 py-2 pl-3 pr-10 text-sm focus:border-blue-500 focus:ring-blue-500"
+          className="rounded-md bg-white border-2 border-gray-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-primary-600 focus:ring-2 focus:ring-primary-500"
         >
           <option value="all">전체 상태</option>
           <option value="PENDING">입금대기</option>
