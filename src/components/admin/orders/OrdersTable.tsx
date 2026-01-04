@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 interface Order {
   id: string;
   order_number: string;
+  buyer_name: string | null;
   shipping_name: string | null;
   total_price: number;
   status: string;
@@ -194,7 +195,7 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
                       주문일
                     </th>
                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      수령인
+                      주문자
                     </th>
                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                       고객ID
@@ -237,7 +238,7 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
                           {new Date(order.created_at).toLocaleDateString('ko-KR')}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {order.shipping_name || '-'}
+                          {order.buyer_name || '-'}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 truncate max-w-[100px]" title={order.user_id}>
                           {order.user_id.substring(0, 8)}...
