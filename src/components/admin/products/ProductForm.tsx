@@ -51,41 +51,14 @@ export function ProductForm({ projects, product }: ProductFormProps) {
     price: product?.price || 0,
     description: product?.description || '',
     stock: product?.stock ?? null,
-    sample_audio_url: product?.sample_audio_url || '',
+    digital_file_url: product?.digital_file_url || '', // Google Drive 링크
     is_active: product?.is_active ?? true,
   });
 
   // 가격 표시용 포맷된 문자열
   const [priceDisplay, setPriceDisplay] = useState(
-    product?.price ? product.price.toLocaleString('ko-KR') : ''
+    product?.price !== undefined ? product.price.toLocaleString('ko-KR') : ''
   );
-
-  // 보이스팩 파일 상태
-  const [mainFile, setMainFile] = useState<File | null>(null);
-  const [sampleFile, setSampleFile] = useState<File | null>(null);
-
-  // 파일 선택 핸들러 (디버깅)
-  const handleMainFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    console.log('[ProductForm] 메인 파일 선택:', {
-      name: file?.name,
-      type: file?.type,
-      size: file?.size,
-      sizeInMB: file ? (file.size / 1024 / 1024).toFixed(2) : 0,
-    });
-    setMainFile(file);
-  };
-
-  const handleSampleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    console.log('[ProductForm] 샘플 파일 선택:', {
-      name: file?.name,
-      type: file?.type,
-      size: file?.size,
-      sizeInMB: file ? (file.size / 1024 / 1024).toFixed(2) : 0,
-    });
-    setSampleFile(file);
-  };
 
   // 가격 입력 핸들러
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,9 +67,9 @@ export function ProductForm({ projects, product }: ProductFormProps) {
     // 숫자와 쉼표만 허용
     const numbersOnly = input.replace(/[^\d]/g, '');
 
-    // 빈 값 처리
+    // 빈 값 처리 (0원으로 설정)
     if (numbersOnly === '') {
-      setPriceDisplay('');
+      setPriceDisplay('0');
       setFormData({ ...formData, price: 0 });
       return;
     }
@@ -118,8 +91,6 @@ export function ProductForm({ projects, product }: ProductFormProps) {
     console.log('[ProductForm] 폼 제출 시작', {
       type: formData.type,
       isEdit: !!product,
-      hasMainFile: !!mainFile,
-      hasSampleFile: !!sampleFile,
     });
 
     try {
@@ -129,61 +100,26 @@ export function ProductForm({ projects, product }: ProductFormProps) {
 
       const method = product ? 'PATCH' : 'POST';
 
-      let response: Response;
-
-      // 보이스팩 타입: FormData로 파일 업로드
-      if (formData.type === 'VOICE_PACK' && !product) {
-        // 신규 생성 시에만 파일 업로드
-        if (!mainFile) {
-          throw new Error('보이스팩 파일은 필수입니다');
-        }
-
-        console.log('[ProductForm] FormData 생성 중...', {
-          mainFileName: mainFile.name,
-          mainFileType: mainFile.type,
-          mainFileSize: mainFile.size,
-          sampleFileName: sampleFile?.name,
-          sampleFileType: sampleFile?.type,
-          sampleFileSize: sampleFile?.size,
-        });
-
-        const formDataToSend = new FormData();
-        formDataToSend.append('name', formData.name);
-        formDataToSend.append('slug', formData.slug);
-        formDataToSend.append('type', formData.type);
-        formDataToSend.append('projectId', formData.project_id);
-        formDataToSend.append('price', formData.price.toString());
-        if (formData.description) {
-          formDataToSend.append('description', formData.description);
-        }
-        // 메인 이미지 ID 추가
-        if (formData.main_image_id) {
-          formDataToSend.append('mainImageId', formData.main_image_id);
-        }
-        formDataToSend.append('mainFile', mainFile);
-        if (sampleFile) {
-          formDataToSend.append('sampleFile', sampleFile);
-        }
-
-        console.log('[ProductForm] API 요청 전송:', url, method);
-
-        response = await fetch(url, {
-          method,
-          body: formDataToSend,
-          // Content-Type은 브라우저가 자동으로 설정 (boundary 포함)
-        });
-
-        console.log('[ProductForm] API 응답 상태:', response.status, response.statusText);
-      } else {
-        // 일반 상품 또는 수정: JSON
-        response = await fetch(url, {
-          method,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
+      // 보이스팩 타입인 경우 Google Drive 링크 필수 확인
+      if (formData.type === 'VOICE_PACK' && !product && !formData.digital_file_url) {
+        throw new Error('Google Drive 다운로드 링크는 필수입니다');
       }
+
+      console.log('[ProductForm] API 요청 전송:', url, method, formData);
+
+      // 모든 상품: JSON으로 전송
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          sample_audio_url: '', // 빈 문자열로 설정
+        }),
+      });
+
+      console.log('[ProductForm] API 응답 상태:', response.status, response.statusText);
 
       if (!response.ok) {
         const error = await response.json();
@@ -330,7 +266,7 @@ export function ProductForm({ projects, product }: ProductFormProps) {
               <span className="text-gray-500 sm:text-sm">원</span>
             </div>
           </div>
-          {formData.price > 0 && (
+          {formData.price >= 0 && (
             <p className="mt-1 text-xs text-gray-500">
               숫자: {formData.price.toLocaleString('ko-KR')}원
             </p>
@@ -358,68 +294,28 @@ export function ProductForm({ projects, product }: ProductFormProps) {
           </div>
         )}
 
-        {/* 보이스팩 파일 업로드 */}
-        {formData.type === 'VOICE_PACK' && !product && (
-          <>
-            {/* 메인 파일 (필수) */}
-            <div>
-              <label htmlFor="mainFile" className="block text-sm font-medium leading-6 text-gray-900">
-                보이스팩 파일 <span className="text-red-500">*</span>
-              </label>
-              <p className="text-xs text-gray-500 mt-1">
-                ZIP 파일 또는 MP3, WAV, FLAC 등 오디오 파일
-              </p>
-              <input
-                type="file"
-                id="mainFile"
-                accept=".zip,.mp3,.wav,.flac,.m4a,.aac,.ogg"
-                onChange={handleMainFileChange}
-                className="mt-2 block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-              {mainFile && (
-                <p className="text-xs text-gray-600 mt-1">
-                  선택됨: {mainFile.name} ({(mainFile.size / 1024 / 1024).toFixed(2)}MB)
-                </p>
-              )}
-            </div>
-
-            {/* 샘플 파일 (선택) */}
-            <div>
-              <label htmlFor="sampleFile" className="block text-sm font-medium leading-6 text-gray-900">
-                샘플 오디오 파일 (선택)
-              </label>
-              <p className="text-xs text-gray-500 mt-1">
-                별도로 업로드하지 않으면 메인 파일에서 앞 20초를 자동으로 생성합니다
-              </p>
-              <input
-                type="file"
-                id="sampleFile"
-                accept=".mp3,.wav,.flac,.m4a,.aac,.ogg"
-                onChange={handleSampleFileChange}
-                className="mt-2 block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-              {sampleFile && (
-                <p className="text-xs text-gray-600 mt-1">
-                  선택됨: {sampleFile.name} ({(sampleFile.size / 1024 / 1024).toFixed(2)}MB)
-                </p>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* 기존 보이스팩 수정 시 샘플 URL 표시 */}
-        {formData.type === 'VOICE_PACK' && product && (
+        {/* Google Drive 다운로드 링크 (보이스팩만) */}
+        {formData.type === 'VOICE_PACK' && (
           <div>
-            <label className="block text-sm font-medium leading-6 text-gray-900">
-              샘플 오디오 URL
+            <label htmlFor="digital_file_url" className="block text-sm font-medium leading-6 text-gray-900">
+              Google Drive 다운로드 링크 <span className="text-red-500">*</span>
             </label>
-            <p className="mt-2 text-sm text-gray-600">
-              {formData.sample_audio_url || '(없음)'}
+            <p className="text-xs text-gray-500 mt-1">
+              구매 후 사용자에게 제공될 Google Drive 공유 링크를 입력하세요
             </p>
-            {formData.sample_audio_url && (
-              <audio controls className="mt-2 w-full">
-                <source src={formData.sample_audio_url} type="audio/mpeg" />
-              </audio>
+            <input
+              type="url"
+              id="digital_file_url"
+              required={formData.type === 'VOICE_PACK'}
+              value={formData.digital_file_url}
+              onChange={(e) => setFormData({ ...formData, digital_file_url: e.target.value })}
+              className="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 px-3"
+              placeholder="https://drive.google.com/file/d/..."
+            />
+            {formData.digital_file_url && (
+              <p className="text-xs text-gray-600 mt-1">
+                ✓ 링크가 입력되었습니다
+              </p>
             )}
           </div>
         )}
