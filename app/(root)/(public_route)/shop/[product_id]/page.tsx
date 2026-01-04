@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, ShoppingCart, ArrowLeft, Package, Volume2, VolumeX } from 'lucide-react';
+import { /* Play, Pause, */ ShoppingCart, ArrowLeft, Package /* , Volume2, VolumeX */ } from 'lucide-react';
 import { useProduct } from '@/hooks';
 
 export default function ProductDetailPage() {
@@ -16,129 +16,132 @@ export default function ProductDetailPage() {
   const productId = params.product_id as string;
 
   const { data: product, isLoading, error } = useProduct(productId);
-  const [isPlayingSample, setIsPlayingSample] = useState(false);
-  const [volume, setVolume] = useState(0.3); // 기본 음량 30%
-  const [currentTime, setCurrentTime] = useState(0); // 현재 재생 시간
-  const [duration, setDuration] = useState(0); // 총 재생 시간
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // ===== 샘플 오디오 기능 주석 처리 (Google Drive 링크 방식으로 전환) =====
+  // const [isPlayingSample, setIsPlayingSample] = useState(false);
+  // const [volume, setVolume] = useState(0.3); // 기본 음량 30%
+  // const [currentTime, setCurrentTime] = useState(0); // 현재 재생 시간
+  // const [duration, setDuration] = useState(0); // 총 재생 시간
+  // const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const isVoicePack = product?.type === 'VOICE_PACK';
   const isPhysicalGoods = product?.type === 'PHYSICAL_GOODS';
 
-  // 오디오 완전 정지 헬퍼 함수
-  const stopAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = ''; // 소스 완전 제거
-      audioRef.current.onended = null; // 이벤트 리스너 제거
-      audioRef.current.onerror = null;
-      audioRef.current.ontimeupdate = null;
-      audioRef.current.onloadedmetadata = null;
-      audioRef.current = null;
-    }
-    setIsPlayingSample(false);
-    setCurrentTime(0);
-    setDuration(0);
-  };
+  // // 오디오 완전 정지 헬퍼 함수
+  // const stopAudio = () => {
+  //   if (audioRef.current) {
+  //     audioRef.current.pause();
+  //     audioRef.current.src = ''; // 소스 완전 제거
+  //     audioRef.current.onended = null; // 이벤트 리스너 제거
+  //     audioRef.current.onerror = null;
+  //     audioRef.current.ontimeupdate = null;
+  //     audioRef.current.onloadedmetadata = null;
+  //     audioRef.current = null;
+  //   }
+  //   setIsPlayingSample(false);
+  //   setCurrentTime(0);
+  //   setDuration(0);
+  // };
 
-  // 초기 음량 설정 로드 (localStorage)
-  useEffect(() => {
-    const savedVolume = localStorage.getItem('sampleVolume');
-    if (savedVolume !== null) {
-      setVolume(parseFloat(savedVolume));
-    }
-  }, []);
+  // // 초기 음량 설정 로드 (localStorage)
+  // useEffect(() => {
+  //   const savedVolume = localStorage.getItem('sampleVolume');
+  //   if (savedVolume !== null) {
+  //     setVolume(parseFloat(savedVolume));
+  //   }
+  // }, []);
 
-  // Cleanup: 컴포넌트 언마운트 시 오디오 정지
-  useEffect(() => {
-    return () => {
-      stopAudio();
-    };
-  }, []);
+  // // Cleanup: 컴포넌트 언마운트 시 오디오 정지
+  // useEffect(() => {
+  //   return () => {
+  //     stopAudio();
+  //   };
+  // }, []);
 
-  const handlePlaySample = () => {
-    if (!product?.sample_audio_url) return;
+  // const handlePlaySample = () => {
+  //   if (!product?.sample_audio_url) return;
 
-    // 이미 재생 중이면 정지
-    if (audioRef.current) {
-      stopAudio();
-    } else {
-      // 새로 재생
-      try {
-        const audio = new Audio(product.sample_audio_url);
-        audio.volume = volume; // 음량 설정
+  //   // 이미 재생 중이면 정지
+  //   if (audioRef.current) {
+  //     stopAudio();
+  //   } else {
+  //     // 새로 재생
+  //     try {
+  //       const audio = new Audio(product.sample_audio_url);
+  //       audio.volume = volume; // 음량 설정
 
-        // 메타데이터 로드 시 총 재생 시간 설정
-        audio.onloadedmetadata = () => {
-          setDuration(audio.duration);
-        };
+  //       // 메타데이터 로드 시 총 재생 시간 설정
+  //       audio.onloadedmetadata = () => {
+  //         setDuration(audio.duration);
+  //       };
 
-        // 재생 시간 업데이트
-        audio.ontimeupdate = () => {
-          setCurrentTime(audio.currentTime);
-        };
+  //       // 재생 시간 업데이트
+  //       audio.ontimeupdate = () => {
+  //         setCurrentTime(audio.currentTime);
+  //       };
 
-        // 재생 종료 시 상태 업데이트
-        audio.onended = () => {
-          stopAudio();
-        };
+  //       // 재생 종료 시 상태 업데이트
+  //       audio.onended = () => {
+  //         stopAudio();
+  //       };
 
-        // 에러 처리
-        audio.onerror = () => {
-          console.error('샘플 로드 실패');
-          alert('샘플을 불러올 수 없습니다.');
-          stopAudio();
-        };
+  //       // 에러 처리
+  //       audio.onerror = () => {
+  //         console.error('샘플 로드 실패');
+  //         alert('샘플을 불러올 수 없습니다.');
+  //         stopAudio();
+  //       };
 
-        // Race Condition 방지: 재생 전에 먼저 참조와 상태 설정
-        audioRef.current = audio;
-        setIsPlayingSample(true);
+  //       // Race Condition 방지: 재생 전에 먼저 참조와 상태 설정
+  //       audioRef.current = audio;
+  //       setIsPlayingSample(true);
 
-        // 그 다음 재생 시작
-        audio.play().catch((error) => {
-          console.error('샘플 재생 실패:', error);
-          alert('샘플 재생에 실패했습니다. 다시 시도해주세요.');
-          stopAudio();
-        });
-      } catch (error) {
-        console.error('샘플 재생 중 오류:', error);
-        alert('샘플 재생에 실패했습니다.');
-        stopAudio();
-      }
-    }
-  };
+  //       // 그 다음 재생 시작
+  //       audio.play().catch((error) => {
+  //         console.error('샘플 재생 실패:', error);
+  //         alert('샘플 재생에 실패했습니다. 다시 시도해주세요.');
+  //         stopAudio();
+  //       });
+  //     } catch (error) {
+  //       console.error('샘플 재생 중 오류:', error);
+  //       alert('샘플 재생에 실패했습니다.');
+  //       stopAudio();
+  //     }
+  //   }
+  // };
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    setVolume(newVolume);
+  // const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const newVolume = parseFloat(e.target.value);
+  //   setVolume(newVolume);
 
-    // 재생 중인 오디오의 음량도 즉시 변경
-    if (audioRef.current) {
-      audioRef.current.volume = newVolume;
-    }
+  //   // 재생 중인 오디오의 음량도 즉시 변경
+  //   if (audioRef.current) {
+  //     audioRef.current.volume = newVolume;
+  //   }
 
-    // localStorage에 저장
-    localStorage.setItem('sampleVolume', newVolume.toString());
-  };
+  //   // localStorage에 저장
+  //   localStorage.setItem('sampleVolume', newVolume.toString());
+  // };
 
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!audioRef.current || !duration) return;
+  // const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+  //   if (!audioRef.current || !duration) return;
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percentage = x / rect.width;
-    const newTime = percentage * duration;
+  //   const rect = e.currentTarget.getBoundingClientRect();
+  //   const x = e.clientX - rect.left;
+  //   const percentage = x / rect.width;
+  //   const newTime = percentage * duration;
 
-    audioRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-  };
+  //   audioRef.current.currentTime = newTime;
+  //   setCurrentTime(newTime);
+  // };
 
-  const formatTime = (seconds: number) => {
-    if (!seconds || isNaN(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  // const formatTime = (seconds: number) => {
+  //   if (!seconds || isNaN(seconds)) return '0:00';
+  //   const mins = Math.floor(seconds / 60);
+  //   const secs = Math.floor(seconds % 60);
+  //   return `${mins}:${secs.toString().padStart(2, '0')}`;
+  // };
+  // ===== 샘플 오디오 기능 주석 처리 끝 =====
 
   const handlePurchase = () => {
     // TODO: Check login status and redirect to order page
@@ -245,10 +248,9 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Sample Play Button for Voice Packs */}
-            {isVoicePack && product.sample_audio_url && (
+            {/* ===== 샘플 오디오 플레이어 UI 주석 처리 ===== */}
+            {/* {isVoicePack && product.sample_audio_url && (
               <div className="mb-6 space-y-3">
-                {/* Progress Bar */}
                 <div className="space-y-1">
                   <div
                     className="h-2 bg-neutral-200 rounded-full cursor-pointer overflow-hidden group"
@@ -284,7 +286,6 @@ export default function ProductDetailPage() {
                   )}
                 </Button>
 
-                {/* Volume Control */}
                 <div className="flex items-center gap-3 px-2">
                   <button
                     onClick={() => {
@@ -319,7 +320,8 @@ export default function ProductDetailPage() {
                   </span>
                 </div>
               </div>
-            )}
+            )} */}
+            {/* ===== 샘플 오디오 플레이어 UI 주석 처리 끝 ===== */}
 
             {/* Purchase Button */}
             <Button

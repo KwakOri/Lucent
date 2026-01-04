@@ -137,14 +137,8 @@ export function useDownloadDigitalProduct() {
       return data.data;
     },
     onSuccess: (data) => {
-      // 파일 다운로드 (새 탭이 아닌 직접 다운로드)
-      const link = document.createElement('a');
-      link.href = data.downloadUrl;
-      link.download = data.filename || 'voicepack.zip'; // 파일명 지정
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // 파일 다운로드 (새 탭에서 열기)
+      window.open(data.downloadUrl, '_blank');
     },
   });
 }
