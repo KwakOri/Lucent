@@ -14,6 +14,7 @@ import type { Enums } from '@/types';
 
 // Order status types
 type OrderStatus = Enums<'order_status'>;
+type OrderItemStatus = Enums<'order_item_status'>;
 type ProductType = Enums<'product_type'>;
 
 // Order status config
@@ -26,6 +27,20 @@ const ORDER_STATUS_CONFIG: Record<
   MAKING: { label: '제작중', intent: 'warning' },
   SHIPPING: { label: '발송중', intent: 'success' },
   DONE: { label: '배송완료', intent: 'default' },
+};
+
+// Order item status config
+const ITEM_STATUS_CONFIG: Record<
+  OrderItemStatus,
+  { label: string; intent: 'default' | 'success' | 'warning' | 'error' }
+> = {
+  PENDING: { label: '대기', intent: 'warning' },
+  READY: { label: '준비완료', intent: 'default' },
+  PROCESSING: { label: '처리중', intent: 'warning' },
+  SHIPPED: { label: '발송됨', intent: 'success' },
+  DELIVERED: { label: '배송완료', intent: 'success' },
+  COMPLETED: { label: '완료', intent: 'success' },
+  CANCELLED: { label: '취소', intent: 'error' },
 };
 
 export default function MyPage() {
@@ -195,14 +210,21 @@ export default function MyPage() {
                           <p className="text-base font-medium text-text-primary">
                             {item.product_name}
                           </p>
-                          <p className="text-sm text-text-secondary">
-                            {item.quantity}개 × {item.price_snapshot.toLocaleString()}원
-                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-sm text-text-secondary">
+                              {item.quantity}개 × {item.price_snapshot.toLocaleString()}원
+                            </p>
+                            {item.item_status && (
+                              <Badge intent={ITEM_STATUS_CONFIG[item.item_status as OrderItemStatus]?.intent || 'default'} size="sm">
+                                {ITEM_STATUS_CONFIG[item.item_status as OrderItemStatus]?.label || item.item_status}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
 
                         {/* Download Button for Digital Products */}
                         {item.product_type === 'VOICE_PACK' &&
-                          order.status !== 'PENDING' && (
+                          item.item_status === 'COMPLETED' && (
                             <Button
                               intent="primary"
                               size="sm"
@@ -262,10 +284,9 @@ export default function MyPage() {
             <div className="bg-white rounded-xl border border-neutral-200 p-6">
               <div className="space-y-4">
                 {orders
-                  .filter((order) => order.status !== 'PENDING')
                   .flatMap((order) =>
                     order.items
-                      ?.filter((item) => item.product_type === 'VOICE_PACK')
+                      ?.filter((item) => item.product_type === 'VOICE_PACK' && item.item_status === 'COMPLETED')
                       .map((item) => (
                         <div
                           key={`${order.id}-${item.id}`}
