@@ -343,30 +343,6 @@ export default function ProductDetailPage() {
               {isOutOfStock ? '품절' : '구매하기'}
             </Button>
 
-            {/* Additional Info */}
-            <div className="mt-8 space-y-4">
-              <div className="p-4 bg-white rounded-lg border border-neutral-200">
-                <h3 className="font-bold text-text-primary mb-2">
-                  {isVoicePack ? '다운로드 안내' : '배송 안내'}
-                </h3>
-                <p className="text-sm text-text-secondary">
-                  {isVoicePack
-                    ? '결제 완료 후 마이페이지에서 즉시 다운로드 가능합니다.'
-                    : '주문 후 영업일 기준 3-5일 이내 배송됩니다.'}
-                </p>
-              </div>
-
-              <div className="p-4 bg-white rounded-lg border border-neutral-200">
-                <h3 className="font-bold text-text-primary mb-2">
-                  환불 정책
-                </h3>
-                <p className="text-sm text-text-secondary">
-                  {isVoicePack
-                    ? '디지털 상품은 다운로드 전까지만 환불 가능합니다.'
-                    : '실물 굿즈는 배송 전까지 취소 가능합니다.'}
-                </p>
-              </div>
-            </div>
           </div>
         </div>
 

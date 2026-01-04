@@ -202,44 +202,6 @@ export default function ShopPage() {
         </div>
       </section>
 
-      {/* Shop Info Section */}
-      <section className="py-16 px-4 bg-neutral-50">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-text-primary mb-8 text-center">
-            구매 안내
-          </h2>
-
-          <div className="space-y-4">
-            <div className="bg-white rounded-lg p-6 border border-neutral-200">
-              <h3 className="text-lg font-bold text-text-primary mb-3">
-                배송 정책
-              </h3>
-              <p className="text-text-secondary">
-                실물 굿즈는 주문 후 영업일 기준 3-5일 이내 배송됩니다.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-lg p-6 border border-neutral-200">
-              <h3 className="text-lg font-bold text-text-primary mb-3">
-                디지털 상품 안내
-              </h3>
-              <p className="text-text-secondary">
-                보이스팩은 결제 완료 후 마이페이지에서 즉시 다운로드 가능합니다.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-lg p-6 border border-neutral-200">
-              <h3 className="text-lg font-bold text-text-primary mb-3">
-                환불 정책
-              </h3>
-              <p className="text-text-secondary">
-                디지털 상품은 다운로드 전까지만 환불 가능합니다. 실물 굿즈는
-                배송 전까지 취소 가능합니다.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
