@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -53,6 +53,11 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
   const [activeTab, setActiveTab] = useState<Tab>('pending');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
+  // 탭 변경 시 선택 목록 초기화
+  useEffect(() => {
+    setSelectedOrderIds([]);
+  }, [activeTab]);
 
   // 탭별 필터링 로직
   const filteredOrders = orders.filter((order) => {
