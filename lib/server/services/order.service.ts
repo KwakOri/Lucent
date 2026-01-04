@@ -662,19 +662,21 @@ export class OrderService {
     // 6. 파일명 생성 (상품명 + .zip)
     const filename = `${product.name.replace(/[^a-zA-Z0-9가-힣\s]/g, "_")}.zip`;
 
-    // 7. Presigned URL 생성 (R2)
-    const { generateSignedUrl } = await import("@/lib/server/utils/r2");
+    // 7. Google Drive 링크 반환 (R2 대신 Google Drive 사용)
+    // digital_file_url이 이미 Google Drive 링크임
+    const downloadUrl = product.digital_file_url;
+    const expiresIn = 3600; // 1시간 (Google Drive는 만료 없지만 호환성 유지)
 
-    // R2 키 추출 (URL에서 경로 부분만)
-    const url = new URL(product.digital_file_url);
-    const r2Key = url.pathname.substring(1); // 맨 앞 '/' 제거
-
-    const expiresIn = 3600; // 1시간
-    const downloadUrl = await generateSignedUrl({
-      key: r2Key,
-      expiresIn,
-      filename, // Content-Disposition 헤더에 사용될 파일명
-    });
+    // ===== 이전 R2 Presigned URL 생성 로직 (주석 처리) =====
+    // const { generateSignedUrl } = await import("@/lib/server/utils/r2");
+    // const url = new URL(product.digital_file_url);
+    // const r2Key = url.pathname.substring(1);
+    // const downloadUrl = await generateSignedUrl({
+    //   key: r2Key,
+    //   expiresIn,
+    //   filename,
+    // });
+    // ===== R2 로직 끝 =====
 
     // 8. 다운로드 횟수 증가 및 마지막 다운로드 시간 업데이트
     const newDownloadCount = (orderItem.download_count || 0) + 1;
