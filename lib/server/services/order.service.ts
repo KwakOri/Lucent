@@ -14,6 +14,7 @@ import { createServerClient } from '@/lib/server/utils/supabase';
 import { ApiError, NotFoundError, AuthorizationError } from '@/lib/server/utils/errors';
 import { LogService } from './log.service';
 import { Tables, TablesInsert, Enums } from '@/types/database';
+import { SHIPPING_FEE } from '@/constants';
 
 type Order = Tables<'orders'>;
 type OrderInsert = TablesInsert<'orders'>;
@@ -108,6 +109,14 @@ export class OrderService {
       if (product) {
         totalPrice += product.price * item.quantity;
       }
+    }
+
+    // 배송비 추가 (실물 굿즈 또는 번들 상품이 포함된 경우)
+    const hasPhysicalProduct = products.some(
+      (p) => p.type === 'PHYSICAL_GOODS' || p.type === 'BUNDLE'
+    );
+    if (hasPhysicalProduct) {
+      totalPrice += SHIPPING_FEE;
     }
 
     // 주문 번호 생성
@@ -407,18 +416,23 @@ export class OrderService {
 
   /**
    * 주문 취소 (사용자)
+   *
+   * - PENDING(입금대기) 상태에서만 취소 가능
+   * - 본인 주문만 취소 가능
+   * - 주문 및 주문 아이템 삭제
+   * - 로그 기록
    */
   static async cancelOrder(
     orderId: string,
     userId: string,
     reason?: string
-  ): Promise<Order> {
+  ): Promise<{ success: boolean; message: string }> {
     const supabase = await createServerClient();
 
     // 주문 확인
     const { data: order } = await supabase
       .from('orders')
-      .select('status, user_id')
+      .select('status, user_id, order_number')
       .eq('id', orderId)
       .single();
 
@@ -431,31 +445,42 @@ export class OrderService {
       throw new AuthorizationError('주문 취소 권한이 없습니다');
     }
 
-    // 취소 가능 상태 확인
-    if (order.status !== 'PENDING' && order.status !== 'PAID') {
+    // 취소 가능 상태 확인 - PENDING(입금대기)일 때만 취소 가능
+    if (order.status !== 'PENDING') {
       throw new ApiError(
-        '이미 처리 중인 주문은 취소할 수 없습니다',
+        '입금대기 상태의 주문만 취소할 수 있습니다',
         400,
         'ORDER_CANNOT_CANCEL'
       );
     }
 
-    // 상태 변경
-    const { data, error } = await supabase
-      .from('orders')
-      .update({ status: 'DONE' }) // TODO: CANCELLED 상태 추가 필요
-      .eq('id', orderId)
-      .select()
-      .single();
+    // ✅ 로그 기록 (삭제 전에 기록)
+    await LogService.logOrderCancelled(orderId, userId, reason || '고객 요청');
 
-    if (error) {
+    // 주문 아이템 삭제
+    const { error: itemsError } = await supabase
+      .from('order_items')
+      .delete()
+      .eq('order_id', orderId);
+
+    if (itemsError) {
+      throw new ApiError('주문 아이템 삭제 실패', 500, 'ORDER_ITEMS_DELETE_FAILED');
+    }
+
+    // 주문 삭제
+    const { error: orderError } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', orderId);
+
+    if (orderError) {
       throw new ApiError('주문 취소 실패', 500, 'ORDER_CANCEL_FAILED');
     }
 
-    // ✅ 로그 기록
-    await LogService.logOrderCancelled(orderId, userId, reason);
-
-    return data;
+    return {
+      success: true,
+      message: `주문 ${order.order_number}이(가) 취소되었습니다`,
+    };
   }
 
   /**

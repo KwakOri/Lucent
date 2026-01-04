@@ -20,6 +20,7 @@ import { useProduct } from '@/hooks/useProducts';
 import { useCreateOrder } from '@/hooks/useOrders';
 import { useSession } from '@/hooks/useAuth';
 import { useMyProfile } from '@/hooks';
+import { SHIPPING_FEE } from '@/constants';
 
 export default function CheckoutPage() {
   const params = useParams();
@@ -71,8 +72,9 @@ export default function CheckoutPage() {
   const isPhysicalGoods = product?.type === 'PHYSICAL_GOODS';
   const isOutOfStock = product ? product.stock !== null && product.stock <= 0 : false;
 
-  // 배송비 (향후 동적 계산 가능)
-  const shippingFee = isPhysicalGoods ? 3000 : 0;
+  // 배송비 (실물 굿즈 또는 번들 상품인 경우)
+  const needsShipping = product?.type === 'PHYSICAL_GOODS' || product?.type === 'BUNDLE';
+  const shippingFee = needsShipping ? SHIPPING_FEE : 0;
 
   // 검증
   const isBuyerInfoValid =

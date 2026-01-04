@@ -14,6 +14,7 @@ import { Loading } from '@/components/ui/loading';
 import { EmptyState } from '@/components/ui/empty-state';
 import { BankAccountInfo } from '@/components/order';
 import { useOrder } from '@/hooks/useOrders';
+import { SHIPPING_FEE } from '@/constants';
 
 export default function OrderConfirmationPage() {
   const params = useParams();
@@ -24,11 +25,15 @@ export default function OrderConfirmationPage() {
 
   // 상품 타입 확인
   const hasPhysicalGoods = order?.items?.some(
-    (item: any) => item.product_type === 'PHYSICAL_GOODS'
+    (item: any) => item.product_type === 'PHYSICAL_GOODS' || item.product_type === 'BUNDLE'
   );
   const hasDigitalProducts = order?.items?.some(
     (item: any) => item.product_type === 'VOICE_PACK'
   );
+
+  // 배송비 계산 (실물 굿즈가 포함된 경우)
+  const shippingFee = hasPhysicalGoods ? SHIPPING_FEE : 0;
+  const productTotal = order ? order.total_price - shippingFee : 0;
 
   // 날짜 포맷
   const formatDateTime = (dateString: string) => {
@@ -105,7 +110,7 @@ export default function OrderConfirmationPage() {
         {/* Bank Account Info */}
         <div className="mb-8">
           <BankAccountInfo
-            orderNumber={order.order_number}
+            depositorName={order.buyer_name}
             totalAmount={order.total_price}
           />
         </div>
@@ -153,13 +158,31 @@ export default function OrderConfirmationPage() {
               </div>
             ))}
 
-            <div className="pt-4 border-t border-gray-200 flex justify-between items-center">
-              <span className="text-base font-semibold text-gray-900">
-                총 결제 금액
-              </span>
-              <span className="text-2xl font-bold text-primary-600">
-                {order.total_price.toLocaleString()}원
-              </span>
+            <div className="pt-4 border-t border-gray-200 space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600">상품 금액</span>
+                <span className="font-medium text-gray-900">
+                  {productTotal.toLocaleString()}원
+                </span>
+              </div>
+
+              {shippingFee > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">배송비</span>
+                  <span className="font-medium text-gray-900">
+                    {shippingFee.toLocaleString()}원
+                  </span>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
+                <span className="text-base font-semibold text-gray-900">
+                  총 결제 금액
+                </span>
+                <span className="text-2xl font-bold text-primary-600">
+                  {order.total_price.toLocaleString()}원
+                </span>
+              </div>
             </div>
           </div>
         </section>
@@ -217,11 +240,11 @@ export default function OrderConfirmationPage() {
             <li className="flex items-start gap-2">
               <span className="text-blue-600 mt-0.5">•</span>
               <span>
-                <strong>입금자명</strong>에 반드시 주문번호(
-                <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">
-                  {order.order_number}
+                <strong>입금자명</strong>은 주문자 본인 이름(
+                <code className="bg-blue-100 px-1 py-0.5 rounded font-semibold">
+                  {order.buyer_name}
                 </code>
-                )를 포함해주세요
+                )으로 입금해주세요
               </span>
             </li>
             <li className="flex items-start gap-2">
