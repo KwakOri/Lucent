@@ -31,11 +31,6 @@ export default function ShopPage() {
   ) => {
     e.stopPropagation();
 
-    if (!user) {
-      router.push(`/login?redirect=/shop`);
-      return;
-    }
-
     setAddingToCart(productId);
     try {
       await addToCart.mutateAsync({ product_id: productId, quantity: 1 });

@@ -126,22 +126,20 @@ export function Header() {
                   굿즈샵
                 </Button>
               </Link>
-              {user && (
-                <Link href="/cart">
-                  <Button
-                    intent={scrolled ? "headerScrolled" : "header"}
-                    size="sm"
-                    className="relative"
-                  >
-                    <ShoppingCart className="w-4 h-4" />
-                    {cartCount && cartCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                        {cartCount > 99 ? '99+' : cartCount}
-                      </span>
-                    )}
-                  </Button>
-                </Link>
-              )}
+              <Link href="/cart">
+                <Button
+                  intent={scrolled ? "headerScrolled" : "header"}
+                  size="sm"
+                  className="relative"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  {cartCount && cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {cartCount > 99 ? '99+' : cartCount}
+                    </span>
+                  )}
+                </Button>
+              </Link>
               {isLoading || isLoggingOut ? (
                 <div className="w-20 h-9 bg-neutral-200/20 rounded-xl animate-pulse" />
               ) : user ? (

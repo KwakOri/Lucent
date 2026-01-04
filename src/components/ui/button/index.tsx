@@ -46,6 +46,13 @@ const buttonVariants = cva(
           "disabled:border-neutral-200",
           "disabled:text-text-muted",
         ],
+        ghost: [
+          "bg-transparent",
+          "text-text-secondary",
+          "hover:bg-neutral-100",
+          "focus-visible:ring-neutral-300",
+          "disabled:text-text-muted",
+        ],
         header: [
           "bg-transparent",
           "text-[rgb(30,30,30)]",

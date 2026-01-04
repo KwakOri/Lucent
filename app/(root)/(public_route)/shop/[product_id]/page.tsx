@@ -144,8 +144,7 @@ export default function ProductDetailPage() {
   // ===== 샘플 오디오 기능 주석 처리 끝 =====
 
   const handlePurchase = () => {
-    // TODO: Check login status and redirect to order page
-    router.push(`/order/${productId}`);
+    router.push(`/checkout?product_id=${productId}`);
   };
 
   if (isLoading) {

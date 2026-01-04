@@ -19,11 +19,29 @@ import type { Enums } from '@/types/database';
 
 /**
  * 상품 목록 조회
+ *
+ * Query Parameters:
+ * - ids: 쉼표로 구분된 상품 ID 목록 (예: ids=id1,id2,id3)
+ * - 기타: page, limit, projectId, type, isActive, sortBy, order
  */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
 
+    // ids 파라미터가 있으면 특정 상품들만 조회
+    const idsParam = searchParams.get('ids');
+    if (idsParam) {
+      const ids = idsParam.split(',').map(id => id.trim()).filter(Boolean);
+
+      if (ids.length === 0) {
+        return successResponse([]);
+      }
+
+      const products = await ProductService.getProductsByIds(ids);
+      return successResponse(products);
+    }
+
+    // 일반 목록 조회
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const projectId = searchParams.get('projectId') || undefined;

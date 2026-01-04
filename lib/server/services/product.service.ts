@@ -181,6 +181,44 @@ export class ProductService {
   }
 
   /**
+   * 여러 상품을 ID 목록으로 조회 (장바구니용)
+   */
+  static async getProductsByIds(ids: string[]): Promise<ProductWithDetails[]> {
+    if (ids.length === 0) return [];
+
+    const supabase = await createServerClient();
+
+    const { data, error } = await supabase
+      .from('products')
+      .select(
+        `
+        *,
+        project:projects (
+          id,
+          name,
+          slug
+        ),
+        main_image:images!products_main_image_id_fkey (
+          id,
+          r2_key,
+          public_url,
+          cdn_url,
+          alt_text
+        )
+      `
+      )
+      .in('id', ids)
+      .eq('is_active', true);
+
+    if (error) {
+      console.error('Products fetch error:', error);
+      throw new ApiError('상품 조회 실패', 500, 'PRODUCTS_FETCH_FAILED');
+    }
+
+    return (data || []) as ProductWithDetails[];
+  }
+
+  /**
    * Slug로 상품 조회
    */
   static async getProductBySlug(slug: string): Promise<ProductWithDetails> {

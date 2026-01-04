@@ -7,7 +7,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,21 +15,32 @@ import { Loading } from '@/components/ui/loading';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CartOrderSummary } from '@/components/order/CartOrderSummary';
+import { OrderSummary } from '@/components/order';
 import { ShippingForm, BuyerInfoForm, type ShippingInfo, type BuyerInfo } from '@/components/order';
 import { useCart, useClearCart } from '@/hooks/useCart';
 import { useCreateOrder } from '@/hooks/useOrders';
 import { useSession } from '@/hooks/useAuth';
 import { useMyProfile } from '@/hooks';
+import { useProduct } from '@/hooks/useProducts';
 import { SHIPPING_FEE } from '@/constants';
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const productId = searchParams.get('product_id');
 
-  const { data: cartData, isLoading, error } = useCart();
+  // 단일 상품 주문 또는 장바구니 주문
+  const { data: singleProduct, isLoading: isLoadingSingleProduct, error: singleProductError } = useProduct(productId || null);
+  const { data: cartData, isLoading: isLoadingCart, error: cartError } = useCart();
   const { mutate: createOrder, isPending: isCreatingOrder } = useCreateOrder();
   const { mutate: clearCart } = useClearCart();
   const { user, isLoading: isLoadingUser } = useSession();
   const { data: profile, isLoading: isLoadingProfile } = useMyProfile();
+
+  // 주문 모드 결정
+  const isSingleProductMode = !!productId;
+  const isLoading = isSingleProductMode ? isLoadingSingleProduct : isLoadingCart;
+  const error = isSingleProductMode ? singleProductError : cartError;
 
   const [buyerInfo, setBuyerInfo] = useState<BuyerInfo>({
     name: '',
@@ -68,14 +79,19 @@ export default function CheckoutPage() {
     }
   }, [user, profile]);
 
-  const items = cartData?.items || [];
-  const hasPhysicalGoods = items.some(
-    (item) =>
-      item.product.type === 'PHYSICAL_GOODS' || item.product.type === 'BUNDLE'
-  );
+  // 주문 상품 목록 및 배송비 계산
+  const items = isSingleProductMode ? [] : (cartData?.items || []);
+  const hasPhysicalGoods = isSingleProductMode
+    ? singleProduct?.type === 'PHYSICAL_GOODS' || singleProduct?.type === 'BUNDLE'
+    : items.some((item) => item.product.type === 'PHYSICAL_GOODS' || item.product.type === 'BUNDLE');
 
   // 배송비 (실물 굿즈 또는 번들 상품이 포함된 경우)
   const shippingFee = hasPhysicalGoods ? SHIPPING_FEE : 0;
+
+  // 품절 확인 (단일 상품 모드)
+  const isOutOfStock = isSingleProductMode && singleProduct
+    ? singleProduct.stock !== null && singleProduct.stock <= 0
+    : false;
 
   // 검증
   const isBuyerInfoValid =
@@ -95,13 +111,21 @@ export default function CheckoutPage() {
   const isFormValid = agreedToTerms && isBuyerInfoValid && isShippingValid;
 
   const handleSubmit = () => {
-    if (items.length === 0 || !isFormValid) return;
+    if (!isFormValid) return;
+
+    // 단일 상품 모드에서 상품이 없거나 품절인 경우
+    if (isSingleProductMode && (!singleProduct || isOutOfStock)) return;
+
+    // 장바구니 모드에서 상품이 없는 경우
+    if (!isSingleProductMode && items.length === 0) return;
 
     const orderData: any = {
-      items: items.map((item) => ({
-        productId: item.product_id,
-        quantity: item.quantity,
-      })),
+      items: isSingleProductMode && singleProduct
+        ? [{ productId: singleProduct.id, quantity: 1 }]
+        : items.map((item) => ({
+            productId: item.product_id,
+            quantity: item.quantity,
+          })),
       // 주문자 정보
       buyerName: buyerInfo.name,
       buyerEmail: buyerInfo.email,
@@ -121,8 +145,10 @@ export default function CheckoutPage() {
 
     createOrder(orderData, {
       onSuccess: (order) => {
-        // 주문 완료 후 장바구니 비우기
-        clearCart();
+        // 장바구니 모드인 경우에만 장바구니 비우기
+        if (!isSingleProductMode) {
+          clearCart();
+        }
         router.push(`/order/complete/${order.id}`);
       },
       onError: (error) => {
@@ -160,7 +186,23 @@ export default function CheckoutPage() {
     );
   }
 
-  if (items.length === 0) {
+  // 단일 상품 모드 - 품절 체크
+  if (isSingleProductMode && isOutOfStock) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <EmptyState title="죄송합니다" description="현재 품절된 상품입니다">
+          <Link href="/shop">
+            <Button intent="primary" size="md">
+              다른 상품 보기
+            </Button>
+          </Link>
+        </EmptyState>
+      </div>
+    );
+  }
+
+  // 장바구니 모드 - 빈 장바구니 체크
+  if (!isSingleProductMode && items.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <EmptyState
@@ -276,7 +318,15 @@ export default function CheckoutPage() {
 
           {/* Right Section - Order Summary */}
           <div className="lg:col-span-1">
-            <CartOrderSummary items={items} shippingFee={shippingFee} />
+            {isSingleProductMode && singleProduct ? (
+              <OrderSummary
+                product={singleProduct}
+                quantity={1}
+                shippingFee={shippingFee}
+              />
+            ) : (
+              <CartOrderSummary items={items} shippingFee={shippingFee} />
+            )}
           </div>
         </div>
 
@@ -295,10 +345,12 @@ export default function CheckoutPage() {
             {isCreatingOrder
               ? '주문 중...'
               : `${(
-                  items.reduce(
-                    (sum, item) => sum + item.product.price * item.quantity,
-                    0
-                  ) + shippingFee
+                  isSingleProductMode && singleProduct
+                    ? singleProduct.price + shippingFee
+                    : items.reduce(
+                        (sum, item) => sum + item.product.price * item.quantity,
+                        0
+                      ) + shippingFee
                 ).toLocaleString()}원 주문하기`}
           </Button>
         </div>
