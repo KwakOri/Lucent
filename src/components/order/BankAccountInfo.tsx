@@ -11,7 +11,7 @@ import { Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface BankAccountInfoProps {
-  orderNumber: string;
+  depositorName: string;
   totalAmount: number;
 }
 
@@ -23,7 +23,7 @@ const BANK_INFO = {
 };
 
 export function BankAccountInfo({
-  orderNumber,
+  depositorName,
   totalAmount,
 }: BankAccountInfoProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export function BankAccountInfo({
 계좌번호: ${BANK_INFO.accountNumber}
 예금주: ${BANK_INFO.accountHolder}
 입금액: ${totalAmount.toLocaleString()}원
-입금자명: ${orderNumber}
+입금자명: ${depositorName}
     `.trim();
 
     await copyToClipboard(allInfo, 'all');
@@ -105,15 +105,15 @@ export function BankAccountInfo({
         <div className="flex justify-between items-center bg-yellow-400/20 -mx-4 px-4 py-3 rounded">
           <span className="text-sm font-semibold">입금자명 (필수)</span>
           <div className="flex items-center gap-2">
-            <span className="font-mono font-bold text-yellow-200">
-              {orderNumber}
+            <span className="font-bold text-yellow-200">
+              {depositorName}
             </span>
             <button
-              onClick={() => copyToClipboard(orderNumber, 'orderNumber')}
+              onClick={() => copyToClipboard(depositorName, 'depositorName')}
               className="p-1.5 hover:bg-white/20 rounded transition-colors"
-              aria-label="주문번호 복사"
+              aria-label="입금자명 복사"
             >
-              {copiedField === 'orderNumber' ? (
+              {copiedField === 'depositorName' ? (
                 <Check size={16} />
               ) : (
                 <Copy size={16} />
@@ -145,7 +145,7 @@ export function BankAccountInfo({
 
       {/* 안내 메시지 */}
       <div className="mt-4 text-sm opacity-90 space-y-1">
-        <p>• 입금자명에 반드시 주문번호를 포함해주세요</p>
+        <p>• 입금자명은 주문자 본인 이름으로 입금해주세요</p>
         <p>• 입금 확인까지 영업일 기준 1-2일 소요됩니다</p>
       </div>
     </section>

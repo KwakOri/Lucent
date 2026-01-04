@@ -14,9 +14,10 @@ type Profile = Tables<'profiles'>;
  * 프로필 업데이트 데이터
  */
 export interface UpdateProfileData {
-  name?: string;
-  phone?: string;
-  address?: string;
+  name?: string | null;
+  phone?: string | null;
+  main_address?: string | null;
+  detail_address?: string | null;
 }
 
 /**
@@ -27,13 +28,13 @@ export const ProfilesAPI = {
    * 내 프로필 조회
    */
   async getMyProfile(): Promise<ApiResponse<Profile>> {
-    return apiClient.get('/api/profiles');
+    return apiClient.get('/api/profiles/me');
   },
 
   /**
    * 프로필 업데이트
    */
   async updateProfile(data: UpdateProfileData): Promise<ApiResponse<Profile>> {
-    return apiClient.patch('/api/profiles', data);
+    return apiClient.patch('/api/profiles/me', data);
   },
 };

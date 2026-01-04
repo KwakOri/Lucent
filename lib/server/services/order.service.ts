@@ -10,19 +10,23 @@
  * 중요: 모든 주문 이벤트는 LogService로 기록됩니다.
  */
 
-import { createServerClient } from '@/lib/server/utils/supabase';
-import { ApiError, NotFoundError, AuthorizationError } from '@/lib/server/utils/errors';
-import { LogService } from './log.service';
-import { Tables, TablesInsert, Enums } from '@/types/database';
-import { SHIPPING_FEE } from '@/constants';
+import { SHIPPING_FEE } from "@/constants";
+import {
+  ApiError,
+  AuthorizationError,
+  NotFoundError,
+} from "@/lib/server/utils/errors";
+import { createServerClient } from "@/lib/server/utils/supabase";
+import { Enums, Tables, TablesInsert, TablesUpdate } from "@/types/database";
+import { LogService } from "./log.service";
 
-type Order = Tables<'orders'>;
-type OrderInsert = TablesInsert<'orders'>;
-type OrderItem = Tables<'order_items'>;
-type OrderStatus = Enums<'order_status'>;
-type OrderItemStatus = Enums<'order_item_status'>;
-type Shipment = Tables<'shipments'>;
-type ShipmentInsert = TablesInsert<'shipments'>;
+type Order = Tables<"orders">;
+type OrderInsert = TablesInsert<"orders">;
+type OrderItem = Tables<"order_items">;
+type OrderStatus = Enums<"order_status">;
+type OrderItemStatus = Enums<"order_item_status">;
+type Shipment = Tables<"shipments">;
+type ShipmentInsert = TablesInsert<"shipments">;
 
 interface CreateOrderInput {
   userId: string;
@@ -41,13 +45,15 @@ interface CreateOrderInput {
 }
 
 interface OrderWithDetails extends Order {
-  items: Array<OrderItem & {
-    product?: {
-      id: string;
-      name: string;
-      type: Enums<'product_type'>;
-    };
-  }>;
+  items: Array<
+    OrderItem & {
+      product?: {
+        id: string;
+        name: string;
+        type: Enums<"product_type">;
+      };
+    }
+  >;
 }
 
 export class OrderService {
@@ -69,18 +75,18 @@ export class OrderService {
       shippingPhone,
       shippingMainAddress,
       shippingDetailAddress,
-      shippingMemo
+      shippingMemo,
     } = input;
 
     // 상품 정보 조회
     const productIds = items.map((item) => item.productId);
     const { data: products, error: productsError } = await supabase
-      .from('products')
-      .select('id, name, price, stock, type')
-      .in('id', productIds);
+      .from("products")
+      .select("id, name, price, stock, type")
+      .in("id", productIds);
 
     if (productsError || !products) {
-      throw new ApiError('상품 정보 조회 실패', 500, 'PRODUCTS_FETCH_FAILED');
+      throw new ApiError("상품 정보 조회 실패", 500, "PRODUCTS_FETCH_FAILED");
     }
 
     // 재고 확인
@@ -91,12 +97,12 @@ export class OrderService {
       }
 
       // 실물 상품인 경우 재고 확인
-      if (product.type === 'PHYSICAL_GOODS') {
+      if (product.type === "PHYSICAL_GOODS") {
         if (product.stock !== null && product.stock < item.quantity) {
           throw new ApiError(
             `재고가 부족합니다: ${product.name}`,
             400,
-            'INSUFFICIENT_STOCK'
+            "INSUFFICIENT_STOCK"
           );
         }
       }
@@ -113,23 +119,26 @@ export class OrderService {
 
     // 배송비 추가 (실물 굿즈 또는 번들 상품이 포함된 경우)
     const hasPhysicalProduct = products.some(
-      (p) => p.type === 'PHYSICAL_GOODS' || p.type === 'BUNDLE'
+      (p) => p.type === "PHYSICAL_GOODS" || p.type === "BUNDLE"
     );
     if (hasPhysicalProduct) {
       totalPrice += SHIPPING_FEE;
     }
 
     // 주문 번호 생성
-    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    const orderNumber = `ORD-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(7)
+      .toUpperCase()}`;
 
     // 주문 생성
     const { data: order, error: orderError } = await supabase
-      .from('orders')
+      .from("orders")
       .insert({
         user_id: userId,
         order_number: orderNumber,
         total_price: totalPrice,
-        status: 'PENDING',
+        status: "PENDING",
         buyer_name: buyerName || null,
         buyer_email: buyerEmail || null,
         buyer_phone: buyerPhone || null,
@@ -143,7 +152,7 @@ export class OrderService {
       .single();
 
     if (orderError || !order) {
-      throw new ApiError('주문 생성 실패', 500, 'ORDER_CREATE_FAILED');
+      throw new ApiError("주문 생성 실패", 500, "ORDER_CREATE_FAILED");
     }
 
     // 주문 항목 생성
@@ -160,24 +169,32 @@ export class OrderService {
     });
 
     const { data: createdItems, error: itemsError } = await supabase
-      .from('order_items')
+      .from("order_items")
       .insert(orderItems)
       .select();
 
     if (itemsError) {
       // 주문 항목 생성 실패 시 주문 삭제
-      await supabase.from('orders').delete().eq('id', order.id);
-      throw new ApiError('주문 항목 생성 실패', 500, 'ORDER_ITEMS_CREATE_FAILED');
+      await supabase.from("orders").delete().eq("id", order.id);
+      throw new ApiError(
+        "주문 항목 생성 실패",
+        500,
+        "ORDER_ITEMS_CREATE_FAILED"
+      );
     }
 
     // 재고 차감 (실물 상품만)
     for (const item of items) {
       const product = products.find((p) => p.id === item.productId);
-      if (product && product.type === 'PHYSICAL_GOODS' && product.stock !== null) {
+      if (
+        product &&
+        product.type === "PHYSICAL_GOODS" &&
+        product.stock !== null
+      ) {
         await supabase
-          .from('products')
+          .from("products")
           .update({ stock: product.stock - item.quantity })
-          .eq('id', item.productId);
+          .eq("id", item.productId);
       }
     }
 
@@ -185,7 +202,7 @@ export class OrderService {
     await LogService.logOrderCreated(order.id, userId, totalPrice, {
       orderNumber: order.order_number,
       itemCount: items.length,
-      hasPhysicalGoods: products.some((p) => p.type === 'PHYSICAL_GOODS'),
+      hasPhysicalGoods: products.some((p) => p.type === "PHYSICAL_GOODS"),
     });
 
     return {
@@ -205,7 +222,7 @@ export class OrderService {
     const { page = 1, limit = 20 } = options;
 
     let query = supabase
-      .from('orders')
+      .from("orders")
       .select(
         `
         *,
@@ -218,10 +235,10 @@ export class OrderService {
           )
         )
       `,
-        { count: 'exact' }
+        { count: "exact" }
       )
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
     const from = (page - 1) * limit;
     const to = from + limit - 1;
@@ -230,7 +247,7 @@ export class OrderService {
     const { data, error, count } = await query;
 
     if (error) {
-      throw new ApiError('주문 목록 조회 실패', 500, 'ORDERS_FETCH_FAILED');
+      throw new ApiError("주문 목록 조회 실패", 500, "ORDERS_FETCH_FAILED");
     }
 
     return {
@@ -251,7 +268,7 @@ export class OrderService {
     const supabase = await createServerClient();
 
     const { data, error } = await supabase
-      .from('orders')
+      .from("orders")
       .select(
         `
         *,
@@ -275,20 +292,20 @@ export class OrderService {
         )
       `
       )
-      .eq('id', orderId)
+      .eq("id", orderId)
       .single();
 
-    if (error && error.code === 'PGRST116') {
-      throw new NotFoundError('주문을 찾을 수 없습니다', 'ORDER_NOT_FOUND');
+    if (error && error.code === "PGRST116") {
+      throw new NotFoundError("주문을 찾을 수 없습니다", "ORDER_NOT_FOUND");
     }
 
     if (error) {
-      throw new ApiError('주문 조회 실패', 500, 'ORDER_FETCH_FAILED');
+      throw new ApiError("주문 조회 실패", 500, "ORDER_FETCH_FAILED");
     }
 
     // 본인 확인 (userId 제공 시)
     if (userId && data.user_id !== userId) {
-      throw new AuthorizationError('주문 조회 권한이 없습니다');
+      throw new AuthorizationError("주문 조회 권한이 없습니다");
     }
 
     return data as OrderWithDetails;
@@ -308,8 +325,9 @@ export class OrderService {
 
     // 기존 주문 조회 (주문 항목 포함)
     const { data: orderData } = await supabase
-      .from('orders')
-      .select(`
+      .from("orders")
+      .select(
+        `
         *,
         items:order_items (
           *,
@@ -319,38 +337,43 @@ export class OrderService {
             type
           )
         )
-      `)
-      .eq('id', orderId)
+      `
+      )
+      .eq("id", orderId)
       .single();
 
     if (!orderData) {
-      throw new NotFoundError('주문을 찾을 수 없습니다', 'ORDER_NOT_FOUND');
+      throw new NotFoundError("주문을 찾을 수 없습니다", "ORDER_NOT_FOUND");
     }
 
     const oldStatus = orderData.status;
 
     // 상태 업데이트
     const { data, error } = await supabase
-      .from('orders')
+      .from("orders")
       .update({ status: newStatus })
-      .eq('id', orderId)
+      .eq("id", orderId)
       .select()
       .single();
 
     if (error) {
-      throw new ApiError('주문 상태 변경 실패', 500, 'ORDER_STATUS_UPDATE_FAILED');
+      throw new ApiError(
+        "주문 상태 변경 실패",
+        500,
+        "ORDER_STATUS_UPDATE_FAILED"
+      );
     }
 
     // v2: order_items의 item_status도 함께 업데이트
-    let itemStatus: OrderItemStatus = 'PENDING';
-    if (newStatus === 'PAID') {
-      itemStatus = 'READY'; // 입금 확인 시 다운로드/발송 준비
-    } else if (newStatus === 'MAKING') {
-      itemStatus = 'PROCESSING'; // 제작 중
-    } else if (newStatus === 'SHIPPING') {
-      itemStatus = 'SHIPPED'; // 발송됨
-    } else if (newStatus === 'DONE') {
-      itemStatus = 'COMPLETED'; // 완료
+    let itemStatus: OrderItemStatus = "PENDING";
+    if (newStatus === "PAID") {
+      itemStatus = "READY"; // 입금 확인 시 다운로드/발송 준비
+    } else if (newStatus === "MAKING") {
+      itemStatus = "PROCESSING"; // 제작 중
+    } else if (newStatus === "SHIPPING") {
+      itemStatus = "SHIPPED"; // 발송됨
+    } else if (newStatus === "DONE") {
+      itemStatus = "COMPLETED"; // 완료
     }
 
     await this.updateAllItemsStatus(orderId, itemStatus);
@@ -368,24 +391,26 @@ export class OrderService {
     let sentTo: string | undefined;
 
     // 입금 확인 시 (PENDING → PAID) 보이스팩이 포함되어 있으면 이메일 발송
-    if (newStatus === 'PAID' && oldStatus === 'PENDING') {
-      const hasVoicePack = (orderData.items as any[]).some(
-        (item: any) => item.product?.type === 'VOICE_PACK'
+    if (newStatus === "PAID" && oldStatus === "PENDING") {
+      const hasVoicePack = orderData.items.some(
+        (item) => item.product?.type === "VOICE_PACK"
       );
 
       if (hasVoicePack && orderData.buyer_email) {
         // 구매 완료 이메일 발송
-        const { sendPurchaseCompleteEmail } = await import('@/lib/server/utils/email');
+        const { sendPurchaseCompleteEmail } = await import(
+          "@/lib/server/utils/email"
+        );
 
         // 첫 번째 보이스팩 상품명 사용
-        const voicePackItem = (orderData.items as any[]).find(
-          (item: any) => item.product?.type === 'VOICE_PACK'
+        const voicePackItem = orderData.items.find(
+          (item) => item.product?.type === "VOICE_PACK"
         );
-        const productName = voicePackItem?.product?.name || '보이스팩';
+        const productName = voicePackItem?.product?.name || "보이스팩";
 
         await sendPurchaseCompleteEmail({
           email: orderData.buyer_email,
-          buyerName: orderData.buyer_name || '고객',
+          buyerName: orderData.buyer_name || "고객",
           productName,
           orderNumber: orderData.order_number,
           totalPrice: orderData.total_price,
@@ -396,10 +421,10 @@ export class OrderService {
 
         // 이메일 발송 로그
         await LogService.log({
-          severity: 'info',
-          eventCategory: 'EMAIL',
-          eventType: 'PURCHASE_COMPLETE_EMAIL_SENT',
-          message: '보이스팩 구매 완료 이메일 발송',
+          severity: "info",
+          eventCategory: "EMAIL",
+          eventType: "PURCHASE_COMPLETE_EMAIL_SENT",
+          message: "보이스팩 구매 완료 이메일 발송",
           userId: orderData.user_id,
           metadata: {
             orderId,
@@ -431,50 +456,54 @@ export class OrderService {
 
     // 주문 확인
     const { data: order } = await supabase
-      .from('orders')
-      .select('status, user_id, order_number')
-      .eq('id', orderId)
+      .from("orders")
+      .select("status, user_id, order_number")
+      .eq("id", orderId)
       .single();
 
     if (!order) {
-      throw new NotFoundError('주문을 찾을 수 없습니다');
+      throw new NotFoundError("주문을 찾을 수 없습니다");
     }
 
     // 본인 확인
     if (order.user_id !== userId) {
-      throw new AuthorizationError('주문 취소 권한이 없습니다');
+      throw new AuthorizationError("주문 취소 권한이 없습니다");
     }
 
     // 취소 가능 상태 확인 - PENDING(입금대기)일 때만 취소 가능
-    if (order.status !== 'PENDING') {
+    if (order.status !== "PENDING") {
       throw new ApiError(
-        '입금대기 상태의 주문만 취소할 수 있습니다',
+        "입금대기 상태의 주문만 취소할 수 있습니다",
         400,
-        'ORDER_CANNOT_CANCEL'
+        "ORDER_CANNOT_CANCEL"
       );
     }
 
     // ✅ 로그 기록 (삭제 전에 기록)
-    await LogService.logOrderCancelled(orderId, userId, reason || '고객 요청');
+    await LogService.logOrderCancelled(orderId, userId, reason || "고객 요청");
 
     // 주문 아이템 삭제
     const { error: itemsError } = await supabase
-      .from('order_items')
+      .from("order_items")
       .delete()
-      .eq('order_id', orderId);
+      .eq("order_id", orderId);
 
     if (itemsError) {
-      throw new ApiError('주문 아이템 삭제 실패', 500, 'ORDER_ITEMS_DELETE_FAILED');
+      throw new ApiError(
+        "주문 아이템 삭제 실패",
+        500,
+        "ORDER_ITEMS_DELETE_FAILED"
+      );
     }
 
     // 주문 삭제
     const { error: orderError } = await supabase
-      .from('orders')
+      .from("orders")
       .delete()
-      .eq('id', orderId);
+      .eq("id", orderId);
 
     if (orderError) {
-      throw new ApiError('주문 취소 실패', 500, 'ORDER_CANCEL_FAILED');
+      throw new ApiError("주문 취소 실패", 500, "ORDER_CANCEL_FAILED");
     }
 
     return {
@@ -499,7 +528,7 @@ export class OrderService {
     const { page = 1, limit = 50, status, dateFrom, dateTo } = options;
 
     let query = supabase
-      .from('orders')
+      .from("orders")
       .select(
         `
         *,
@@ -512,20 +541,20 @@ export class OrderService {
           )
         )
       `,
-        { count: 'exact' }
+        { count: "exact" }
       )
-      .order('created_at', { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (status) {
-      query = query.eq('status', status);
+      query = query.eq("status", status);
     }
 
     if (dateFrom) {
-      query = query.gte('created_at', dateFrom);
+      query = query.gte("created_at", dateFrom);
     }
 
     if (dateTo) {
-      query = query.lte('created_at', dateTo);
+      query = query.lte("created_at", dateTo);
     }
 
     const from = (page - 1) * limit;
@@ -535,7 +564,7 @@ export class OrderService {
     const { data, error, count } = await query;
 
     if (error) {
-      throw new ApiError('주문 목록 조회 실패', 500, 'ORDERS_FETCH_FAILED');
+      throw new ApiError("주문 목록 조회 실패", 500, "ORDERS_FETCH_FAILED");
     }
 
     return {
@@ -561,7 +590,7 @@ export class OrderService {
 
     // 1. 주문 아이템 조회
     const { data: orderItem, error: itemError } = await supabase
-      .from('order_items')
+      .from("order_items")
       .select(
         `
         *,
@@ -578,60 +607,63 @@ export class OrderService {
         )
       `
       )
-      .eq('id', itemId)
-      .eq('order_id', orderId)
+      .eq("id", itemId)
+      .eq("order_id", orderId)
       .single();
 
     if (itemError || !orderItem) {
-      throw new NotFoundError('주문 아이템을 찾을 수 없습니다', 'ORDER_ITEM_NOT_FOUND');
+      throw new NotFoundError(
+        "주문 아이템을 찾을 수 없습니다",
+        "ORDER_ITEM_NOT_FOUND"
+      );
     }
 
     // 2. 권한 확인
-    const order = orderItem.order as any;
+    const order = orderItem.order;
     if (order.user_id !== userId) {
       // 로그: 권한 없는 다운로드 시도
       await LogService.logUnauthorizedDownload(
-        (orderItem.product as any).id,
+        orderItem.product.id,
         userId,
         undefined
       );
-      throw new AuthorizationError('다운로드 권한이 없습니다');
+      throw new AuthorizationError("다운로드 권한이 없습니다");
     }
 
     // 3. 주문 상태 확인 (PAID 이상만 다운로드 가능)
-    const validStatuses: OrderStatus[] = ['PAID', 'MAKING', 'SHIPPING', 'DONE'];
+    const validStatuses: OrderStatus[] = ["PAID", "MAKING", "SHIPPING", "DONE"];
     if (!validStatuses.includes(order.status)) {
       throw new ApiError(
-        '결제가 완료된 주문만 다운로드할 수 있습니다',
+        "결제가 완료된 주문만 다운로드할 수 있습니다",
         403,
-        'PAYMENT_NOT_COMPLETED'
+        "PAYMENT_NOT_COMPLETED"
       );
     }
 
     // 4. 디지털 상품인지 확인
-    const product = orderItem.product as any;
-    if (product.type !== 'VOICE_PACK') {
+    const product = orderItem.product;
+    if (product.type !== "VOICE_PACK") {
       throw new ApiError(
-        '디지털 상품만 다운로드할 수 있습니다',
+        "디지털 상품만 다운로드할 수 있습니다",
         400,
-        'NOT_DIGITAL_PRODUCT'
+        "NOT_DIGITAL_PRODUCT"
       );
     }
 
     // 5. 디지털 파일 URL 확인
     if (!product.digital_file_url) {
       throw new ApiError(
-        '다운로드 가능한 파일이 없습니다',
+        "다운로드 가능한 파일이 없습니다",
         404,
-        'DIGITAL_FILE_NOT_FOUND'
+        "DIGITAL_FILE_NOT_FOUND"
       );
     }
 
     // 6. 파일명 생성 (상품명 + .zip)
-    const filename = `${product.name.replace(/[^a-zA-Z0-9가-힣\s]/g, '_')}.zip`;
+    const filename = `${product.name.replace(/[^a-zA-Z0-9가-힣\s]/g, "_")}.zip`;
 
     // 7. Presigned URL 생성 (R2)
-    const { generateSignedUrl } = await import('@/lib/server/utils/r2');
+    const { generateSignedUrl } = await import("@/lib/server/utils/r2");
 
     // R2 키 추출 (URL에서 경로 부분만)
     const url = new URL(product.digital_file_url);
@@ -647,12 +679,12 @@ export class OrderService {
     // 8. 다운로드 횟수 증가 및 마지막 다운로드 시간 업데이트
     const newDownloadCount = (orderItem.download_count || 0) + 1;
     await supabase
-      .from('order_items')
+      .from("order_items")
       .update({
         download_count: newDownloadCount,
         last_downloaded_at: new Date().toISOString(),
       })
-      .eq('id', itemId);
+      .eq("id", itemId);
 
     // 9. 로그 기록
     await LogService.logDigitalProductDownload(
@@ -684,11 +716,11 @@ export class OrderService {
     const supabase = await createServerClient();
 
     const [totalResult, pendingResult] = await Promise.all([
-      supabase.from('orders').select('*', { count: 'exact', head: true }),
+      supabase.from("orders").select("*", { count: "exact", head: true }),
       supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'PENDING'),
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "PENDING"),
     ]);
 
     return {
@@ -704,7 +736,7 @@ export class OrderService {
     const supabase = await createServerClient();
 
     const { data, error } = await supabase
-      .from('orders')
+      .from("orders")
       .select(
         `
         id,
@@ -715,11 +747,15 @@ export class OrderService {
         created_at
       `
       )
-      .order('created_at', { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(limit);
 
     if (error) {
-      throw new ApiError('최근 주문 조회 실패', 500, 'RECENT_ORDERS_FETCH_FAILED');
+      throw new ApiError(
+        "최근 주문 조회 실패",
+        500,
+        "RECENT_ORDERS_FETCH_FAILED"
+      );
     }
 
     return data || [];
@@ -732,7 +768,7 @@ export class OrderService {
     const supabase = await createServerClient();
 
     const { data, error } = await supabase
-      .from('order_items')
+      .from("order_items")
       .select(
         `
         id,
@@ -755,17 +791,21 @@ export class OrderService {
         )
       `
       )
-      .eq('order.user_id', userId)
-      .in('order.status', ['PAID', 'DONE'])
-      .eq('product.type', 'VOICE_PACK')
-      .order('order.created_at', { ascending: false });
+      .eq("order.user_id", userId)
+      .in("order.status", ["PAID", "DONE"])
+      .eq("product.type", "VOICE_PACK")
+      .order("order.created_at", { ascending: false });
 
     if (error) {
-      throw new ApiError('보이스팩 목록 조회 실패', 500, 'VOICEPACKS_FETCH_FAILED');
+      throw new ApiError(
+        "보이스팩 목록 조회 실패",
+        500,
+        "VOICEPACKS_FETCH_FAILED"
+      );
     }
 
     // 데이터 변환
-    const voicepacks = (data || []).map((item: any) => ({
+    const voicepacks = (data || []).map((item) => ({
       itemId: item.id,
       orderId: item.order_id,
       orderNumber: item.order?.order_number,
@@ -796,34 +836,41 @@ export class OrderService {
 
     // 기존 상태 조회
     const { data: item } = await supabase
-      .from('order_items')
-      .select('id, item_status, order_id, product_id')
-      .eq('id', itemId)
+      .from("order_items")
+      .select("id, item_status, order_id, product_id")
+      .eq("id", itemId)
       .single();
 
     if (!item) {
-      throw new NotFoundError('주문 상품을 찾을 수 없습니다', 'ORDER_ITEM_NOT_FOUND');
+      throw new NotFoundError(
+        "주문 상품을 찾을 수 없습니다",
+        "ORDER_ITEM_NOT_FOUND"
+      );
     }
 
     const oldStatus = item.item_status;
 
     // 상태 업데이트
     const { data, error } = await supabase
-      .from('order_items')
+      .from("order_items")
       .update({ item_status: newStatus })
-      .eq('id', itemId)
+      .eq("id", itemId)
       .select()
       .single();
 
     if (error) {
-      throw new ApiError('주문 상품 상태 변경 실패', 500, 'ITEM_STATUS_UPDATE_FAILED');
+      throw new ApiError(
+        "주문 상품 상태 변경 실패",
+        500,
+        "ITEM_STATUS_UPDATE_FAILED"
+      );
     }
 
     // 로그 기록
     await LogService.log({
-      severity: 'info',
-      eventCategory: 'ORDER',
-      eventType: 'ORDER_ITEM_STATUS_CHANGED',
+      severity: "info",
+      eventCategory: "ORDER",
+      eventType: "ORDER_ITEM_STATUS_CHANGED",
       message: `주문 상품 상태 변경: ${oldStatus} → ${newStatus}`,
       userId: adminId,
       metadata: {
@@ -848,15 +895,15 @@ export class OrderService {
     const supabase = await createServerClient();
 
     const { error } = await supabase
-      .from('order_items')
+      .from("order_items")
       .update({ item_status: newStatus })
-      .eq('order_id', orderId);
+      .eq("order_id", orderId);
 
     if (error) {
       throw new ApiError(
-        '주문 상품 상태 일괄 변경 실패',
+        "주문 상품 상태 일괄 변경 실패",
         500,
-        'ITEMS_STATUS_UPDATE_FAILED'
+        "ITEMS_STATUS_UPDATE_FAILED"
       );
     }
   }
@@ -884,27 +931,30 @@ export class OrderService {
 
     // order_item 확인
     const { data: item } = await supabase
-      .from('order_items')
-      .select('id, order_id, product_type')
-      .eq('id', input.orderItemId)
+      .from("order_items")
+      .select("id, order_id, product_type")
+      .eq("id", input.orderItemId)
       .single();
 
     if (!item) {
-      throw new NotFoundError('주문 상품을 찾을 수 없습니다', 'ORDER_ITEM_NOT_FOUND');
+      throw new NotFoundError(
+        "주문 상품을 찾을 수 없습니다",
+        "ORDER_ITEM_NOT_FOUND"
+      );
     }
 
     // 실물 상품인지 확인 (PHYSICAL_GOODS, PHYSICAL, BUNDLE만 가능)
-    if (item.product_type === 'VOICE_PACK') {
+    if (item.product_type === "VOICE_PACK") {
       throw new ApiError(
-        '디지털 상품은 배송 정보를 생성할 수 없습니다',
+        "디지털 상품은 배송 정보를 생성할 수 없습니다",
         400,
-        'NOT_PHYSICAL_PRODUCT'
+        "NOT_PHYSICAL_PRODUCT"
       );
     }
 
     // 배송 정보 생성
     const { data, error } = await supabase
-      .from('shipments')
+      .from("shipments")
       .insert({
         order_item_id: input.orderItemId,
         recipient_name: input.recipientName,
@@ -913,21 +963,21 @@ export class OrderService {
         delivery_memo: input.deliveryMemo || null,
         carrier: input.carrier || null,
         tracking_number: input.trackingNumber || null,
-        shipping_status: 'PREPARING',
+        shipping_status: "PREPARING",
       })
       .select()
       .single();
 
     if (error) {
-      throw new ApiError('배송 정보 생성 실패', 500, 'SHIPMENT_CREATE_FAILED');
+      throw new ApiError("배송 정보 생성 실패", 500, "SHIPMENT_CREATE_FAILED");
     }
 
     // 로그 기록
     await LogService.log({
-      severity: 'info',
-      eventCategory: 'ORDER',
-      eventType: 'SHIPMENT_CREATED',
-      message: '배송 정보 생성',
+      severity: "info",
+      eventCategory: "ORDER",
+      eventType: "SHIPMENT_CREATED",
+      message: "배송 정보 생성",
       userId: adminId,
       metadata: {
         shipmentId: data.id,
@@ -950,7 +1000,7 @@ export class OrderService {
     const supabase = await createServerClient();
 
     const { data, error } = await supabase
-      .from('shipments')
+      .from("shipments")
       .select(
         `
         *,
@@ -964,23 +1014,23 @@ export class OrderService {
         )
       `
       )
-      .eq('order_item_id', orderItemId)
+      .eq("order_item_id", orderItemId)
       .single();
 
-    if (error && error.code === 'PGRST116') {
+    if (error && error.code === "PGRST116") {
       // 배송 정보 없음 (정상)
       return null;
     }
 
     if (error) {
-      throw new ApiError('배송 정보 조회 실패', 500, 'SHIPMENT_FETCH_FAILED');
+      throw new ApiError("배송 정보 조회 실패", 500, "SHIPMENT_FETCH_FAILED");
     }
 
     // 권한 확인 (userId 제공 시)
     if (userId) {
-      const orderItem = data.order_item as any;
+      const orderItem = data.order_item;
       if (orderItem?.order?.user_id !== userId) {
-        throw new AuthorizationError('배송 정보 조회 권한이 없습니다');
+        throw new AuthorizationError("배송 정보 조회 권한이 없습니다");
       }
     }
 
@@ -1008,19 +1058,22 @@ export class OrderService {
 
     // 배송 정보 확인
     const { data: existingShipment } = await supabase
-      .from('shipments')
-      .select('id, shipping_status')
-      .eq('id', shipmentId)
+      .from("shipments")
+      .select("id, shipping_status")
+      .eq("id", shipmentId)
       .single();
 
     if (!existingShipment) {
-      throw new NotFoundError('배송 정보를 찾을 수 없습니다', 'SHIPMENT_NOT_FOUND');
+      throw new NotFoundError(
+        "배송 정보를 찾을 수 없습니다",
+        "SHIPMENT_NOT_FOUND"
+      );
     }
 
     const oldStatus = existingShipment.shipping_status;
 
     // 업데이트 데이터 준비
-    const updateData: any = {};
+    const updateData: TablesUpdate<"shipments"> = {};
     if (updates.carrier !== undefined) updateData.carrier = updates.carrier;
     if (updates.trackingNumber !== undefined)
       updateData.tracking_number = updates.trackingNumber;
@@ -1034,35 +1087,40 @@ export class OrderService {
       updateData.recipient_address = updates.recipientAddress;
     if (updates.deliveryMemo !== undefined)
       updateData.delivery_memo = updates.deliveryMemo;
-    if (updates.adminMemo !== undefined) updateData.admin_memo = updates.adminMemo;
+    if (updates.adminMemo !== undefined)
+      updateData.admin_memo = updates.adminMemo;
 
     // 발송 시간 기록 (상태가 SHIPPED로 변경될 때)
-    if (updates.shippingStatus === 'SHIPPED' && oldStatus !== 'SHIPPED') {
+    if (updates.shippingStatus === "SHIPPED" && oldStatus !== "SHIPPED") {
       updateData.shipped_at = new Date().toISOString();
     }
 
     // 배송 완료 시간 기록 (상태가 DELIVERED로 변경될 때)
-    if (updates.shippingStatus === 'DELIVERED' && oldStatus !== 'DELIVERED') {
+    if (updates.shippingStatus === "DELIVERED" && oldStatus !== "DELIVERED") {
       updateData.delivered_at = new Date().toISOString();
     }
 
     // 업데이트 실행
     const { data, error } = await supabase
-      .from('shipments')
+      .from("shipments")
       .update(updateData)
-      .eq('id', shipmentId)
+      .eq("id", shipmentId)
       .select()
       .single();
 
     if (error) {
-      throw new ApiError('배송 정보 업데이트 실패', 500, 'SHIPMENT_UPDATE_FAILED');
+      throw new ApiError(
+        "배송 정보 업데이트 실패",
+        500,
+        "SHIPMENT_UPDATE_FAILED"
+      );
     }
 
     // 로그 기록
     await LogService.log({
-      severity: 'info',
-      eventCategory: 'ORDER',
-      eventType: 'SHIPMENT_UPDATED',
+      severity: "info",
+      eventCategory: "ORDER",
+      eventType: "SHIPMENT_UPDATED",
       message: `배송 정보 업데이트`,
       userId: adminId,
       metadata: {
@@ -1098,7 +1156,7 @@ export class OrderService {
     return {
       carrier: shipment.carrier,
       trackingNumber: shipment.tracking_number,
-      shippingStatus: shipment.shipping_status || 'PREPARING',
+      shippingStatus: shipment.shipping_status || "PREPARING",
       shippedAt: shipment.shipped_at,
       deliveredAt: shipment.delivered_at,
     };

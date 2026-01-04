@@ -90,4 +90,12 @@ export const OrdersAPI = {
   async getDownloadUrl(orderItemId: string): Promise<ApiResponse<{ downloadUrl: string; expiresAt: string }>> {
     return apiClient.post(`/api/orders/items/${orderItemId}/download`, {});
   },
+
+  /**
+   * 주문 취소
+   * - 입금대기(PENDING) 상태일 때만 취소 가능
+   */
+  async cancelOrder(orderId: string): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    return apiClient.delete(`/api/orders/${orderId}`);
+  },
 };

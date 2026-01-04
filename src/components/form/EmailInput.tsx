@@ -5,11 +5,11 @@
  * - 이메일 형식 검증
  */
 
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { useMemo } from "react";
 
 export interface EmailInputProps {
   /**
@@ -67,46 +67,36 @@ export interface EmailInputProps {
  */
 function validateEmail(value: string): string {
   if (!value.trim()) {
-    return '이메일을 입력해주세요';
+    return "이메일을 입력해주세요";
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-    return '올바른 이메일 형식이 아닙니다';
+    return "올바른 이메일 형식이 아닙니다";
   }
-  return '';
+  return "";
 }
 
 export function EmailInput({
   id,
   name,
-  label = '이메일',
+  label = "이메일",
   value,
   onChange,
   required = false,
-  placeholder = 'email@example.com',
+  placeholder = "email@example.com",
   error: externalError,
   disableValidation = false,
   help,
   disabled = false,
   readOnly = false,
 }: EmailInputProps) {
-  const [internalError, setInternalError] = useState('');
-
-  // 값이 변경될 때마다 검증 (자동 검증이 활성화된 경우)
-  useEffect(() => {
-    if (!disableValidation && value && !readOnly) {
-      const errorMsg = validateEmail(value);
-      setInternalError(errorMsg);
-    }
+  const internalError = useMemo(() => {
+    if (disableValidation || !value || readOnly) return "";
+    return validateEmail(value);
   }, [value, disableValidation, readOnly]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     onChange(newValue);
-
-    // 입력 중 에러 클리어
-    if (internalError) {
-      setInternalError('');
-    }
   };
 
   const error = externalError || internalError;

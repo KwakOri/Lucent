@@ -4,17 +4,17 @@
  * 주문 완료 안내 및 계좌이체 정보 제공 페이지
  */
 
-'use client';
+"use client";
 
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { CheckCircle, FileText, ShoppingBag } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Loading } from '@/components/ui/loading';
-import { EmptyState } from '@/components/ui/empty-state';
-import { BankAccountInfo } from '@/components/order';
-import { useOrder } from '@/hooks/useOrders';
-import { SHIPPING_FEE } from '@/constants';
+import { BankAccountInfo } from "@/components/order";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Loading } from "@/components/ui/loading";
+import { SHIPPING_FEE } from "@/constants";
+import { useOrder } from "@/hooks/useOrders";
+import { CheckCircle, FileText, ShoppingBag } from "lucide-react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 
 export default function OrderConfirmationPage() {
   const params = useParams();
@@ -25,10 +25,11 @@ export default function OrderConfirmationPage() {
 
   // 상품 타입 확인
   const hasPhysicalGoods = order?.items?.some(
-    (item: any) => item.product_type === 'PHYSICAL_GOODS' || item.product_type === 'BUNDLE'
+    (item) =>
+      item.product_type === "PHYSICAL_GOODS" || item.product_type === "BUNDLE"
   );
   const hasDigitalProducts = order?.items?.some(
-    (item: any) => item.product_type === 'VOICE_PACK'
+    (item) => item.product_type === "VOICE_PACK"
   );
 
   // 배송비 계산 (실물 굿즈가 포함된 경우)
@@ -38,12 +39,12 @@ export default function OrderConfirmationPage() {
   // 날짜 포맷
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
+    return date.toLocaleString("ko-KR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -60,7 +61,11 @@ export default function OrderConfirmationPage() {
       <div className="min-h-screen flex items-center justify-center">
         <EmptyState
           title="주문을 찾을 수 없습니다"
-          description={error instanceof Error ? error.message : '주문 정보를 불러올 수 없습니다'}
+          description={
+            error instanceof Error
+              ? error.message
+              : "주문 정보를 불러올 수 없습니다"
+          }
         >
           <Link href="/mypage/orders">
             <Button intent="primary" size="md">
@@ -86,7 +91,8 @@ export default function OrderConfirmationPage() {
           </h1>
 
           <p className="text-lg text-gray-600 mb-8">
-            입금 확인 후 {hasDigitalProducts ? '다운로드 가능' : '상품이 발송'}됩니다
+            입금 확인 후 {hasDigitalProducts ? "다운로드 가능" : "상품이 발송"}
+            됩니다
           </p>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6 inline-block">
@@ -110,7 +116,7 @@ export default function OrderConfirmationPage() {
         {/* Bank Account Info */}
         <div className="mb-8">
           <BankAccountInfo
-            depositorName={order.buyer_name}
+            depositorName={order.buyer_name as string}
             totalAmount={order.total_price}
           />
         </div>
@@ -123,33 +129,25 @@ export default function OrderConfirmationPage() {
           </h2>
 
           <div className="space-y-4">
-            {order.items?.map((item: any) => (
+            {order.items?.map((item) => (
               <div
                 key={item.id}
                 className="flex gap-4 p-4 bg-gray-50 rounded-lg"
               >
-                {item.product?.main_image?.public_url ? (
-                  <img
-                    src={item.product.main_image.public_url}
-                    alt={item.product_name}
-                    className="w-20 h-20 object-cover rounded-lg"
-                  />
-                ) : (
-                  <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
-                    <span className="text-3xl">
-                      {item.product_type === 'VOICE_PACK' ? '🎵' : '📦'}
-                    </span>
-                  </div>
-                )}
+                <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <span className="text-3xl">
+                    {item.product_type === "VOICE_PACK" ? "🎵" : "📦"}
+                  </span>
+                </div>
 
                 <div className="flex-1">
                   <h3 className="font-medium text-gray-900 mb-1">
                     {item.product_name}
                   </h3>
                   <p className="text-sm text-gray-500 mb-2">
-                    {item.product_type === 'VOICE_PACK'
-                      ? '디지털 상품'
-                      : '실물 굿즈'}
+                    {item.product_type === "VOICE_PACK"
+                      ? "디지털 상품"
+                      : "실물 굿즈"}
                   </p>
                   <p className="text-sm font-medium text-gray-900">
                     {item.price_snapshot.toLocaleString()}원
@@ -213,7 +211,8 @@ export default function OrderConfirmationPage() {
               <div className="flex">
                 <dt className="w-24 text-sm text-gray-500">배송 주소</dt>
                 <dd className="flex-1 text-sm font-medium text-gray-900">
-                  {order.shipping_main_address} {order.shipping_detail_address || ''}
+                  {order.shipping_main_address}{" "}
+                  {order.shipping_detail_address || ""}
                 </dd>
               </div>
 
@@ -255,7 +254,8 @@ export default function OrderConfirmationPage() {
               <li className="flex items-start gap-2">
                 <span className="text-blue-600 mt-0.5">•</span>
                 <span>
-                  디지털 상품은 입금 확인 즉시 마이페이지에서 다운로드 가능합니다
+                  디지털 상품은 입금 확인 즉시 마이페이지에서 다운로드
+                  가능합니다
                 </span>
               </li>
             )}
@@ -302,9 +302,7 @@ export default function OrderConfirmationPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900 mb-1">입금 대기</h3>
-                <p className="text-sm text-gray-600">
-                  계좌이체로 입금해주세요
-                </p>
+                <p className="text-sm text-gray-600">계좌이체로 입금해주세요</p>
               </div>
             </div>
 
@@ -315,9 +313,7 @@ export default function OrderConfirmationPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900 mb-1">입금 확인</h3>
-                <p className="text-sm text-gray-600">
-                  영업일 기준 1-2일 소요
-                </p>
+                <p className="text-sm text-gray-600">영업일 기준 1-2일 소요</p>
               </div>
             </div>
 
@@ -328,12 +324,12 @@ export default function OrderConfirmationPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900 mb-1">
-                  {hasDigitalProducts ? '다운로드 가능' : '배송 시작'}
+                  {hasDigitalProducts ? "다운로드 가능" : "배송 시작"}
                 </h3>
                 <p className="text-sm text-gray-600">
                   {hasDigitalProducts
-                    ? '마이페이지에서 다운로드'
-                    : '3-5일 이내 배송 완료'}
+                    ? "마이페이지에서 다운로드"
+                    : "3-5일 이내 배송 완료"}
                 </p>
               </div>
             </div>

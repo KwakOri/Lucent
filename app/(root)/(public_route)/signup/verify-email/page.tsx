@@ -1,19 +1,23 @@
 'use client';
 
 import { useState, useEffect, FormEvent, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
+import { useVerifyCode, useSignupWithToken } from '@/hooks';
 
 function VerifyEmailContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || '';
 
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
+
+  const { mutate: verifyCode, isPending: isVerifyingCode } = useVerifyCode();
+  const { mutate: signupWithToken, isPending: isSigningUp } = useSignupWithToken();
+
+  const isVerifying = isVerifyingCode || isSigningUp;
 
   // 만료 타이머 (10분 = 600초)
   const [expiresIn, setExpiresIn] = useState(600);
@@ -64,47 +68,36 @@ function VerifyEmailContent() {
       return;
     }
 
-    setIsVerifying(true);
     setError(null);
 
-    try {
-      // 1. 코드 검증 API 호출
-      const verifyResponse = await fetch('/api/auth/verify-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code }),
-      });
+    console.log('[DEBUG] Client - Verifying code:', { email, code });
 
-      const verifyData = await verifyResponse.json();
+    // 1. 코드 검증 (useVerifyCode 훅 사용)
+    verifyCode(
+      { email, code },
+      {
+        onSuccess: (data) => {
+          console.log('[DEBUG] Client - verify-code success, got token');
+          const verificationToken = data.token;
 
-      if (!verifyResponse.ok) {
-        setError(verifyData.error || '잘못된 인증 코드입니다');
-        return;
+          // 2. 회원가입 (useSignupWithToken 훅 사용 - 자동 로그인 포함)
+          console.log('[DEBUG] Client - Calling signup with token...');
+          signupWithToken(
+            { email, verificationToken },
+            {
+              onError: (error: any) => {
+                console.error('[DEBUG] Client - signup failed:', error);
+                setError(error.message || '회원가입에 실패했습니다');
+              },
+            }
+          );
+        },
+        onError: (error: any) => {
+          console.error('[DEBUG] Client - verify-code failed:', error);
+          setError(error.message || '잘못된 인증 코드입니다');
+        },
       }
-
-      const verificationToken = verifyData.data.token;
-
-      // 2. 회원가입 API 호출 (자동 로그인)
-      const signupResponse = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, verificationToken }),
-      });
-
-      const signupData = await signupResponse.json();
-
-      if (!signupResponse.ok) {
-        setError(signupData.error || '회원가입에 실패했습니다');
-        return;
-      }
-
-      // 3. 성공 시 welcome 페이지로 이동
-      router.push('/welcome');
-    } catch (error) {
-      setError('네트워크 오류가 발생했습니다. 다시 시도해주세요.');
-    } finally {
-      setIsVerifying(false);
-    }
+    );
   };
 
   return (

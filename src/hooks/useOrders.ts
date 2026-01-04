@@ -7,6 +7,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { OrdersAPI } from '@/lib/client/api/orders.api';
 import type {
   Tables,
   GetOrdersQuery,
@@ -193,4 +194,29 @@ export function useMyVoicePacks() {
  */
 export function useMyOrders(params?: Omit<GetOrdersQuery, 'userId'>) {
   return useOrders(params);
+}
+
+/**
+ * 주문 취소 Hook
+ *
+ * - 입금대기(PENDING) 상태일 때만 취소 가능
+ * - 본인 주문만 취소 가능
+ *
+ * @example
+ * const { mutate: cancelOrder, isPending } = useCancelOrder();
+ * cancelOrder('order-id');
+ */
+export function useCancelOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      const result = await OrdersAPI.cancelOrder(orderId);
+      return result.data;
+    },
+    onSuccess: () => {
+      // 주문 목록 캐시 무효화
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
 }

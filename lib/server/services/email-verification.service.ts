@@ -12,7 +12,6 @@ import { createServerClient } from '@/lib/server/utils/supabase';
 import { sendVerificationEmail } from '@/lib/server/utils/email';
 import { ApiError } from '@/lib/server/utils/errors';
 import { v4 as uuidv4 } from 'uuid';
-import bcrypt from 'bcryptjs';
 
 // ===== 타입 정의 =====
 
@@ -57,22 +56,41 @@ export class EmailVerificationService {
     const { email, password, purpose } = params;
     const supabase = await createServerClient();
 
-    // 1. 이메일 중복 확인 (auth.users)
-    const { data: existingUser } = await supabase.auth.admin.listUsers();
-    const userExists = existingUser.users.some((user) => user.email === email);
+    // 1. 이메일 중복 확인 (auth.users) - 더 효율적인 방법 사용
+    const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers();
 
-    if (userExists) {
-      throw new ApiError('이미 가입된 이메일입니다', 400);
+    console.log('[DEBUG] EmailVerificationService - Checking existing users:', {
+      email,
+      totalUsers: existingUsers?.users.length || 0,
+      listError: listError?.message,
+    });
+
+    if (existingUsers?.users) {
+      const userExists = existingUsers.users.some(
+        (user) => user.email?.toLowerCase() === email.toLowerCase()
+      );
+
+      if (userExists) {
+        console.log('[DEBUG] EmailVerificationService - User already exists in auth.users');
+        throw new ApiError('이미 가입된 이메일입니다', 400);
+      }
     }
 
     // 2. profiles 테이블에서도 확인
-    const { data: existingProfile } = await supabase
+    const { data: existingProfile, error: profileError } = await supabase
       .from('profiles')
       .select('email')
       .eq('email', email)
-      .single();
+      .maybeSingle(); // single() 대신 maybeSingle() 사용 (레코드 없어도 에러 안남)
+
+    console.log('[DEBUG] EmailVerificationService - Checking profiles:', {
+      email,
+      profileExists: !!existingProfile,
+      profileError: profileError?.message,
+    });
 
     if (existingProfile) {
+      console.log('[DEBUG] EmailVerificationService - User already exists in profiles');
       throw new ApiError('이미 가입된 이메일입니다', 400);
     }
 
@@ -89,8 +107,16 @@ export class EmailVerificationService {
     // 5. UUID 토큰 생성 (링크용)
     const token = uuidv4();
 
-    // 6. 비밀번호 해시
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // 6. 비밀번호 평문 저장 (임시 데이터, 10분 후 만료)
+    // 주의: Supabase가 사용자 생성 시 해시를 처리하므로 평문으로 저장
+    const passwordToStore = password;
+
+    // 🐛 DEBUG: 비밀번호 저장 확인
+    console.log('[DEBUG] EmailVerificationService.createVerification:', {
+      email,
+      passwordLength: password.length,
+      storingPlaintext: true,
+    });
 
     // 7. 만료 시간 설정 (10분 후)
     const expiresAt = new Date();
@@ -101,7 +127,7 @@ export class EmailVerificationService {
       email,
       code,
       token,
-      hashed_password: hashedPassword,
+      hashed_password: passwordToStore, // 평문 저장 (컬럼명은 유지, 내용만 변경)
       purpose,
       expires_at: expiresAt.toISOString(),
       attempts: 0,
@@ -136,6 +162,8 @@ export class EmailVerificationService {
     const { email, code } = params;
     const supabase = await createServerClient();
 
+    console.log('[DEBUG] EmailVerificationService.verifyCode - Start:', { email, code });
+
     // 1. 인증 레코드 조회
     const { data: verification, error: selectError } = await supabase
       .from('email_verifications')
@@ -145,6 +173,18 @@ export class EmailVerificationService {
       .eq('purpose', 'signup')
       .is('verified_at', null)
       .single();
+
+    console.log('[DEBUG] EmailVerificationService.verifyCode - Query Result:', {
+      found: !!verification,
+      error: selectError?.message,
+      verificationData: verification ? {
+        email: verification.email,
+        code: verification.code,
+        token: verification.token,
+        hasPassword: !!verification.hashed_password,
+        verified_at: verification.verified_at,
+      } : null
+    });
 
     if (selectError || !verification) {
       // 시도 횟수 증가
@@ -177,6 +217,10 @@ export class EmailVerificationService {
     }
 
     console.log(`[EmailVerificationService] 코드 인증 성공: ${email}`);
+    console.log('[DEBUG] EmailVerificationService.verifyCode - Returning token:', {
+      tokenLength: verification.token.length,
+      tokenPrefix: verification.token.substring(0, 8)
+    });
 
     // 5. 검증 토큰 반환 (회원가입 API에서 사용)
     return verification.token;

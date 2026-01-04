@@ -1,20 +1,22 @@
-'use client';
+"use client";
 
-import { useState, FormEvent, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { FormField } from '@/components/ui/form-field';
-import { Checkbox } from '@/components/ui/checkbox';
-import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
+import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
+import { EmailInput } from "@/components/form";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { useSendVerification } from "@/hooks";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [errors, setErrors] = useState<{
     email?: string;
@@ -23,12 +25,14 @@ function SignupForm() {
     agreedToTerms?: string;
     general?: string;
   }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { mutate: sendVerification, isPending: isSubmitting } =
+    useSendVerification();
 
   // URL 파라미터에서 에러 메시지 처리
   useEffect(() => {
-    const error = searchParams.get('error');
-    const message = searchParams.get('message');
+    const error = searchParams.get("error");
+    const message = searchParams.get("message");
 
     if (error && message) {
       setErrors({ general: message });
@@ -38,72 +42,60 @@ function SignupForm() {
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
 
-    // Email validation
+    // Email validation (EmailInput 컴포넌트에서 자동 검증)
     if (!email) {
-      newErrors.email = '이메일을 입력해주세요';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = '올바른 이메일 형식을 입력해주세요';
+      newErrors.email = "이메일을 입력해주세요";
     }
 
     // Password validation
     if (!password) {
-      newErrors.password = '비밀번호를 입력해주세요';
+      newErrors.password = "비밀번호를 입력해주세요";
     } else if (password.length < 6) {
-      newErrors.password = '비밀번호는 최소 6자 이상이어야 합니다';
+      newErrors.password = "비밀번호는 최소 6자 이상이어야 합니다";
     }
 
     // Password confirm validation
     if (!passwordConfirm) {
-      newErrors.passwordConfirm = '비밀번호 확인을 입력해주세요';
+      newErrors.passwordConfirm = "비밀번호 확인을 입력해주세요";
     } else if (password !== passwordConfirm) {
-      newErrors.passwordConfirm = '비밀번호가 일치하지 않습니다';
+      newErrors.passwordConfirm = "비밀번호가 일치하지 않습니다";
     }
 
     // Terms agreement validation
     if (!agreedToTerms) {
-      newErrors.agreedToTerms = '약관에 동의해주세요';
+      newErrors.agreedToTerms = "약관에 동의해주세요";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!validateForm()) {
       return;
     }
 
-    setIsSubmitting(true);
     setErrors({});
 
-    try {
-      // 인증 코드 발송 API 호출
-      const response = await fetch('/api/auth/send-verification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+    // 인증 코드 발송 (useSendVerification 훅 사용)
+    sendVerification(
+      { email, password },
+      {
+        onSuccess: () => {
+          // 성공 시 이메일 인증 페이지로 이동
+          router.push(
+            `/signup/verify-email?email=${encodeURIComponent(email)}`
+          );
         },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setErrors({
-          general: data.error || '인증 코드 발송에 실패했습니다',
-        });
-        return;
+        onError: (error: any) => {
+          setErrors({
+            general: error.message || "인증 코드 발송에 실패했습니다",
+          });
+        },
       }
-
-      // 성공 시 이메일 인증 페이지로 이동
-      router.push(`/signup/verify-email?email=${encodeURIComponent(email)}`);
-    } catch (error) {
-      setErrors({ general: '네트워크 오류가 발생했습니다. 다시 시도해주세요.' });
-    } finally {
-      setIsSubmitting(false);
-    }
+    );
   };
 
   return (
@@ -133,23 +125,17 @@ function SignupForm() {
             )}
 
             {/* Email Field */}
-            <FormField
-              label="이메일"
-              htmlFor="email"
+            <EmailInput
+              id="email"
+              name="email"
+              value={email}
+              onChange={setEmail}
               required
+              placeholder="이메일을 입력하세요"
               error={errors.email}
-            >
-              <Input
-                id="email"
-                type="email"
-                placeholder="이메일을 입력하세요"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                error={!!errors.email}
-                autoComplete="email"
-                disabled={isSubmitting}
-              />
-            </FormField>
+              disabled={isSubmitting}
+              disableValidation
+            />
 
             {/* Password Field */}
             <FormField
@@ -157,7 +143,7 @@ function SignupForm() {
               htmlFor="password"
               required
               error={errors.password}
-              help={!errors.password ? '최소 6자 이상 입력하세요' : undefined}
+              help={!errors.password ? "최소 6자 이상 입력하세요" : undefined}
             >
               <Input
                 id="password"
@@ -206,8 +192,8 @@ function SignupForm() {
                     className="text-primary-500 hover:text-primary-600 underline"
                   >
                     이용약관
-                  </Link>{' '}
-                  및{' '}
+                  </Link>{" "}
+                  및{" "}
                   <Link
                     href="/privacy"
                     target="_blank"
@@ -232,7 +218,7 @@ function SignupForm() {
               fullWidth
               loading={isSubmitting}
             >
-              {isSubmitting ? '발송 중...' : '인증 코드 발송'}
+              {isSubmitting ? "발송 중..." : "인증 코드 발송"}
             </Button>
           </form>
 
@@ -252,7 +238,7 @@ function SignupForm() {
           {/* Login Link */}
           <div className="mt-6 text-center text-sm">
             <span className="text-text-secondary">
-              이미 계정이 있으신가요?{' '}
+              이미 계정이 있으신가요?{" "}
             </span>
             <Link
               href="/login"
@@ -269,11 +255,13 @@ function SignupForm() {
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="text-text-secondary">로딩 중...</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+          <div className="text-text-secondary">로딩 중...</div>
+        </div>
+      }
+    >
       <SignupForm />
     </Suspense>
   );

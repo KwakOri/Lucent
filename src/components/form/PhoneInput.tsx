@@ -6,11 +6,11 @@
  * - 전화번호 형식 검증
  */
 
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { useMemo } from "react";
 
 export interface PhoneInputProps {
   /**
@@ -68,10 +68,13 @@ export interface PhoneInputProps {
  * 010-1234-5678 형식
  */
 function formatPhone(value: string): string {
-  const numbers = value.replace(/[^0-9]/g, '');
+  const numbers = value.replace(/[^0-9]/g, "");
   if (numbers.length <= 3) return numbers;
   if (numbers.length <= 7) return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
-  return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
+  return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(
+    7,
+    11
+  )}`;
 }
 
 /**
@@ -79,46 +82,36 @@ function formatPhone(value: string): string {
  */
 function validatePhone(value: string): string {
   if (!value.trim()) {
-    return '전화번호를 입력해주세요';
+    return "전화번호를 입력해주세요";
   }
   if (!/^010-\d{4}-\d{4}$/.test(value)) {
-    return '올바른 전화번호 형식이 아닙니다 (예: 010-1234-5678)';
+    return "올바른 전화번호 형식이 아닙니다 (예: 010-1234-5678)";
   }
-  return '';
+  return "";
 }
 
 export function PhoneInput({
   id,
   name,
-  label = '전화번호',
+  label = "전화번호",
   value,
   onChange,
   required = false,
-  placeholder = '010-1234-5678',
+  placeholder = "010-1234-5678",
   error: externalError,
   disableValidation = false,
-  help = '하이픈(-)을 포함한 형식으로 자동 입력됩니다',
+  help = "하이픈(-)을 포함한 형식으로 자동 입력됩니다",
   disabled = false,
   readOnly = false,
 }: PhoneInputProps) {
-  const [internalError, setInternalError] = useState('');
-
-  // 값이 변경될 때마다 검증 (자동 검증이 활성화된 경우)
-  useEffect(() => {
-    if (!disableValidation && value && !readOnly) {
-      const errorMsg = validatePhone(value);
-      setInternalError(errorMsg);
-    }
+  const internalError = useMemo(() => {
+    if (disableValidation || !value || readOnly) return "";
+    return validatePhone(value);
   }, [value, disableValidation, readOnly]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhone(e.target.value);
     onChange(formatted);
-
-    // 입력 중 에러 클리어
-    if (internalError) {
-      setInternalError('');
-    }
   };
 
   const error = externalError || internalError;

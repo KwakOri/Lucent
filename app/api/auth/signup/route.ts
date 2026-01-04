@@ -32,6 +32,14 @@ export async function POST(request: NextRequest) {
       return handleApiError(new Error('유효하지 않은 인증 토큰입니다'), 400);
     }
 
+    // 🐛 DEBUG: 인증 레코드 확인
+    console.log('[DEBUG] Signup - Verification Record:', {
+      email: verification.email,
+      passwordExists: !!verification.hashed_password,
+      passwordLength: verification.hashed_password?.length,
+      isPlaintext: true,
+    });
+
     // 이메일 일치 확인 (email이 제공된 경우에만)
     if (email && verification.email !== email) {
       return handleApiError(new Error('이메일이 일치하지 않습니다'), 400);
@@ -42,6 +50,13 @@ export async function POST(request: NextRequest) {
 
     // 3. Admin 클라이언트 생성 (사용자 생성용)
     const adminClient = await createAdminClient();
+
+    // 🐛 DEBUG: 사용자 생성 시도
+    console.log('[DEBUG] Signup - Creating User with:', {
+      email: verification.email,
+      passwordType: typeof verification.hashed_password,
+      usingPlaintextPassword: true,
+    });
 
     // 4. 사용자 생성 (Admin API - Service Role Key 필요)
     const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
@@ -57,6 +72,12 @@ export async function POST(request: NextRequest) {
       console.error('[Signup] 사용자 생성 실패:', authError);
       throw new ApiError('회원가입에 실패했습니다', 500);
     }
+
+    // 🐛 DEBUG: 사용자 생성 성공
+    console.log('[DEBUG] Signup - User Created:', {
+      userId: authData.user.id,
+      email: authData.user.email,
+    });
 
     // 5. 일반 서버 클라이언트 생성 (프로필 생성 및 로그인용)
     const supabase = await createServerClient();
@@ -78,6 +99,13 @@ export async function POST(request: NextRequest) {
       throw new ApiError('프로필 생성에 실패했습니다', 500);
     }
 
+    // 🐛 DEBUG: 자동 로그인 시도
+    console.log('[DEBUG] Signup - Auto Login Attempt:', {
+      email: verification.email,
+      usingPlaintextPassword: true,
+      passwordLength: verification.hashed_password?.length,
+    });
+
     // 7. 세션 생성 (자동 로그인)
     const { data: sessionData, error: sessionError } =
       await supabase.auth.signInWithPassword({
@@ -87,8 +115,18 @@ export async function POST(request: NextRequest) {
 
     if (sessionError || !sessionData.session) {
       console.error('[Signup] 세션 생성 실패:', sessionError);
+      console.error('[DEBUG] Signup - Auto Login Failed:', {
+        error: sessionError?.message,
+        code: sessionError?.status,
+      });
       throw new ApiError('로그인에 실패했습니다. 로그인 페이지에서 다시 시도해주세요.', 500);
     }
+
+    // 🐛 DEBUG: 자동 로그인 성공
+    console.log('[DEBUG] Signup - Auto Login Success:', {
+      userId: sessionData.user?.id,
+      sessionExists: !!sessionData.session,
+    });
 
     // 8. email_verifications 레코드 삭제
     await EmailVerificationService.deleteVerification(verificationToken);

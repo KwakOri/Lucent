@@ -17,6 +17,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, code } = body;
 
+    console.log('[DEBUG] verify-code - Request:', { email, code });
+
     // 1. 입력값 검증
     if (!email || !code) {
       return handleApiError(new Error('이메일과 인증 코드를 입력해주세요'), 400);
@@ -29,6 +31,12 @@ export async function POST(request: NextRequest) {
 
     // 2. 코드 검증
     const verificationToken = await EmailVerificationService.verifyCode({ email, code });
+
+    console.log('[DEBUG] verify-code - Success:', {
+      email,
+      tokenLength: verificationToken.length,
+      tokenPrefix: verificationToken.substring(0, 8)
+    });
 
     // 3. 로그 기록
     const clientIp = getClientIp(request);

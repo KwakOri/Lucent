@@ -1,20 +1,21 @@
 'use client';
 
 import { useState, FormEvent, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
+import { EmailInput } from '@/components/form';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
+import { useLogin } from '@/hooks';
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const { mutate: login, isPending: isSubmitting, error: loginError } = useLogin();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // OAuth 에러 처리
   useEffect(() => {
@@ -37,11 +38,9 @@ function LoginForm() {
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
 
-    // Email validation
+    // Email validation (EmailInput 컴포넌트에서 자동 검증)
     if (!email) {
       newErrors.email = '이메일을 입력해주세요';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = '올바른 이메일 형식을 입력해주세요';
     }
 
     // Password validation
@@ -53,6 +52,13 @@ function LoginForm() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // loginError가 변경되면 errors 상태 업데이트
+  useEffect(() => {
+    if (loginError) {
+      setErrors({ general: loginError.message || '이메일 또는 비밀번호가 올바르지 않습니다' });
+    }
+  }, [loginError]);
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -60,32 +66,16 @@ function LoginForm() {
       return;
     }
 
-    setIsSubmitting(true);
     setErrors({});
 
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+    // 🐛 DEBUG: 클라이언트 로그인 시도
+    console.log('[DEBUG] Client Login Attempt:', {
+      email,
+      passwordLength: password.length,
+    });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setErrors({ general: data.error || '이메일 또는 비밀번호가 올바르지 않습니다' });
-        return;
-      }
-
-      // Login successful - redirect to home or previous page
-      router.push('/');
-    } catch (error) {
-      setErrors({ general: '네트워크 오류가 발생했습니다. 다시 시도해주세요.' });
-    } finally {
-      setIsSubmitting(false);
-    }
+    // useLogin 훅 사용 - 자동으로 세션 캐시 무효화 및 리다이렉트 처리
+    login({ email, password });
   };
 
   return (
@@ -115,23 +105,17 @@ function LoginForm() {
             )}
 
             {/* Email Field */}
-            <FormField
-              label="이메일"
-              htmlFor="email"
+            <EmailInput
+              id="email"
+              name="email"
+              value={email}
+              onChange={setEmail}
               required
+              placeholder="이메일을 입력하세요"
               error={errors.email}
-            >
-              <Input
-                id="email"
-                type="email"
-                placeholder="이메일을 입력하세요"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                error={!!errors.email}
-                autoComplete="email"
-                disabled={isSubmitting}
-              />
-            </FormField>
+              disabled={isSubmitting}
+              disableValidation
+            />
 
             {/* Password Field */}
             <FormField

@@ -3,6 +3,7 @@
  *
  * GET /api/orders/:id - 주문 상세 조회
  * PATCH /api/orders/:id - 주문 상태 변경 (관리자)
+ * DELETE /api/orders/:id - 주문 취소 (고객, PENDING 상태만)
  */
 
 import { NextRequest } from 'next/server';
@@ -71,6 +72,31 @@ export async function PATCH(
     );
 
     return successResponse(order);
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+/**
+ * 주문 취소 (고객)
+ *
+ * - 입금대기(PENDING) 상태일 때만 취소 가능
+ * - 본인 주문만 취소 가능
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return handleApiError(new Error('로그인이 필요합니다'));
+    }
+
+    const { id } = await params;
+    const result = await OrderService.cancelOrder(id, user.id);
+
+    return successResponse(result);
   } catch (error) {
     return handleApiError(error);
   }

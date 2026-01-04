@@ -4,9 +4,14 @@
  * 인증 관련 React Query Hooks
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AuthAPI, type LoginData, type SignUpData } from '@/lib/client/api/auth.api';
-import { queryKeys } from './query-keys';
+import {
+  AuthAPI,
+  SendVerificationData,
+  type LoginData,
+  type SignUpData,
+} from "@/lib/client/api/auth.api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "./query-keys";
 
 /**
  * 세션 조회 Hook
@@ -66,7 +71,7 @@ export function useSignUp() {
  */
 export function useSendVerification() {
   return useMutation({
-    mutationFn: (email: string) => AuthAPI.sendVerification(email),
+    mutationFn: (data: SendVerificationData) => AuthAPI.sendVerification(data),
   });
 }
 
@@ -93,7 +98,12 @@ export function useResetPassword() {
  */
 export function useUpdatePassword() {
   return useMutation({
-    mutationFn: ({ token, newPassword }: { token: string; newPassword: string }) =>
-      AuthAPI.updatePassword(token, newPassword),
+    mutationFn: ({
+      token,
+      newPassword,
+    }: {
+      token: string;
+      newPassword: string;
+    }) => AuthAPI.updatePassword(token, newPassword),
   });
 }

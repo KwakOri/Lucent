@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loading } from '@/components/ui/loading';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Download, LogOut, Package, Settings } from 'lucide-react';
-import { useSession, useMyOrders, useLogout, useDownloadDigitalProduct, type OrderWithItems } from '@/hooks';
+import { Download, LogOut, Package, Settings, X } from 'lucide-react';
+import { useSession, useMyOrders, useLogout, useDownloadDigitalProduct, useCancelOrder, type OrderWithItems } from '@/hooks';
 import { useToast } from '@/src/components/toast';
 import type { Enums } from '@/types';
 
@@ -37,6 +37,7 @@ export default function MyPage() {
   const { data: ordersData, isLoading: isOrdersLoading, error: ordersError } = useMyOrders();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
   const { mutate: download, isPending: isDownloading } = useDownloadDigitalProduct();
+  const { mutate: cancelOrder, isPending: isCancelling } = useCancelOrder();
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -62,6 +63,22 @@ export default function MyPage() {
         },
       }
     );
+  };
+
+  const handleCancelOrder = (orderId: string, orderNumber: string) => {
+    if (!confirm(`주문 ${orderNumber}을(를) 취소하시겠습니까?\n\n취소된 주문은 복구할 수 없습니다.`)) {
+      return;
+    }
+
+    cancelOrder(orderId, {
+      onSuccess: (result) => {
+        showToast(result.message, { type: 'success' });
+      },
+      onError: (error) => {
+        console.error('Cancel order failed:', error);
+        showToast(error.message || '주문 취소 중 오류가 발생했습니다', { type: 'error' });
+      },
+    });
   };
 
   const isLoading = isSessionLoading || isOrdersLoading;
@@ -204,11 +221,23 @@ export default function MyPage() {
 
                   {/* Order Footer */}
                   <div className="pt-4 border-t border-neutral-200 flex items-center justify-between">
-                    <div>
+                    <div className="flex items-center gap-3">
                       {order.shipping_main_address && (
                         <p className="text-sm text-text-secondary">
                           배송지: {order.shipping_main_address} {order.shipping_detail_address || ''}
                         </p>
+                      )}
+                      {/* 취소 버튼 - PENDING 상태일 때만 표시 */}
+                      {order.status === 'PENDING' && (
+                        <Button
+                          intent="secondary"
+                          size="sm"
+                          onClick={() => handleCancelOrder(order.id, order.order_number)}
+                          disabled={isCancelling}
+                        >
+                          <X className="w-4 h-4" />
+                          주문 취소
+                        </Button>
                       )}
                     </div>
                     <p className="text-xl font-bold text-primary-700">

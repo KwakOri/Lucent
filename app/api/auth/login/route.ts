@@ -15,6 +15,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json() as LoginRequest;
     const { email, password } = body;
 
+    // 🐛 DEBUG: 로그인 요청 확인
+    console.log('[DEBUG] Login Request:', {
+      email,
+      passwordLength: password?.length,
+      passwordType: typeof password,
+    });
+
     // 입력 검증
     if (!email || !password) {
       return handleApiError(
@@ -28,6 +35,13 @@ export async function POST(request: NextRequest) {
       getClientIp(request),
       request.headers.get('user-agent') || undefined
     );
+
+    // 🐛 DEBUG: 로그인 성공
+    console.log('[DEBUG] Login Success:', {
+      userId: user.id,
+      email: user.email,
+      sessionExists: !!session,
+    });
 
     return successResponse({
       user: {

@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loading } from '@/components/ui/loading';
+import { useSignupWithToken } from '@/hooks';
 
 function SignupCompleteContent() {
   const router = useRouter();
@@ -10,8 +11,10 @@ function SignupCompleteContent() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
 
+  const { mutate: signupWithToken } = useSignupWithToken();
+
   useEffect(() => {
-    const completeSignup = async () => {
+    const completeSignup = () => {
       const token = searchParams.get('token');
       const verified = searchParams.get('verified');
 
@@ -22,39 +25,29 @@ function SignupCompleteContent() {
         return;
       }
 
-      try {
-        // 회원가입 API 호출
-        // 이메일은 백엔드에서 토큰으로부터 가져옴
-        const response = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: '', // 백엔드에서 토큰으로 이메일 추출
-            verificationToken: token,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          setStatus('error');
-          setErrorMessage(data.error || '회원가입에 실패했습니다');
-          setTimeout(() => router.push('/signup'), 3000);
-          return;
+      // 회원가입 (useSignupWithToken 훅 사용 - 자동 로그인 포함)
+      // 이메일은 백엔드에서 토큰으로부터 가져옴
+      signupWithToken(
+        {
+          email: '', // 백엔드에서 토큰으로 이메일 추출
+          verificationToken: token,
+        },
+        {
+          onSuccess: () => {
+            setStatus('success');
+            // useSignupWithToken이 자동으로 /welcome으로 리다이렉트
+          },
+          onError: (error: any) => {
+            setStatus('error');
+            setErrorMessage(error.message || '회원가입에 실패했습니다');
+            setTimeout(() => router.push('/signup'), 3000);
+          },
         }
-
-        // 성공
-        setStatus('success');
-        setTimeout(() => router.push('/welcome'), 1500);
-      } catch (error) {
-        setStatus('error');
-        setErrorMessage('네트워크 오류가 발생했습니다');
-        setTimeout(() => router.push('/signup'), 3000);
-      }
+      );
     };
 
     completeSignup();
-  }, [searchParams, router]);
+  }, [searchParams, router, signupWithToken]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
