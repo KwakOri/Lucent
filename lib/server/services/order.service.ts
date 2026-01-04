@@ -131,6 +131,9 @@ export class OrderService {
       .substring(7)
       .toUpperCase()}`;
 
+    // 주문 상태 결정: 0원이면 즉시 완료, 아니면 입금대기
+    const orderStatus: OrderStatus = totalPrice === 0 ? "DONE" : "PENDING";
+
     // 주문 생성
     const { data: order, error: orderError } = await supabase
       .from("orders")
@@ -138,7 +141,7 @@ export class OrderService {
         user_id: userId,
         order_number: orderNumber,
         total_price: totalPrice,
-        status: "PENDING",
+        status: orderStatus,
         buyer_name: buyerName || null,
         buyer_email: buyerEmail || null,
         buyer_phone: buyerPhone || null,
@@ -155,6 +158,9 @@ export class OrderService {
       throw new ApiError("주문 생성 실패", 500, "ORDER_CREATE_FAILED");
     }
 
+    // 주문 항목 상태 결정: 0원이면 즉시 완료, 아니면 입금대기
+    const itemStatus: OrderItemStatus = totalPrice === 0 ? "COMPLETED" : "PENDING";
+
     // 주문 항목 생성
     const orderItems = items.map((item) => {
       const product = products.find((p) => p.id === item.productId);
@@ -165,6 +171,7 @@ export class OrderService {
         product_type: product!.type,
         quantity: item.quantity,
         price_snapshot: product!.price,
+        item_status: itemStatus,
       };
     });
 
@@ -203,6 +210,8 @@ export class OrderService {
       orderNumber: order.order_number,
       itemCount: items.length,
       hasPhysicalGoods: products.some((p) => p.type === "PHYSICAL_GOODS"),
+      isFreeOrder: totalPrice === 0,
+      autoCompleted: totalPrice === 0,
     });
 
     return {
