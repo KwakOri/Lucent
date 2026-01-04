@@ -18,7 +18,7 @@ export const ORDER_STATUS_CONFIG: Record<
   PENDING: { label: '입금대기', intent: 'warning' },
   PAID: { label: '입금확인', intent: 'default' },
   MAKING: { label: '제작중', intent: 'warning' },
-  SHIPPING: { label: '배송중', intent: 'success' },
+  SHIPPING: { label: '배송중', intent: 'warning' },
   DONE: { label: '완료', intent: 'default' },
 };
 
@@ -40,7 +40,7 @@ export const ORDER_STATUS_COLORS: Record<OrderStatus, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800',
   PAID: 'bg-green-100 text-green-800',
   MAKING: 'bg-blue-100 text-blue-800',
-  SHIPPING: 'bg-purple-100 text-purple-800',
+  SHIPPING: 'bg-orange-100 text-orange-800',
   DONE: 'bg-gray-100 text-gray-800',
 };
 
@@ -54,7 +54,7 @@ export const ITEM_STATUS_CONFIG: Record<
   PENDING: { label: '대기', intent: 'warning' },
   READY: { label: '준비완료', intent: 'default' },
   PROCESSING: { label: '처리중', intent: 'warning' },
-  SHIPPED: { label: '배송중', intent: 'success' },
+  SHIPPED: { label: '배송중', intent: 'warning' },
   DELIVERED: { label: '배송완료', intent: 'success' },
   COMPLETED: { label: '완료', intent: 'success' },
   CANCELLED: { label: '취소', intent: 'error' },
