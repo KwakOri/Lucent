@@ -279,7 +279,7 @@ async function createVoicePackProduct(request: NextRequest) {
       userId: 'admin-id', // TODO: 실제 관리자 ID
       metadata: {
         error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
+        stack: error instanceof Error ? (error.stack || null) : null,
         formData: {
           name: formData?.get('name')?.toString() || null,
           projectId: formData?.get('projectId')?.toString() || null,
