@@ -6,7 +6,7 @@ import { clsx } from "clsx";
 const buttonVariants = cva(
   [
     "inline-flex items-center justify-center gap-2",
-    "font-medium transition-colors",
+    "font-bold transition-all duration-200",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
     "disabled:pointer-events-none disabled:cursor-not-allowed",
   ],
@@ -46,6 +46,24 @@ const buttonVariants = cva(
           "disabled:border-neutral-200",
           "disabled:text-text-muted",
         ],
+        header: [
+          "bg-transparent",
+          "text-[rgb(30,30,30)]",
+          "hover:bg-[rgb(102,181,243)]",
+          "hover:text-white",
+          "rounded-xl",
+          "focus-visible:ring-[rgb(102,181,243)]",
+          "disabled:text-text-muted",
+        ],
+        headerScrolled: [
+          "bg-transparent",
+          "text-white",
+          "hover:bg-[rgb(102,181,243)]",
+          "hover:text-white",
+          "rounded-xl",
+          "focus-visible:ring-[rgb(102,181,243)]",
+          "disabled:text-text-muted",
+        ],
       },
       size: {
         sm: "h-9 px-3 text-sm rounded-md",
@@ -61,6 +79,38 @@ const buttonVariants = cva(
         false: "",
       },
     },
+    compoundVariants: [
+      {
+        intent: "header",
+        size: "sm",
+        className: "rounded-xl",
+      },
+      {
+        intent: "header",
+        size: "md",
+        className: "rounded-xl",
+      },
+      {
+        intent: "header",
+        size: "lg",
+        className: "rounded-xl",
+      },
+      {
+        intent: "headerScrolled",
+        size: "sm",
+        className: "rounded-xl",
+      },
+      {
+        intent: "headerScrolled",
+        size: "md",
+        className: "rounded-xl",
+      },
+      {
+        intent: "headerScrolled",
+        size: "lg",
+        className: "rounded-xl",
+      },
+    ],
     defaultVariants: {
       intent: "primary",
       size: "md",
@@ -73,28 +123,9 @@ const buttonVariants = cva(
 export interface ButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
-  /**
-   * Loading state - shows spinner and disables button
-   */
   loading?: boolean;
 }
 
-/**
- * Button component following CVA-based variant system
- *
- * Intent variants:
- * - primary: Main actions (purchase, submit, etc.)
- * - secondary: Supporting actions (cancel, back, etc.)
- * - danger: Destructive actions (delete, leave, etc.)
- * - neutral: Neutral actions
- *
- * @example
- * ```tsx
- * <Button intent="primary" size="md">구매하기</Button>
- * <Button intent="secondary" loading>처리중...</Button>
- * <Button intent="danger" fullWidth>삭제</Button>
- * ```
- */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {

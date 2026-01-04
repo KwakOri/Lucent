@@ -1,20 +1,23 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Loading } from '@/components/ui/loading';
-import { EmptyState } from '@/components/ui/empty-state';
-import { ShoppingCart, Package } from 'lucide-react';
-import { useProducts } from '@/hooks';
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Loading } from "@/components/ui/loading";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ShoppingCart, Package } from "lucide-react";
+import { useProducts } from "@/hooks";
+import { VoicePackCover } from "@/components/order/VoicePackCover";
 
 export default function ShopPage() {
   const router = useRouter();
   const { data: productsData, isLoading, error } = useProducts();
 
   const products = productsData?.data || [];
-  const voicePacks = products.filter((p: any) => p.type === 'VOICE_PACK');
-  const physicalGoods = products.filter((p: any) => p.type === 'PHYSICAL_GOODS');
+  const voicePacks = products.filter((p: any) => p.type === "VOICE_PACK");
+  const physicalGoods = products.filter(
+    (p: any) => p.type === "PHYSICAL_GOODS"
+  );
 
   const handleProductClick = (productId: string) => {
     router.push(`/shop/${productId}`);
@@ -33,7 +36,11 @@ export default function ShopPage() {
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
         <EmptyState
           title="오류가 발생했습니다"
-          description={error instanceof Error ? error.message : '상품을 불러오는 중 오류가 발생했습니다'}
+          description={
+            error instanceof Error
+              ? error.message
+              : "상품을 불러오는 중 오류가 발생했습니다"
+          }
         />
       </div>
     );
@@ -42,19 +49,19 @@ export default function ShopPage() {
   return (
     <div className="min-h-screen bg-neutral-50">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-primary-50 to-primary-100 py-20 px-4">
-        <div className="max-w-6xl mx-auto text-center">
-          <div className="mb-6">
-            <div className="w-32 h-32 mx-auto mb-6 rounded-full bg-white/50 backdrop-blur-sm flex items-center justify-center">
-              <ShoppingCart className="w-16 h-16 text-primary-700" />
-            </div>
-            <h1 className="text-5xl font-bold text-text-primary mb-4">
-              Shop
-            </h1>
-            <p className="text-xl text-text-secondary mb-8">
-              Lucent Management의 모든 상품을 만나보세요
-            </p>
-          </div>
+      <section className="relative bg-[#f9f9ed] py-20 px-4 overflow-hidden">
+        <div className="max-w-6xl mx-auto relative">
+          <h1 className="text-4xl sm:text-5xl font-bold leading-tight mb-6">
+            <span className="text-[#1a1a2e]">루센트의 프로젝트에서,</span>
+            <br />
+            <span className="text-[#66B5F3]">이야기가 깃든 굿즈를</span>
+            <br />
+            <span className="text-[#1a1a2e]">만나보세요.</span>
+          </h1>
+          <p className="text-base text-[#1a1a2e]/60 max-w-xl leading-relaxed">
+            루센트는 라이버의 굿즈 판매와 유통을 전담해 준비의 부담은 줄이고,
+            팬에게는 더 가까운 가격으로 굿즈를 전달합니다.
+          </p>
         </div>
       </section>
 
@@ -79,20 +86,18 @@ export default function ShopPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {voicePacks.map((pack: any) => (
+              {voicePacks.map((pack: any, index: number) => (
                 <div
                   key={pack.id}
                   className="bg-white rounded-2xl border-2 border-primary-200 overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer"
                   onClick={() => handleProductClick(pack.id)}
                 >
                   {/* CD Cover Style Thumbnail */}
-                  <div className="aspect-square bg-gradient-to-br from-primary-50 to-primary-100 relative flex items-center justify-center">
-                    <div className="w-40 h-40 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
-                      <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-200 to-primary-100 flex items-center justify-center">
-                        <span className="text-4xl">🎵</span>
-                      </div>
-                    </div>
-                  </div>
+                  <VoicePackCover
+                    index={index}
+                    name={pack.name}
+                    thumbnail={pack.thumbnail_url}
+                  />
 
                   {/* Pack Info */}
                   <div className="p-6">
@@ -100,18 +105,14 @@ export default function ShopPage() {
                       {pack.name}
                     </h3>
                     <p className="text-sm text-text-secondary mb-4 line-clamp-2">
-                      {pack.description || '보이스팩'}
+                      {pack.description || "보이스팩"}
                     </p>
                     <p className="text-2xl font-bold text-primary-700 mb-4">
                       {pack.price.toLocaleString()}원
                     </p>
 
                     {/* View Details Button */}
-                    <Button
-                      intent="primary"
-                      size="md"
-                      fullWidth
-                    >
+                    <Button intent="primary" size="md" fullWidth>
                       <ShoppingCart className="w-4 h-4" />
                       자세히 보기
                     </Button>
@@ -127,12 +128,8 @@ export default function ShopPage() {
       <section className="py-16 px-4 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="mb-12">
-            <h2 className="text-3xl font-bold text-text-primary mb-3">
-              Goods
-            </h2>
-            <p className="text-lg text-text-secondary">
-              실물 굿즈 컬렉션
-            </p>
+            <h2 className="text-3xl font-bold text-text-primary mb-3">Goods</h2>
+            <p className="text-lg text-text-secondary">실물 굿즈 컬렉션</p>
           </div>
 
           {physicalGoods.length === 0 ? (
@@ -158,7 +155,7 @@ export default function ShopPage() {
                   onClick={() => handleProductClick(goods.id)}
                 >
                   {/* Goods Image */}
-                  <div className="aspect-square bg-gradient-to-br from-neutral-100 to-neutral-200 relative flex items-center justify-center">
+                  <div className="aspect-square bg-linear-to-br from-neutral-100 to-neutral-200 relative flex items-center justify-center">
                     <span className="text-6xl">📦</span>
                   </div>
 
@@ -168,7 +165,7 @@ export default function ShopPage() {
                       {goods.name}
                     </h3>
                     <p className="text-sm text-text-secondary mb-4 line-clamp-2">
-                      {goods.description || '굿즈'}
+                      {goods.description || "굿즈"}
                     </p>
                     <p className="text-2xl font-bold text-primary-700 mb-4">
                       {goods.price.toLocaleString()}원
@@ -187,7 +184,9 @@ export default function ShopPage() {
                       disabled={goods.stock !== null && goods.stock <= 0}
                     >
                       <ShoppingCart className="w-4 h-4" />
-                      {goods.stock !== null && goods.stock <= 0 ? '품절' : '자세히 보기'}
+                      {goods.stock !== null && goods.stock <= 0
+                        ? "품절"
+                        : "자세히 보기"}
                     </Button>
                   </div>
                 </div>
@@ -228,7 +227,8 @@ export default function ShopPage() {
                 환불 정책
               </h3>
               <p className="text-text-secondary">
-                디지털 상품은 다운로드 전까지만 환불 가능합니다. 실물 굿즈는 배송 전까지 취소 가능합니다.
+                디지털 상품은 다운로드 전까지만 환불 가능합니다. 실물 굿즈는
+                배송 전까지 취소 가능합니다.
               </p>
             </div>
           </div>
