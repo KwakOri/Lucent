@@ -126,13 +126,23 @@ export function Header() {
               {isLoading || isLoggingOut ? (
                 <div className="w-20 h-9 bg-neutral-200/20 rounded-xl animate-pulse" />
               ) : user ? (
-                <Button
-                  intent={scrolled ? "headerScrolled" : "header"}
-                  size="sm"
-                  onClick={handleLogout}
-                >
-                  로그아웃
-                </Button>
+                <>
+                  <Link href="/mypage">
+                    <Button
+                      intent={scrolled ? "headerScrolled" : "header"}
+                      size="sm"
+                    >
+                      마이페이지
+                    </Button>
+                  </Link>
+                  <Button
+                    intent={scrolled ? "headerScrolled" : "header"}
+                    size="sm"
+                    onClick={handleLogout}
+                  >
+                    로그아웃
+                  </Button>
+                </>
               ) : (
                 <Link href="/login">
                   <Button
