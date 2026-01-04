@@ -64,6 +64,29 @@ export function ProductForm({ projects, product }: ProductFormProps) {
   const [mainFile, setMainFile] = useState<File | null>(null);
   const [sampleFile, setSampleFile] = useState<File | null>(null);
 
+  // 파일 선택 핸들러 (디버깅)
+  const handleMainFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    console.log('[ProductForm] 메인 파일 선택:', {
+      name: file?.name,
+      type: file?.type,
+      size: file?.size,
+      sizeInMB: file ? (file.size / 1024 / 1024).toFixed(2) : 0,
+    });
+    setMainFile(file);
+  };
+
+  const handleSampleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    console.log('[ProductForm] 샘플 파일 선택:', {
+      name: file?.name,
+      type: file?.type,
+      size: file?.size,
+      sizeInMB: file ? (file.size / 1024 / 1024).toFixed(2) : 0,
+    });
+    setSampleFile(file);
+  };
+
   // 가격 입력 핸들러
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
@@ -92,6 +115,13 @@ export function ProductForm({ projects, product }: ProductFormProps) {
     e.preventDefault();
     setIsSubmitting(true);
 
+    console.log('[ProductForm] 폼 제출 시작', {
+      type: formData.type,
+      isEdit: !!product,
+      hasMainFile: !!mainFile,
+      hasSampleFile: !!sampleFile,
+    });
+
     try {
       const url = product
         ? `/api/products/${product.id}`
@@ -107,6 +137,15 @@ export function ProductForm({ projects, product }: ProductFormProps) {
         if (!mainFile) {
           throw new Error('보이스팩 파일은 필수입니다');
         }
+
+        console.log('[ProductForm] FormData 생성 중...', {
+          mainFileName: mainFile.name,
+          mainFileType: mainFile.type,
+          mainFileSize: mainFile.size,
+          sampleFileName: sampleFile?.name,
+          sampleFileType: sampleFile?.type,
+          sampleFileSize: sampleFile?.size,
+        });
 
         const formDataToSend = new FormData();
         formDataToSend.append('name', formData.name);
@@ -126,11 +165,15 @@ export function ProductForm({ projects, product }: ProductFormProps) {
           formDataToSend.append('sampleFile', sampleFile);
         }
 
+        console.log('[ProductForm] API 요청 전송:', url, method);
+
         response = await fetch(url, {
           method,
           body: formDataToSend,
           // Content-Type은 브라우저가 자동으로 설정 (boundary 포함)
         });
+
+        console.log('[ProductForm] API 응답 상태:', response.status, response.statusText);
       } else {
         // 일반 상품 또는 수정: JSON
         response = await fetch(url, {
@@ -144,12 +187,21 @@ export function ProductForm({ projects, product }: ProductFormProps) {
 
       if (!response.ok) {
         const error = await response.json();
+        console.error('[ProductForm] API 에러:', {
+          status: response.status,
+          statusText: response.statusText,
+          error,
+        });
         throw new Error(error.message || '저장에 실패했습니다');
       }
+
+      const result = await response.json();
+      console.log('[ProductForm] 상품 생성 성공:', result);
 
       router.push('/admin/products');
       router.refresh();
     } catch (error) {
+      console.error('[ProductForm] 제출 실패:', error);
       alert(error instanceof Error ? error.message : '저장에 실패했습니다');
       setIsSubmitting(false);
     }
@@ -321,7 +373,7 @@ export function ProductForm({ projects, product }: ProductFormProps) {
                 type="file"
                 id="mainFile"
                 accept=".zip,.mp3,.wav,.flac,.m4a,.aac,.ogg"
-                onChange={(e) => setMainFile(e.target.files?.[0] || null)}
+                onChange={handleMainFileChange}
                 className="mt-2 block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
               {mainFile && (
@@ -343,7 +395,7 @@ export function ProductForm({ projects, product }: ProductFormProps) {
                 type="file"
                 id="sampleFile"
                 accept=".mp3,.wav,.flac,.m4a,.aac,.ogg"
-                onChange={(e) => setSampleFile(e.target.files?.[0] || null)}
+                onChange={handleSampleFileChange}
                 className="mt-2 block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
               {sampleFile && (

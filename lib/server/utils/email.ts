@@ -7,13 +7,13 @@
  * - 보이스팩 구매 완료 알림
  */
 
-import * as nodemailer from 'nodemailer';
+import * as nodemailer from "nodemailer";
 
 // ===== Nodemailer 설정 =====
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || "587"),
   secure: false, // true for 465, false for other ports
   auth: {
     user: process.env.SMTP_USER,
@@ -26,7 +26,10 @@ const transporter = nodemailer.createTransport({
 /**
  * 이메일 인증 템플릿 (Signup v2 - 코드 + 링크)
  */
-function getVerificationEmailTemplate(params: { code: string; token: string }): string {
+function getVerificationEmailTemplate(params: {
+  code: string;
+  token: string;
+}): string {
   const { code, token } = params;
   const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify-email?token=${token}`;
 
@@ -121,13 +124,6 @@ function getVerificationEmailTemplate(params: { code: string; token: string }): 
 
             <div class="code">${code}</div>
 
-            <div class="divider">또는</div>
-
-            <p style="text-align: center;">아래 버튼을 클릭하여 인증을 완료할 수 있습니다:</p>
-            <div style="text-align: center;">
-              <a href="${verificationUrl}" class="button">이메일 인증하기</a>
-            </div>
-
             <div class="notice">
               ⏱️ 이 인증 코드는 <strong>10분간 유효</strong>합니다.<br>
               본인이 요청하지 않은 경우 이 이메일을 무시하셔도 됩니다.
@@ -136,7 +132,7 @@ function getVerificationEmailTemplate(params: { code: string; token: string }): 
 
           <div class="footer">
             <p>© 2025 Lucent Management. All rights reserved.</p>
-            <p>이 이메일은 발신 전용입니다. 답장하지 마세요.</p>
+            <p>이 이메일은 발신 전용입니다.</p>
           </div>
         </div>
       </body>
@@ -255,35 +251,42 @@ export async function sendVerificationEmail(params: {
     const { email, code, token } = params;
 
     await transporter.sendMail({
-      from: `"Lucent Management" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      from: `"Lucent Management" <${
+        process.env.SMTP_FROM || process.env.SMTP_USER
+      }>`,
       to: email,
-      subject: '[Lucent Management] 이메일 인증',
+      subject: "[Lucent Management] 이메일 인증",
       html: getVerificationEmailTemplate({ code, token }),
     });
 
     console.log(`[Email] 인증 이메일 발송 성공: ${email} (코드: ${code})`);
   } catch (error) {
-    console.error('[Email] 인증 이메일 발송 실패:', error);
-    throw new Error('이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    console.error("[Email] 인증 이메일 발송 실패:", error);
+    throw new Error("이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.");
   }
 }
 
 /**
  * 비밀번호 재설정 이메일 발송
  */
-export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {
+export async function sendPasswordResetEmail(
+  email: string,
+  token: string
+): Promise<void> {
   try {
     await transporter.sendMail({
-      from: `"Lucent Management" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      from: `"Lucent Management" <${
+        process.env.SMTP_FROM || process.env.SMTP_USER
+      }>`,
       to: email,
-      subject: '[Lucent Management] 비밀번호 재설정',
+      subject: "[Lucent Management] 비밀번호 재설정",
       html: getPasswordResetEmailTemplate(token),
     });
 
     console.log(`[Email] 비밀번호 재설정 이메일 발송 성공: ${email}`);
   } catch (error) {
-    console.error('[Email] 비밀번호 재설정 이메일 발송 실패:', error);
-    throw new Error('이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    console.error("[Email] 비밀번호 재설정 이메일 발송 실패:", error);
+    throw new Error("이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.");
   }
 }
 
@@ -464,7 +467,9 @@ export async function sendPurchaseCompleteEmail(params: {
     const { email, buyerName, productName, orderNumber, totalPrice } = params;
 
     await transporter.sendMail({
-      from: `"Lucent Management" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      from: `"Lucent Management" <${
+        process.env.SMTP_FROM || process.env.SMTP_USER
+      }>`,
       to: email,
       subject: `[Lucent Management] ${productName} 구매가 완료되었습니다`,
       html: getPurchaseCompleteEmailTemplate({
@@ -477,7 +482,7 @@ export async function sendPurchaseCompleteEmail(params: {
 
     console.log(`[Email] 구매 완료 이메일 발송 성공: ${email}`);
   } catch (error) {
-    console.error('[Email] 구매 완료 이메일 발송 실패:', error);
+    console.error("[Email] 구매 완료 이메일 발송 실패:", error);
     // 이메일 발송 실패는 주문 프로세스를 중단시키지 않음
     // 로그만 남기고 에러를 던지지 않음
   }
@@ -489,10 +494,10 @@ export async function sendPurchaseCompleteEmail(params: {
 export async function testEmailConnection(): Promise<boolean> {
   try {
     await transporter.verify();
-    console.log('[Email] SMTP 연결 성공');
+    console.log("[Email] SMTP 연결 성공");
     return true;
   } catch (error) {
-    console.error('[Email] SMTP 연결 실패:', error);
+    console.error("[Email] SMTP 연결 실패:", error);
     return false;
   }
 }

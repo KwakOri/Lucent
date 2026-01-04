@@ -103,6 +103,7 @@ async function createVoicePackProduct(request: NextRequest) {
 
   try {
     formData = await request.formData();
+    console.log('[API/Products] FormData 수신');
 
     // Form fields
     const name = formData.get('name') as string;
@@ -115,26 +116,56 @@ async function createVoicePackProduct(request: NextRequest) {
     const mainFile = formData.get('mainFile') as File | null;
     const sampleFile = formData.get('sampleFile') as File | null;
 
+    console.log('[API/Products] FormData 파싱 완료:', {
+      name,
+      price,
+      projectId,
+      mainFile: mainFile ? {
+        name: mainFile.name,
+        type: mainFile.type,
+        size: mainFile.size,
+      } : null,
+      sampleFile: sampleFile ? {
+        name: sampleFile.name,
+        type: sampleFile.type,
+        size: sampleFile.size,
+      } : null,
+    });
+
     // 0. 필수 필드 검증
     if (!mainFile) {
+      console.error('[API/Products] 메인 파일이 없습니다');
       throw new ApiError('보이스팩 파일은 필수입니다', 400);
     }
 
     if (!name || !price || !projectId) {
+      console.error('[API/Products] 필수 필드 누락:', { name, price, projectId });
       throw new ApiError('상품명, 가격, 프로젝트는 필수입니다', 400);
     }
 
     const productId = uuidv4();
+    console.log('[API/Products] 상품 ID 생성:', productId);
 
     // 1. 메인 파일 업로드
-    console.log('[Product] 메인 파일 업로드 시작:', mainFile.name);
+    console.log('[API/Products] 메인 파일 업로드 시작:', {
+      fileName: mainFile.name,
+      fileType: mainFile.type,
+      fileSize: mainFile.size,
+      fileExtension: getFileExtension(mainFile.name),
+    });
+
     const mainFileBuffer = Buffer.from(await mainFile.arrayBuffer());
+    console.log('[API/Products] 메인 파일 Buffer 생성 완료:', mainFileBuffer.length, 'bytes');
+
+    const mainFileKey = `voicepacks/${productId}/main${getFileExtension(mainFile.name)}`;
+    console.log('[API/Products] R2 업로드 키:', mainFileKey);
+
     const mainFileUrl = await uploadFile({
-      key: `voicepacks/${productId}/main${getFileExtension(mainFile.name)}`,
+      key: mainFileKey,
       body: mainFileBuffer,
       contentType: mainFile.type || 'application/octet-stream',
     });
-    console.log('[Product] 메인 파일 업로드 완료:', mainFileUrl);
+    console.log('[API/Products] 메인 파일 업로드 완료:', mainFileUrl);
 
     // 2. 샘플 파일 처리
     let sampleFileUrl: string;
@@ -142,9 +173,15 @@ async function createVoicePackProduct(request: NextRequest) {
 
     if (sampleFile) {
       // 케이스 2: 커스텀 샘플 제공
-      console.log('[Product] 커스텀 샘플 파일 업로드:', sampleFile.name);
+      console.log('[API/Products] 커스텀 샘플 파일 업로드:', {
+        fileName: sampleFile.name,
+        fileType: sampleFile.type,
+        fileSize: sampleFile.size,
+      });
 
       const sampleBuffer = Buffer.from(await sampleFile.arrayBuffer());
+      console.log('[API/Products] 샘플 파일 Buffer 생성 완료:', sampleBuffer.length, 'bytes');
+
       sampleFileUrl = await uploadFile({
         key: `voicepacks/${productId}/sample.mp3`,
         body: sampleBuffer,
@@ -152,10 +189,10 @@ async function createVoicePackProduct(request: NextRequest) {
       });
 
       hasCustomSample = true;
-      console.log('[Product] 커스텀 샘플 업로드 완료');
+      console.log('[API/Products] 커스텀 샘플 업로드 완료:', sampleFileUrl);
     } else {
       // 케이스 3: 자동 샘플 생성
-      console.log('[Product] 샘플 파일 자동 생성 시작...');
+      console.log('[API/Products] 샘플 파일 자동 생성 시작...');
 
       const startTime = Date.now();
 
@@ -165,6 +202,10 @@ async function createVoicePackProduct(request: NextRequest) {
       );
 
       const processingTime = Date.now() - startTime;
+      console.log('[API/Products] 샘플 생성 완료:', {
+        processingTimeMs: processingTime,
+        sampleSize: sampleBuffer.length,
+      });
 
       sampleFileUrl = await uploadFile({
         key: `voicepacks/${productId}/sample.mp3`,
@@ -228,7 +269,8 @@ async function createVoicePackProduct(request: NextRequest) {
 
     return successResponse(product, undefined, 201);
   } catch (error) {
-    console.error('[Product] 보이스팩 생성 실패:', error);
+    console.error('[API/Products] 보이스팩 생성 실패:', error);
+    console.error('[API/Products] 에러 스택:', error instanceof Error ? error.stack : 'No stack trace');
 
     // 실패 로그 기록
     await LogService.log({
@@ -237,9 +279,12 @@ async function createVoicePackProduct(request: NextRequest) {
       userId: 'admin-id', // TODO: 실제 관리자 ID
       metadata: {
         error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
         formData: {
           name: formData?.get('name')?.toString() || null,
           projectId: formData?.get('projectId')?.toString() || null,
+          mainFileName: (formData?.get('mainFile') as File | null)?.name || null,
+          sampleFileName: (formData?.get('sampleFile') as File | null)?.name || null,
         },
       },
     });
