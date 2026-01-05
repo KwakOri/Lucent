@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
 import { useProducts, useAddToCart, useSession } from "@/lib/client/hooks";
+import { useToast } from "@/src/components/toast";
 import { Package, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,6 +14,7 @@ import { useState } from "react";
 export default function ShopPage() {
   const router = useRouter();
   const { user } = useSession();
+  const { showToast } = useToast();
   const { data: productsData, isLoading, error } = useProducts();
   const addToCart = useAddToCart();
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
@@ -34,10 +36,11 @@ export default function ShopPage() {
     setAddingToCart(productId);
     try {
       await addToCart.mutateAsync({ product_id: productId, quantity: 1 });
-      alert("장바구니에 추가되었습니다!");
+      showToast("장바구니에 추가되었습니다", { type: "success" });
     } catch (error) {
-      alert(
-        error instanceof Error ? error.message : "장바구니 추가에 실패했습니다"
+      showToast(
+        error instanceof Error ? error.message : "장바구니 추가에 실패했습니다",
+        { type: "error" }
       );
     } finally {
       setAddingToCart(null);
