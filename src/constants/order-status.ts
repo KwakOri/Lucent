@@ -51,9 +51,9 @@ export const ITEM_STATUS_CONFIG: Record<
   OrderItemStatus,
   { label: string; intent: "default" | "success" | "warning" | "error" }
 > = {
-  PENDING: { label: "대기", intent: "warning" },
-  READY: { label: "준비완료", intent: "default" },
-  PROCESSING: { label: "처리중", intent: "warning" },
+  PENDING: { label: "입금대기", intent: "warning" },
+  READY: { label: "다운로드 가능", intent: "default" },
+  PROCESSING: { label: "제작중", intent: "warning" },
   SHIPPED: { label: "배송중", intent: "warning" },
   DELIVERED: { label: "배송완료", intent: "success" },
   COMPLETED: { label: "완료", intent: "success" },
@@ -63,9 +63,9 @@ export const ITEM_STATUS_CONFIG: Record<
  * 주문 아이템 상태 레이블 (간단한 형태)
  */
 export const ITEM_STATUS_LABELS: Record<OrderItemStatus, string> = {
-  PENDING: "대기",
-  READY: "준비완료",
-  PROCESSING: "처리중",
+  PENDING: "입금대기",
+  READY: "다운로드 가능",
+  PROCESSING: "제작중",
   SHIPPED: "배송중",
   DELIVERED: "배송완료",
   COMPLETED: "완료",

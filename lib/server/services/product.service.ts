@@ -74,7 +74,19 @@ export class ProductService {
       .from('products')
       .select(
         `
-        *,
+        id,
+        name,
+        slug,
+        description,
+        price,
+        type,
+        stock,
+        is_active,
+        project_id,
+        main_image_id,
+        sample_audio_url,
+        created_at,
+        updated_at,
         project:projects (
           id,
           name,
@@ -131,6 +143,8 @@ export class ProductService {
 
   /**
    * 상품 상세 조회
+   *
+   * 보안: digital_file_url은 제외 (구매자만 다운로드 API를 통해 접근 가능)
    */
   static async getProductById(id: string): Promise<ProductWithDetails> {
     const supabase = await createServerClient();
@@ -139,7 +153,19 @@ export class ProductService {
       .from('products')
       .select(
         `
-        *,
+        id,
+        name,
+        slug,
+        description,
+        price,
+        type,
+        stock,
+        is_active,
+        project_id,
+        main_image_id,
+        sample_audio_url,
+        created_at,
+        updated_at,
         project:projects (
           id,
           name,
@@ -182,6 +208,8 @@ export class ProductService {
 
   /**
    * 여러 상품을 ID 목록으로 조회 (장바구니용)
+   *
+   * 보안: digital_file_url은 제외
    */
   static async getProductsByIds(ids: string[]): Promise<ProductWithDetails[]> {
     if (ids.length === 0) return [];
@@ -192,7 +220,19 @@ export class ProductService {
       .from('products')
       .select(
         `
-        *,
+        id,
+        name,
+        slug,
+        description,
+        price,
+        type,
+        stock,
+        is_active,
+        project_id,
+        main_image_id,
+        sample_audio_url,
+        created_at,
+        updated_at,
         project:projects (
           id,
           name,
@@ -220,6 +260,8 @@ export class ProductService {
 
   /**
    * Slug로 상품 조회
+   *
+   * 보안: digital_file_url은 제외
    */
   static async getProductBySlug(slug: string): Promise<ProductWithDetails> {
     const supabase = await createServerClient();
@@ -228,7 +270,19 @@ export class ProductService {
       .from('products')
       .select(
         `
-        *,
+        id,
+        name,
+        slug,
+        description,
+        price,
+        type,
+        stock,
+        is_active,
+        project_id,
+        main_image_id,
+        sample_audio_url,
+        created_at,
+        updated_at,
         project:projects (
           id,
           name,
