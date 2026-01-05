@@ -296,56 +296,40 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
                 </Button>
               )}
 
-              {/* 배송 대기 탭: 제작중/발송 상태 변경 */}
+              {/* 배송 대기 탭: 제작 시작 */}
               {activeTab === 'ready' && (
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      handleBulkItemStatusChange(e.target.value);
-                      e.target.value = '';
-                    }
-                  }}
+                <Button
+                  intent="primary"
+                  size="sm"
+                  onClick={() => handleBulkItemStatusChange('PROCESSING')}
                   disabled={isBulkUpdating}
-                  className="rounded-md bg-white border-2 border-blue-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">상태 변경</option>
-                  <option value="PROCESSING">제작중</option>
-                  <option value="SHIPPED">발송완료</option>
-                </select>
+                  {isBulkUpdating ? '처리 중...' : '제작 시작'}
+                </Button>
               )}
 
-              {/* 처리중 탭: 발송 상태 변경 */}
+              {/* 처리중 탭: 발송 완료 */}
               {activeTab === 'processing' && (
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      handleBulkItemStatusChange(e.target.value);
-                      e.target.value = '';
-                    }
-                  }}
+                <Button
+                  intent="primary"
+                  size="sm"
+                  onClick={() => handleBulkItemStatusChange('SHIPPED')}
                   disabled={isBulkUpdating}
-                  className="rounded-md bg-white border-2 border-blue-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">상태 변경</option>
-                  <option value="SHIPPED">발송완료</option>
-                </select>
+                  {isBulkUpdating ? '처리 중...' : '발송 완료'}
+                </Button>
               )}
 
-              {/* 배송 중 탭: 배송 상태 변경 */}
+              {/* 배송 중 탭: 완료 처리 */}
               {activeTab === 'shipping' && (
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      handleBulkItemStatusChange(e.target.value);
-                      e.target.value = '';
-                    }
-                  }}
+                <Button
+                  intent="primary"
+                  size="sm"
+                  onClick={() => handleBulkItemStatusChange('COMPLETED')}
                   disabled={isBulkUpdating}
-                  className="rounded-md bg-white border-2 border-blue-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">상태 변경</option>
-                  <option value="COMPLETED">완료</option>
-                </select>
+                  {isBulkUpdating ? '처리 중...' : '완료 처리'}
+                </Button>
               )}
             </div>
             <Button
