@@ -31,7 +31,7 @@ interface OrdersTableProps {
   orders: Order[];
 }
 
-type Tab = 'pending' | 'ready' | 'processing' | 'shipping' | 'completed';
+type Tab = 'pending' | 'paid' | 'making' | 'ready_to_ship' | 'shipping' | 'done';
 
 export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
   const [orders, setOrders] = useState(initialOrders);
@@ -44,44 +44,20 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
     setSelectedOrderIds([]);
   }, [activeTab]);
 
-  // 탭별 필터링 로직
+  // 탭별 필터링 로직 (orders.status 기반)
   const filteredOrders = orders.filter((order) => {
     if (activeTab === 'pending') {
-      // 입금 대기: 하나라도 PENDING (0원 상품이 포함된 경우 고려)
-      return order.items.some((item) => item.item_status === 'PENDING');
-    } else if (activeTab === 'ready') {
-      // 배송 대기: 실물 상품이 있고, 실물 상품이 READY 상태
-      const physicalItems = order.items.filter(
-        (item) =>
-          (item.product?.type === 'PHYSICAL_GOODS' ||
-            item.product?.type === 'BUNDLE') ||
-          (item.product_type === 'PHYSICAL_GOODS' ||
-            item.product_type === 'BUNDLE')
-      );
-      return physicalItems.length > 0 && physicalItems.some((item) => item.item_status === 'READY');
-    } else if (activeTab === 'processing') {
-      // 처리중: 실물 상품이 있고, 실물 상품이 PROCESSING 상태
-      const physicalItems = order.items.filter(
-        (item) =>
-          (item.product?.type === 'PHYSICAL_GOODS' ||
-            item.product?.type === 'BUNDLE') ||
-          (item.product_type === 'PHYSICAL_GOODS' ||
-            item.product_type === 'BUNDLE')
-      );
-      return physicalItems.length > 0 && physicalItems.some((item) => item.item_status === 'PROCESSING');
+      return order.status === 'PENDING';
+    } else if (activeTab === 'paid') {
+      return order.status === 'PAID';
+    } else if (activeTab === 'making') {
+      return order.status === 'MAKING';
+    } else if (activeTab === 'ready_to_ship') {
+      return order.status === 'READY_TO_SHIP';
     } else if (activeTab === 'shipping') {
-      // 배송 중: 실물 상품이 있고, 실물 상품이 SHIPPED 상태
-      const physicalItems = order.items.filter(
-        (item) =>
-          (item.product?.type === 'PHYSICAL_GOODS' ||
-            item.product?.type === 'BUNDLE') ||
-          (item.product_type === 'PHYSICAL_GOODS' ||
-            item.product_type === 'BUNDLE')
-      );
-      return physicalItems.length > 0 && physicalItems.some((item) => item.item_status === 'SHIPPED');
-    } else if (activeTab === 'completed') {
-      // 완료: 모든 아이템이 COMPLETED 상태
-      return order.items.every((item) => item.item_status === 'COMPLETED');
+      return order.status === 'SHIPPING';
+    } else if (activeTab === 'done') {
+      return order.status === 'DONE';
     }
     return true;
   });
@@ -106,10 +82,10 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
     }
   };
 
-  // 입금 확인 (입금 대기 탭)
-  const handleBulkPaymentConfirm = async () => {
+  // 주문 상태 일괄 변경
+  const handleBulkStatusChange = async (newStatus: string, confirmMessage: string) => {
     if (selectedOrderIds.length === 0) return;
-    if (!confirm(`선택한 ${selectedOrderIds.length}개 주문의 입금을 확인하시겠습니까?\n(디지털 상품은 자동으로 완료 처리되고, 실물 상품은 배송 대기 상태로 변경됩니다)`)) return;
+    if (!confirm(confirmMessage)) return;
 
     setIsBulkUpdating(true);
 
@@ -119,81 +95,19 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderIds: selectedOrderIds,
-          status: 'PAID',
+          status: newStatus,
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || '입금 확인에 실패했습니다');
+        throw new Error(error.error || '상태 변경에 실패했습니다');
       }
 
       // 페이지 새로고침하여 최신 상태 반영
       window.location.reload();
     } catch (error) {
-      console.error('Bulk payment confirm error:', error);
-      alert(error instanceof Error ? error.message : '입금 확인 중 오류가 발생했습니다');
-    } finally {
-      setIsBulkUpdating(false);
-    }
-  };
-
-  // 실물 상품 상태 일괄 변경 (배송 대기/배송 중 탭)
-  const handleBulkItemStatusChange = async (newItemStatus: string) => {
-    if (selectedOrderIds.length === 0) return;
-    if (!confirm(`선택한 ${selectedOrderIds.length}개 주문의 실물 상품 상태를 변경하시겠습니까?`)) return;
-
-    setIsBulkUpdating(true);
-
-    try {
-      // 선택된 주문들의 실물 상품 아이템 ID 수집
-      const physicalItemIds: string[] = [];
-      selectedOrderIds.forEach(orderId => {
-        const order = orders.find(o => o.id === orderId);
-        if (order) {
-          order.items.forEach(item => {
-            const isPhysical =
-              (item.product?.type === 'PHYSICAL_GOODS' || item.product?.type === 'BUNDLE') ||
-              (item.product_type === 'PHYSICAL_GOODS' || item.product_type === 'BUNDLE');
-            if (isPhysical) {
-              physicalItemIds.push(item.id);
-            }
-          });
-        }
-      });
-
-      // 각 주문의 실물 상품 상태 변경
-      await Promise.all(
-        selectedOrderIds.map(async (orderId) => {
-          const order = orders.find(o => o.id === orderId);
-          if (!order) return;
-
-          const orderPhysicalItemIds = order.items
-            .filter(item => {
-              const isPhysical =
-                (item.product?.type === 'PHYSICAL_GOODS' || item.product?.type === 'BUNDLE') ||
-                (item.product_type === 'PHYSICAL_GOODS' || item.product_type === 'BUNDLE');
-              return isPhysical;
-            })
-            .map(item => item.id);
-
-          if (orderPhysicalItemIds.length === 0) return;
-
-          await fetch(`/api/orders/${orderId}/items/status`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              itemIds: orderPhysicalItemIds,
-              status: newItemStatus,
-            }),
-          });
-        })
-      );
-
-      // 페이지 새로고침하여 최신 상태 반영
-      window.location.reload();
-    } catch (error) {
-      console.error('Bulk item status update error:', error);
+      console.error('Bulk status change error:', error);
       alert(error instanceof Error ? error.message : '상태 변경 중 오류가 발생했습니다');
     } finally {
       setIsBulkUpdating(false);
@@ -217,33 +131,46 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
                 }
               `}
             >
-              입금 대기
+              입금대기
             </button>
             <button
-              onClick={() => setActiveTab('ready')}
+              onClick={() => setActiveTab('paid')}
               className={`
                 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
                 ${
-                  activeTab === 'ready'
+                  activeTab === 'paid'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }
               `}
             >
-              배송 대기
+              입금확인
             </button>
             <button
-              onClick={() => setActiveTab('processing')}
+              onClick={() => setActiveTab('making')}
               className={`
                 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
                 ${
-                  activeTab === 'processing'
+                  activeTab === 'making'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }
               `}
             >
-              처리중
+              제작중
+            </button>
+            <button
+              onClick={() => setActiveTab('ready_to_ship')}
+              className={`
+                whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
+                ${
+                  activeTab === 'ready_to_ship'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }
+              `}
+            >
+              출고중
             </button>
             <button
               onClick={() => setActiveTab('shipping')}
@@ -256,14 +183,14 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
                 }
               `}
             >
-              배송 중
+              배송중
             </button>
             <button
-              onClick={() => setActiveTab('completed')}
+              onClick={() => setActiveTab('done')}
               className={`
                 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
                 ${
-                  activeTab === 'completed'
+                  activeTab === 'done'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }
@@ -284,48 +211,75 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
                 {selectedOrderIds.length}개 주문 선택됨
               </span>
 
-              {/* 입금 대기 탭: 입금 확인 버튼 */}
+              {/* 입금 대기 탭: 입금 확인 → PAID */}
               {activeTab === 'pending' && (
                 <Button
                   intent="primary"
                   size="sm"
-                  onClick={handleBulkPaymentConfirm}
+                  onClick={() => handleBulkStatusChange(
+                    'PAID',
+                    `선택한 ${selectedOrderIds.length}개 주문의 입금을 확인하시겠습니까?`
+                  )}
                   disabled={isBulkUpdating}
                 >
                   {isBulkUpdating ? '처리 중...' : '입금 확인'}
                 </Button>
               )}
 
-              {/* 배송 대기 탭: 제작 시작 */}
-              {activeTab === 'ready' && (
+              {/* 입금 확인 탭: 제작 시작 → MAKING */}
+              {activeTab === 'paid' && (
                 <Button
                   intent="primary"
                   size="sm"
-                  onClick={() => handleBulkItemStatusChange('PROCESSING')}
+                  onClick={() => handleBulkStatusChange(
+                    'MAKING',
+                    `선택한 ${selectedOrderIds.length}개 주문의 제작을 시작하시겠습니까?`
+                  )}
                   disabled={isBulkUpdating}
                 >
                   {isBulkUpdating ? '처리 중...' : '제작 시작'}
                 </Button>
               )}
 
-              {/* 처리중 탭: 발송 완료 */}
-              {activeTab === 'processing' && (
+              {/* 제작중 탭: 출고 처리 → READY_TO_SHIP */}
+              {activeTab === 'making' && (
                 <Button
                   intent="primary"
                   size="sm"
-                  onClick={() => handleBulkItemStatusChange('SHIPPED')}
+                  onClick={() => handleBulkStatusChange(
+                    'READY_TO_SHIP',
+                    `선택한 ${selectedOrderIds.length}개 주문을 출고 처리하시겠습니까?`
+                  )}
                   disabled={isBulkUpdating}
                 >
-                  {isBulkUpdating ? '처리 중...' : '발송 완료'}
+                  {isBulkUpdating ? '처리 중...' : '출고 처리'}
                 </Button>
               )}
 
-              {/* 배송 중 탭: 완료 처리 */}
+              {/* 출고중 탭: 배송 시작 → SHIPPING */}
+              {activeTab === 'ready_to_ship' && (
+                <Button
+                  intent="primary"
+                  size="sm"
+                  onClick={() => handleBulkStatusChange(
+                    'SHIPPING',
+                    `선택한 ${selectedOrderIds.length}개 주문의 배송을 시작하시겠습니까?`
+                  )}
+                  disabled={isBulkUpdating}
+                >
+                  {isBulkUpdating ? '처리 중...' : '배송 시작'}
+                </Button>
+              )}
+
+              {/* 배송중 탭: 완료 처리 → DONE */}
               {activeTab === 'shipping' && (
                 <Button
                   intent="primary"
                   size="sm"
-                  onClick={() => handleBulkItemStatusChange('COMPLETED')}
+                  onClick={() => handleBulkStatusChange(
+                    'DONE',
+                    `선택한 ${selectedOrderIds.length}개 주문을 완료 처리하시겠습니까?`
+                  )}
                   disabled={isBulkUpdating}
                 >
                   {isBulkUpdating ? '처리 중...' : '완료 처리'}
