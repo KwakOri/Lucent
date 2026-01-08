@@ -18,6 +18,7 @@ export const ORDER_STATUS_CONFIG: Record<
   PENDING: { label: "입금대기", intent: "warning" },
   PAID: { label: "입금확인", intent: "default" },
   MAKING: { label: "제작중", intent: "warning" },
+  READY_TO_SHIP: { label: "출고중", intent: "default" },
   SHIPPING: { label: "배송중", intent: "warning" },
   DONE: { label: "완료", intent: "default" },
 };
@@ -29,6 +30,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING: "입금대기",
   PAID: "입금확인",
   MAKING: "제작중",
+  READY_TO_SHIP: "출고중",
   SHIPPING: "배송중",
   DONE: "완료",
 };
@@ -40,6 +42,7 @@ export const ORDER_STATUS_COLORS: Record<OrderStatus, string> = {
   PENDING: "bg-yellow-100 text-yellow-800",
   PAID: "bg-green-100 text-green-800",
   MAKING: "bg-blue-100 text-blue-800",
+  READY_TO_SHIP: "bg-teal-100 text-teal-800",
   SHIPPING: "bg-orange-100 text-orange-800",
   DONE: "bg-gray-100 text-gray-800",
 };
