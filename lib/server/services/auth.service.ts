@@ -10,7 +10,7 @@
  * 중요: 모든 인증 이벤트는 LogService로 기록됩니다.
  */
 
-import { createServerClient } from '@/lib/server/utils/supabase';
+import { createServerClient, isAdmin } from '@/lib/server/utils/supabase';
 import { ApiError, ValidationError, AuthenticationError } from '@/lib/server/utils/errors';
 import { sendVerificationEmail, sendPasswordResetEmail } from '@/lib/server/utils/email';
 import { LogService } from './log.service';
@@ -374,8 +374,12 @@ export class AuthService {
       return null;
     }
 
+    // 관리자 권한 확인
+    const isUserAdmin = await isAdmin();
+
     return {
       user: data.user,
+      isAdmin: isUserAdmin,
     };
   }
 
