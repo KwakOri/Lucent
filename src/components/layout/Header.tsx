@@ -24,8 +24,7 @@ export function Header() {
 
   useEffect(() => {
     const handleScroll = () => {
-      // html에 overflow-y: scroll 설정 시 document.documentElement.scrollTop 사용
-      const scrollPosition = document.documentElement.scrollTop || window.scrollY;
+      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
       setScrolled(scrollPosition > 50);
     };
 
