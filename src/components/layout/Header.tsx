@@ -27,7 +27,7 @@ function CartBadge({ count }: { count?: number }) {
 }
 
 export function Header() {
-  const { user, isLoading } = useSession();
+  const { user, isAdmin, isLoading } = useSession();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
   const { data: cartCount } = useCartCount();
 
@@ -111,6 +111,13 @@ export function Header() {
 
                 {/* Left Navigation */}
                 <div className="hidden md:flex items-center gap-2">
+                  {isAdmin && (
+                    <Link href="/admin">
+                      <Button intent={buttonIntent} size="sm">
+                        ADMIN
+                      </Button>
+                    </Link>
+                  )}
                   {NAV_ITEMS.map((item) => (
                     <Button
                       key={item.label}
@@ -225,6 +232,20 @@ export function Header() {
 
           {/* Menu Items */}
           <div className="flex flex-col p-4 space-y-2">
+            {isAdmin && (
+              <>
+                <Link href="/admin" onClick={() => setMobileMenuOpen(false)}>
+                  <Button
+                    intent="headerScrolled"
+                    size="sm"
+                    className="w-full justify-start"
+                  >
+                    ADMIN
+                  </Button>
+                </Link>
+                <div className="h-px bg-white/10 my-2" />
+              </>
+            )}
             {NAV_ITEMS.map((item) => (
               <Button
                 key={item.label}

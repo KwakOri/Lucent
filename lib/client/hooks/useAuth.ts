@@ -53,6 +53,7 @@ export function useSession() {
 
   return {
     user: query.data?.user ?? null,
+    isAdmin: query.data?.isAdmin ?? false,
     isLoading: query.isLoading,
     isAuthenticated: !!query.data?.user,
     refetch: query.refetch,
