@@ -24,10 +24,15 @@ export function Header() {
 
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
+      // html에 overflow-y: scroll 설정 시 document.documentElement.scrollTop 사용
+      const scrollPosition = document.documentElement.scrollTop || window.scrollY;
+      setScrolled(scrollPosition > 50);
     };
 
-    window.addEventListener("scroll", handleScroll);
+    // 초기 스크롤 위치 확인
+    handleScroll();
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
