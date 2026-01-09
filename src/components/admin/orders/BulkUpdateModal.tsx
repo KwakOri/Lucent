@@ -2,8 +2,51 @@
 
 import { Header, Content } from '@/components/modal';
 import type { ModalProps } from '@/components/modal';
-import { CheckCircleIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/button';
+
+interface BulkUpdateConfirmModalProps extends ModalProps {
+  count: number;
+  statusLabel: string;
+}
+
+/**
+ * 일괄 상태 변경 확인 모달
+ */
+export function BulkUpdateConfirmModal({
+  count,
+  statusLabel,
+  onSubmit,
+  onAbort,
+}: BulkUpdateConfirmModalProps) {
+  return (
+    <div>
+      <Header title="상태 변경 확인" showCloseButton={false} />
+      <Content className="py-6">
+        <div className="flex items-start gap-4">
+          <ExclamationTriangleIcon className="w-6 h-6 text-orange-500 flex-shrink-0 mt-1" />
+          <div className="flex-1">
+            <p className="text-gray-700 mb-2">
+              선택한 <span className="font-semibold">{count}개</span> 주문을{' '}
+              <span className="font-semibold">{statusLabel}</span> 상태로 변경하시겠습니까?
+            </p>
+            <p className="text-sm text-gray-500">
+              이 작업은 되돌릴 수 없습니다.
+            </p>
+          </div>
+        </div>
+      </Content>
+      <div className="px-6 py-4 border-t flex justify-end gap-3">
+        <Button intent="secondary" onClick={() => onAbort()}>
+          취소
+        </Button>
+        <Button intent="primary" onClick={() => onSubmit(true)}>
+          확인
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 interface BulkUpdateLoadingModalProps extends ModalProps {
   count: number;

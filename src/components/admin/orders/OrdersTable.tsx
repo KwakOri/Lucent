@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/src/constants';
 import {
+  BulkUpdateConfirmModal,
   BulkUpdateLoadingModal,
   BulkUpdateSuccessModal,
 } from './BulkUpdateModal';
@@ -93,17 +94,33 @@ export function OrdersTable({ orders }: OrdersTableProps) {
   };
 
   // 주문 상태 일괄 변경
-  const handleBulkStatusChange = async (newStatus: string, confirmMessage: string) => {
+  const handleBulkStatusChange = async (newStatus: string, _confirmMessage: string) => {
     if (selectedOrderIds.length === 0) return;
-    if (!confirm(confirmMessage)) return;
-
-    setIsBulkUpdating(true);
 
     const count = selectedOrderIds.length;
     const statusLabel = ORDER_STATUS_LABELS[newStatus as keyof typeof ORDER_STATUS_LABELS];
+
+    try {
+      // 1. 확인 모달 열기
+      const confirmed = await openModal<boolean>(BulkUpdateConfirmModal, {
+        count,
+        statusLabel,
+        disableBackdropClick: false,
+        disableEscapeKey: false,
+      });
+
+      // 사용자가 취소한 경우
+      if (!confirmed) return;
+    } catch (error) {
+      // 모달이 닫힌 경우 (abort)
+      return;
+    }
+
+    setIsBulkUpdating(true);
+
     const loadingModalId = crypto.randomUUID();
 
-    // 로딩 모달 열기
+    // 2. 로딩 모달 열기
     openModal(BulkUpdateLoadingModal, {
       id: loadingModalId,
       count,
@@ -133,10 +150,13 @@ export function OrdersTable({ orders }: OrdersTableProps) {
       // React Query 캐시 무효화 (주문 목록 자동 재조회)
       await queryClient.invalidateQueries({ queryKey: ['orders'] });
 
-      // 로딩 모달 닫기
+      // 3. 로딩 모달 닫기
       closeModal(loadingModalId);
 
-      // 완료 모달 열기
+      // DOM 업데이트를 위한 짧은 딜레이
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // 4. 완료 모달 열기
       await openModal(BulkUpdateSuccessModal, {
         count,
         statusLabel,
@@ -149,6 +169,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
       // 로딩 모달 닫기
       closeModal(loadingModalId);
 
+      // 에러 모달 대신 alert 사용 (간단하게)
       alert(error instanceof Error ? error.message : '상태 변경 중 오류가 발생했습니다');
     } finally {
       setIsBulkUpdating(false);
