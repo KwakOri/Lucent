@@ -181,12 +181,10 @@
 
 html {
   scroll-behavior: smooth;
-  overflow-x: hidden;
 }
 
 body {
   background: #f9f9ed;
   color: #171717;
   min-height: 100vh;
-  overflow-x: hidden;
 }
