@@ -179,10 +179,16 @@
   font-family: "PyeojinGothic", sans-serif;
 }
 
-html,
-html,
+html {
+  height: 100%;
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+
 body {
   background: #f9f9ed;
   color: #171717;
   min-height: 100vh;
+  height: 100%;
+  overflow-x: hidden;
 }
