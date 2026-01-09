@@ -179,8 +179,10 @@
   font-family: "PyeojinGothic", sans-serif;
 }
 
-html,
-html,
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background: #f9f9ed;
   color: #171717;

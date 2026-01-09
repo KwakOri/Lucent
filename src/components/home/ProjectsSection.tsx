@@ -2,6 +2,7 @@
 
 import { useProjects } from "@/lib/client/hooks";
 import Link from "next/link";
+import { useCallback } from "react";
 
 // Project display config
 const PROJECT_DISPLAY_CONFIG: Record<
@@ -45,11 +46,11 @@ export function ProjectsSection() {
   const { data: projects } = useProjects();
 
   // 소셜 링크 클릭 시 이벤트 버블링 방지
-  const handleSocialClick = (e: React.MouseEvent, url: string) => {
+  const handleSocialClick = useCallback((e: React.MouseEvent, url: string) => {
     e.preventDefault();
     e.stopPropagation();
     window.open(url, "_blank");
-  };
+  }, []);
 
   return (
     <section id="projects" className="py-20 px-4 bg-white">

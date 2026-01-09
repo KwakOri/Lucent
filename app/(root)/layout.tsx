@@ -8,7 +8,9 @@ export default function PublicLayout({
   return (
     <>
       <Header />
-      {children}
+      <div className="w-full overflow-x-hidden">
+        {children}
+      </div>
       <Footer />
     </>
   );

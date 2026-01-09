@@ -61,7 +61,7 @@ export interface PasswordResetResult {
  * 보안: getUser()를 통해 user 정보만 반환
  * session 정보는 보안상 이유로 제공하지 않음
  */
-export type SessionResponse = { user: AuthUser } | null;
+export type SessionResponse = { user: AuthUser; isAdmin: boolean } | null;
 
 /**
  * OAuth 제공자
