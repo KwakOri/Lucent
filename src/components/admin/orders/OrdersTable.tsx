@@ -173,11 +173,33 @@ export function OrdersTable({ orders }: OrdersTableProps) {
     label,
   }));
 
+  // 탭 옵션 (모바일 드롭다운용)
+  const tabOptions = [
+    { value: 'pending', label: '입금대기' },
+    { value: 'paid', label: '입금확인' },
+    { value: 'making', label: '제작중' },
+    { value: 'ready_to_ship', label: '출고중' },
+    { value: 'shipping', label: '배송중' },
+    { value: 'done', label: '완료' },
+  ];
+
   return (
     <div>
-      {/* Tabs */}
+      {/* Tabs - Desktop */}
       <div className="mb-6">
-        <div className="border-b border-gray-200">
+        {/* Mobile: Dropdown */}
+        <div className="md:hidden mb-4">
+          <Select
+            options={tabOptions}
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value as Tab)}
+            size="md"
+            className="w-full"
+          />
+        </div>
+
+        {/* Desktop: Tabs */}
+        <div className="hidden md:block border-b border-gray-200">
           <nav className="-mb-px flex space-x-8" aria-label="Tabs">
             <button
               onClick={() => setActiveTab('pending')}
@@ -264,7 +286,127 @@ export function OrdersTable({ orders }: OrdersTableProps) {
       {/* Bulk Actions */}
       {selectedOrderIds.length > 0 && (
         <div className="mb-4 rounded-lg bg-blue-50 border border-blue-200 p-4">
-          <div className="flex items-center justify-between">
+          {/* Mobile Layout */}
+          <div className="md:hidden space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-blue-900">
+                {selectedOrderIds.length}개 주문 선택됨
+              </span>
+              <Button
+                intent="secondary"
+                size="sm"
+                onClick={() => setSelectedOrderIds([])}
+                disabled={isBulkUpdating}
+              >
+                선택 해제
+              </Button>
+            </div>
+
+            {/* 입금 대기 탭: 입금 확인 → PAID */}
+            {activeTab === 'pending' && (
+              <Button
+                intent="primary"
+                size="sm"
+                onClick={() => handleBulkStatusChange(
+                  'PAID',
+                  `선택한 ${selectedOrderIds.length}개 주문의 입금을 확인하시겠습니까?`
+                )}
+                disabled={isBulkUpdating}
+                className="w-full"
+              >
+                {isBulkUpdating ? '처리 중...' : '입금 확인'}
+              </Button>
+            )}
+
+            {/* 입금 확인 탭: 제작 시작 → MAKING */}
+            {activeTab === 'paid' && (
+              <Button
+                intent="primary"
+                size="sm"
+                onClick={() => handleBulkStatusChange(
+                  'MAKING',
+                  `선택한 ${selectedOrderIds.length}개 주문의 제작을 시작하시겠습니까?`
+                )}
+                disabled={isBulkUpdating}
+                className="w-full"
+              >
+                {isBulkUpdating ? '처리 중...' : '제작 시작'}
+              </Button>
+            )}
+
+            {/* 제작중 탭: 출고 처리 → READY_TO_SHIP */}
+            {activeTab === 'making' && (
+              <Button
+                intent="primary"
+                size="sm"
+                onClick={() => handleBulkStatusChange(
+                  'READY_TO_SHIP',
+                  `선택한 ${selectedOrderIds.length}개 주문을 출고 처리하시겠습니까?`
+                )}
+                disabled={isBulkUpdating}
+                className="w-full"
+              >
+                {isBulkUpdating ? '처리 중...' : '출고 처리'}
+              </Button>
+            )}
+
+            {/* 출고중 탭: 배송 시작 → SHIPPING */}
+            {activeTab === 'ready_to_ship' && (
+              <Button
+                intent="primary"
+                size="sm"
+                onClick={() => handleBulkStatusChange(
+                  'SHIPPING',
+                  `선택한 ${selectedOrderIds.length}개 주문의 배송을 시작하시겠습니까?`
+                )}
+                disabled={isBulkUpdating}
+                className="w-full"
+              >
+                {isBulkUpdating ? '처리 중...' : '배송 시작'}
+              </Button>
+            )}
+
+            {/* 배송중 탭: 완료 처리 → DONE */}
+            {activeTab === 'shipping' && (
+              <Button
+                intent="primary"
+                size="sm"
+                onClick={() => handleBulkStatusChange(
+                  'DONE',
+                  `선택한 ${selectedOrderIds.length}개 주문을 완료 처리하시겠습니까?`
+                )}
+                disabled={isBulkUpdating}
+                className="w-full"
+              >
+                {isBulkUpdating ? '처리 중...' : '완료 처리'}
+              </Button>
+            )}
+
+            {/* 드롭다운으로 다른 상태로 변경 */}
+            <div className="space-y-2 pt-2 border-t border-blue-300">
+              <Select
+                options={statusOptions}
+                placeholder="다른 상태로 변경"
+                size="sm"
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                disabled={isBulkUpdating}
+                className="w-full"
+              />
+              <Button
+                intent="secondary"
+                size="sm"
+                onClick={handleDropdownStatusChange}
+                disabled={isBulkUpdating || !selectedStatus}
+                className="w-full"
+              >
+                변경
+              </Button>
+            </div>
+          </div>
+
+          {/* Desktop Layout */}
+          <div className="hidden md:flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-blue-900">
                 {selectedOrderIds.length}개 주문 선택됨
@@ -378,8 +520,79 @@ export function OrdersTable({ orders }: OrdersTableProps) {
         </div>
       )}
 
-      {/* Table */}
-      <div className="mt-4 flow-root">
+      {/* Mobile: Card List */}
+      <div className="md:hidden space-y-4">
+        {filteredOrders.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-500">주문 내역이 없습니다</p>
+          </div>
+        ) : (
+          filteredOrders.map((order) => (
+            <div
+              key={order.id}
+              className={`bg-white rounded-lg border p-4 ${
+                selectedOrderIds.includes(order.id)
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200'
+              }`}
+            >
+              {/* 첫 줄: 체크박스 + 주문번호 */}
+              <div className="flex items-center gap-3 mb-3">
+                <Checkbox
+                  checked={selectedOrderIds.includes(order.id)}
+                  onChange={(e) => handleSelectOrder(order.id, e.target.checked)}
+                  aria-label={`${order.order_number} 선택`}
+                />
+                <span className="text-sm font-medium text-gray-900">
+                  {order.order_number}
+                </span>
+              </div>
+
+              {/* 둘째 줄: 주문일, 주문자, 금액 */}
+              <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                <div className="flex items-center gap-2">
+                  <span>{new Date(order.created_at).toLocaleDateString('ko-KR')}</span>
+                  <span>·</span>
+                  <span>{order.buyer_name || '-'}</span>
+                </div>
+                <span className="font-medium text-gray-900">
+                  {order.total_price.toLocaleString()}원
+                </span>
+              </div>
+
+              {/* 셋째 줄: 상품명 */}
+              <div className="text-sm text-gray-700 mb-3">
+                {order.items[0]?.product?.name || '-'}
+                {order.items.length > 1 && (
+                  <span className="text-gray-500"> 외 {order.items.length - 1}건</span>
+                )}
+              </div>
+
+              {/* 넷째 줄: 상태 + 보기 링크 */}
+              <div className="flex items-center justify-between">
+                <span
+                  className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                    ORDER_STATUS_COLORS[order.status as keyof typeof ORDER_STATUS_COLORS] ||
+                    'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {ORDER_STATUS_LABELS[order.status as keyof typeof ORDER_STATUS_LABELS] ||
+                    order.status}
+                </span>
+                <Link
+                  href={`/admin/orders/${order.id}`}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-900"
+                >
+                  보기
+                </Link>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: Table */}
+      <div className="hidden md:block mt-4 flow-root">
         <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
             <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">

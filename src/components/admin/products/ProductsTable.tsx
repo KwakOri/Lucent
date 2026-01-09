@@ -125,8 +125,89 @@ export function ProductsTable({ products: initialProducts, projects }: ProductsT
         </select>
       </div>
 
-      {/* Table */}
-      <div className="mt-4 flow-root">
+      {/* Mobile: Card List */}
+      <div className="md:hidden space-y-4">
+        {filteredProducts.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-500">등록된 상품이 없습니다</p>
+          </div>
+        ) : (
+          filteredProducts.map((product) => (
+            <div
+              key={product.id}
+              className="bg-white rounded-lg border border-gray-200 p-4"
+            >
+              {/* 첫 줄: 이미지 + 상품명 + 상태 */}
+              <div className="flex items-start gap-3 mb-3">
+                <div className="h-16 w-20 flex-shrink-0">
+                  {product.main_image ? (
+                    <img
+                      src={product.main_image.cdn_url || product.main_image.public_url}
+                      alt={product.name}
+                      className="h-16 w-20 rounded object-cover"
+                    />
+                  ) : (
+                    <div className="h-16 w-20 rounded bg-gray-200" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-gray-900 truncate">
+                    {product.name}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {typeLabels[product.type]} · {product.project?.name || '-'}
+                  </p>
+                  <span
+                    className={`inline-flex mt-2 rounded-full px-2 py-1 text-xs font-semibold ${
+                      product.is_active
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {product.is_active ? '활성' : '비활성'}
+                  </span>
+                </div>
+              </div>
+
+              {/* 둘째 줄: 가격, 재고 */}
+              <div className="flex items-center justify-between text-sm mb-3 pb-3 border-b border-gray-200">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <span className="text-xs text-gray-500">가격</span>
+                    <p className="font-medium text-gray-900">{product.price.toLocaleString()}원</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500">재고</span>
+                    <p className="font-medium text-gray-900">
+                      {product.stock !== null ? product.stock : '-'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 셋째 줄: 수정/삭제 버튼 */}
+              <div className="flex items-center justify-end gap-3">
+                <Link
+                  href={`/admin/products/${product.id}/edit`}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-900"
+                >
+                  수정
+                </Link>
+                <button
+                  onClick={() => handleDelete(product)}
+                  disabled={deletingId === product.id}
+                  className="text-sm font-medium text-red-600 hover:text-red-900 disabled:opacity-50"
+                >
+                  {deletingId === product.id ? '삭제 중...' : '삭제'}
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: Table */}
+      <div className="hidden md:block mt-4 flow-root">
         <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
             <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
