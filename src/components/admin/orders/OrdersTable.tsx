@@ -42,7 +42,7 @@ type Tab = 'pending' | 'paid' | 'making' | 'ready_to_ship' | 'shipping' | 'done'
 
 export function OrdersTable({ orders }: OrdersTableProps) {
   const queryClient = useQueryClient();
-  const { openModal, closeModal } = useModal();
+  const { openModal, closeModal, renderModal } = useModal();
   const [activeTab, setActiveTab] = useState<Tab>('pending');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
@@ -477,6 +477,8 @@ export function OrdersTable({ orders }: OrdersTableProps) {
           </div>
         </div>
       </div>
+      {/* Render Modals */}
+      {renderModal()}
     </div>
   );
 }
