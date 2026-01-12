@@ -87,7 +87,7 @@ export async function GET(request: NextRequest, { params }: DownloadParams) {
       .eq("product_id", productId)
       .eq("orders.user_id", user.id)
       .in("orders.status", ["DONE"])
-      .in("item_status", ["COMPLETED"]);
+      .in("item_status", ["DONE"]);
 
     if (orderError) {
       console.error("[Download] 주문 조회 실패:", orderError);

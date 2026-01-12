@@ -96,7 +96,7 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
       const selectableItems = order.items.filter((item) => {
         // 완료된 디지털 상품은 선택 불가
         const isDigital = item.product_type === 'VOICE_PACK' || item.product?.type === 'VOICE_PACK';
-        const isCompleted = item.item_status === 'COMPLETED';
+        const isCompleted = item.item_status === 'DONE';
         return !(isDigital && isCompleted);
       });
       setSelectedItems(new Set(selectableItems.map((item) => item.id)));
@@ -295,7 +295,7 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
                 {/* 아이템 목록 */}
                 {order.items.map((item) => {
                   const isDigital = item.product_type === 'VOICE_PACK' || item.product?.type === 'VOICE_PACK';
-                  const isCompleted = item.item_status === 'COMPLETED';
+                  const isCompleted = item.item_status === 'DONE';
                   const isDisabled = isDigital && isCompleted;
 
                   return (
