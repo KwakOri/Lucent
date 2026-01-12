@@ -24,7 +24,6 @@ type Order = Tables<"orders">;
 type OrderInsert = TablesInsert<"orders">;
 type OrderItem = Tables<"order_items">;
 type OrderStatus = Enums<"order_status">;
-type OrderItemStatus = Enums<"order_item_status">;
 type Shipment = Tables<"shipments">;
 type ShipmentInsert = TablesInsert<"shipments">;
 

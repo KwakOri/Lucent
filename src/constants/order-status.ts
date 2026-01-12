@@ -34,7 +34,6 @@
 import type { Enums } from "@/types";
 
 type OrderStatus = Enums<"order_status">;
-type OrderItemStatus = Enums<"order_item_status">;
 type ProductType = Enums<"product_type">;
 
 /**
