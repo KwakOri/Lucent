@@ -2,6 +2,8 @@
  * Order Items Status API
  *
  * PATCH /api/orders/[id]/items/status - 주문 아이템 상태 일괄 변경 (관리자)
+ *
+ * 개별 상품 상태도 주문 상태와 동일한 값 사용 (order_status)
  */
 
 import { NextRequest } from 'next/server';
@@ -27,7 +29,7 @@ export async function PATCH(
     const body = await request.json();
     const { itemIds, status } = body as {
       itemIds: string[];
-      status: Enums<'order_item_status'>;
+      status: Enums<'order_status'>; // 개별 상품 상태도 order_status 사용
     };
 
     if (!itemIds || itemIds.length === 0) {
