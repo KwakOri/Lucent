@@ -1,5 +1,28 @@
 /**
  * 주문 및 주문 아이템 상태 관련 상수
+ *
+ * ## 주문 상태 (order_status)
+ * 주문 전체의 대표 상태를 나타냅니다.
+ * 순서: PENDING → PAID → MAKING → READY_TO_SHIP → SHIPPING → DONE
+ *
+ * ## 개별 상품 상태 (order_item_status)
+ * 각 주문 상품의 현재 처리 상태를 나타냅니다.
+ * 주문 상태 변경 시 자동으로 업데이트되며, 상품 타입(디지털/실물)에 따라 다르게 설정됩니다.
+ *
+ * ### 주문 상태별 개별 상품 상태 매핑
+ * | 주문 상태 | 디지털 상품 | 실물 상품 |
+ * |-----------|-------------|-----------|
+ * | PENDING | PENDING | PENDING |
+ * | PAID | COMPLETED | READY |
+ * | MAKING | COMPLETED | PROCESSING |
+ * | READY_TO_SHIP | COMPLETED | READY |
+ * | SHIPPING | COMPLETED | SHIPPED |
+ * | DONE | COMPLETED | COMPLETED |
+ *
+ * ## 참고
+ * - 디지털 상품(보이스팩)은 입금 확인 시점에 즉시 완료(COMPLETED) 처리됩니다.
+ * - 실물 상품은 제작/포장/발송 단계를 거쳐 점진적으로 상태가 변경됩니다.
+ * - 세트 상품(BUNDLE)은 실물 상품으로 분류되어 처리됩니다.
  */
 
 import type { Enums } from "@/types";

@@ -374,44 +374,74 @@ export class OrderService {
     }
 
     // v2: order_items의 item_status도 함께 업데이트
-    // PAID 상태일 때는 디지털/실물 상품을 구분하여 처리
-    if (newStatus === "PAID") {
-      // 디지털 상품은 즉시 완료, 실물 상품은 준비 상태로
-      const digitalItems = orderData.items.filter(
-        (item) => item.product?.type === "VOICE_PACK"
-      );
-      const physicalItems = orderData.items.filter(
-        (item) =>
-          item.product?.type === "PHYSICAL_GOODS" ||
-          item.product?.type === "BUNDLE"
-      );
+    // 디지털/실물 상품을 구분하여 처리
+    const digitalItems = orderData.items.filter(
+      (item) => item.product?.type === "VOICE_PACK"
+    );
+    const physicalItems = orderData.items.filter(
+      (item) =>
+        item.product?.type === "PHYSICAL_GOODS" ||
+        item.product?.type === "BUNDLE"
+    );
 
-      if (digitalItems.length > 0) {
-        await this.updateItemsStatus(
-          orderId,
-          digitalItems.map((item) => item.id),
-          "COMPLETED"
-        );
-      }
-      if (physicalItems.length > 0) {
-        await this.updateItemsStatus(
-          orderId,
-          physicalItems.map((item) => item.id),
-          "READY"
-        );
-      }
-    } else {
-      // 다른 상태는 기존 로직 유지 (모든 아이템 동일하게 변경)
-      let itemStatus: OrderItemStatus = "PENDING";
-      if (newStatus === "MAKING") {
-        itemStatus = "PROCESSING"; // 제작 중
-      } else if (newStatus === "SHIPPING") {
-        itemStatus = "SHIPPED"; // 발송됨
-      } else if (newStatus === "DONE") {
-        itemStatus = "COMPLETED"; // 완료
-      }
+    // 주문 상태에 따른 개별 상품 상태 결정
+    let digitalItemStatus: OrderItemStatus = "PENDING";
+    let physicalItemStatus: OrderItemStatus = "PENDING";
 
-      await this.updateAllItemsStatus(orderId, itemStatus);
+    switch (newStatus) {
+      case "PENDING":
+        // 입금 대기: 모든 상품 대기 상태
+        digitalItemStatus = "PENDING";
+        physicalItemStatus = "PENDING";
+        break;
+
+      case "PAID":
+        // 입금 확인: 디지털 즉시 완료, 실물 준비 완료
+        digitalItemStatus = "COMPLETED";
+        physicalItemStatus = "READY";
+        break;
+
+      case "MAKING":
+        // 제작중: 디지털 완료, 실물 처리중
+        digitalItemStatus = "COMPLETED";
+        physicalItemStatus = "PROCESSING";
+        break;
+
+      case "READY_TO_SHIP":
+        // 출고중: 디지털 완료, 실물 준비 완료
+        digitalItemStatus = "COMPLETED";
+        physicalItemStatus = "READY";
+        break;
+
+      case "SHIPPING":
+        // 배송중: 디지털 완료, 실물 발송됨
+        digitalItemStatus = "COMPLETED";
+        physicalItemStatus = "SHIPPED";
+        break;
+
+      case "DONE":
+        // 완료: 모든 상품 완료
+        digitalItemStatus = "COMPLETED";
+        physicalItemStatus = "COMPLETED";
+        break;
+    }
+
+    // 디지털 상품 상태 업데이트
+    if (digitalItems.length > 0) {
+      await this.updateItemsStatus(
+        orderId,
+        digitalItems.map((item) => item.id),
+        digitalItemStatus
+      );
+    }
+
+    // 실물 상품 상태 업데이트
+    if (physicalItems.length > 0) {
+      await this.updateItemsStatus(
+        orderId,
+        physicalItems.map((item) => item.id),
+        physicalItemStatus
+      );
     }
 
     // ✅ 로그 기록
