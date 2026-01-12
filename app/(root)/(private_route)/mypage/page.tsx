@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Download, LogOut, Package, Settings, X } from 'lucide-react';
 import { useSession, useMyOrders, useLogout, useDownloadDigitalProduct, useCancelOrder, type OrderWithItems } from '@/lib/client';
 import { useToast } from '@/src/components/toast';
-import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, ITEM_STATUS_LABELS, ITEM_STATUS_COLORS } from '@/src/constants';
+import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, normalizeItemStatus } from '@/src/constants';
 import type { Enums } from '@/types';
 
 // Order status types
@@ -188,8 +188,8 @@ export default function MyPage() {
                               {item.quantity}개 × {item.price_snapshot.toLocaleString()}원
                             </p>
                             {item.item_status && (
-                              <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${ITEM_STATUS_COLORS[item.item_status as OrderItemStatus] || 'bg-gray-100 text-gray-800'}`}>
-                                {ITEM_STATUS_LABELS[item.item_status as OrderItemStatus] || item.item_status}
+                              <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${ORDER_STATUS_COLORS[normalizeItemStatus(item.item_status)] || 'bg-gray-100 text-gray-800'}`}>
+                                {ORDER_STATUS_LABELS[normalizeItemStatus(item.item_status)] || item.item_status}
                               </span>
                             )}
                           </div>
