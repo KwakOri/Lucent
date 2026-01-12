@@ -14,7 +14,6 @@ import type { Enums } from '@/types';
 
 // Order status types
 type OrderStatus = Enums<'order_status'>;
-type OrderItemStatus = Enums<'order_item_status'>;
 
 export default function MyPage() {
   const router = useRouter();
@@ -197,7 +196,7 @@ export default function MyPage() {
 
                         {/* Download Button for Digital Products */}
                         {item.product_type === 'VOICE_PACK' &&
-                          item.item_status === 'COMPLETED' && (
+                          item.item_status === 'DONE' && (
                             <Button
                               intent="primary"
                               size="sm"
@@ -259,7 +258,7 @@ export default function MyPage() {
                 {orders
                   .flatMap((order) =>
                     order.items
-                      ?.filter((item) => item.product_type === 'VOICE_PACK' && item.item_status === 'COMPLETED')
+                      ?.filter((item) => item.product_type === 'VOICE_PACK' && item.item_status === 'DONE')
                       .map((item) => (
                         <div
                           key={`${order.id}-${item.id}`}
