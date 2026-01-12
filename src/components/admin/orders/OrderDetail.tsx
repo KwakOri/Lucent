@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ORDER_STATUS_LABELS, ITEM_STATUS_LABELS, PRODUCT_TYPE_LABELS } from '@/src/constants';
+import { ORDER_STATUS_LABELS, PRODUCT_TYPE_LABELS, normalizeItemStatus } from '@/src/constants';
 
 interface OrderItem {
   id: string;
@@ -123,7 +123,7 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
       return;
     }
 
-    if (!confirm(`선택한 ${selectedItems.size}개 아이템의 상태를 "${ITEM_STATUS_LABELS[selectedItemStatus as keyof typeof ITEM_STATUS_LABELS]}"(으)로 변경하시겠습니까?`)) {
+    if (!confirm(`선택한 ${selectedItems.size}개 아이템의 상태를 "${ORDER_STATUS_LABELS[selectedItemStatus as keyof typeof ORDER_STATUS_LABELS]}"(으)로 변경하시겠습니까?`)) {
       return;
     }
 
@@ -264,7 +264,7 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
                       onChange={(e) => setSelectedItemStatus(e.target.value)}
                       className="rounded-md bg-white border border-gray-300 text-gray-900 py-1 pl-2 pr-8 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     >
-                      {Object.entries(ITEM_STATUS_LABELS).map(([value, label]) => (
+                      {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
                         <option key={value} value={value}>
                           {label}
                         </option>
@@ -333,7 +333,7 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
                                       : 'bg-blue-100 text-blue-800'
                                   }`}
                                 >
-                                  {item.item_status ? ITEM_STATUS_LABELS[item.item_status as keyof typeof ITEM_STATUS_LABELS] || item.item_status : ''}
+                                  {item.item_status ? ORDER_STATUS_LABELS[normalizeItemStatus(item.item_status)] : ''}
                                 </span>
                                 {isDisabled && (
                                   <span className="ml-2 text-xs text-gray-500">(다운로드 가능)</span>

@@ -162,7 +162,8 @@ export class OrderService {
     const orderItems = items.map((item) => {
       const product = products.find((p) => p.id === item.productId);
       // 개별 아이템이 0원이면 즉시 완료, 아니면 입금대기
-      const itemStatus: OrderItemStatus = product!.price === 0 ? "COMPLETED" : "PENDING";
+      // 개별 상품 상태도 주문 상태와 동일한 값 사용
+      const itemStatus: OrderStatus = product!.price === 0 ? "DONE" : "PENDING";
 
       return {
         order_id: order.id,
@@ -171,7 +172,8 @@ export class OrderService {
         product_type: product!.type,
         quantity: item.quantity,
         price_snapshot: product!.price,
-        item_status: itemStatus,
+        // DB 마이그레이션 전까지 타입 캐스팅 필요
+        item_status: itemStatus as any,
       };
     });
 
@@ -385,8 +387,9 @@ export class OrderService {
     );
 
     // 주문 상태에 따른 개별 상품 상태 결정
-    let digitalItemStatus: OrderItemStatus = "PENDING";
-    let physicalItemStatus: OrderItemStatus = "PENDING";
+    // 개별 상품 상태도 주문 상태와 동일한 값 사용
+    let digitalItemStatus: OrderStatus = "PENDING";
+    let physicalItemStatus: OrderStatus = "PENDING";
 
     switch (newStatus) {
       case "PENDING":
@@ -396,33 +399,33 @@ export class OrderService {
         break;
 
       case "PAID":
-        // 입금 확인: 디지털 즉시 완료, 실물 준비 완료
-        digitalItemStatus = "COMPLETED";
-        physicalItemStatus = "READY";
+        // 입금 확인: 디지털 즉시 완료, 실물은 입금 확인 상태 유지
+        digitalItemStatus = "DONE";
+        physicalItemStatus = "PAID";
         break;
 
       case "MAKING":
-        // 제작중: 디지털 완료, 실물 처리중
-        digitalItemStatus = "COMPLETED";
-        physicalItemStatus = "PROCESSING";
+        // 제작중: 디지털 완료, 실물 제작중
+        digitalItemStatus = "DONE";
+        physicalItemStatus = "MAKING";
         break;
 
       case "READY_TO_SHIP":
-        // 출고중: 디지털 완료, 실물 준비 완료
-        digitalItemStatus = "COMPLETED";
-        physicalItemStatus = "READY";
+        // 출고중: 디지털 완료, 실물 출고중
+        digitalItemStatus = "DONE";
+        physicalItemStatus = "READY_TO_SHIP";
         break;
 
       case "SHIPPING":
-        // 배송중: 디지털 완료, 실물 발송됨
-        digitalItemStatus = "COMPLETED";
-        physicalItemStatus = "SHIPPED";
+        // 배송중: 디지털 완료, 실물 배송중
+        digitalItemStatus = "DONE";
+        physicalItemStatus = "SHIPPING";
         break;
 
       case "DONE":
         // 완료: 모든 상품 완료
-        digitalItemStatus = "COMPLETED";
-        physicalItemStatus = "COMPLETED";
+        digitalItemStatus = "DONE";
+        physicalItemStatus = "DONE";
         break;
     }
 
@@ -895,10 +898,12 @@ export class OrderService {
 
   /**
    * 개별 주문 상품 상태 업데이트
+   *
+   * 개별 상품 상태도 주문 상태와 동일한 값 사용
    */
   static async updateItemStatus(
     itemId: string,
-    newStatus: OrderItemStatus,
+    newStatus: OrderStatus,
     adminId?: string
   ): Promise<OrderItem> {
     const supabase = await createServerClient();
@@ -922,7 +927,8 @@ export class OrderService {
     // 상태 업데이트
     const { data, error } = await supabase
       .from("order_items")
-      .update({ item_status: newStatus })
+      // DB 마이그레이션 전까지 타입 캐스팅 필요
+      .update({ item_status: newStatus as any })
       .eq("id", itemId)
       .select()
       .single();
@@ -956,16 +962,19 @@ export class OrderService {
 
   /**
    * 주문 상태 변경 시 모든 order_items의 상태도 함께 업데이트
+   *
+   * 개별 상품 상태도 주문 상태와 동일한 값 사용
    */
   static async updateAllItemsStatus(
     orderId: string,
-    newStatus: OrderItemStatus
+    newStatus: OrderStatus
   ): Promise<void> {
     const supabase = await createServerClient();
 
     const { error } = await supabase
       .from("order_items")
-      .update({ item_status: newStatus })
+      // DB 마이그레이션 전까지 타입 캐스팅 필요
+      .update({ item_status: newStatus as any })
       .eq("order_id", orderId);
 
     if (error) {
@@ -979,17 +988,20 @@ export class OrderService {
 
   /**
    * 특정 주문 아이템들의 상태 업데이트 (선택적)
+   *
+   * 개별 상품 상태도 주문 상태와 동일한 값 사용
    */
   static async updateItemsStatus(
     orderId: string,
     itemIds: string[],
-    newStatus: OrderItemStatus
+    newStatus: OrderStatus
   ): Promise<void> {
     const supabase = await createServerClient();
 
     const { error } = await supabase
       .from("order_items")
-      .update({ item_status: newStatus })
+      // DB 마이그레이션 전까지 타입 캐스팅 필요
+      .update({ item_status: newStatus as any })
       .eq("order_id", orderId)
       .in("id", itemIds);
 
