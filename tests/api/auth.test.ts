@@ -13,6 +13,7 @@ import { POST as verifyCodePOST } from '@/app/api/auth/verify-code/route';
 import { POST as signupPOST } from '@/app/api/auth/signup/route';
 import { POST as resetPasswordPOST } from '@/app/api/auth/reset-password/route';
 import { POST as updatePasswordPOST } from '@/app/api/auth/update-password/route';
+import { POST as oauthProfileSyncPOST } from '@/app/api/auth/oauth/profile-sync/route';
 import { GET as verifyEmailGET } from '@/app/api/auth/verify-email/route';
 import { createMockRequest, parseResponse } from '../utils';
 
@@ -282,6 +283,30 @@ describe('Auth API', () => {
     expect(data.status).toBe('success');
     expect(fetch).toHaveBeenCalledWith(
       'http://backend.test/api/auth/update-password',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('POST /api/auth/oauth/profile-sync 요청을 backend로 프록시한다', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: { isNewUser: true },
+      }),
+    );
+
+    const request = createMockRequest({
+      method: 'POST',
+      url: 'http://localhost:3000/api/auth/oauth/profile-sync',
+    });
+
+    const response = await oauthProfileSyncPOST(request);
+    const data = await parseResponse(response);
+
+    expect(response.status).toBe(200);
+    expect(data.status).toBe('success');
+    expect(fetch).toHaveBeenCalledWith(
+      'http://backend.test/api/auth/oauth/profile-sync',
       expect.objectContaining({ method: 'POST' }),
     );
   });
