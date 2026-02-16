@@ -16,6 +16,7 @@ import type {
 type Order = Tables<'orders'>;
 type OrderItem = Tables<'order_items'>;
 type OrderStatus = Enums<'order_status'>;
+type OrderItemStatus = Enums<'order_item_status'>;
 type ProductType = Enums<'product_type'>;
 
 export type CreateOrderData = CreateOrderRequest;
@@ -42,6 +43,11 @@ export interface VoicePackSummary {
 export interface BulkUpdateOrderStatusData {
   orderIds: string[];
   status: OrderStatus;
+}
+
+export interface UpdateOrderItemsStatusData {
+  itemIds: string[];
+  status: OrderItemStatus;
 }
 
 export interface BulkUpdateOrderStatusResult {
@@ -131,6 +137,23 @@ export const OrdersAPI = {
    */
   async cancelOrder(orderId: string): Promise<ApiResponse<{ success: boolean; message: string }>> {
     return apiClient.delete(`/api/orders/${orderId}`);
+  },
+
+  /**
+   * 주문 상태 변경
+   */
+  async updateOrderStatus(orderId: string, status: OrderStatus): Promise<ApiResponse<Order>> {
+    return apiClient.patch(`/api/orders/${orderId}/status`, { status });
+  },
+
+  /**
+   * 주문 아이템 상태 일괄 변경
+   */
+  async updateOrderItemsStatus(
+    orderId: string,
+    data: UpdateOrderItemsStatusData,
+  ): Promise<ApiResponse<{ updatedItems: OrderItem[] }>> {
+    return apiClient.patch(`/api/orders/${orderId}/items/status`, data);
   },
 
   /**

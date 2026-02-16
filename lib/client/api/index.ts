@@ -21,6 +21,7 @@ export type {
   VoicePackSummary,
   BulkUpdateOrderStatusData,
   BulkUpdateOrderStatusResult,
+  UpdateOrderItemsStatusData,
 } from './orders.api';
 export type { ArtistWithDetails } from './artists.api';
 export type { UpdateProfileData } from './profiles.api';

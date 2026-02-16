@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
+import { OrdersAPI } from '@/lib/client/api/orders.api';
 import { ORDER_STATUS_LABELS, ITEM_STATUS_LABELS, PRODUCT_TYPE_LABELS } from '@/src/constants';
+import type { Enums } from '@/types';
 
 interface OrderItem {
   id: string;
@@ -66,24 +68,17 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
     setIsUpdating(true);
 
     try {
-      const response = await fetch(`/api/orders/${order.id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: selectedStatus }),
-      });
-
-      if (!response.ok) {
-        throw new Error('상태 변경 실패');
-      }
-
-      const { data } = await response.json();
-      setOrder({ ...order, status: data.status });
+      const response = await OrdersAPI.updateOrderStatus(
+        order.id,
+        selectedStatus as Enums<'order_status'>,
+      );
+      setOrder({ ...order, status: response.data.status });
       router.refresh();
       alert('주문 상태가 변경되었습니다');
     } catch (error) {
-      alert('주문 상태 변경에 실패했습니다');
+      alert(
+        error instanceof Error ? error.message : '주문 상태 변경에 실패했습니다',
+      );
       console.error(error);
     } finally {
       setIsUpdating(false);
@@ -130,26 +125,26 @@ export function OrderDetail({ order: initialOrder }: OrderDetailProps) {
     setIsUpdatingItems(true);
 
     try {
-      const response = await fetch(`/api/orders/${order.id}/items/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          itemIds: Array.from(selectedItems),
-          status: selectedItemStatus,
-        }),
+      const selectedItemIds = Array.from(selectedItems);
+      await OrdersAPI.updateOrderItemsStatus(order.id, {
+        itemIds: selectedItemIds,
+        status: selectedItemStatus as Enums<'order_item_status'>,
       });
-
-      if (!response.ok) {
-        throw new Error('아이템 상태 변경 실패');
-      }
-
+      setOrder((prev) => ({
+        ...prev,
+        items: prev.items.map((item) =>
+          selectedItemIds.includes(item.id)
+            ? { ...item, item_status: selectedItemStatus }
+            : item,
+        ),
+      }));
       router.refresh();
       setSelectedItems(new Set());
       alert('아이템 상태가 변경되었습니다');
     } catch (error) {
-      alert('아이템 상태 변경에 실패했습니다');
+      alert(
+        error instanceof Error ? error.message : '아이템 상태 변경에 실패했습니다',
+      );
       console.error(error);
     } finally {
       setIsUpdatingItems(false);
