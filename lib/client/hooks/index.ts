@@ -59,7 +59,7 @@ export {
 export { useAddressSearch } from './useAddressSearch';
 
 // Artist Hooks
-export { useArtists, useArtist } from './useArtists';
+export { useArtists, useArtist, useArtistById } from './useArtists';
 
 // Logs Hooks
 export { useLogs, useLog, useLogStats } from './useLogs';

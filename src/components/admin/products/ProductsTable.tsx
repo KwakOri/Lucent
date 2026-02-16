@@ -3,33 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ProductsAPI } from '@/lib/client/api/products.api';
+import type { ProductWithDetails } from '@/lib/client/api/products.api';
+import type { ProjectWithDetails } from '@/lib/client/api/projects.api';
 
-interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  type: 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE';
-  price: number;
-  stock: number | null;
-  is_active: boolean;
-  created_at: string;
-  main_image: {
-    id: string;
-    public_url: string;
-    cdn_url: string | null;
-  } | null;
-  project: {
-    id: string;
-    name: string;
-    slug: string;
-  } | null;
-}
+type Product = ProductWithDetails;
 
-interface Project {
-  id: string;
-  name: string;
-  slug: string;
-}
+type Project = Pick<ProjectWithDetails, 'id' | 'name' | 'slug'>;
 
 interface ProductsTableProps {
   products: Product[];
@@ -60,15 +40,9 @@ export function ProductsTable({ products: initialProducts, projects }: ProductsT
     setDeletingId(product.id);
 
     try {
-      const response = await fetch(`/api/products/${product.id}`, {
-        method: 'DELETE',
-      });
+      await ProductsAPI.deleteProduct(product.id);
 
-      if (!response.ok) {
-        throw new Error('삭제 실패');
-      }
-
-      setProducts(products.filter((p) => p.id !== product.id));
+      setProducts((prev) => prev.filter((p) => p.id !== product.id));
       router.refresh();
     } catch (error) {
       alert('상품 삭제에 실패했습니다.');

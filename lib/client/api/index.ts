@@ -8,6 +8,8 @@
 export { AuthAPI } from './auth.api';
 export { OrdersAPI } from './orders.api';
 export { ArtistsAPI } from './artists.api';
+export { ProjectsAPI } from './projects.api';
+export { ProductsAPI } from './products.api';
 export { ProfilesAPI } from './profiles.api';
 export { CartAPI } from './cart.api';
 export { LogsAPI } from './logs.api';
@@ -24,7 +26,25 @@ export type {
   BulkUpdateOrderStatusResult,
   UpdateOrderItemsStatusData,
 } from './orders.api';
-export type { ArtistWithDetails } from './artists.api';
+export type {
+  ArtistWithDetails,
+  GetArtistsParams,
+  CreateArtistData,
+  UpdateArtistData,
+} from './artists.api';
+export type {
+  ProjectWithDetails,
+  GetProjectsParams,
+  CreateProjectData,
+  UpdateProjectData,
+  ReorderProjectsData,
+} from './projects.api';
+export type {
+  ProductWithDetails,
+  GetProductsParams,
+  CreateProductData,
+  UpdateProductData,
+} from './products.api';
 export type { UpdateProfileData } from './profiles.api';
 export type { GetLogsParams, LogStats, LogWithRelations } from './logs.api';
 export type {

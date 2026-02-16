@@ -3,8 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ProjectsAPI } from '@/lib/client/api/projects.api';
+import type {
+  ProjectWithDetails,
+  CreateProjectData,
+  UpdateProjectData,
+} from '@/lib/client/api/projects.api';
 import { ImageUpload } from '@/src/components/admin/ImageUpload';
-import type { ProjectWithDetails } from '@/lib/server/services/project.service';
 
 interface ProjectFormProps {
   project?: ProjectWithDetails;
@@ -19,11 +24,11 @@ export function ProjectForm({ project }: ProjectFormProps) {
     if (!project?.external_links || typeof project.external_links !== 'object') {
       return { youtube: '', spotify: '', other: '' };
     }
-    const links = project.external_links as Record<string, any>;
+    const links = project.external_links as Record<string, string>;
     return {
-      youtube: (links.youtube as string) || '',
-      spotify: (links.spotify as string) || '',
-      other: (links.other as string) || '',
+      youtube: links.youtube || '',
+      spotify: links.spotify || '',
+      other: links.other || '',
     };
   };
 
@@ -42,23 +47,17 @@ export function ProjectForm({ project }: ProjectFormProps) {
     setIsSubmitting(true);
 
     try {
-      const url = project
-        ? `/api/projects/${project.id}`
-        : '/api/projects';
+      const payload: CreateProjectData | UpdateProjectData = {
+        ...formData,
+        cover_image_id: formData.cover_image_id || null,
+        description: formData.description || null,
+        release_date: formData.release_date || null,
+      };
 
-      const method = project ? 'PATCH' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '저장에 실패했습니다');
+      if (project) {
+        await ProjectsAPI.updateProject(project.id, payload);
+      } else {
+        await ProjectsAPI.createProject(payload as CreateProjectData);
       }
 
       router.push('/admin/projects');
@@ -120,7 +119,7 @@ export function ProjectForm({ project }: ProjectFormProps) {
               project?.cover_image?.public_url
             }
             altText={formData.name}
-            onUploadSuccess={(imageId, publicUrl) => {
+            onUploadSuccess={(imageId) => {
               setFormData({ ...formData, cover_image_id: imageId });
             }}
           />

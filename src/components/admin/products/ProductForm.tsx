@@ -1,37 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ProductsAPI } from '@/lib/client/api/products.api';
+import type {
+  CreateProductData,
+  ProductWithDetails,
+  UpdateProductData,
+} from '@/lib/client/api/products.api';
+import type { ProjectWithDetails } from '@/lib/client/api/projects.api';
 import { ImageUpload } from '@/src/components/admin/ImageUpload';
 
-interface Project {
-  id: string;
-  name: string;
-  slug: string;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  type: 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE';
-  project_id: string | null;
-  main_image_id: string | null;
-  main_image?: {
-    id: string;
-    public_url: string;
-    cdn_url: string | null;
-    alt_text?: string | null;
-  } | null;
-  price: number;
-  description?: string | null;
-  stock?: number | null;
-  sample_audio_url?: string | null;
-  digital_file_url?: string | null;
-  has_custom_sample?: boolean | null;
-  is_active: boolean;
-}
+type Project = Pick<ProjectWithDetails, 'id' | 'name' | 'slug'>;
+type Product = ProductWithDetails;
 
 interface ProductFormProps {
   projects: Project[];
@@ -45,7 +27,7 @@ export function ProductForm({ projects, product }: ProductFormProps) {
   const [formData, setFormData] = useState({
     name: product?.name || '',
     slug: product?.slug || '',
-    type: product?.type || 'VOICE_PACK' as 'VOICE_PACK' | 'PHYSICAL_GOODS' | 'BUNDLE',
+    type: product?.type || ('VOICE_PACK' as Product['type']),
     project_id: product?.project_id || projects[0]?.id || '',
     main_image_id: product?.main_image_id || '',
     price: product?.price || 0,
@@ -88,56 +70,31 @@ export function ProductForm({ projects, product }: ProductFormProps) {
     e.preventDefault();
     setIsSubmitting(true);
 
-    console.log('[ProductForm] 폼 제출 시작', {
-      type: formData.type,
-      isEdit: !!product,
-    });
-
     try {
-      const url = product
-        ? `/api/products/${product.id}`
-        : '/api/products';
-
-      const method = product ? 'PATCH' : 'POST';
-
       // 보이스팩 타입인 경우 Google Drive 링크 필수 확인
       if (formData.type === 'VOICE_PACK' && !product && !formData.digital_file_url) {
         throw new Error('Google Drive 다운로드 링크는 필수입니다');
       }
 
-      console.log('[ProductForm] API 요청 전송:', url, method, formData);
+      const payload: CreateProductData | UpdateProductData = {
+        ...formData,
+        main_image_id: formData.main_image_id || null,
+        project_id: formData.project_id,
+        description: formData.description || null,
+        stock: formData.type === 'PHYSICAL_GOODS' ? formData.stock : null,
+        sample_audio_url: '',
+        digital_file_url: formData.digital_file_url || null,
+      };
 
-      // 모든 상품: JSON으로 전송
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          sample_audio_url: '', // 빈 문자열로 설정
-        }),
-      });
-
-      console.log('[ProductForm] API 응답 상태:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('[ProductForm] API 에러:', {
-          status: response.status,
-          statusText: response.statusText,
-          error,
-        });
-        throw new Error(error.message || '저장에 실패했습니다');
+      if (product) {
+        await ProductsAPI.updateProduct(product.id, payload);
+      } else {
+        await ProductsAPI.createProduct(payload as CreateProductData);
       }
-
-      const result = await response.json();
-      console.log('[ProductForm] 상품 생성 성공:', result);
 
       router.push('/admin/products');
       router.refresh();
     } catch (error) {
-      console.error('[ProductForm] 제출 실패:', error);
       alert(error instanceof Error ? error.message : '저장에 실패했습니다');
       setIsSubmitting(false);
     }
@@ -241,7 +198,7 @@ export function ProductForm({ projects, product }: ProductFormProps) {
               product?.main_image?.public_url
             }
             altText={formData.name}
-            onUploadSuccess={(imageId, publicUrl) => {
+            onUploadSuccess={(imageId) => {
               setFormData({ ...formData, main_image_id: imageId });
             }}
           />

@@ -1,58 +1,47 @@
+'use client';
+
 import Link from 'next/link';
-import { createServerClient } from '@/lib/server/utils/supabase';
+import { Loading } from '@/components/ui/loading';
+import { useProducts } from '@/lib/client/hooks/useProducts';
+import { useProjects } from '@/lib/client/hooks/useProjects';
 import { ProductsTable } from '@/src/components/admin/products/ProductsTable';
 
-async function getProducts() {
-  const supabase = await createServerClient();
+export default function AdminProductsPage() {
+  const {
+    data: productsResponse,
+    isLoading: isProductsLoading,
+    error: productsError,
+  } = useProducts({
+    page: 1,
+    limit: 200,
+    isActive: 'all',
+  });
+  const {
+    data: projects,
+    isLoading: isProjectsLoading,
+    error: projectsError,
+  } = useProjects({ isActive: 'all' });
 
-  const { data: products } = await supabase
-    .from('products')
-    .select(`
-      id,
-      name,
-      slug,
-      type,
-      price,
-      stock,
-      is_active,
-      created_at,
-      main_image:images!main_image_id (
-        id,
-        public_url,
-        cdn_url
-      ),
-      project:projects!project_id (
-        id,
-        name,
-        slug
-      )
-    `)
-    .order('created_at', { ascending: false });
+  if (isProductsLoading || isProjectsLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loading size="lg" />
+      </div>
+    );
+  }
 
-  return products || [];
-}
+  if (productsError || projectsError) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600">상품 목록을 불러오는데 실패했습니다.</p>
+      </div>
+    );
+  }
 
-async function getProjects() {
-  const supabase = await createServerClient();
-
-  const { data: projects } = await supabase
-    .from('projects')
-    .select('id, name, slug')
-    .eq('is_active', true)
-    .order('name', { ascending: true });
-
-  return projects || [];
-}
-
-export default async function AdminProductsPage() {
-  const [products, projects] = await Promise.all([
-    getProducts(),
-    getProjects(),
-  ]);
+  const products = productsResponse?.data || [];
 
   return (
     <div>
-      {/* Page Header */}
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">상품 관리</h1>
@@ -70,8 +59,7 @@ export default async function AdminProductsPage() {
         </div>
       </div>
 
-      {/* Products Table */}
-      <ProductsTable products={products} projects={projects} />
+      <ProductsTable products={products} projects={projects || []} />
     </div>
   );
 }

@@ -1,51 +1,49 @@
-import { notFound } from 'next/navigation';
-import { createServerClient } from '@/lib/server/utils/supabase';
+'use client';
+
+import { useQuery } from '@tanstack/react-query';
+import { Loading } from '@/components/ui/loading';
+import { ProductsAPI } from '@/lib/client/api/products.api';
+import { useProjects } from '@/lib/client/hooks/useProjects';
 import { ProductForm } from '@/src/components/admin/products/ProductForm';
 
-async function getProduct(id: string) {
-  const supabase = await createServerClient();
-
-  const { data: product } = await supabase
-    .from('products')
-    .select(`
-      *,
-      main_image:images!main_image_id (
-        id,
-        public_url,
-        cdn_url
-      )
-    `)
-    .eq('id', id)
-    .single();
-
-  return product;
-}
-
-async function getProjects() {
-  const supabase = await createServerClient();
-
-  const { data: projects } = await supabase
-    .from('projects')
-    .select('id, name, slug')
-    .eq('is_active', true)
-    .order('name', { ascending: true});
-
-  return projects || [];
-}
-
-export default async function EditProductPage({
+export default function EditProductPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = await params;
-  const [product, projects] = await Promise.all([
-    getProduct(id),
-    getProjects(),
-  ]);
+  const {
+    data: product,
+    isLoading: isProductLoading,
+    error: productError,
+  } = useQuery({
+    queryKey: ['products', 'admin', params.id],
+    queryFn: async () => {
+      const response = await ProductsAPI.getProduct(params.id, {
+        includePrivate: true,
+      });
+      return response.data;
+    },
+  });
+  const {
+    data: projects,
+    isLoading: isProjectsLoading,
+    error: projectsError,
+  } = useProjects({ isActive: 'all' });
 
-  if (!product) {
-    notFound();
+  if (isProductLoading || isProjectsLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loading size="lg" />
+      </div>
+    );
+  }
+
+  if (productError || projectsError || !product) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600">상품 정보를 불러오는데 실패했습니다.</p>
+      </div>
+    );
   }
 
   return (
@@ -57,7 +55,7 @@ export default async function EditProductPage({
         </p>
       </div>
 
-      <ProductForm projects={projects} product={product} />
+      <ProductForm projects={projects || []} product={product} />
     </div>
   );
 }
