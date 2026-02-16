@@ -102,6 +102,7 @@ export async function proxyBackendRequest(
       headers,
       body,
       cache: 'no-store',
+      redirect: 'manual',
     });
 
     const payload = await backendResponse.arrayBuffer();
