@@ -13,7 +13,15 @@ export { CartAPI } from './cart.api';
 
 // Types
 export type { SendVerificationData } from './auth.api';
-export type { CreateOrderData, OrderWithItems, GetOrdersParams } from './orders.api';
+export type {
+  CreateOrderData,
+  OrderWithItems,
+  GetOrdersParams,
+  DownloadInfo,
+  VoicePackSummary,
+  BulkUpdateOrderStatusData,
+  BulkUpdateOrderStatusResult,
+} from './orders.api';
 export type { ArtistWithDetails } from './artists.api';
 export type { UpdateProfileData } from './profiles.api';
 export type {
