@@ -7,7 +7,9 @@ import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
+import { OrdersAPI } from '@/lib/client/api/orders.api';
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/src/constants';
+import type { Enums } from '@/types';
 import {
   BulkUpdateConfirmModal,
   BulkUpdateSuccessModal,
@@ -42,7 +44,7 @@ type Tab = 'pending' | 'paid' | 'making' | 'ready_to_ship' | 'shipping' | 'done'
 
 export function OrdersTable({ orders }: OrdersTableProps) {
   const queryClient = useQueryClient();
-  const { openModal, closeModal, renderModal } = useModal();
+  const { openModal, renderModal } = useModal();
   const [activeTab, setActiveTab] = useState<Tab>('pending');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
@@ -74,8 +76,6 @@ export function OrdersTable({ orders }: OrdersTableProps) {
 
   // 전체 선택/해제
   const isAllSelected = filteredOrders.length > 0 && selectedOrderIds.length === filteredOrders.length;
-  const isSomeSelected = selectedOrderIds.length > 0 && selectedOrderIds.length < filteredOrders.length;
-
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedOrderIds(filteredOrders.map(order => order.id));
@@ -93,7 +93,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
   };
 
   // 주문 상태 일괄 변경
-  const handleBulkStatusChange = async (newStatus: string, _confirmMessage: string) => {
+  const handleBulkStatusChange = async (newStatus: string) => {
     if (selectedOrderIds.length === 0) return;
 
     const count = selectedOrderIds.length;
@@ -110,7 +110,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
 
       // 사용자가 취소한 경우
       if (!confirmed) return;
-    } catch (error) {
+    } catch {
       // 모달이 닫힌 경우 (abort)
       return;
     }
@@ -119,18 +119,13 @@ export function OrdersTable({ orders }: OrdersTableProps) {
 
     try {
       // 2. API 호출
-      const response = await fetch('/api/admin/orders/bulk-update', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderIds: selectedOrderIds,
-          status: newStatus,
-        }),
+      const response = await OrdersAPI.bulkUpdateOrderStatus({
+        orderIds: selectedOrderIds,
+        status: newStatus as Enums<'order_status'>,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || '상태 변경에 실패했습니다');
+      if (response.data.errors && response.data.errors.length > 0) {
+        console.warn('Bulk update partial errors:', response.data.errors);
       }
 
       // 선택 해제 및 드롭다운 초기화
@@ -142,7 +137,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
 
       // 3. 완료 모달 열기
       await openModal(BulkUpdateSuccessModal, {
-        count,
+        count: response.data.updatedCount || count,
         statusLabel,
         disableBackdropClick: true,
         disableEscapeKey: true,
@@ -159,11 +154,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
   const handleDropdownStatusChange = async () => {
     if (!selectedStatus) return;
 
-    const statusLabel = ORDER_STATUS_LABELS[selectedStatus as keyof typeof ORDER_STATUS_LABELS];
-    await handleBulkStatusChange(
-      selectedStatus,
-      `선택한 ${selectedOrderIds.length}개 주문을 "${statusLabel}" 상태로 변경하시겠습니까?`
-    );
+    await handleBulkStatusChange(selectedStatus);
     setSelectedStatus('');
   };
 
@@ -304,80 +295,65 @@ export function OrdersTable({ orders }: OrdersTableProps) {
 
             {/* 입금 대기 탭: 입금 확인 → PAID */}
             {activeTab === 'pending' && (
-              <Button
-                intent="primary"
-                size="sm"
-                onClick={() => handleBulkStatusChange(
-                  'PAID',
-                  `선택한 ${selectedOrderIds.length}개 주문의 입금을 확인하시겠습니까?`
-                )}
-                disabled={isBulkUpdating}
-                className="w-full"
-              >
+                <Button
+                  intent="primary"
+                  size="sm"
+                  onClick={() => handleBulkStatusChange('PAID')}
+                  disabled={isBulkUpdating}
+                  className="w-full"
+                >
                 {isBulkUpdating ? '처리 중...' : '입금 확인'}
               </Button>
             )}
 
             {/* 입금 확인 탭: 제작 시작 → MAKING */}
             {activeTab === 'paid' && (
-              <Button
-                intent="primary"
-                size="sm"
-                onClick={() => handleBulkStatusChange(
-                  'MAKING',
-                  `선택한 ${selectedOrderIds.length}개 주문의 제작을 시작하시겠습니까?`
-                )}
-                disabled={isBulkUpdating}
-                className="w-full"
-              >
+                <Button
+                  intent="primary"
+                  size="sm"
+                  onClick={() => handleBulkStatusChange('MAKING')}
+                  disabled={isBulkUpdating}
+                  className="w-full"
+                >
                 {isBulkUpdating ? '처리 중...' : '제작 시작'}
               </Button>
             )}
 
             {/* 제작중 탭: 출고 처리 → READY_TO_SHIP */}
             {activeTab === 'making' && (
-              <Button
-                intent="primary"
-                size="sm"
-                onClick={() => handleBulkStatusChange(
-                  'READY_TO_SHIP',
-                  `선택한 ${selectedOrderIds.length}개 주문을 출고 처리하시겠습니까?`
-                )}
-                disabled={isBulkUpdating}
-                className="w-full"
-              >
+                <Button
+                  intent="primary"
+                  size="sm"
+                  onClick={() => handleBulkStatusChange('READY_TO_SHIP')}
+                  disabled={isBulkUpdating}
+                  className="w-full"
+                >
                 {isBulkUpdating ? '처리 중...' : '출고 처리'}
               </Button>
             )}
 
             {/* 출고중 탭: 배송 시작 → SHIPPING */}
             {activeTab === 'ready_to_ship' && (
-              <Button
-                intent="primary"
-                size="sm"
-                onClick={() => handleBulkStatusChange(
-                  'SHIPPING',
-                  `선택한 ${selectedOrderIds.length}개 주문의 배송을 시작하시겠습니까?`
-                )}
-                disabled={isBulkUpdating}
-                className="w-full"
-              >
+                <Button
+                  intent="primary"
+                  size="sm"
+                  onClick={() => handleBulkStatusChange('SHIPPING')}
+                  disabled={isBulkUpdating}
+                  className="w-full"
+                >
                 {isBulkUpdating ? '처리 중...' : '배송 시작'}
               </Button>
             )}
 
             {/* 배송중 탭: 완료 처리 → DONE */}
             {activeTab === 'shipping' && (
-              <Button
-                intent="primary"
-                size="sm"
-                onClick={() => handleBulkStatusChange(
-                  'DONE',
-                  `선택한 ${selectedOrderIds.length}개 주문을 완료 처리하시겠습니까?`
-                )}
-                disabled={isBulkUpdating}
-                className="w-full"
-              >
+                <Button
+                  intent="primary"
+                  size="sm"
+                  onClick={() => handleBulkStatusChange('DONE')}
+                  disabled={isBulkUpdating}
+                  className="w-full"
+                >
                 {isBulkUpdating ? '처리 중...' : '완료 처리'}
               </Button>
             )}
@@ -417,10 +393,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                 <Button
                   intent="primary"
                   size="sm"
-                  onClick={() => handleBulkStatusChange(
-                    'PAID',
-                    `선택한 ${selectedOrderIds.length}개 주문의 입금을 확인하시겠습니까?`
-                  )}
+                  onClick={() => handleBulkStatusChange('PAID')}
                   disabled={isBulkUpdating}
                 >
                   {isBulkUpdating ? '처리 중...' : '입금 확인'}
@@ -432,10 +405,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                 <Button
                   intent="primary"
                   size="sm"
-                  onClick={() => handleBulkStatusChange(
-                    'MAKING',
-                    `선택한 ${selectedOrderIds.length}개 주문의 제작을 시작하시겠습니까?`
-                  )}
+                  onClick={() => handleBulkStatusChange('MAKING')}
                   disabled={isBulkUpdating}
                 >
                   {isBulkUpdating ? '처리 중...' : '제작 시작'}
@@ -447,10 +417,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                 <Button
                   intent="primary"
                   size="sm"
-                  onClick={() => handleBulkStatusChange(
-                    'READY_TO_SHIP',
-                    `선택한 ${selectedOrderIds.length}개 주문을 출고 처리하시겠습니까?`
-                  )}
+                  onClick={() => handleBulkStatusChange('READY_TO_SHIP')}
                   disabled={isBulkUpdating}
                 >
                   {isBulkUpdating ? '처리 중...' : '출고 처리'}
@@ -462,10 +429,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                 <Button
                   intent="primary"
                   size="sm"
-                  onClick={() => handleBulkStatusChange(
-                    'SHIPPING',
-                    `선택한 ${selectedOrderIds.length}개 주문의 배송을 시작하시겠습니까?`
-                  )}
+                  onClick={() => handleBulkStatusChange('SHIPPING')}
                   disabled={isBulkUpdating}
                 >
                   {isBulkUpdating ? '처리 중...' : '배송 시작'}
@@ -477,10 +441,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                 <Button
                   intent="primary"
                   size="sm"
-                  onClick={() => handleBulkStatusChange(
-                    'DONE',
-                    `선택한 ${selectedOrderIds.length}개 주문을 완료 처리하시겠습니까?`
-                  )}
+                  onClick={() => handleBulkStatusChange('DONE')}
                   disabled={isBulkUpdating}
                 >
                   {isBulkUpdating ? '처리 중...' : '완료 처리'}
