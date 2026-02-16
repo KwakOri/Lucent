@@ -8,14 +8,13 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
-  AuthSession,
-  SessionResponse,
   LoginRequest,
   SignUpRequest,
   ApiResponse,
 } from '@/types';
 import { useRouter } from 'next/navigation';
 import { AuthAPI } from '@/lib/client/api/auth.api';
+import { createClient } from '@/utils/supabase/client';
 
 /**
  * 현재 세션 조회 Hook
@@ -30,18 +29,18 @@ export function useSession() {
   const query = useQuery({
     queryKey: ['auth', 'session'],
     queryFn: async () => {
-      const response = await fetch('/api/auth/session');
-      if (!response.ok) {
+      try {
+        const result = await AuthAPI.getSession();
+
+        // API 응답 구조: { status: 'success', data: { user } | null }
+        if (!result.data || !result.data.user) {
+          return null;
+        }
+
+        return result.data;
+      } catch {
         return null;
       }
-      const result: ApiResponse<SessionResponse> = await response.json();
-
-      // API 응답 구조: { status: 'success', data: { user } | null }
-      if (!result.data || !result.data.user) {
-        return null;
-      }
-
-      return result.data;
     },
     retry: false,
     staleTime: 1000 * 60 * 5, // 5분 (세션 데이터는 자주 변경되지 않음)
@@ -73,17 +72,24 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: async (credentials: LoginRequest) => {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '로그인 실패');
+      const result = await AuthAPI.login(credentials);
+      const session = result.data.session;
+
+      if (!session?.accessToken || !session?.refreshToken) {
+        throw new Error('로그인 세션이 올바르지 않습니다');
       }
-      const data: ApiResponse<AuthSession> = await response.json();
-      return data.data;
+
+      const supabase = createClient();
+      const { error } = await supabase.auth.setSession({
+        access_token: session.accessToken,
+        refresh_token: session.refreshToken,
+      });
+
+      if (error) {
+        throw new Error(error.message || '세션 저장에 실패했습니다');
+      }
+
+      return result.data;
     },
     onSuccess: () => {
       // 세션 캐시 무효화
@@ -139,13 +145,12 @@ export function useLogout() {
 
   return useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-      });
-      if (!response.ok) {
-        throw new Error('로그아웃 실패');
+      try {
+        await AuthAPI.logout();
+      } finally {
+        const supabase = createClient();
+        await supabase.auth.signOut();
       }
-      return response.json();
     },
     onSuccess: () => {
       // 세션 캐시 무효화
@@ -203,6 +208,20 @@ export function useSignupWithToken() {
   return useMutation({
     mutationFn: async (data: { email: string; verificationToken: string }) => {
       const result = await AuthAPI.signUpWithToken(data);
+      const session = result.data?.session;
+
+      if (session?.access_token && session?.refresh_token) {
+        const supabase = createClient();
+        const { error } = await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+
+        if (error) {
+          throw new Error(error.message || '세션 저장에 실패했습니다');
+        }
+      }
+
       return result.data;
     },
     onSuccess: () => {
@@ -225,16 +244,7 @@ export function useSignupWithToken() {
 export function useResetPassword() {
   return useMutation({
     mutationFn: async ({ email }: { email: string }) => {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '비밀번호 재설정 요청 실패');
-      }
-      return response.json();
+      return AuthAPI.requestPasswordReset({ email });
     },
   });
 }
