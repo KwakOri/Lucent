@@ -1,87 +1,28 @@
-/**
- * Product Detail API Routes
- *
- * GET /api/products/:id - 상품 상세 조회
- * PATCH /api/products/:id - 상품 수정 (관리자)
- * DELETE /api/products/:id - 상품 삭제 (관리자)
- */
-
 import { NextRequest } from 'next/server';
-import { ProductService } from '@/lib/server/services/product.service';
-import { handleApiError, successResponse } from '@/lib/server/utils/api-response';
-import { isAdmin } from '@/lib/server/utils/supabase';
-import type { UpdateProductRequest } from '@/types/api';
+import { proxyBackendRequest } from '@/lib/server/utils/backend-proxy';
 
-/**
- * 상품 상세 조회
- */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const product = await ProductService.getProductById(id);
-
-    return successResponse(product);
-  } catch (error) {
-    return handleApiError(error);
-  }
+interface ParamsContext {
+  params: Promise<{ id: string }>;
 }
 
-/**
- * 상품 수정 (관리자)
- */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const adminCheck = await isAdmin();
-    if (!adminCheck) {
-      return handleApiError(
-        new Error('관리자 권한이 필요합니다')
-      );
-    }
-
-    const body = await request.json() as UpdateProductRequest;
-    const adminId = 'admin-id'; // TODO: 실제 관리자 ID
-
-    const { id } = await params;
-    const product = await ProductService.updateProduct(
-      id,
-      body,
-      adminId
-    );
-
-    return successResponse(product);
-  } catch (error) {
-    return handleApiError(error);
-  }
+export async function GET(request: NextRequest, { params }: ParamsContext) {
+  const { id } = await params;
+  return proxyBackendRequest(request, {
+    path: `/api/products/${id}`,
+    includeSearchParams: true,
+  });
 }
 
-/**
- * 상품 삭제 (관리자)
- */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const adminCheck = await isAdmin();
-    if (!adminCheck) {
-      return handleApiError(
-        new Error('관리자 권한이 필요합니다')
-      );
-    }
+export async function PATCH(request: NextRequest, { params }: ParamsContext) {
+  const { id } = await params;
+  return proxyBackendRequest(request, {
+    path: `/api/products/${id}`,
+  });
+}
 
-    const adminId = 'admin-id'; // TODO: 실제 관리자 ID
-
-    const { id } = await params;
-    await ProductService.deleteProduct(id, adminId);
-
-    return successResponse({ message: '상품이 삭제되었습니다' });
-  } catch (error) {
-    return handleApiError(error);
-  }
+export async function DELETE(request: NextRequest, { params }: ParamsContext) {
+  const { id } = await params;
+  return proxyBackendRequest(request, {
+    path: `/api/products/${id}`,
+  });
 }

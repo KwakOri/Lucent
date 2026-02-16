@@ -1,69 +1,28 @@
-/**
- * Project Admin API Routes (ID-based)
- *
- * PATCH /api/projects/:id - 프로젝트 수정 (관리자)
- * DELETE /api/projects/:id - 프로젝트 삭제 (관리자)
- */
-
 import { NextRequest } from 'next/server';
-import { ProjectService } from '@/lib/server/services/project.service';
-import { handleApiError, successResponse } from '@/lib/server/utils/api-response';
-import { getCurrentUser, isAdmin } from '@/lib/server/utils/supabase';
-import type { UpdateProjectRequest } from '@/types/api';
+import { proxyBackendRequest } from '@/lib/server/utils/backend-proxy';
 
-/**
- * 프로젝트 수정 (관리자)
- */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return handleApiError(new Error('로그인이 필요합니다'));
-    }
-
-    const adminCheck = await isAdmin();
-    if (!adminCheck) {
-      return handleApiError(new Error('관리자 권한이 필요합니다'));
-    }
-
-    const body = await request.json() as UpdateProjectRequest;
-    const { id } = await params;
-
-    const project = await ProjectService.updateProject(id, body, user.id);
-
-    return successResponse(project);
-  } catch (error) {
-    return handleApiError(error);
-  }
+interface ParamsContext {
+  params: Promise<{ id: string }>;
 }
 
-/**
- * 프로젝트 삭제 (관리자)
- */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return handleApiError(new Error('로그인이 필요합니다'));
-    }
+export async function GET(request: NextRequest, { params }: ParamsContext) {
+  const { id } = await params;
+  return proxyBackendRequest(request, {
+    path: `/api/projects/${id}`,
+    includeSearchParams: true,
+  });
+}
 
-    const adminCheck = await isAdmin();
-    if (!adminCheck) {
-      return handleApiError(new Error('관리자 권한이 필요합니다'));
-    }
+export async function PATCH(request: NextRequest, { params }: ParamsContext) {
+  const { id } = await params;
+  return proxyBackendRequest(request, {
+    path: `/api/projects/${id}`,
+  });
+}
 
-    const { id } = await params;
-
-    await ProjectService.deleteProject(id, user.id);
-
-    return successResponse({ message: '프로젝트가 삭제되었습니다' });
-  } catch (error) {
-    return handleApiError(error);
-  }
+export async function DELETE(request: NextRequest, { params }: ParamsContext) {
+  const { id } = await params;
+  return proxyBackendRequest(request, {
+    path: `/api/projects/${id}`,
+  });
 }
