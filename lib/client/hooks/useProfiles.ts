@@ -8,10 +8,9 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import type { Tables, TablesUpdate } from '@/types/database';
-import type { ApiResponse } from '@/types';
+import type { TablesUpdate } from '@/types/database';
+import { ProfilesAPI } from '@/lib/client/api/profiles.api';
 
-type Profile = Tables<'profiles'>;
 type ProfileUpdate = TablesUpdate<'profiles'>;
 
 /**
@@ -24,12 +23,7 @@ export function useMyProfile() {
   return useQuery({
     queryKey: ['profiles', 'me'],
     queryFn: async () => {
-      const response = await fetch('/api/profiles/me');
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '프로필 조회 실패');
-      }
-      const result: ApiResponse<Profile> = await response.json();
+      const result = await ProfilesAPI.getMyProfile();
       return result.data;
     },
     retry: 1,
@@ -50,16 +44,7 @@ export function useUpdateProfile() {
 
   return useMutation({
     mutationFn: async (data: ProfileUpdate) => {
-      const response = await fetch('/api/profiles/me', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '프로필 수정 실패');
-      }
-      const result: ApiResponse<Profile> = await response.json();
+      const result = await ProfilesAPI.updateProfile(data);
       return result.data;
     },
     onSuccess: () => {
