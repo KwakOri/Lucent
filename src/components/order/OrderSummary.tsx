@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { ProductWithDetails } from '@/lib/server/services/product.service';
+import type { ProductWithDetails } from '@/lib/client/api/products.api';
 
 interface OrderSummaryProps {
   product: ProductWithDetails;
