@@ -10,6 +10,7 @@ export { OrdersAPI } from './orders.api';
 export { ArtistsAPI } from './artists.api';
 export { ProfilesAPI } from './profiles.api';
 export { CartAPI } from './cart.api';
+export { LogsAPI } from './logs.api';
 
 // Types
 export type { SendVerificationData } from './auth.api';
@@ -25,6 +26,7 @@ export type {
 } from './orders.api';
 export type { ArtistWithDetails } from './artists.api';
 export type { UpdateProfileData } from './profiles.api';
+export type { GetLogsParams, LogStats, LogWithRelations } from './logs.api';
 export type {
   AddToCartRequest,
   UpdateCartItemRequest,

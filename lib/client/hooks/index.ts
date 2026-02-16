@@ -60,3 +60,6 @@ export { useAddressSearch } from './useAddressSearch';
 
 // Artist Hooks
 export { useArtists, useArtist } from './useArtists';
+
+// Logs Hooks
+export { useLogs, useLog, useLogStats } from './useLogs';
