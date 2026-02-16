@@ -10,7 +10,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   LoginRequest,
   SignUpRequest,
-  ApiResponse,
 } from '@/types';
 import { useRouter } from 'next/navigation';
 import { AuthAPI } from '@/lib/client/api/auth.api';
@@ -113,21 +112,14 @@ export function useSignup() {
 
   return useMutation({
     mutationFn: async (userData: SignUpRequest) => {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
+      const result = await AuthAPI.sendVerification({
+        email: userData.email,
+        password: userData.password,
       });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '회원가입 실패');
-      }
-      const data: ApiResponse<{ userId: string }> = await response.json();
-      return data.data;
+      return result.data;
     },
-    onSuccess: () => {
-      // 로그인 페이지로 리다이렉트
-      router.push('/login?signup=success');
+    onSuccess: (_, variables) => {
+      router.push(`/signup/verify-email?email=${encodeURIComponent(variables.email)}`);
     },
   });
 }
