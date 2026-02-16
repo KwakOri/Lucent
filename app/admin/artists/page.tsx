@@ -1,13 +1,33 @@
+'use client';
+
 import Link from 'next/link';
-import { ArtistService } from '@/lib/server/services/artist.service';
+import { Loading } from '@/components/ui/loading';
+import { useArtists } from '@/lib/client/hooks/useArtists';
 import { ArtistsTable } from '@/src/components/admin/artists/ArtistsTable';
 
-export default async function AdminArtistsPage() {
-  const artists = await ArtistService.getAllArtists();
+export default function AdminArtistsPage() {
+  const { data: artists, isLoading, error } = useArtists({
+    isActive: 'all',
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loading size="lg" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600">아티스트 목록을 불러오는데 실패했습니다.</p>
+      </div>
+    );
+  }
 
   return (
     <div>
-      {/* Page Header */}
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">아티스트 관리</h1>
@@ -25,8 +45,7 @@ export default async function AdminArtistsPage() {
         </div>
       </div>
 
-      {/* Artists Table */}
-      <ArtistsTable artists={artists} />
+      <ArtistsTable artists={artists || []} />
     </div>
   );
 }

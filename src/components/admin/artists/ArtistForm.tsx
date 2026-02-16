@@ -3,29 +3,18 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ArtistsAPI } from '@/lib/client/api/artists.api';
+import type {
+  ArtistWithDetails,
+  CreateArtistData,
+  UpdateArtistData,
+} from '@/lib/client/api/artists.api';
+import type { ProjectWithDetails } from '@/lib/client/api/projects.api';
 import { ImageUpload } from '@/src/components/admin/ImageUpload';
 
-interface Project {
-  id: string;
-  name: string;
-  slug: string;
-}
+type Project = Pick<ProjectWithDetails, 'id' | 'name' | 'slug'>;
 
-interface Artist {
-  id: string;
-  name: string;
-  slug: string;
-  project_id: string;
-  profile_image_id: string | null;
-  profile_image?: {
-    id: string;
-    public_url: string;
-    cdn_url?: string | null;
-    alt_text: string | null;
-  };
-  description?: string | null;
-  is_active: boolean;
-}
+type Artist = ArtistWithDetails;
 
 interface ArtistFormProps {
   projects: Project[];
@@ -50,23 +39,16 @@ export function ArtistForm({ projects, artist }: ArtistFormProps) {
     setIsSubmitting(true);
 
     try {
-      const url = artist
-        ? `/api/artists/${artist.id}`
-        : '/api/artists';
+      const payload: CreateArtistData | UpdateArtistData = {
+        ...formData,
+        profile_image_id: formData.profile_image_id || null,
+        description: formData.description || null,
+      };
 
-      const method = artist ? 'PATCH' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '저장에 실패했습니다');
+      if (artist) {
+        await ArtistsAPI.updateArtist(artist.id, payload);
+      } else {
+        await ArtistsAPI.createArtist(payload as CreateArtistData);
       }
 
       router.push('/admin/artists');
@@ -148,7 +130,7 @@ export function ArtistForm({ projects, artist }: ArtistFormProps) {
               artist?.profile_image?.public_url
             }
             altText={formData.name}
-            onUploadSuccess={(imageId, publicUrl) => {
+            onUploadSuccess={(imageId) => {
               setFormData({ ...formData, profile_image_id: imageId });
             }}
           />

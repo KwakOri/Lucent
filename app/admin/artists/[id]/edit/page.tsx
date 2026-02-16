@@ -1,25 +1,34 @@
-import { notFound } from 'next/navigation';
-import { ArtistService } from '@/lib/server/services/artist.service';
-import { ProjectService } from '@/lib/server/services/project.service';
+'use client';
+
+import { Loading } from '@/components/ui/loading';
+import { useArtistById } from '@/lib/client/hooks/useArtists';
+import { useProjects } from '@/lib/client/hooks/useProjects';
 import { ArtistForm } from '@/src/components/admin/artists/ArtistForm';
 
-export default async function EditArtistPage({
+export default function EditArtistPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = await params;
+  const { data: artist, isLoading: isArtistLoading, error: artistError } =
+    useArtistById(params.id);
+  const { data: projects, isLoading: isProjectsLoading, error: projectsError } =
+    useProjects({ isActive: 'all' });
 
-  let artist;
-  let projects;
+  if (isArtistLoading || isProjectsLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loading size="lg" />
+      </div>
+    );
+  }
 
-  try {
-    [artist, projects] = await Promise.all([
-      ArtistService.getArtistById(id),
-      ProjectService.getProjects(),
-    ]);
-  } catch (error) {
-    notFound();
+  if (artistError || projectsError || !artist) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600">아티스트 정보를 불러오는데 실패했습니다.</p>
+      </div>
+    );
   }
 
   return (
@@ -31,7 +40,7 @@ export default async function EditArtistPage({
         </p>
       </div>
 
-      <ArtistForm projects={projects} artist={artist} />
+      <ArtistForm projects={projects || []} artist={artist} />
     </div>
   );
 }

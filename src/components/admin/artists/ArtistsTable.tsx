@@ -3,25 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ArtistsAPI } from '@/lib/client/api/artists.api';
+import type { ArtistWithDetails } from '@/lib/client/api/artists.api';
 
-interface Artist {
-  id: string;
-  name: string;
-  slug: string;
-  is_active: boolean;
-  created_at: string;
-  profile_image?: {
-    id: string;
-    public_url: string;
-    cdn_url?: string | null;
-    alt_text: string | null;
-  };
-  project?: {
-    id: string;
-    name: string;
-    slug: string;
-  };
-}
+type Artist = ArtistWithDetails;
 
 interface ArtistsTableProps {
   artists: Artist[];
@@ -40,16 +25,9 @@ export function ArtistsTable({ artists: initialArtists }: ArtistsTableProps) {
     setDeletingId(artist.id);
 
     try {
-      const response = await fetch(`/api/artists/${artist.id}`, {
-        method: 'DELETE',
-      });
+      await ArtistsAPI.deleteArtist(artist.id);
 
-      if (!response.ok) {
-        throw new Error('삭제 실패');
-      }
-
-      // UI에서 제거
-      setArtists(artists.filter((a) => a.id !== artist.id));
+      setArtists((prev) => prev.filter((a) => a.id !== artist.id));
       router.refresh();
     } catch (error) {
       alert('아티스트 삭제에 실패했습니다.');

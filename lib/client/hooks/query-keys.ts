@@ -5,7 +5,9 @@
  */
 
 import type { GetOrdersParams } from '@/lib/client/api/orders.api';
-import type { GetProductsQuery } from '@/types';
+import type { GetArtistsParams } from '@/lib/client/api/artists.api';
+import type { GetProductsParams } from '@/lib/client/api/products.api';
+import type { GetProjectsParams } from '@/lib/client/api/projects.api';
 
 export const queryKeys = {
   /**
@@ -23,7 +25,7 @@ export const queryKeys = {
   products: {
     all: ['products'] as const,
     lists: () => [...queryKeys.products.all, 'list'] as const,
-    list: (params: GetProductsQuery = {}) =>
+    list: (params: GetProductsParams = {}) =>
       [...queryKeys.products.lists(), params] as const,
     details: () => [...queryKeys.products.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.products.details(), id] as const,
@@ -48,6 +50,8 @@ export const queryKeys = {
   artists: {
     all: ['artists'] as const,
     lists: () => [...queryKeys.artists.all, 'list'] as const,
+    list: (params: GetArtistsParams = {}) =>
+      [...queryKeys.artists.lists(), params] as const,
     details: () => [...queryKeys.artists.all, 'detail'] as const,
     detail: (slug: string) => [...queryKeys.artists.details(), slug] as const,
   },
@@ -58,6 +62,8 @@ export const queryKeys = {
   projects: {
     all: ['projects'] as const,
     lists: () => [...queryKeys.projects.all, 'list'] as const,
+    list: (params: GetProjectsParams = {}) =>
+      [...queryKeys.projects.lists(), params] as const,
     details: () => [...queryKeys.projects.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.projects.details(), id] as const,
   },
