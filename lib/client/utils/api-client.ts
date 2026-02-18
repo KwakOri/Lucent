@@ -37,11 +37,16 @@ class APIClient {
       }
     }
 
-    const response = await fetch(this.resolveUrl(url), {
+    const resolvedUrl = this.resolveUrl(url);
+    console.log(`[apiClient] ${requestInit.method ?? 'GET'} ${resolvedUrl}`);
+
+    const response = await fetch(resolvedUrl, {
       credentials: 'include',
       ...requestInit,
       headers,
     });
+
+    console.log(`[apiClient] 응답 상태: ${response.status} ${response.statusText}`);
 
     if (response.status === 204) {
       return {} as T;
@@ -52,6 +57,7 @@ class APIClient {
 
     // 에러 처리
     if (!response.ok) {
+      console.error('[apiClient] 에러 응답 body:', rawBody);
       throw new ApiError(
         this.getErrorMessage(payload),
         response.status,

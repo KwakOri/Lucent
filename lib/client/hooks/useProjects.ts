@@ -18,8 +18,15 @@ export function useProjects(params?: GetProjectsParams) {
   return useQuery({
     queryKey: queryKeys.projects.list(params),
     queryFn: async () => {
-      const response = await ProjectsAPI.getProjects(params);
-      return response.data;
+      console.log('[useProjects] queryFn 시작, params:', params);
+      try {
+        const response = await ProjectsAPI.getProjects(params);
+        console.log('[useProjects] 응답 성공:', response);
+        return response.data;
+      } catch (error) {
+        console.error('[useProjects] 요청 실패:', error);
+        throw error;
+      }
     },
     staleTime: 1000 * 60 * 10,
   });

@@ -43,7 +43,14 @@ const PROJECT_DISPLAY_CONFIG: Record<
 };
 
 export function ProjectsSection() {
-  const { data: projects } = useProjects();
+  const { data: projects, isLoading, isError, error } = useProjects();
+
+  console.log('[ProjectsSection] 렌더링 상태:', {
+    isLoading,
+    isError,
+    error,
+    projectsCount: projects?.length ?? null,
+  });
 
   // 소셜 링크 클릭 시 이벤트 버블링 방지
   const handleSocialClick = useCallback((e: React.MouseEvent, url: string) => {

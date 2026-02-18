@@ -17,10 +17,13 @@ interface ProxyBackendOptions {
 }
 
 function resolveBackendBaseUrl(): string | null {
+  const developmentFallback =
+    process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001';
+
   const baseUrl = (
     process.env.BACKEND_API_URL ||
     process.env.NEXT_PUBLIC_BACKEND_API_URL ||
-    ''
+    developmentFallback
   ).trim();
 
   if (!baseUrl) {

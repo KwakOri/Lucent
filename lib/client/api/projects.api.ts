@@ -87,7 +87,11 @@ export const ProjectsAPI = {
     }
 
     const queryString = searchParams.toString();
-    return apiClient.get(`/api/projects${queryString ? `?${queryString}` : ''}`);
+    const url = `/api/projects${queryString ? `?${queryString}` : ''}`;
+    console.log('[ProjectsAPI.getProjects] 요청 URL:', url);
+    const result = await apiClient.get<ApiResponse<ProjectWithDetails[]>>(url);
+    console.log('[ProjectsAPI.getProjects] 응답:', result);
+    return result;
   },
 
   /**
