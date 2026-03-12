@@ -67,3 +67,9 @@
 ## 7) 상세 참고
 
 - `../docs/engineering/lucent-technical-architecture.md`
+
+## 8) 커밋 메시지 규칙 (WN)
+
+- 커밋 메시지는 `WN-xx` prefix를 사용한다.
+- 같은 작업 단위에서 `frontend`/`backend`를 함께 수정하면 `backend` 커밋과 동일 `WN`을 사용한다.
+- 권장 형식: `WN-01 Feat: ...`, `WN-02 Fix: ...`
