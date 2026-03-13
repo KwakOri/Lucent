@@ -13,6 +13,7 @@ export { ProductsAPI } from './products.api';
 export { ProfilesAPI } from './profiles.api';
 export { CartAPI } from './cart.api';
 export { LogsAPI } from './logs.api';
+export { V2CatalogAdminAPI } from './v2-catalog-admin.api';
 
 // Types
 export type { SendVerificationData } from './auth.api';
@@ -53,3 +54,29 @@ export type {
   CartItemWithProduct,
   CartResponseData,
 } from './cart.api';
+export type {
+  V2Project,
+  V2Artist,
+  V2ProjectArtist,
+  V2Product,
+  V2Variant,
+  V2ProductMedia,
+  V2DigitalAsset,
+  ProductPublishReadiness,
+  GetV2ProjectsParams,
+  GetV2ArtistsParams,
+  GetV2ProductsParams,
+  CreateV2ProjectData,
+  UpdateV2ProjectData,
+  CreateV2ArtistData,
+  UpdateV2ArtistData,
+  LinkV2ArtistToProjectData,
+  CreateV2ProductData,
+  UpdateV2ProductData,
+  CreateV2VariantData,
+  UpdateV2VariantData,
+  CreateV2MediaData,
+  UpdateV2MediaData,
+  CreateV2DigitalAssetData,
+  UpdateV2DigitalAssetData,
+} from './v2-catalog-admin.api';

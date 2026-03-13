@@ -8,6 +8,11 @@ import type { GetOrdersParams } from '@/lib/client/api/orders.api';
 import type { GetArtistsParams } from '@/lib/client/api/artists.api';
 import type { GetProductsParams } from '@/lib/client/api/products.api';
 import type { GetProjectsParams } from '@/lib/client/api/projects.api';
+import type {
+  GetV2ArtistsParams,
+  GetV2ProductsParams,
+  GetV2ProjectsParams,
+} from '@/lib/client/api/v2-catalog-admin.api';
 
 export const queryKeys = {
   /**
@@ -74,5 +79,48 @@ export const queryKeys = {
   profile: {
     all: ['profile'] as const,
     my: () => [...queryKeys.profile.all, 'my'] as const,
+  },
+
+  /**
+   * V2 Catalog Admin Query Keys
+   */
+  v2CatalogAdmin: {
+    all: ['v2-catalog-admin'] as const,
+    projects: {
+      all: ['v2-catalog-admin', 'projects'] as const,
+      list: (params: GetV2ProjectsParams = {}) =>
+        [...queryKeys.v2CatalogAdmin.projects.all, 'list', params] as const,
+      detail: (id: string) =>
+        [...queryKeys.v2CatalogAdmin.projects.all, 'detail', id] as const,
+    },
+    artists: {
+      all: ['v2-catalog-admin', 'artists'] as const,
+      list: (params: GetV2ArtistsParams = {}) =>
+        [...queryKeys.v2CatalogAdmin.artists.all, 'list', params] as const,
+      detail: (id: string) =>
+        [...queryKeys.v2CatalogAdmin.artists.all, 'detail', id] as const,
+    },
+    products: {
+      all: ['v2-catalog-admin', 'products'] as const,
+      list: (params: GetV2ProductsParams = {}) =>
+        [...queryKeys.v2CatalogAdmin.products.all, 'list', params] as const,
+      detail: (id: string) =>
+        [...queryKeys.v2CatalogAdmin.products.all, 'detail', id] as const,
+      variants: (productId: string) =>
+        [...queryKeys.v2CatalogAdmin.products.all, 'variants', productId] as const,
+      media: (productId: string) =>
+        [...queryKeys.v2CatalogAdmin.products.all, 'media', productId] as const,
+      publishReadiness: (productId: string) =>
+        [
+          ...queryKeys.v2CatalogAdmin.products.all,
+          'publish-readiness',
+          productId,
+        ] as const,
+    },
+    assets: {
+      all: ['v2-catalog-admin', 'assets'] as const,
+      list: (variantId: string) =>
+        [...queryKeys.v2CatalogAdmin.assets.all, 'list', variantId] as const,
+    },
   },
 } as const;

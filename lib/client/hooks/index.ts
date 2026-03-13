@@ -63,3 +63,39 @@ export { useArtists, useArtist, useArtistById } from './useArtists';
 
 // Logs Hooks
 export { useLogs, useLog, useLogStats } from './useLogs';
+
+// V2 Catalog Admin Hooks
+export {
+  useV2AdminProjects,
+  useV2AdminProject,
+  useCreateV2Project,
+  useUpdateV2Project,
+  usePublishV2Project,
+  useUnpublishV2Project,
+  useDeleteV2Project,
+  useV2AdminArtists,
+  useV2AdminArtist,
+  useCreateV2Artist,
+  useUpdateV2Artist,
+  useLinkV2ArtistToProject,
+  useUnlinkV2ArtistFromProject,
+  useV2AdminProducts,
+  useV2AdminProduct,
+  useCreateV2Product,
+  useUpdateV2Product,
+  useDeleteV2Product,
+  useV2AdminVariants,
+  useCreateV2Variant,
+  useUpdateV2Variant,
+  useDeleteV2Variant,
+  useV2AdminProductMedia,
+  useCreateV2ProductMedia,
+  useUpdateV2ProductMedia,
+  useDeactivateV2ProductMedia,
+  useV2AdminVariantAssets,
+  useCreateV2DigitalAsset,
+  useUpdateV2DigitalAsset,
+  useActivateV2DigitalAsset,
+  useDeactivateV2DigitalAsset,
+  useV2ProductPublishReadiness,
+} from './useV2CatalogAdmin';
