@@ -69,6 +69,21 @@
 
 ---
 
+### 5. [V2 Read Switch 승인 절차 Runbook](./v2-read-switch-approval-runbook.md)
+**v2 카탈로그 읽기 전환 전 최종 승인/판정 가이드**
+
+- compare/checklist/remediation API 확인 절차
+- BLOCKING/ADVISORY 판정 기준
+- 1인 작업자 승인 운영 규칙
+- 롤백 기준 및 승인 기록 템플릿
+
+**사용 시기:**
+- 프로덕션 read switch 직전 최종 승인 시
+- 전환 보류/진행 결정을 기록할 때
+- 전환 장애 대비 롤백 기준을 점검할 때
+
+---
+
 ## 🚀 빠른 시작
 
 ### 1. 환경 설정
@@ -171,6 +186,7 @@ npx tsx scripts/test-email.ts your-email@example.com
 | 로그인/로그아웃을 구현하고 싶어요 | [Supabase 인증 가이드](./supabase-auth-guide.md) |
 | R2 환경변수를 찾고 싶어요 | [R2 설정 가이드](./r2-setup.md) |
 | 이미지/파일 스토리지를 설정하고 싶어요 | [R2 설정 가이드](./r2-setup.md) |
+| V2 read switch 전환을 승인하고 싶어요 | [V2 Read Switch 승인 Runbook](./v2-read-switch-approval-runbook.md) |
 | API 스펙을 확인하고 싶어요 | `/specs/api/` 폴더 |
 | UI 스펙을 확인하고 싶어요 | `/specs/ui/` 폴더 |
 | 자동화 테스트를 실행하고 싶어요 | `/tests/README.md` |
