@@ -115,6 +115,7 @@ export {
   usePreviewV2Bundle,
   useResolveV2Bundle,
   useBuildV2BundleOpsContract,
+  useBuildV2BundleCanaryReport,
   useV2ProductPublishReadiness,
   useV2CatalogMigrationCompareReport,
   useV2CatalogReadSwitchChecklist,

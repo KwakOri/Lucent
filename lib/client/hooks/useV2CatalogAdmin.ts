@@ -24,6 +24,7 @@ import {
   type GetV2ProductsParams,
   type GetV2ProjectsParams,
   type LinkV2ArtistToProjectData,
+  type BuildV2BundleCanaryReportData,
   type BuildV2BundleOpsContractData,
   type PreviewV2BundleData,
   type ResolveV2BundleData,
@@ -661,6 +662,15 @@ export function useBuildV2BundleOpsContract() {
   return useMutation({
     mutationFn: async (data: BuildV2BundleOpsContractData) => {
       const response = await V2CatalogAdminAPI.buildBundleOpsContract(data);
+      return response.data;
+    },
+  });
+}
+
+export function useBuildV2BundleCanaryReport() {
+  return useMutation({
+    mutationFn: async (data: BuildV2BundleCanaryReportData = {}) => {
+      const response = await V2CatalogAdminAPI.buildBundleCanaryReport(data);
       return response.data;
     },
   });

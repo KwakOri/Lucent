@@ -7,6 +7,7 @@ import { Input, Textarea } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import {
   useArchiveV2BundleDefinition,
+  useBuildV2BundleCanaryReport,
   useBuildV2BundleOpsContract,
   useCloneV2BundleDefinitionVersion,
   useCreateV2BundleComponent,
@@ -135,6 +136,7 @@ export default function V2CatalogBundlesPage() {
   const [previewResult, setPreviewResult] = useState<unknown>(null);
   const [resolveResult, setResolveResult] = useState<unknown>(null);
   const [opsContractResult, setOpsContractResult] = useState<unknown>(null);
+  const [canaryReportResult, setCanaryReportResult] = useState<unknown>(null);
 
   const {
     data: definitions,
@@ -164,6 +166,7 @@ export default function V2CatalogBundlesPage() {
   const previewBundle = usePreviewV2Bundle();
   const resolveBundle = useResolveV2Bundle();
   const buildOpsContract = useBuildV2BundleOpsContract();
+  const buildCanaryReport = useBuildV2BundleCanaryReport();
 
   const activeComponentId = useMemo(() => {
     const list = components || [];
@@ -461,6 +464,23 @@ export default function V2CatalogBundlesPage() {
       });
       setOpsContractResult(result);
       setMessage('component 기준 CS/환불/재발송 계약을 생성했습니다.');
+    });
+  };
+
+  const runCanaryReport = async () => {
+    await runWithNotice(async () => {
+      const resolvedParentUnitAmount =
+        parentUnitAmount.trim() === ''
+          ? null
+          : parseNonNegativeInteger(parentUnitAmount, 'parent_unit_amount');
+
+      const result = await buildCanaryReport.mutateAsync({
+        definition_ids: activeDefinitionId ? [activeDefinitionId] : undefined,
+        sample_parent_quantity: parsePositiveInteger(parentQuantity, 'parent_quantity'),
+        sample_parent_unit_amount: resolvedParentUnitAmount,
+      });
+      setCanaryReportResult(result);
+      setMessage('canary/shadow 검증 리포트를 생성했습니다.');
     });
   };
 
@@ -980,6 +1000,14 @@ export default function V2CatalogBundlesPage() {
             >
               Ops Contract
             </Button>
+            <Button
+              size="sm"
+              intent="primary"
+              onClick={runCanaryReport}
+              loading={buildCanaryReport.isPending}
+            >
+              Canary Report
+            </Button>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
@@ -1005,6 +1033,12 @@ export default function V2CatalogBundlesPage() {
             <p className="text-sm font-semibold text-gray-700">Ops Contract Result</p>
             <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
               {opsContractResult ? JSON.stringify(opsContractResult, null, 2) : '-'}
+            </pre>
+          </div>
+          <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+            <p className="text-sm font-semibold text-gray-700">Canary Report Result</p>
+            <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
+              {canaryReportResult ? JSON.stringify(canaryReportResult, null, 2) : '-'}
             </pre>
           </div>
         </div>

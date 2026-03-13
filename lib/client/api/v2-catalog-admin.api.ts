@@ -291,6 +291,43 @@ export interface V2BundleOpsContractResult {
   };
 }
 
+export interface V2BundleCanaryReportResult {
+  generated_at: string;
+  source: 'EXPLICIT' | 'ACTIVE_DEFAULT';
+  sample_parent_quantity: number;
+  sample_parent_unit_amount: number | null;
+  target_count: number;
+  summary: {
+    ready_count: number;
+    monitoring_count: number;
+    blocked_count: number;
+  };
+  targets: Array<{
+    definition_id: string;
+    bundle_product_id: string;
+    version_no: number;
+    status: V2BundleStatus;
+    mode: V2BundleMode;
+    validation_ready: boolean;
+    failed_validation_checks: string[];
+    shadow_resolution: {
+      pass: boolean;
+      error: string | null;
+      allocation_difference_per_parent: number | null;
+    };
+    live_snapshot: {
+      has_live_orders: boolean;
+      parent_line_count: number;
+      component_line_count: number;
+      component_missing_parent_ref: number;
+      orphan_component_lines: number;
+      component_missing_snapshot: number;
+      snapshot_integrity_passed: boolean | null;
+    };
+    canary_status: 'READY' | 'MONITORING' | 'BLOCKED';
+  }>;
+}
+
 export interface PublishReadinessCheck {
   key: string;
   passed: boolean;
@@ -630,6 +667,12 @@ export interface BuildV2BundleOpsContractData {
   parent_quantity?: number;
   parent_unit_amount?: number | null;
   selected_components?: V2BundleComponentSelectionData[];
+}
+
+export interface BuildV2BundleCanaryReportData {
+  definition_ids?: string[];
+  sample_parent_quantity?: number;
+  sample_parent_unit_amount?: number | null;
 }
 
 export interface PreviewV2BundleData {
@@ -984,6 +1027,12 @@ export const V2CatalogAdminAPI = {
     data: BuildV2BundleOpsContractData,
   ): Promise<ApiResponse<V2BundleOpsContractResult>> {
     return apiClient.post('/api/v2/catalog/admin/bundles/ops-contract', data);
+  },
+
+  async buildBundleCanaryReport(
+    data: BuildV2BundleCanaryReportData = {},
+  ): Promise<ApiResponse<V2BundleCanaryReportResult>> {
+    return apiClient.post('/api/v2/catalog/admin/bundles/canary-report', data);
   },
 
   async getProductPublishReadiness(
