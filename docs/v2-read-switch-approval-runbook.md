@@ -99,6 +99,8 @@ curl -s -H "Authorization: Bearer <ADMIN_TOKEN>" \
   - compare/checklist/remediation 요약 수치
   - Gate A~D 통과 여부
   - 최종 결정(`진행`/`보류`)과 사유
+- 관리자 `V2 읽기 전환 준비` 화면의 `승인 기록 초안 복사` 버튼으로
+  초안을 생성해 기록을 시작할 수 있다.
 
 ## 4) 1인 작업자 운영 규칙
 

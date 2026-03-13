@@ -108,6 +108,63 @@ function buildTaskDraft(task: ReadSwitchRemediationTask): string {
   ].join('\n');
 }
 
+function buildApprovalRecordDraft(input: {
+  generated_at: string;
+  sample_limit: number;
+  compare_ready: boolean;
+  checklist: {
+    total_checks: number;
+    passed_checks: number;
+    failed_checks: number;
+    blocking_failed_checks?: number;
+    advisory_failed_checks?: number;
+    blocking_checks: string[];
+  };
+  remediation: {
+    failed_total: number;
+    blocking_failed: number;
+    advisory_failed: number;
+  };
+  recommended_order: string[];
+}): string {
+  const gateA = input.remediation.blocking_failed === 0 ? 'PASS' : 'FAIL';
+  const gateB = (input.checklist.blocking_failed_checks || 0) === 0 ? 'PASS' : 'FAIL';
+
+  return [
+    '## V2 Read Switch 승인 기록',
+    '',
+    `- 일시: ${input.generated_at}`,
+    '- 실행자:',
+    `- sample_limit: ${input.sample_limit}`,
+    '',
+    '### 요약 수치',
+    `- compare.read_switch.ready: ${input.compare_ready}`,
+    `- checklist: total=${input.checklist.total_checks}, passed=${input.checklist.passed_checks}, failed=${input.checklist.failed_checks}`,
+    `- checklist.blocking_failed: ${input.checklist.blocking_failed_checks || 0}`,
+    `- checklist.advisory_failed: ${input.checklist.advisory_failed_checks || 0}`,
+    `- remediation.failed_total: ${input.remediation.failed_total}`,
+    `- remediation.blocking_failed: ${input.remediation.blocking_failed}`,
+    `- remediation.advisory_failed: ${input.remediation.advisory_failed}`,
+    `- blocking_checks: ${
+      input.checklist.blocking_checks.length > 0
+        ? input.checklist.blocking_checks.join(', ')
+        : '(none)'
+    }`,
+    '',
+    '### Gate 판정',
+    `- Gate A (blocking_failed=0): ${gateA}`,
+    `- Gate B (checklist blocking_failed=0): ${gateB}`,
+    '- Gate C (기능 스모크): PASS/FAIL',
+    '- Gate D (롤백 준비): PASS/FAIL',
+    '- 최종 결정: 진행/보류',
+    '',
+    '### 권장 전환 순서',
+    ...input.recommended_order.map((step, index) => `${index + 1}. ${step}`),
+    '',
+    '- 비고:',
+  ].join('\n');
+}
+
 export default function V2CatalogReadinessPage() {
   const [copiedTarget, setCopiedTarget] = useState<string | null>(null);
 
@@ -167,6 +224,8 @@ export default function V2CatalogReadinessPage() {
   const differenceRows = summarizeDifferenceCounts(
     compareReport.differences as Record<string, unknown>,
   );
+  const gateA = remediation.summary.blocking_failed === 0;
+  const gateB = (checklist.blocking_failed_checks || 0) === 0;
   const remediationTaskByCheck = new Map(
     [...remediation.blocking_tasks, ...remediation.advisory_tasks].map((task) => [
       task.check_key,
@@ -232,7 +291,7 @@ export default function V2CatalogReadinessPage() {
       <section className="rounded-lg border border-blue-200 bg-blue-50 p-4">
         <div className="sm:flex sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-blue-900">보정 작업 생성</h2>
+            <h2 className="text-base font-semibold text-blue-900">보정/승인 기록 생성</h2>
             <p className="mt-1 text-sm text-blue-800">
               blocking/advisory 실패 항목을 Notion 티켓/작업으로 옮길 수 있도록
               초안을 생성합니다.
@@ -241,6 +300,9 @@ export default function V2CatalogReadinessPage() {
               실패 {remediation.summary.failed_total}건 (blocking{' '}
               {remediation.summary.blocking_failed} / advisory{' '}
               {remediation.summary.advisory_failed})
+            </p>
+            <p className="mt-1 text-xs text-blue-700">
+              Gate A: {gateA ? 'PASS' : 'FAIL'} / Gate B: {gateB ? 'PASS' : 'FAIL'}
             </p>
           </div>
           <div className="mt-3 flex flex-wrap gap-2 sm:mt-0">
@@ -267,6 +329,35 @@ export default function V2CatalogReadinessPage() {
                 <>
                   <Copy className="h-4 w-4" />
                   실패 항목 초안 복사
+                </>
+              )}
+            </Button>
+            <Button
+              intent="secondary"
+              size="sm"
+              onClick={() =>
+                copyToClipboard(
+                  buildApprovalRecordDraft({
+                    generated_at: compareReport.generated_at,
+                    sample_limit: SAMPLE_LIMIT,
+                    compare_ready: compareReport.read_switch.ready,
+                    checklist,
+                    remediation: remediation.summary,
+                    recommended_order: checklist.recommended_order,
+                  }),
+                  'approval-record',
+                )
+              }
+            >
+              {copiedTarget === 'approval-record' ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  승인 기록 복사됨
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" />
+                  승인 기록 초안 복사
                 </>
               )}
             </Button>
