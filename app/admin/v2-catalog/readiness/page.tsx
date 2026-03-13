@@ -1,13 +1,18 @@
 'use client';
 
+import { useState } from 'react';
+import Link from 'next/link';
+import { Check, Copy, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Loading } from '@/components/ui/loading';
+import { Button } from '@/components/ui/button';
 import {
   useV2CatalogMigrationCompareReport,
   useV2CatalogReadSwitchChecklist,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 const SAMPLE_LIMIT = 20;
+const NOTION_ACTIONS_URL = 'https://www.notion.so/32198957580781e8a48deaee45bb4cda';
 
 function formatDateTime(value: string | undefined): string {
   if (!value) {
@@ -44,7 +49,41 @@ function summarizeDifferenceCounts(differences: Record<string, unknown>): Array<
   return rows;
 }
 
+function buildRemediationDraft(checklist: {
+  generated_at: string;
+  checklist: Array<{ key: string; passed: boolean; action: string; detail: string }>;
+}): string {
+  const failedItems = checklist.checklist.filter((item) => !item.passed);
+  if (failedItems.length === 0) {
+    return [
+      '# V2 Read Switch 보정 작업 초안',
+      '',
+      `- 생성 시각: ${checklist.generated_at}`,
+      '- 상태: 현재 실패 항목 없음 (read switch 가능)',
+    ].join('\n');
+  }
+
+  const lines = [
+    '# V2 Read Switch 보정 작업 초안',
+    '',
+    `- 생성 시각: ${checklist.generated_at}`,
+    `- 실패 항목 수: ${failedItems.length}`,
+    '',
+    '## 액션 아이템',
+  ];
+
+  failedItems.forEach((item, index) => {
+    lines.push(`${index + 1}. [ ] ${item.key}`);
+    lines.push(`- 근거: ${item.detail}`);
+    lines.push(`- 조치: ${item.action}`);
+  });
+
+  return lines.join('\n');
+}
+
 export default function V2CatalogReadinessPage() {
+  const [copiedTarget, setCopiedTarget] = useState<string | null>(null);
+
   const {
     data: compareReport,
     isLoading: isLoadingReport,
@@ -56,6 +95,18 @@ export default function V2CatalogReadinessPage() {
     isLoading: isLoadingChecklist,
     error: checklistError,
   } = useV2CatalogReadSwitchChecklist(SAMPLE_LIMIT);
+
+  const copyToClipboard = async (text: string, target: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedTarget(target);
+      window.setTimeout(() => {
+        setCopiedTarget((current) => (current === target ? null : current));
+      }, 1800);
+    } catch {
+      setCopiedTarget(null);
+    }
+  };
 
   if (isLoadingReport || isLoadingChecklist) {
     return (
@@ -126,6 +177,50 @@ export default function V2CatalogReadinessPage() {
         </div>
       </section>
 
+      <section className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <div className="sm:flex sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-blue-900">보정 작업 생성</h2>
+            <p className="mt-1 text-sm text-blue-800">
+              실패 항목을 Notion 티켓/작업으로 옮길 수 있도록 초안을 생성합니다.
+            </p>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 sm:mt-0">
+            <Button
+              intent="primary"
+              size="sm"
+              onClick={() =>
+                copyToClipboard(
+                  buildRemediationDraft({
+                    generated_at: checklist.generated_at,
+                    checklist: checklist.checklist,
+                  }),
+                  'all-failed-items',
+                )
+              }
+            >
+              {copiedTarget === 'all-failed-items' ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  전체 초안 복사됨
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" />
+                  실패 항목 초안 복사
+                </>
+              )}
+            </Button>
+            <Link href={NOTION_ACTIONS_URL} target="_blank">
+              <Button intent="secondary" size="sm">
+                <ExternalLink className="h-4 w-4" />
+                Notion 티켓 목록 열기
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <section className="rounded-lg border border-gray-200 bg-white">
         <div className="border-b border-gray-200 px-4 py-3">
           <h2 className="text-base font-semibold text-gray-900">Read Switch Checklist</h2>
@@ -149,6 +244,9 @@ export default function V2CatalogReadinessPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">
                   조치
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">
+                  작업 생성
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -171,6 +269,38 @@ export default function V2CatalogReadinessPage() {
                     <td className="px-4 py-3 text-sm text-gray-500">{check.expected}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {checklistItem?.action || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {checklistItem && !check.passed ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyToClipboard(
+                              [
+                                `[ ] ${check.key}`,
+                                `- 근거: ${check.detail}`,
+                                `- 조치: ${checklistItem.action}`,
+                              ].join('\n'),
+                              `item-${check.key}`,
+                            )
+                          }
+                          className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          {copiedTarget === `item-${check.key}` ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              복사됨
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              항목 복사
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
                     </td>
                   </tr>
                 );
