@@ -34,7 +34,7 @@ export default function CheckoutPage() {
   const { data: cartData, isLoading: isLoadingCart, error: cartError } = useCart();
   const { mutate: createOrder, isPending: isCreatingOrder } = useCreateOrder();
   const { mutate: clearCart } = useClearCart();
-  const { user, isLoading: isLoadingUser } = useSession();
+  const { user } = useSession();
   const { data: profile, isLoading: isLoadingProfile } = useProfile();
 
   // 주문 모드 결정
@@ -55,26 +55,35 @@ export default function CheckoutPage() {
     memo: '',
   });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToDigitalRefundPolicy, setAgreedToDigitalRefundPolicy] =
+    useState(false);
 
   // 사용자 정보로 기본값 설정
   useEffect(() => {
     if (user && profile) {
-      // 주문자 정보 설정
-      setBuyerInfo({
+      const nextBuyerInfo: BuyerInfo = {
         name: profile.name || '',
         email: profile.email || user.email || '',
         phone: profile.phone || '',
-      });
+      };
 
-      // 배송 정보 설정 (이름, 전화번호는 항상 설정, 주소는 있는 경우만)
-      setShippingInfo({
+      const nextShippingInfo: ShippingInfo = {
         name: profile.name || '',
         phone: profile.phone || '',
         mainAddress: profile.main_address || '',
         detailAddress: profile.detail_address || '',
         memo: '',
-      });
+      };
+
+      const timer = window.setTimeout(() => {
+        setBuyerInfo(nextBuyerInfo);
+        setShippingInfo(nextShippingInfo);
+      }, 0);
+
+      return () => window.clearTimeout(timer);
     }
+
+    return undefined;
   }, [user, profile]);
 
   // 주문 상품 목록 및 배송비 계산
@@ -82,6 +91,9 @@ export default function CheckoutPage() {
   const hasPhysicalGoods = isSingleProductMode
     ? singleProduct?.type === 'PHYSICAL_GOODS' || singleProduct?.type === 'BUNDLE'
     : items.some((item) => item.product.type === 'PHYSICAL_GOODS' || item.product.type === 'BUNDLE');
+  const hasDigitalGoods = isSingleProductMode
+    ? singleProduct?.type === 'VOICE_PACK'
+    : items.some((item) => item.product.type === 'VOICE_PACK');
 
   // 배송비 (실물 굿즈 또는 번들 상품이 포함된 경우)
   const shippingFee = hasPhysicalGoods ? SHIPPING_FEE : 0;
@@ -106,7 +118,11 @@ export default function CheckoutPage() {
       shippingInfo.mainAddress.trim().length > 0 &&
       shippingInfo.detailAddress.trim().length >= 2);
 
-  const isFormValid = agreedToTerms && isBuyerInfoValid && isShippingValid;
+  const isFormValid =
+    agreedToTerms &&
+    (!hasDigitalGoods || agreedToDigitalRefundPolicy) &&
+    isBuyerInfoValid &&
+    isShippingValid;
 
   const handleSubmit = () => {
     if (!isFormValid) return;
@@ -117,7 +133,17 @@ export default function CheckoutPage() {
     // 장바구니 모드에서 상품이 없는 경우
     if (!isSingleProductMode && items.length === 0) return;
 
-    const orderData: any = {
+    const orderData: {
+      items: Array<{ productId: string; quantity: number }>;
+      buyerName: string;
+      buyerEmail: string;
+      buyerPhone: string;
+      shippingName?: string;
+      shippingPhone?: string;
+      shippingMainAddress?: string;
+      shippingDetailAddress?: string;
+      shippingMemo?: string;
+    } = {
       items: isSingleProductMode && singleProduct
         ? [{ productId: singleProduct.id, quantity: 1 }]
         : items.map((item) => ({
@@ -266,30 +292,68 @@ export default function CheckoutPage() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 약관 동의
               </h2>
-              <Checkbox
-                label={
-                  <span className="text-sm">
-                    <Link
-                      href="/terms"
-                      target="_blank"
-                      className="text-primary-600 hover:underline"
-                    >
-                      이용약관
-                    </Link>
-                    {' 및 '}
-                    <Link
-                      href="/privacy"
-                      target="_blank"
-                      className="text-primary-600 hover:underline"
-                    >
-                      개인정보처리방침
-                    </Link>
-                    에 동의합니다
-                  </span>
-                }
-                checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-              />
+              <div className="space-y-4">
+                <Checkbox
+                  label={
+                    <span className="text-sm">
+                      <Link
+                        href="/terms"
+                        target="_blank"
+                        className="text-primary-600 hover:underline"
+                      >
+                        이용약관
+                      </Link>
+                      {' 및 '}
+                      <Link
+                        href="/privacy"
+                        target="_blank"
+                        className="text-primary-600 hover:underline"
+                      >
+                        개인정보처리방침
+                      </Link>
+                      에 동의합니다
+                    </span>
+                  }
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                />
+
+                {hasDigitalGoods && (
+                  <>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-sm font-semibold text-amber-900">
+                        디지털 상품 환불 불가 안내
+                      </p>
+                      <p className="mt-2 text-sm text-amber-800 leading-relaxed">
+                        디지털 상품은 결제 완료 후 즉시 이용 가능 상품으로
+                        전자상거래법 제17조 제2항에 따라 청약철회(환불)가
+                        제한됩니다. 다운로드 여부와 관계없이 환불이 불가합니다.
+                      </p>
+                      <Link
+                        href="/policy"
+                        target="_blank"
+                        className="mt-2 inline-block text-sm text-amber-900 underline underline-offset-2"
+                      >
+                        배송/교환/환불 정책 전체 보기
+                      </Link>
+                    </div>
+
+                    <Checkbox
+                      label={
+                        <span className="text-sm">
+                          [필수] 본 상품은 디지털 콘텐츠로, 결제 완료 즉시 이용이
+                          가능하며 전자상거래법 제17조 제2항에 따라 환불이
+                          불가함에 동의합니다.
+                        </span>
+                      }
+                      checked={agreedToDigitalRefundPolicy}
+                      onChange={(e) =>
+                        setAgreedToDigitalRefundPolicy(e.target.checked)
+                      }
+                    />
+                  </>
+                )}
+              </div>
             </section>
 
             {/* 결제 안내 */}
@@ -308,6 +372,12 @@ export default function CheckoutPage() {
                   <li>
                     • 디지털 상품은 입금 확인 즉시 마이페이지에서 다운로드
                     가능합니다
+                  </li>
+                )}
+                {hasDigitalGoods && (
+                  <li>
+                    • 디지털 상품은 전자상거래법 제17조 제2항에 따라 환불이
+                    제한됩니다
                   </li>
                 )}
               </ul>

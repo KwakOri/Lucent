@@ -250,6 +250,26 @@ export default function ProductDetailPage() {
               {product.price.toLocaleString()}원
             </p>
 
+            {isVoicePack && (
+              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
+                <div className="mb-2">
+                  <Badge intent="error" size="md">
+                    디지털 상품 환불 불가
+                  </Badge>
+                </div>
+                <p className="text-sm text-red-800 leading-relaxed">
+                  본 상품은 결제 완료 후 즉시 이용 가능한 디지털 콘텐츠로,
+                  전자상거래법 제17조 제2항에 따라 환불이 제한됩니다.
+                </p>
+                <Link
+                  href="/policy"
+                  className="mt-2 inline-block text-sm text-red-900 underline underline-offset-2"
+                >
+                  배송/교환/환불 정책 확인하기
+                </Link>
+              </div>
+            )}
+
             {/* Stock Status */}
             {isPhysicalGoods && (
               <div className="mb-6">
