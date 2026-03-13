@@ -160,6 +160,16 @@ export interface V2BundleComponent {
   created_at: string;
   updated_at: string;
   options?: V2BundleComponentOption[];
+  variant?: Pick<
+    V2Variant,
+    | 'id'
+    | 'sku'
+    | 'title'
+    | 'fulfillment_type'
+    | 'requires_shipping'
+    | 'track_inventory'
+    | 'status'
+  > | null;
 }
 
 export interface V2BundleDefinition {
