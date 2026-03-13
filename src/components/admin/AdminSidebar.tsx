@@ -11,6 +11,7 @@ import {
   ShoppingCartIcon,
   DocumentTextIcon,
   ArrowsRightLeftIcon,
+  CubeIcon,
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -23,6 +24,7 @@ const navigation = [
   { name: '주문 관리', href: '/admin/orders', icon: ShoppingCartIcon },
   { name: '로그 조회', href: '/admin/logs', icon: DocumentTextIcon },
   { name: 'V2 전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowsRightLeftIcon },
+  { name: 'V2 Bundle Builder', href: '/admin/v2-catalog/bundles', icon: CubeIcon },
 ];
 
 export function AdminSidebar() {
