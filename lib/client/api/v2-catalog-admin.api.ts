@@ -548,6 +548,20 @@ export interface UpdateV2BundleComponentData {
   metadata?: Record<string, unknown>;
 }
 
+export interface CreateV2BundleComponentOptionData {
+  option_key: string;
+  option_value: string;
+  sort_order?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateV2BundleComponentOptionData {
+  option_key?: string;
+  option_value?: string;
+  sort_order?: number;
+  metadata?: Record<string, unknown>;
+}
+
 export interface V2BundleComponentSelectionData {
   component_variant_id: string;
   quantity: number;
@@ -869,6 +883,26 @@ export const V2CatalogAdminAPI = {
     componentId: string,
   ): Promise<ApiResponse<{ message: string }>> {
     return apiClient.delete(`/api/v2/catalog/admin/bundles/components/${componentId}`);
+  },
+
+  async createBundleComponentOption(
+    componentId: string,
+    data: CreateV2BundleComponentOptionData,
+  ): Promise<ApiResponse<V2BundleComponentOption>> {
+    return apiClient.post(`/api/v2/catalog/admin/bundles/components/${componentId}/options`, data);
+  },
+
+  async updateBundleComponentOption(
+    optionId: string,
+    data: UpdateV2BundleComponentOptionData,
+  ): Promise<ApiResponse<V2BundleComponentOption>> {
+    return apiClient.patch(`/api/v2/catalog/admin/bundles/component-options/${optionId}`, data);
+  },
+
+  async deleteBundleComponentOption(
+    optionId: string,
+  ): Promise<ApiResponse<{ message: string }>> {
+    return apiClient.delete(`/api/v2/catalog/admin/bundles/component-options/${optionId}`);
   },
 
   async validateBundleDefinition(

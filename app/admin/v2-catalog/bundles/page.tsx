@@ -9,11 +9,15 @@ import {
   useArchiveV2BundleDefinition,
   useCloneV2BundleDefinitionVersion,
   useCreateV2BundleComponent,
+  useCreateV2BundleComponentOption,
   useCreateV2BundleDefinition,
   useDeleteV2BundleComponent,
+  useDeleteV2BundleComponentOption,
   usePreviewV2Bundle,
   usePublishV2BundleDefinition,
   useResolveV2Bundle,
+  useUpdateV2BundleComponent,
+  useUpdateV2BundleComponentOption,
   useV2BundleComponents,
   useV2BundleDefinition,
   useV2BundleDefinitions,
@@ -85,6 +89,14 @@ function parseNonNegativeInteger(value: string, fieldName: string): number {
   return parsed;
 }
 
+function parseNonNegativeNumber(value: string, fieldName: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${fieldName}는 0 이상의 숫자여야 합니다.`);
+  }
+  return parsed;
+}
+
 function resolveStatusBadgeIntent(status: V2BundleStatus): 'warning' | 'success' | 'default' {
   if (status === 'ACTIVE') {
     return 'success';
@@ -97,6 +109,7 @@ function resolveStatusBadgeIntent(status: V2BundleStatus): 'warning' | 'success'
 
 export default function V2CatalogBundlesPage() {
   const [selectedDefinitionId, setSelectedDefinitionId] = useState<string | null>(null);
+  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -139,11 +152,28 @@ export default function V2CatalogBundlesPage() {
   const cloneDefinition = useCloneV2BundleDefinitionVersion();
 
   const createComponent = useCreateV2BundleComponent();
+  const updateComponent = useUpdateV2BundleComponent();
   const deleteComponent = useDeleteV2BundleComponent();
+  const createComponentOption = useCreateV2BundleComponentOption();
+  const updateComponentOption = useUpdateV2BundleComponentOption();
+  const deleteComponentOption = useDeleteV2BundleComponentOption();
 
   const validateBundle = useValidateV2BundleDefinition(activeDefinitionId);
   const previewBundle = usePreviewV2Bundle();
   const resolveBundle = useResolveV2Bundle();
+
+  const activeComponentId = useMemo(() => {
+    const list = components || [];
+    if (selectedComponentId && list.some((component) => component.id === selectedComponentId)) {
+      return selectedComponentId;
+    }
+    return list[0]?.id ?? null;
+  }, [components, selectedComponentId]);
+
+  const selectedComponent = useMemo(
+    () => (components || []).find((component) => component.id === activeComponentId) ?? null,
+    [components, activeComponentId],
+  );
 
   const selectedDefinitionLabel = useMemo(() => {
     if (!selectedDefinition) {
@@ -232,11 +262,53 @@ export default function V2CatalogBundlesPage() {
             newDefaultQuantity,
             'default_quantity',
           ),
-          price_allocation_weight: Number(newAllocationWeight),
+          price_allocation_weight: parseNonNegativeNumber(
+            newAllocationWeight,
+            'price_allocation_weight',
+          ),
         },
       });
       setNewComponentVariantId('');
       setMessage('bundle component를 추가했습니다.');
+    });
+  };
+
+  const handleUpdateComponent = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedComponent || !activeComponentId) {
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    await runWithNotice(async () => {
+      await updateComponent.mutateAsync({
+        componentId: activeComponentId,
+        data: {
+          component_variant_id: String(formData.get('component_variant_id') || '').trim(),
+          is_required: formData.get('is_required') === 'on',
+          min_quantity: parseNonNegativeInteger(
+            String(formData.get('min_quantity') || ''),
+            'min_quantity',
+          ),
+          max_quantity: parsePositiveInteger(
+            String(formData.get('max_quantity') || ''),
+            'max_quantity',
+          ),
+          default_quantity: parseNonNegativeInteger(
+            String(formData.get('default_quantity') || ''),
+            'default_quantity',
+          ),
+          sort_order: parseNonNegativeInteger(
+            String(formData.get('sort_order') || ''),
+            'sort_order',
+          ),
+          price_allocation_weight: parseNonNegativeNumber(
+            String(formData.get('price_allocation_weight') || ''),
+            'price_allocation_weight',
+          ),
+        },
+      });
+      setMessage('bundle component를 수정했습니다.');
     });
   };
 
@@ -247,7 +319,67 @@ export default function V2CatalogBundlesPage() {
 
     await runWithNotice(async () => {
       await deleteComponent.mutateAsync(componentId);
+      if (selectedComponentId === componentId) {
+        setSelectedComponentId(null);
+      }
       setMessage('bundle component를 삭제했습니다.');
+    });
+  };
+
+  const handleCreateOption = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!activeComponentId) {
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    await runWithNotice(async () => {
+      await createComponentOption.mutateAsync({
+        componentId: activeComponentId,
+        data: {
+          option_key: String(formData.get('option_key') || '').trim(),
+          option_value: String(formData.get('option_value') || '').trim(),
+          sort_order: parseNonNegativeInteger(
+            String(formData.get('sort_order') || '0'),
+            'sort_order',
+          ),
+        },
+      });
+      event.currentTarget.reset();
+      setMessage('bundle component option을 추가했습니다.');
+    });
+  };
+
+  const handleUpdateOption = async (
+    optionId: string,
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    await runWithNotice(async () => {
+      await updateComponentOption.mutateAsync({
+        optionId,
+        data: {
+          option_key: String(formData.get('option_key') || '').trim(),
+          option_value: String(formData.get('option_value') || '').trim(),
+          sort_order: parseNonNegativeInteger(
+            String(formData.get('sort_order') || '0'),
+            'sort_order',
+          ),
+        },
+      });
+      setMessage('bundle component option을 수정했습니다.');
+    });
+  };
+
+  const handleDeleteOption = async (optionId: string) => {
+    if (!window.confirm('이 option을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    await runWithNotice(async () => {
+      await deleteComponentOption.mutateAsync(optionId);
+      setMessage('bundle component option을 삭제했습니다.');
     });
   };
 
@@ -514,6 +646,14 @@ export default function V2CatalogBundlesPage() {
                         {component.price_allocation_weight}
                       </td>
                       <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            intent="secondary"
+                            onClick={() => setSelectedComponentId(component.id)}
+                          >
+                            편집
+                          </Button>
                         <Button
                           size="sm"
                           intent="danger"
@@ -525,6 +665,7 @@ export default function V2CatalogBundlesPage() {
                         >
                           삭제
                         </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -595,6 +736,174 @@ export default function V2CatalogBundlesPage() {
               </Button>
             </div>
           </form>
+
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-gray-900">선택 Component 편집</h3>
+            {!selectedComponent && (
+              <p className="text-sm text-gray-500">편집할 component를 선택해주세요.</p>
+            )}
+            {selectedComponent && (
+              <>
+                <p className="text-xs text-gray-500">
+                  component_id: {selectedComponent.id}
+                </p>
+                <form
+                  key={`component-edit-${selectedComponent.id}`}
+                  className="grid grid-cols-1 gap-2 md:grid-cols-6"
+                  onSubmit={handleUpdateComponent}
+                >
+                  <Input
+                    className="md:col-span-2"
+                    name="component_variant_id"
+                    defaultValue={selectedComponent.component_variant_id}
+                    placeholder="component_variant_id"
+                  />
+                  <Input
+                    name="min_quantity"
+                    type="number"
+                    min={0}
+                    defaultValue={selectedComponent.min_quantity}
+                    placeholder="min"
+                  />
+                  <Input
+                    name="default_quantity"
+                    type="number"
+                    min={0}
+                    defaultValue={selectedComponent.default_quantity}
+                    placeholder="default"
+                  />
+                  <Input
+                    name="max_quantity"
+                    type="number"
+                    min={1}
+                    defaultValue={selectedComponent.max_quantity}
+                    placeholder="max"
+                  />
+                  <Input
+                    name="sort_order"
+                    type="number"
+                    min={0}
+                    defaultValue={selectedComponent.sort_order}
+                    placeholder="sort"
+                  />
+                  <Input
+                    name="price_allocation_weight"
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    defaultValue={selectedComponent.price_allocation_weight}
+                    placeholder="weight"
+                  />
+                  <label className="md:col-span-2 flex items-center gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      name="is_required"
+                      defaultChecked={selectedComponent.is_required}
+                    />
+                    required component
+                  </label>
+                  <div className="md:col-span-4">
+                    <Button
+                      size="sm"
+                      type="submit"
+                      loading={updateComponent.isPending}
+                    >
+                      Component 수정
+                    </Button>
+                  </div>
+                </form>
+
+                <div className="rounded-md border border-gray-200 bg-white p-3 space-y-3">
+                  <p className="text-sm font-semibold text-gray-800">Option 편집</p>
+                  {(selectedComponent.options || []).length === 0 && (
+                    <p className="text-sm text-gray-500">등록된 option이 없습니다.</p>
+                  )}
+                  {(selectedComponent.options || []).map((option) => (
+                    <form
+                      key={option.id}
+                      className="grid grid-cols-1 gap-2 md:grid-cols-8"
+                      onSubmit={(event) => handleUpdateOption(option.id, event)}
+                    >
+                      <Input
+                        className="md:col-span-3"
+                        name="option_key"
+                        defaultValue={option.option_key}
+                        placeholder="option_key"
+                      />
+                      <Input
+                        className="md:col-span-3"
+                        name="option_value"
+                        defaultValue={option.option_value}
+                        placeholder="option_value"
+                      />
+                      <Input
+                        name="sort_order"
+                        type="number"
+                        min={0}
+                        defaultValue={option.sort_order}
+                        placeholder="sort"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          type="submit"
+                          intent="secondary"
+                          loading={
+                            updateComponentOption.isPending &&
+                            updateComponentOption.variables?.optionId === option.id
+                          }
+                        >
+                          수정
+                        </Button>
+                        <Button
+                          size="sm"
+                          type="button"
+                          intent="danger"
+                          loading={
+                            deleteComponentOption.isPending &&
+                            deleteComponentOption.variables === option.id
+                          }
+                          onClick={() => handleDeleteOption(option.id)}
+                        >
+                          삭제
+                        </Button>
+                      </div>
+                    </form>
+                  ))}
+
+                  <form className="grid grid-cols-1 gap-2 md:grid-cols-8" onSubmit={handleCreateOption}>
+                    <Input
+                      className="md:col-span-3"
+                      name="option_key"
+                      placeholder="새 option_key"
+                    />
+                    <Input
+                      className="md:col-span-3"
+                      name="option_value"
+                      placeholder="새 option_value"
+                    />
+                    <Input
+                      name="sort_order"
+                      type="number"
+                      min={0}
+                      defaultValue={0}
+                      placeholder="sort"
+                    />
+                    <div>
+                      <Button
+                        size="sm"
+                        type="submit"
+                        loading={createComponentOption.isPending}
+                        disabled={!activeComponentId}
+                      >
+                        Option 추가
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </section>
 

@@ -12,6 +12,7 @@ import {
   type CreateV2ArtistData,
   type CloneV2BundleDefinitionVersionData,
   type CreateV2BundleComponentData,
+  type CreateV2BundleComponentOptionData,
   type CreateV2BundleDefinitionData,
   type CreateV2DigitalAssetData,
   type CreateV2MediaData,
@@ -25,6 +26,7 @@ import {
   type LinkV2ArtistToProjectData,
   type PreviewV2BundleData,
   type ResolveV2BundleData,
+  type UpdateV2BundleComponentOptionData,
   type UpdateV2BundleComponentData,
   type UpdateV2BundleDefinitionData,
   type UpdateV2ArtistData,
@@ -572,6 +574,49 @@ export function useDeleteV2BundleComponent() {
   return useMutation({
     mutationFn: async (componentId: string) =>
       V2CatalogAdminAPI.deleteBundleComponent(componentId),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useCreateV2BundleComponentOption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      componentId,
+      data,
+    }: {
+      componentId: string;
+      data: CreateV2BundleComponentOptionData;
+    }) => V2CatalogAdminAPI.createBundleComponentOption(componentId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useUpdateV2BundleComponentOption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      optionId,
+      data,
+    }: {
+      optionId: string;
+      data: UpdateV2BundleComponentOptionData;
+    }) => V2CatalogAdminAPI.updateBundleComponentOption(optionId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useDeleteV2BundleComponentOption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (optionId: string) =>
+      V2CatalogAdminAPI.deleteBundleComponentOption(optionId),
     onSuccess: async () => {
       await invalidateV2CatalogAdmin(queryClient);
     },
