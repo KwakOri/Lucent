@@ -43,6 +43,26 @@
 
 관리자 API 토큰을 준비한 뒤 아래를 실행한다.
 
+#### A안. 리허설 스크립트 실행 (권장)
+
+```bash
+cd frontend
+LUCENT_BASE_URL="https://<host>" \
+LUCENT_ADMIN_TOKEN="<ADMIN_TOKEN>" \
+npm run ops:v2-rehearsal
+```
+
+JSON 형식이 필요하면:
+
+```bash
+cd frontend
+LUCENT_BASE_URL="https://<host>" \
+LUCENT_ADMIN_TOKEN="<ADMIN_TOKEN>" \
+npm run ops:v2-rehearsal -- --json
+```
+
+#### B안. API 직접 호출
+
 ```bash
 curl -s -H "Authorization: Bearer <ADMIN_TOKEN>" \
   "https://<host>/api/v2/catalog/admin/migration/compare-report?sampleLimit=20"
@@ -117,4 +137,3 @@ curl -s -H "Authorization: Bearer <ADMIN_TOKEN>" \
 - 최종 결정: 진행/보류
 - 비고:
 ```
-

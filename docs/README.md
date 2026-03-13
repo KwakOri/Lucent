@@ -172,6 +172,7 @@ npx tsx scripts/test-email.ts your-email@example.com
 ```
 /scripts
 └── test-email.ts               # 이메일 설정 테스트 스크립트
+└── v2-read-switch-rehearsal.ts # V2 전환 리허설 점검 스크립트
 ```
 
 ---

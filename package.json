@@ -13,6 +13,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "gen:types": "supabase gen types typescript --linked > types/database.ts",
+    "ops:v2-rehearsal": "tsx scripts/v2-read-switch-rehearsal.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
