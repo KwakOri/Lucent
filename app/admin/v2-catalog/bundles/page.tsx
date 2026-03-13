@@ -7,6 +7,7 @@ import { Input, Textarea } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import {
   useArchiveV2BundleDefinition,
+  useBuildV2BundleOpsContract,
   useCloneV2BundleDefinitionVersion,
   useCreateV2BundleComponent,
   useCreateV2BundleComponentOption,
@@ -133,6 +134,7 @@ export default function V2CatalogBundlesPage() {
   const [validationResult, setValidationResult] = useState<unknown>(null);
   const [previewResult, setPreviewResult] = useState<unknown>(null);
   const [resolveResult, setResolveResult] = useState<unknown>(null);
+  const [opsContractResult, setOpsContractResult] = useState<unknown>(null);
 
   const {
     data: definitions,
@@ -161,6 +163,7 @@ export default function V2CatalogBundlesPage() {
   const validateBundle = useValidateV2BundleDefinition(activeDefinitionId);
   const previewBundle = usePreviewV2Bundle();
   const resolveBundle = useResolveV2Bundle();
+  const buildOpsContract = useBuildV2BundleOpsContract();
 
   const activeComponentId = useMemo(() => {
     const list = components || [];
@@ -435,6 +438,29 @@ export default function V2CatalogBundlesPage() {
       });
       setResolveResult(result);
       setMessage('bundle resolve를 실행했습니다.');
+    });
+  };
+
+  const runOpsContract = async () => {
+    if (!activeDefinitionId) {
+      return;
+    }
+
+    await runWithNotice(async () => {
+      const selected = parseSelectionInput(selectionJson);
+      const resolvedParentUnitAmount =
+        parentUnitAmount.trim() === ''
+          ? null
+          : parseNonNegativeInteger(parentUnitAmount, 'parent_unit_amount');
+
+      const result = await buildOpsContract.mutateAsync({
+        bundle_definition_id: activeDefinitionId,
+        parent_quantity: parsePositiveInteger(parentQuantity, 'parent_quantity'),
+        parent_unit_amount: resolvedParentUnitAmount,
+        selected_components: selected,
+      });
+      setOpsContractResult(result);
+      setMessage('component 기준 CS/환불/재발송 계약을 생성했습니다.');
     });
   };
 
@@ -946,9 +972,17 @@ export default function V2CatalogBundlesPage() {
             <Button size="sm" intent="primary" onClick={runResolve} loading={resolveBundle.isPending}>
               Resolve
             </Button>
+            <Button
+              size="sm"
+              intent="primary"
+              onClick={runOpsContract}
+              loading={buildOpsContract.isPending}
+            >
+              Ops Contract
+            </Button>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
           <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
             <p className="text-sm font-semibold text-gray-700">Validation Result</p>
             <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
@@ -965,6 +999,12 @@ export default function V2CatalogBundlesPage() {
             <p className="text-sm font-semibold text-gray-700">Resolve Result</p>
             <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
               {resolveResult ? JSON.stringify(resolveResult, null, 2) : '-'}
+            </pre>
+          </div>
+          <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+            <p className="text-sm font-semibold text-gray-700">Ops Contract Result</p>
+            <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
+              {opsContractResult ? JSON.stringify(opsContractResult, null, 2) : '-'}
             </pre>
           </div>
         </div>

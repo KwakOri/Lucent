@@ -246,6 +246,51 @@ export interface V2BundleResolveResult {
   };
 }
 
+export interface V2BundleOpsContractResult {
+  bundle_definition_id: string;
+  mode: V2BundleMode;
+  status: V2BundleStatus;
+  policy_version: string;
+  parent_line_contract: {
+    line_type: 'BUNDLE_PARENT';
+    direct_refund_supported: boolean;
+    direct_reship_supported: boolean;
+    reason: string;
+  };
+  component_line_contracts: Array<{
+    bundle_component_id_snapshot: string;
+    component_variant_id: string;
+    component_variant_sku: string;
+    fulfillment_type: V2FulfillmentType;
+    requires_shipping: boolean;
+    quantity: number;
+    refund_contract: {
+      supported: boolean;
+      basis: 'COMPONENT_LINE';
+      quantity_field: string;
+      amount_fields: string[];
+      snapshot_field: string;
+    };
+    reship_contract: {
+      supported: boolean;
+      basis: 'COMPONENT_LINE';
+      quantity_field: string;
+      snapshot_field: string;
+    };
+    digital_regrant_contract: {
+      supported: boolean;
+      basis: 'COMPONENT_LINE';
+      snapshot_field: string;
+    };
+  }>;
+  summary: {
+    component_line_count: number;
+    refundable_component_lines: number;
+    reshippable_component_lines: number;
+    digital_regrant_component_lines: number;
+  };
+}
+
 export interface PublishReadinessCheck {
   key: string;
   passed: boolean;
@@ -572,6 +617,14 @@ export interface ValidateV2BundleDefinitionData {
 }
 
 export interface ResolveV2BundleData {
+  bundle_definition_id: string;
+  parent_variant_id?: string | null;
+  parent_quantity?: number;
+  parent_unit_amount?: number | null;
+  selected_components?: V2BundleComponentSelectionData[];
+}
+
+export interface BuildV2BundleOpsContractData {
   bundle_definition_id: string;
   parent_variant_id?: string | null;
   parent_quantity?: number;
@@ -925,6 +978,12 @@ export const V2CatalogAdminAPI = {
     data: ResolveV2BundleData,
   ): Promise<ApiResponse<V2BundleResolveResult>> {
     return apiClient.post('/api/v2/catalog/admin/bundles/resolve', data);
+  },
+
+  async buildBundleOpsContract(
+    data: BuildV2BundleOpsContractData,
+  ): Promise<ApiResponse<V2BundleOpsContractResult>> {
+    return apiClient.post('/api/v2/catalog/admin/bundles/ops-contract', data);
   },
 
   async getProductPublishReadiness(

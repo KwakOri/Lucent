@@ -114,6 +114,7 @@ export {
   useValidateV2BundleDefinition,
   usePreviewV2Bundle,
   useResolveV2Bundle,
+  useBuildV2BundleOpsContract,
   useV2ProductPublishReadiness,
   useV2CatalogMigrationCompareReport,
   useV2CatalogReadSwitchChecklist,

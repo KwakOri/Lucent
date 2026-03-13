@@ -126,6 +126,8 @@ export const queryKeys = {
     bundles: {
       all: ['v2-catalog-admin', 'bundles'] as const,
       preview: () => [...queryKeys.v2CatalogAdmin.bundles.all, 'preview'] as const,
+      opsContract: () =>
+        [...queryKeys.v2CatalogAdmin.bundles.all, 'ops-contract'] as const,
       definitions: {
         all: ['v2-catalog-admin', 'bundles', 'definitions'] as const,
         list: (params: GetV2BundleDefinitionsParams = {}) =>
