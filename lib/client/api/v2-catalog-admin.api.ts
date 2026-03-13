@@ -18,6 +18,7 @@ export type V2MediaRole = 'PRIMARY' | 'GALLERY' | 'DETAIL';
 export type V2MediaStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
 export type V2AssetRole = 'PRIMARY' | 'BONUS';
 export type V2DigitalAssetStatus = 'DRAFT' | 'READY' | 'RETIRED';
+export type MigrationCheckSeverity = 'BLOCKING' | 'ADVISORY';
 
 export interface V2Project {
   id: string;
@@ -145,6 +146,7 @@ export interface ProductPublishReadiness {
 export interface MigrationCheckResult {
   key: string;
   passed: boolean;
+  severity: MigrationCheckSeverity;
   expected: string;
   actual: string;
   detail: string;
@@ -184,6 +186,7 @@ export interface MigrationCompareReport {
 export interface ReadSwitchChecklistItem {
   key: string;
   passed: boolean;
+  severity: MigrationCheckSeverity;
   detail: string;
   action: string;
 }
@@ -194,8 +197,36 @@ export interface ReadSwitchChecklist {
   total_checks: number;
   passed_checks: number;
   failed_checks: number;
+  blocking_failed_checks: number;
+  advisory_failed_checks: number;
   blocking_checks: string[];
   checklist: ReadSwitchChecklistItem[];
+  recommended_order: string[];
+}
+
+export interface ReadSwitchRemediationTask {
+  check_key: string;
+  severity: MigrationCheckSeverity;
+  title: string;
+  detail: string;
+  expected: string;
+  actual: string;
+  action: string;
+  sample_source: string | null;
+  sample_count: number;
+  samples: Array<Record<string, unknown>>;
+}
+
+export interface ReadSwitchRemediationTaskReport {
+  generated_at: string;
+  ready: boolean;
+  summary: {
+    failed_total: number;
+    blocking_failed: number;
+    advisory_failed: number;
+  };
+  blocking_tasks: ReadSwitchRemediationTask[];
+  advisory_tasks: ReadSwitchRemediationTask[];
   recommended_order: string[];
 }
 
@@ -585,6 +616,16 @@ export const V2CatalogAdminAPI = {
   ): Promise<ApiResponse<ReadSwitchChecklist>> {
     return apiClient.get(
       `/api/v2/catalog/admin/migration/read-switch-checklist${buildSearchParams({
+        sampleLimit: String(sampleLimit),
+      })}`,
+    );
+  },
+
+  async getReadSwitchRemediationTasks(
+    sampleLimit = 20,
+  ): Promise<ApiResponse<ReadSwitchRemediationTaskReport>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/migration/remediation-tasks${buildSearchParams({
         sampleLimit: String(sampleLimit),
       })}`,
     );

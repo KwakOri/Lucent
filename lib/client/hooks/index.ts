@@ -100,4 +100,5 @@ export {
   useV2ProductPublishReadiness,
   useV2CatalogMigrationCompareReport,
   useV2CatalogReadSwitchChecklist,
+  useV2CatalogReadSwitchRemediationTasks,
 } from './useV2CatalogAdmin';

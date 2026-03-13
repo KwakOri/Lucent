@@ -136,6 +136,12 @@ export const queryKeys = {
           'read-switch-checklist',
           sampleLimit,
         ] as const,
+      remediationTasks: (sampleLimit: number) =>
+        [
+          ...queryKeys.v2CatalogAdmin.migration.all,
+          'remediation-tasks',
+          sampleLimit,
+        ] as const,
     },
   },
 } as const;

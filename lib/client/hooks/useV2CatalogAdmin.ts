@@ -455,3 +455,14 @@ export function useV2CatalogReadSwitchChecklist(sampleLimit = 20) {
     },
   });
 }
+
+export function useV2CatalogReadSwitchRemediationTasks(sampleLimit = 20) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.migration.remediationTasks(sampleLimit),
+    queryFn: async () => {
+      const response =
+        await V2CatalogAdminAPI.getReadSwitchRemediationTasks(sampleLimit);
+      return response.data;
+    },
+  });
+}

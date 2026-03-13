@@ -6,9 +6,11 @@ import { Check, Copy, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Loading } from '@/components/ui/loading';
 import { Button } from '@/components/ui/button';
+import type { ReadSwitchRemediationTask } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useV2CatalogMigrationCompareReport,
   useV2CatalogReadSwitchChecklist,
+  useV2CatalogReadSwitchRemediationTasks,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 const SAMPLE_LIMIT = 20;
@@ -51,10 +53,11 @@ function summarizeDifferenceCounts(differences: Record<string, unknown>): Array<
 
 function buildRemediationDraft(checklist: {
   generated_at: string;
-  checklist: Array<{ key: string; passed: boolean; action: string; detail: string }>;
+  blocking_tasks: ReadSwitchRemediationTask[];
+  advisory_tasks: ReadSwitchRemediationTask[];
 }): string {
-  const failedItems = checklist.checklist.filter((item) => !item.passed);
-  if (failedItems.length === 0) {
+  const allTasks = [...checklist.blocking_tasks, ...checklist.advisory_tasks];
+  if (allTasks.length === 0) {
     return [
       '# V2 Read Switch 보정 작업 초안',
       '',
@@ -67,18 +70,42 @@ function buildRemediationDraft(checklist: {
     '# V2 Read Switch 보정 작업 초안',
     '',
     `- 생성 시각: ${checklist.generated_at}`,
-    `- 실패 항목 수: ${failedItems.length}`,
+    `- 실패 항목 수: ${allTasks.length}`,
+    `- Blocking: ${checklist.blocking_tasks.length}`,
+    `- Advisory: ${checklist.advisory_tasks.length}`,
     '',
-    '## 액션 아이템',
+    '## Blocking 액션 아이템',
   ];
 
-  failedItems.forEach((item, index) => {
-    lines.push(`${index + 1}. [ ] ${item.key}`);
+  checklist.blocking_tasks.forEach((item, index) => {
+    lines.push(`${index + 1}. [ ] ${item.check_key} (${item.title})`);
     lines.push(`- 근거: ${item.detail}`);
+    lines.push(`- 현재/기대: ${item.actual} / ${item.expected}`);
     lines.push(`- 조치: ${item.action}`);
   });
 
+  if (checklist.advisory_tasks.length > 0) {
+    lines.push('', '## Advisory 점검 항목');
+    checklist.advisory_tasks.forEach((item, index) => {
+      lines.push(`${index + 1}. [ ] ${item.check_key} (${item.title})`);
+      lines.push(`- 근거: ${item.detail}`);
+      lines.push(`- 현재/기대: ${item.actual} / ${item.expected}`);
+      lines.push(`- 조치: ${item.action}`);
+    });
+  }
+
   return lines.join('\n');
+}
+
+function buildTaskDraft(task: ReadSwitchRemediationTask): string {
+  return [
+    `[ ] ${task.check_key} (${task.title})`,
+    `- 구분: ${task.severity}`,
+    `- 근거: ${task.detail}`,
+    `- 현재/기대: ${task.actual} / ${task.expected}`,
+    `- 샘플: ${task.sample_source || '-'} (${task.sample_count}건)`,
+    `- 조치: ${task.action}`,
+  ].join('\n');
 }
 
 export default function V2CatalogReadinessPage() {
@@ -96,6 +123,12 @@ export default function V2CatalogReadinessPage() {
     error: checklistError,
   } = useV2CatalogReadSwitchChecklist(SAMPLE_LIMIT);
 
+  const {
+    data: remediation,
+    isLoading: isLoadingRemediation,
+    error: remediationError,
+  } = useV2CatalogReadSwitchRemediationTasks(SAMPLE_LIMIT);
+
   const copyToClipboard = async (text: string, target: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -108,7 +141,7 @@ export default function V2CatalogReadinessPage() {
     }
   };
 
-  if (isLoadingReport || isLoadingChecklist) {
+  if (isLoadingReport || isLoadingChecklist || isLoadingRemediation) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loading size="lg" text="v2 전환 준비 상태를 확인하는 중입니다" />
@@ -116,7 +149,14 @@ export default function V2CatalogReadinessPage() {
     );
   }
 
-  if (reportError || checklistError || !compareReport || !checklist) {
+  if (
+    reportError ||
+    checklistError ||
+    remediationError ||
+    !compareReport ||
+    !checklist ||
+    !remediation
+  ) {
     return (
       <div className="text-center py-12">
         <p className="text-red-600">v2 전환 준비 리포트를 불러오는데 실패했습니다.</p>
@@ -126,6 +166,12 @@ export default function V2CatalogReadinessPage() {
 
   const differenceRows = summarizeDifferenceCounts(
     compareReport.differences as Record<string, unknown>,
+  );
+  const remediationTaskByCheck = new Map(
+    [...remediation.blocking_tasks, ...remediation.advisory_tasks].map((task) => [
+      task.check_key,
+      task,
+    ]),
   );
 
   return (
@@ -150,7 +196,7 @@ export default function V2CatalogReadinessPage() {
         </div>
       </div>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <p className="text-xs text-gray-500">Legacy Products</p>
           <p className="mt-1 text-2xl font-semibold text-gray-900">
@@ -172,7 +218,13 @@ export default function V2CatalogReadinessPage() {
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <p className="text-xs text-gray-500">Blocking Checks</p>
           <p className="mt-1 text-2xl font-semibold text-red-700">
-            {checklist.blocking_checks.length}
+            {remediation.summary.blocking_failed}
+          </p>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">Advisory Checks</p>
+          <p className="mt-1 text-2xl font-semibold text-amber-700">
+            {remediation.summary.advisory_failed}
           </p>
         </div>
       </section>
@@ -182,7 +234,13 @@ export default function V2CatalogReadinessPage() {
           <div>
             <h2 className="text-base font-semibold text-blue-900">보정 작업 생성</h2>
             <p className="mt-1 text-sm text-blue-800">
-              실패 항목을 Notion 티켓/작업으로 옮길 수 있도록 초안을 생성합니다.
+              blocking/advisory 실패 항목을 Notion 티켓/작업으로 옮길 수 있도록
+              초안을 생성합니다.
+            </p>
+            <p className="mt-1 text-xs text-blue-700">
+              실패 {remediation.summary.failed_total}건 (blocking{' '}
+              {remediation.summary.blocking_failed} / advisory{' '}
+              {remediation.summary.advisory_failed})
             </p>
           </div>
           <div className="mt-3 flex flex-wrap gap-2 sm:mt-0">
@@ -192,8 +250,9 @@ export default function V2CatalogReadinessPage() {
               onClick={() =>
                 copyToClipboard(
                   buildRemediationDraft({
-                    generated_at: checklist.generated_at,
-                    checklist: checklist.checklist,
+                    generated_at: remediation.generated_at,
+                    blocking_tasks: remediation.blocking_tasks,
+                    advisory_tasks: remediation.advisory_tasks,
                   }),
                   'all-failed-items',
                 )
@@ -236,6 +295,9 @@ export default function V2CatalogReadinessPage() {
                   상태
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">
+                  심각도
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">
                   현재값
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">
@@ -254,6 +316,8 @@ export default function V2CatalogReadinessPage() {
                 const checklistItem = checklist.checklist.find(
                   (item) => item.key === check.key,
                 );
+                const task = remediationTaskByCheck.get(check.key);
+                const severity = check.severity || checklistItem?.severity || 'BLOCKING';
 
                 return (
                   <tr key={check.key}>
@@ -265,22 +329,23 @@ export default function V2CatalogReadinessPage() {
                         {check.passed ? 'PASS' : 'FAIL'}
                       </Badge>
                     </td>
+                    <td className="px-4 py-3 text-sm">
+                      <Badge intent={severity === 'BLOCKING' ? 'error' : 'warning'}>
+                        {severity === 'BLOCKING' ? 'BLOCKING' : 'ADVISORY'}
+                      </Badge>
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-700">{check.actual}</td>
                     <td className="px-4 py-3 text-sm text-gray-500">{check.expected}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {checklistItem?.action || '-'}
+                      {task?.action || checklistItem?.action || '-'}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {checklistItem && !check.passed ? (
+                      {task && !check.passed ? (
                         <button
                           type="button"
                           onClick={() =>
                             copyToClipboard(
-                              [
-                                `[ ] ${check.key}`,
-                                `- 근거: ${check.detail}`,
-                                `- 조치: ${checklistItem.action}`,
-                              ].join('\n'),
+                              buildTaskDraft(task),
                               `item-${check.key}`,
                             )
                           }
@@ -307,6 +372,151 @@ export default function V2CatalogReadinessPage() {
               })}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-gray-200 bg-white">
+        <div className="border-b border-gray-200 px-4 py-3">
+          <h2 className="text-base font-semibold text-gray-900">보정 작업 목록</h2>
+        </div>
+        <div className="space-y-6 p-4">
+          <div>
+            <h3 className="text-sm font-semibold text-red-700">Blocking</h3>
+            {remediation.blocking_tasks.length === 0 ? (
+              <p className="mt-2 text-sm text-gray-500">실패한 blocking 항목이 없습니다.</p>
+            ) : (
+              <div className="mt-2 overflow-x-auto rounded-md border border-red-100">
+                <table className="min-w-full divide-y divide-red-100">
+                  <thead className="bg-red-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-red-800">
+                        Task
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-red-800">
+                        샘플
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-red-800">
+                        조치
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-red-100">
+                    {remediation.blocking_tasks.map((task) => (
+                      <tr key={`blocking-${task.check_key}`}>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          <p className="font-medium">{task.title}</p>
+                          <p className="text-xs text-gray-600">{task.check_key}</p>
+                          <p className="text-xs text-gray-500">{task.detail}</p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          <Badge intent={task.sample_count > 0 ? 'warning' : 'success'}>
+                            {task.sample_count}
+                          </Badge>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {task.sample_source || '-'}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          <p>{task.action}</p>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              copyToClipboard(
+                                buildTaskDraft(task),
+                                `task-${task.check_key}`,
+                              )
+                            }
+                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            {copiedTarget === `task-${task.check_key}` ? (
+                              <>
+                                <Check className="h-3.5 w-3.5" />
+                                복사됨
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3.5 w-3.5" />
+                                항목 복사
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-amber-700">Advisory</h3>
+            {remediation.advisory_tasks.length === 0 ? (
+              <p className="mt-2 text-sm text-gray-500">실패한 advisory 항목이 없습니다.</p>
+            ) : (
+              <div className="mt-2 overflow-x-auto rounded-md border border-amber-100">
+                <table className="min-w-full divide-y divide-amber-100">
+                  <thead className="bg-amber-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-amber-800">
+                        Task
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-amber-800">
+                        샘플
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-amber-800">
+                        조치
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-amber-100">
+                    {remediation.advisory_tasks.map((task) => (
+                      <tr key={`advisory-${task.check_key}`}>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          <p className="font-medium">{task.title}</p>
+                          <p className="text-xs text-gray-600">{task.check_key}</p>
+                          <p className="text-xs text-gray-500">{task.detail}</p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          <Badge intent={task.sample_count > 0 ? 'warning' : 'success'}>
+                            {task.sample_count}
+                          </Badge>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {task.sample_source || '-'}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          <p>{task.action}</p>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              copyToClipboard(
+                                buildTaskDraft(task),
+                                `task-${task.check_key}`,
+                              )
+                            }
+                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            {copiedTarget === `task-${task.check_key}` ? (
+                              <>
+                                <Check className="h-3.5 w-3.5" />
+                                복사됨
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3.5 w-3.5" />
+                                항목 복사
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
