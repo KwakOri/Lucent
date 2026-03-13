@@ -52,13 +52,22 @@ LUCENT_ADMIN_TOKEN="<ADMIN_TOKEN>" \
 npm run ops:v2-rehearsal
 ```
 
+파일로 저장하려면:
+
+```bash
+cd frontend
+LUCENT_BASE_URL="https://<host>" \
+LUCENT_ADMIN_TOKEN="<ADMIN_TOKEN>" \
+npm run ops:v2-rehearsal -- --out docs/v2-rehearsal-latest.md
+```
+
 JSON 형식이 필요하면:
 
 ```bash
 cd frontend
 LUCENT_BASE_URL="https://<host>" \
 LUCENT_ADMIN_TOKEN="<ADMIN_TOKEN>" \
-npm run ops:v2-rehearsal -- --json
+npm run ops:v2-rehearsal -- --json --out docs/v2-rehearsal-latest.json
 ```
 
 #### B안. API 직접 호출

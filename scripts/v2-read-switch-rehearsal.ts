@@ -1,8 +1,11 @@
+import { writeFile } from 'node:fs/promises';
+
 type RehearsalArgs = {
   baseUrl: string;
   token: string;
   sampleLimit: number;
   output: 'markdown' | 'json';
+  outFile: string | null;
 };
 
 type ApiEnvelope<T> = {
@@ -82,6 +85,7 @@ function parseArgs(argv: string[]): RehearsalArgs {
   const sampleLimitRaw =
     readArg('--sample-limit') || process.env.LUCENT_SAMPLE_LIMIT || '20';
   const output = hasFlag('--json') ? 'json' : 'markdown';
+  const outFile = readArg('--out') || null;
 
   const sampleLimit = Number.parseInt(sampleLimitRaw, 10);
   if (!Number.isFinite(sampleLimit) || sampleLimit <= 0) {
@@ -98,6 +102,7 @@ function parseArgs(argv: string[]): RehearsalArgs {
     token,
     sampleLimit,
     output,
+    outFile,
   };
 }
 
@@ -114,6 +119,7 @@ function printHelp(): void {
       '  --token <token>        Admin Bearer token (or LUCENT_ADMIN_TOKEN)',
       '  --sample-limit <num>   Sample limit for migration checks (default: 20)',
       '  --json                 Print summary in JSON format',
+      '  --out <path>           Save result to file (in addition to stdout)',
       '  --help, -h             Show help',
       '',
       'Environment variables:',
@@ -257,38 +263,44 @@ async function main(): Promise<void> {
   if (args.output === 'json') {
     const gateA = remediation.summary.blocking_failed === 0;
     const gateB = (checklist.blocking_failed_checks || 0) === 0;
-    console.log(
-      JSON.stringify(
-        {
-          generated_at: compareReport.generated_at,
-          base_url: args.baseUrl,
-          sample_limit: args.sampleLimit,
-          compare_read_ready: compareReport.read_switch.ready,
-          checklist,
-          remediation_summary: remediation.summary,
-          gates: {
-            gate_a_data_remediation: gateA ? 'PASS' : 'FAIL',
-            gate_b_checklist: gateB ? 'PASS' : 'FAIL',
-            gate_c_smoke_test: 'MANUAL',
-            gate_d_rollback_ready: 'MANUAL',
-          },
+    const result = JSON.stringify(
+      {
+        generated_at: compareReport.generated_at,
+        base_url: args.baseUrl,
+        sample_limit: args.sampleLimit,
+        compare_read_ready: compareReport.read_switch.ready,
+        checklist,
+        remediation_summary: remediation.summary,
+        gates: {
+          gate_a_data_remediation: gateA ? 'PASS' : 'FAIL',
+          gate_b_checklist: gateB ? 'PASS' : 'FAIL',
+          gate_c_smoke_test: 'MANUAL',
+          gate_d_rollback_ready: 'MANUAL',
         },
-        null,
-        2,
-      ),
+      },
+      null,
+      2,
     );
+    if (args.outFile) {
+      await writeFile(args.outFile, `${result}\n`, 'utf8');
+      console.log(`[saved] ${args.outFile}`);
+    }
+    console.log(result);
     return;
   }
 
-  console.log(
-    buildMarkdownReport({
-      baseUrl: args.baseUrl,
-      sampleLimit: args.sampleLimit,
-      compareReport,
-      checklist,
-      remediation,
-    }),
-  );
+  const result = buildMarkdownReport({
+    baseUrl: args.baseUrl,
+    sampleLimit: args.sampleLimit,
+    compareReport,
+    checklist,
+    remediation,
+  });
+  if (args.outFile) {
+    await writeFile(args.outFile, `${result}\n`, 'utf8');
+    console.log(`[saved] ${args.outFile}`);
+  }
+  console.log(result);
 }
 
 main().catch((error: unknown) => {
@@ -299,4 +311,3 @@ main().catch((error: unknown) => {
   }
   process.exit(1);
 });
-
