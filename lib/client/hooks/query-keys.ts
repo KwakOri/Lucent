@@ -122,5 +122,20 @@ export const queryKeys = {
       list: (variantId: string) =>
         [...queryKeys.v2CatalogAdmin.assets.all, 'list', variantId] as const,
     },
+    migration: {
+      all: ['v2-catalog-admin', 'migration'] as const,
+      compareReport: (sampleLimit: number) =>
+        [
+          ...queryKeys.v2CatalogAdmin.migration.all,
+          'compare-report',
+          sampleLimit,
+        ] as const,
+      readSwitchChecklist: (sampleLimit: number) =>
+        [
+          ...queryKeys.v2CatalogAdmin.migration.all,
+          'read-switch-checklist',
+          sampleLimit,
+        ] as const,
+    },
   },
 } as const;

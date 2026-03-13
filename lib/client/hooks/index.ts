@@ -98,4 +98,6 @@ export {
   useActivateV2DigitalAsset,
   useDeactivateV2DigitalAsset,
   useV2ProductPublishReadiness,
+  useV2CatalogMigrationCompareReport,
+  useV2CatalogReadSwitchChecklist,
 } from './useV2CatalogAdmin';

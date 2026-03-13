@@ -142,6 +142,63 @@ export interface ProductPublishReadiness {
   checks: PublishReadinessCheck[];
 }
 
+export interface MigrationCheckResult {
+  key: string;
+  passed: boolean;
+  expected: string;
+  actual: string;
+  detail: string;
+}
+
+export interface MigrationCompareReport {
+  generated_at: string;
+  sample_limit: number;
+  counts: {
+    legacy: {
+      projects: number;
+      artists: number;
+      products: number;
+      digital_products: number;
+    };
+    v2: {
+      projects_total: number;
+      projects_mapped: number;
+      artists_total: number;
+      artists_mapped: number;
+      products_total: number;
+      products_mapped: number;
+      variants_total: number;
+      product_media_total: number;
+      digital_assets_total: number;
+    };
+  };
+  checks: MigrationCheckResult[];
+  differences: Record<string, unknown>;
+  read_switch: {
+    ready: boolean;
+    blocking_checks: string[];
+    recommended_order: string[];
+  };
+}
+
+export interface ReadSwitchChecklistItem {
+  key: string;
+  passed: boolean;
+  detail: string;
+  action: string;
+}
+
+export interface ReadSwitchChecklist {
+  generated_at: string;
+  ready: boolean;
+  total_checks: number;
+  passed_checks: number;
+  failed_checks: number;
+  blocking_checks: string[];
+  checklist: ReadSwitchChecklistItem[];
+  recommended_order: string[];
+}
+
 export interface GetV2ProjectsParams {
   status?: V2ProjectStatus;
 }
@@ -510,6 +567,26 @@ export const V2CatalogAdminAPI = {
   ): Promise<ApiResponse<ProductPublishReadiness>> {
     return apiClient.get(
       `/api/v2/catalog/admin/products/${productId}/publish-readiness`,
+    );
+  },
+
+  async getMigrationCompareReport(
+    sampleLimit = 20,
+  ): Promise<ApiResponse<MigrationCompareReport>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/migration/compare-report${buildSearchParams({
+        sampleLimit: String(sampleLimit),
+      })}`,
+    );
+  },
+
+  async getReadSwitchChecklist(
+    sampleLimit = 20,
+  ): Promise<ApiResponse<ReadSwitchChecklist>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/migration/read-switch-checklist${buildSearchParams({
+        sampleLimit: String(sampleLimit),
+      })}`,
     );
   },
 };

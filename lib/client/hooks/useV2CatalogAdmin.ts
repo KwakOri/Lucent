@@ -435,3 +435,23 @@ export function useV2ProductPublishReadiness(productId: string | null | undefine
     enabled: !!productId,
   });
 }
+
+export function useV2CatalogMigrationCompareReport(sampleLimit = 20) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.migration.compareReport(sampleLimit),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getMigrationCompareReport(sampleLimit);
+      return response.data;
+    },
+  });
+}
+
+export function useV2CatalogReadSwitchChecklist(sampleLimit = 20) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.migration.readSwitchChecklist(sampleLimit),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getReadSwitchChecklist(sampleLimit);
+      return response.data;
+    },
+  });
+}
