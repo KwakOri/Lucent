@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises';
 
 type RehearsalArgs = {
   baseUrl: string;
-  token: string;
+  token: string | null;
   sampleLimit: number;
   output: 'markdown' | 'json';
   outFile: string | null;
@@ -81,7 +81,8 @@ function parseArgs(argv: string[]): RehearsalArgs {
 
   const baseUrl =
     readArg('--base-url') || process.env.LUCENT_BASE_URL || 'http://localhost:3000';
-  const token = readArg('--token') || process.env.LUCENT_ADMIN_TOKEN || '';
+  const rawToken = readArg('--token') || process.env.LUCENT_ADMIN_TOKEN || '';
+  const token = rawToken.trim() ? rawToken.trim() : null;
   const sampleLimitRaw =
     readArg('--sample-limit') || process.env.LUCENT_SAMPLE_LIMIT || '20';
   const output = hasFlag('--json') ? 'json' : 'markdown';
@@ -91,12 +92,6 @@ function parseArgs(argv: string[]): RehearsalArgs {
   if (!Number.isFinite(sampleLimit) || sampleLimit <= 0) {
     throw new Error(`Invalid --sample-limit value: ${sampleLimitRaw}`);
   }
-  if (!token) {
-    throw new Error(
-      'Admin token is required. Use --token <TOKEN> or set LUCENT_ADMIN_TOKEN.',
-    );
-  }
-
   return {
     baseUrl: baseUrl.replace(/\/$/, ''),
     token,
@@ -116,7 +111,7 @@ function printHelp(): void {
       '',
       'Options:',
       '  --base-url <url>       Frontend host (default: http://localhost:3000)',
-      '  --token <token>        Admin Bearer token (or LUCENT_ADMIN_TOKEN)',
+      '  --token <token>        Admin Bearer token (or LUCENT_ADMIN_TOKEN, optional when LOCAL_ADMIN_BYPASS=true)',
       '  --sample-limit <num>   Sample limit for migration checks (default: 20)',
       '  --json                 Print summary in JSON format',
       '  --out <path>           Save result to file (in addition to stdout)',
@@ -130,14 +125,18 @@ function printHelp(): void {
 
 async function fetchApi<T>(
   baseUrl: string,
-  token: string,
+  token: string | null,
   path: string,
 ): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${baseUrl}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers,
   });
 
   const raw = await response.text();

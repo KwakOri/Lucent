@@ -43,6 +43,9 @@
 
 관리자 API 토큰을 준비한 뒤 아래를 실행한다.
 
+로컬 개발에서만 `backend`에 `LOCAL_ADMIN_BYPASS=true`를 설정했다면
+`LUCENT_ADMIN_TOKEN` 없이 실행할 수 있다.
+
 #### A안. 리허설 스크립트 실행 (권장)
 
 ```bash

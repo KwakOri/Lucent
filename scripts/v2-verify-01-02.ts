@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises';
 
 type VerifyArgs = {
   baseUrl: string;
-  token: string;
+  token: string | null;
   sampleLimit: number;
   bundleDefinitionId: string | null;
   parentQuantity: number;
@@ -114,7 +114,7 @@ function printHelp(): void {
       '',
       'Options:',
       '  --base-url <url>            Frontend host (default: http://localhost:3000)',
-      '  --token <token>             Admin Bearer token (or LUCENT_ADMIN_TOKEN)',
+      '  --token <token>             Admin Bearer token (or LUCENT_ADMIN_TOKEN, optional when LOCAL_ADMIN_BYPASS=true)',
       '  --sample-limit <num>        Readiness sample limit (default: 20)',
       '  --bundle-definition-id <id> 검증할 bundle definition id (미지정 시 ACTIVE 첫 건)',
       '  --parent-quantity <num>     Resolve/Ops/Canary parent quantity (default: 1)',
@@ -148,7 +148,8 @@ function parseArgs(argv: string[]): VerifyArgs {
 
   const baseUrl =
     readArg('--base-url') || process.env.LUCENT_BASE_URL || 'http://localhost:3000';
-  const token = readArg('--token') || process.env.LUCENT_ADMIN_TOKEN || '';
+  const rawToken = readArg('--token') || process.env.LUCENT_ADMIN_TOKEN || '';
+  const token = rawToken.trim() ? rawToken.trim() : null;
   const sampleLimitRaw =
     readArg('--sample-limit') || process.env.LUCENT_SAMPLE_LIMIT || '20';
   const bundleDefinitionId = readArg('--bundle-definition-id') || null;
@@ -171,12 +172,6 @@ function parseArgs(argv: string[]): VerifyArgs {
   const parentUnitAmount = Number.parseInt(parentUnitAmountRaw, 10);
   if (!Number.isInteger(parentUnitAmount) || parentUnitAmount < 0) {
     throw new Error(`Invalid --parent-unit-amount value: ${parentUnitAmountRaw}`);
-  }
-
-  if (!token) {
-    throw new Error(
-      'Admin token is required. Use --token <TOKEN> or set LUCENT_ADMIN_TOKEN.',
-    );
   }
 
   return {
@@ -205,17 +200,20 @@ function buildSearchParams(values: Record<string, string | undefined>): string {
 
 async function fetchApi<T>(
   baseUrl: string,
-  token: string,
+  token: string | null,
   path: string,
   init?: RequestInit,
 ): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...(init?.headers || {}),
-    },
+    headers: { ...headers, ...(init?.headers || {}) },
   });
 
   const raw = await response.text();
