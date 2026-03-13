@@ -9,6 +9,7 @@ import type { GetArtistsParams } from '@/lib/client/api/artists.api';
 import type { GetProductsParams } from '@/lib/client/api/products.api';
 import type { GetProjectsParams } from '@/lib/client/api/projects.api';
 import type {
+  GetV2BundleDefinitionsParams,
   GetV2ArtistsParams,
   GetV2ProductsParams,
   GetV2ProjectsParams,
@@ -121,6 +122,38 @@ export const queryKeys = {
       all: ['v2-catalog-admin', 'assets'] as const,
       list: (variantId: string) =>
         [...queryKeys.v2CatalogAdmin.assets.all, 'list', variantId] as const,
+    },
+    bundles: {
+      all: ['v2-catalog-admin', 'bundles'] as const,
+      preview: () => [...queryKeys.v2CatalogAdmin.bundles.all, 'preview'] as const,
+      definitions: {
+        all: ['v2-catalog-admin', 'bundles', 'definitions'] as const,
+        list: (params: GetV2BundleDefinitionsParams = {}) =>
+          [
+            ...queryKeys.v2CatalogAdmin.bundles.definitions.all,
+            'list',
+            params,
+          ] as const,
+        detail: (definitionId: string) =>
+          [
+            ...queryKeys.v2CatalogAdmin.bundles.definitions.all,
+            'detail',
+            definitionId,
+          ] as const,
+        components: (definitionId: string) =>
+          [
+            ...queryKeys.v2CatalogAdmin.bundles.definitions.all,
+            'components',
+            definitionId,
+          ] as const,
+        validation: (definitionId: string) =>
+          [
+            ...queryKeys.v2CatalogAdmin.bundles.definitions.all,
+            'validation',
+            definitionId,
+          ] as const,
+      },
+      resolve: () => [...queryKeys.v2CatalogAdmin.bundles.all, 'resolve'] as const,
     },
     migration: {
       all: ['v2-catalog-admin', 'migration'] as const,

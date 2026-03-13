@@ -10,21 +10,30 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   V2CatalogAdminAPI,
   type CreateV2ArtistData,
+  type CloneV2BundleDefinitionVersionData,
+  type CreateV2BundleComponentData,
+  type CreateV2BundleDefinitionData,
   type CreateV2DigitalAssetData,
   type CreateV2MediaData,
   type CreateV2ProductData,
   type CreateV2ProjectData,
   type CreateV2VariantData,
+  type GetV2BundleDefinitionsParams,
   type GetV2ArtistsParams,
   type GetV2ProductsParams,
   type GetV2ProjectsParams,
   type LinkV2ArtistToProjectData,
+  type PreviewV2BundleData,
+  type ResolveV2BundleData,
+  type UpdateV2BundleComponentData,
+  type UpdateV2BundleDefinitionData,
   type UpdateV2ArtistData,
   type UpdateV2DigitalAssetData,
   type UpdateV2MediaData,
   type UpdateV2ProductData,
   type UpdateV2ProjectData,
   type UpdateV2VariantData,
+  type ValidateV2BundleDefinitionData,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import { queryKeys } from './query-keys';
 
@@ -421,6 +430,183 @@ export function useDeactivateV2DigitalAsset() {
       V2CatalogAdminAPI.deactivateDigitalAsset(assetId),
     onSuccess: async () => {
       await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useV2BundleDefinitions(params: GetV2BundleDefinitionsParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.bundles.definitions.list(params),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getBundleDefinitions(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2BundleDefinition(definitionId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.bundles.definitions.detail(
+      definitionId || '',
+    ),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getBundleDefinition(definitionId!);
+      return response.data;
+    },
+    enabled: !!definitionId,
+  });
+}
+
+export function useCreateV2BundleDefinition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateV2BundleDefinitionData) =>
+      V2CatalogAdminAPI.createBundleDefinition(data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useUpdateV2BundleDefinition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      definitionId,
+      data,
+    }: {
+      definitionId: string;
+      data: UpdateV2BundleDefinitionData;
+    }) => V2CatalogAdminAPI.updateBundleDefinition(definitionId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function usePublishV2BundleDefinition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (definitionId: string) =>
+      V2CatalogAdminAPI.publishBundleDefinition(definitionId),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useArchiveV2BundleDefinition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (definitionId: string) =>
+      V2CatalogAdminAPI.archiveBundleDefinition(definitionId),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useCloneV2BundleDefinitionVersion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      definitionId,
+      data,
+    }: {
+      definitionId: string;
+      data?: CloneV2BundleDefinitionVersionData;
+    }) => V2CatalogAdminAPI.cloneBundleDefinitionVersion(definitionId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useV2BundleComponents(definitionId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.bundles.definitions.components(
+      definitionId || '',
+    ),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getBundleComponents(definitionId!);
+      return response.data;
+    },
+    enabled: !!definitionId,
+  });
+}
+
+export function useCreateV2BundleComponent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      definitionId,
+      data,
+    }: {
+      definitionId: string;
+      data: CreateV2BundleComponentData;
+    }) => V2CatalogAdminAPI.createBundleComponent(definitionId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useUpdateV2BundleComponent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      componentId,
+      data,
+    }: {
+      componentId: string;
+      data: UpdateV2BundleComponentData;
+    }) => V2CatalogAdminAPI.updateBundleComponent(componentId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useDeleteV2BundleComponent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (componentId: string) =>
+      V2CatalogAdminAPI.deleteBundleComponent(componentId),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useValidateV2BundleDefinition(definitionId: string | null | undefined) {
+  return useMutation({
+    mutationFn: async (data: ValidateV2BundleDefinitionData = {}) => {
+      if (!definitionId) {
+        throw new Error('definitionId is required');
+      }
+      const response = await V2CatalogAdminAPI.validateBundleDefinition(
+        definitionId,
+        data,
+      );
+      return response.data;
+    },
+  });
+}
+
+export function useResolveV2Bundle() {
+  return useMutation({
+    mutationFn: async (data: ResolveV2BundleData) => {
+      const response = await V2CatalogAdminAPI.resolveBundle(data);
+      return response.data;
+    },
+  });
+}
+
+export function usePreviewV2Bundle() {
+  return useMutation({
+    mutationFn: async (data: PreviewV2BundleData) => {
+      const response = await V2CatalogAdminAPI.previewBundle(data);
+      return response.data;
     },
   });
 }
