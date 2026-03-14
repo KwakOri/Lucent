@@ -125,6 +125,7 @@ export {
 // V2 Checkout Hooks
 export {
   useV2CheckoutCart,
+  useV2CartCount,
   useV2AddCartItem,
   useV2UpdateCartItemQuantity,
   useV2RemoveCartItem,
