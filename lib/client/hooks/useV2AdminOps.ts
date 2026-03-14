@@ -12,6 +12,7 @@ import {
   type ListV2AdminActionLogsParams,
   type ListV2AdminApprovalsParams,
   type ListV2AdminCutoverBatchesParams,
+  type ListV2AdminCutoverGateChecklistParams,
   type ListV2AdminCutoverDomainsParams,
   type ListV2AdminCutoverGateReportsParams,
   type ListV2AdminCutoverRoutingFlagsParams,
@@ -83,6 +84,18 @@ export function useV2AdminCutoverGateReports(
     queryKey: queryKeys.v2AdminOps.cutover.gates(params),
     queryFn: async () => {
       const response = await V2AdminOpsAPI.listCutoverGateReports(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminCutoverGateChecklist(
+  params: ListV2AdminCutoverGateChecklistParams = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.cutover.gateChecklist(params),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.getCutoverGateChecklist(params);
       return response.data;
     },
   });
