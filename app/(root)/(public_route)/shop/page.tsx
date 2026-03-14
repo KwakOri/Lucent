@@ -3,10 +3,13 @@
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
-import { useV2ShopProducts } from "@/lib/client/hooks";
+import { useSession, useV2AddCartItem, useV2ShopProducts } from "@/lib/client/hooks";
 import type { V2ShopListItem } from "@/lib/client/api/v2-shop.api";
+import { ApiError } from "@/lib/client/utils/api-error";
 import { Headphones, Package } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useToast } from "@/src/components/toast";
 
 function formatDisplayPrice(item: V2ShopListItem): string {
   if (!item.display_price) {
@@ -35,19 +38,38 @@ function renderSellableBadge(item: V2ShopListItem) {
   );
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "요청 처리 중 오류가 발생했습니다.";
+}
+
 function ProductCard({
   item,
-  onClick,
+  onOpenDetail,
+  onAddToCart,
+  onBuyNow,
+  isAdding,
+  isBuyingNow,
 }: {
   item: V2ShopListItem;
-  onClick: () => void;
+  onOpenDetail: () => void;
+  onAddToCart: () => void;
+  onBuyNow: () => void;
+  isAdding: boolean;
+  isBuyingNow: boolean;
 }) {
   const isDigital = item.fulfillment_type === "DIGITAL";
+  const canPurchase = item.availability.sellable && !!item.primary_variant_id;
 
   return (
     <div
       className="cursor-pointer overflow-hidden rounded-2xl border border-neutral-200 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-      onClick={onClick}
+      onClick={onOpenDetail}
     >
       <div className="relative aspect-square bg-neutral-100">
         {item.thumbnail_url ? (
@@ -88,10 +110,34 @@ function ProductCard({
             size="sm"
             onClick={(event) => {
               event.stopPropagation();
-              onClick();
+              onOpenDetail();
             }}
           >
             자세히 보기
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            intent="primary"
+            size="sm"
+            disabled={!canPurchase || isAdding || isBuyingNow}
+            onClick={(event) => {
+              event.stopPropagation();
+              onAddToCart();
+            }}
+          >
+            {isAdding ? "담는 중..." : "장바구니"}
+          </Button>
+          <Button
+            intent="neutral"
+            size="sm"
+            disabled={!canPurchase || isAdding || isBuyingNow}
+            onClick={(event) => {
+              event.stopPropagation();
+              onBuyNow();
+            }}
+          >
+            {isBuyingNow ? "이동 중..." : "바로 구매"}
           </Button>
         </div>
       </div>
@@ -101,6 +147,10 @@ function ProductCard({
 
 export default function ShopPage() {
   const router = useRouter();
+  const { isAuthenticated } = useSession();
+  const { showToast } = useToast();
+  const addCartItem = useV2AddCartItem();
+  const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
   const { data, isLoading, error } = useV2ShopProducts({
     limit: 60,
     sort: "SORT_ORDER",
@@ -113,6 +163,57 @@ export default function ShopPage() {
   const physicalProducts = items.filter(
     (item) => item.fulfillment_type !== "DIGITAL",
   );
+
+  const requestLogin = () => {
+    router.push(`/login?redirect=${encodeURIComponent("/shop")}`);
+  };
+
+  async function handleAddToCart(item: V2ShopListItem, buyNow: boolean) {
+    if (!item.primary_variant_id) {
+      showToast("선택 가능한 상품 옵션이 없습니다.", { type: "warning" });
+      return;
+    }
+
+    if (!item.availability.sellable) {
+      showToast("현재 구매할 수 없는 상품입니다.", { type: "warning" });
+      return;
+    }
+
+    if (!isAuthenticated) {
+      requestLogin();
+      return;
+    }
+
+    const actionKey = `${item.product_id}:${buyNow ? "BUY_NOW" : "ADD"}`;
+    setPendingActionKey(actionKey);
+
+    try {
+      await addCartItem.mutateAsync({
+        variant_id: item.primary_variant_id,
+        quantity: 1,
+        added_via: buyNow ? "BUY_NOW" : "SHOP_LIST",
+        metadata: {
+          source: "shop-list",
+          product_id: item.product_id,
+        },
+      });
+
+      if (buyNow) {
+        router.push("/checkout");
+        return;
+      }
+
+      showToast("장바구니에 상품을 담았습니다.", { type: "success" });
+    } catch (submitError) {
+      if (submitError instanceof ApiError && submitError.isAuthError()) {
+        requestLogin();
+        return;
+      }
+      showToast(getErrorMessage(submitError), { type: "error" });
+    } finally {
+      setPendingActionKey(null);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -176,7 +277,11 @@ export default function ShopPage() {
                 <ProductCard
                   key={item.product_id}
                   item={item}
-                  onClick={() => router.push(`/shop/${item.product_id}`)}
+                  onOpenDetail={() => router.push(`/shop/${item.product_id}`)}
+                  onAddToCart={() => void handleAddToCart(item, false)}
+                  onBuyNow={() => void handleAddToCart(item, true)}
+                  isAdding={pendingActionKey === `${item.product_id}:ADD`}
+                  isBuyingNow={pendingActionKey === `${item.product_id}:BUY_NOW`}
                 />
               ))}
             </div>
@@ -209,7 +314,11 @@ export default function ShopPage() {
                 <ProductCard
                   key={item.product_id}
                   item={item}
-                  onClick={() => router.push(`/shop/${item.product_id}`)}
+                  onOpenDetail={() => router.push(`/shop/${item.product_id}`)}
+                  onAddToCart={() => void handleAddToCart(item, false)}
+                  onBuyNow={() => void handleAddToCart(item, true)}
+                  isAdding={pendingActionKey === `${item.product_id}:ADD`}
+                  isBuyingNow={pendingActionKey === `${item.product_id}:BUY_NOW`}
                 />
               ))}
             </div>
