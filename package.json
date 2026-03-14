@@ -18,6 +18,9 @@
     "ops:v2-verify-04": "tsx scripts/v2-verify-04.ts",
     "ops:v2-verify-04:local": "bash scripts/ops-v2-verify-04-local.sh",
     "ops:v2-verify-04:local:keep": "bash scripts/ops-v2-verify-04-local.sh --no-cleanup",
+    "ops:v2-verify-05": "tsx scripts/v2-verify-05.ts",
+    "ops:v2-verify-05:local": "bash scripts/ops-v2-verify-05-local.sh",
+    "ops:v2-verify-05:local:keep": "bash scripts/ops-v2-verify-05-local.sh --no-cleanup",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
