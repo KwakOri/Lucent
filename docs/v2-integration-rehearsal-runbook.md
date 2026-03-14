@@ -44,6 +44,29 @@ npm run ops:v2-verify-all:local -- --report-dir /tmp/v2-rehearsal
 npm run ops:v2-verify-all:local -- --base-url http://127.0.0.1:3001
 ```
 
+## 3-1) v2 UI 수동 테스트 (Local Supabase 강제 연결)
+
+원격 DB 오염을 피하려면 아래 명령으로 실행한다.
+이 스크립트는 `supabase status -o env` 값을 읽어 프론트/백엔드를 로컬 Supabase에 강제 연결한다.
+
+```bash
+cd /Users/kwakori/projects/promotion/lucent/frontend
+npm run dev:v2-local
+```
+
+옵션:
+
+```bash
+# 로컬 DB를 reset하고 시작
+npm run dev:v2-local:reset
+
+# backend 3002, frontend 3010 포트로 실행
+bash scripts/dev-v2-local.sh --backend-port 3002 --frontend-port 3010
+
+# admin bypass를 끄고 실행
+bash scripts/dev-v2-local.sh --no-admin-bypass
+```
+
 ## 4) 운영 의사결정 상태 (프로덕션 전환 전)
 
 ### 4-1) 재고 Source of Truth (확정)
