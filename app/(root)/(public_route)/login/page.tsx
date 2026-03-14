@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent, useEffect, Suspense } from 'react';
+import { useMemo, useState, FormEvent, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -16,23 +16,22 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
-
-  // OAuth 에러 처리
-  useEffect(() => {
+  const oauthErrorMessage = useMemo(() => {
     const error = searchParams.get('error');
     const message = searchParams.get('message');
-
-    if (error) {
-      const errorMessages: Record<string, string> = {
-        auth_failed: 'Google 로그인에 실패했습니다. 다시 시도해주세요.',
-        email_exists: message || '이미 가입된 이메일입니다. 기존 계정으로 로그인하세요.',
-        profile_failed: '프로필 생성에 실패했습니다. 다시 시도해주세요.',
-        no_code: '인증 코드가 없습니다. 다시 시도해주세요.',
-        unexpected: '예상치 못한 오류가 발생했습니다.',
-      };
-
-      setErrors({ general: errorMessages[error] || '로그인 중 오류가 발생했습니다.' });
+    if (!error) {
+      return null;
     }
+
+    const errorMessages: Record<string, string> = {
+      auth_failed: 'Google 로그인에 실패했습니다. 다시 시도해주세요.',
+      email_exists: message || '이미 가입된 이메일입니다. 기존 계정으로 로그인하세요.',
+      profile_failed: '프로필 생성에 실패했습니다. 다시 시도해주세요.',
+      no_code: '인증 코드가 없습니다. 다시 시도해주세요.',
+      unexpected: '예상치 못한 오류가 발생했습니다.',
+    };
+
+    return errorMessages[error] || '로그인 중 오류가 발생했습니다.';
   }, [searchParams]);
 
   const validateForm = (): boolean => {
@@ -52,12 +51,10 @@ function LoginForm() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // loginError가 변경되면 errors 상태 업데이트
-  useEffect(() => {
-    if (loginError) {
-      setErrors({ general: loginError.message || '이메일 또는 비밀번호가 올바르지 않습니다' });
-    }
-  }, [loginError]);
+  const mutationErrorMessage =
+    loginError?.message || '이메일 또는 비밀번호가 올바르지 않습니다';
+  const generalErrorMessage =
+    errors.general || (loginError ? mutationErrorMessage : oauthErrorMessage);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -95,12 +92,12 @@ function LoginForm() {
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* General Error */}
-            {errors.general && (
+            {generalErrorMessage && (
               <div
                 className="p-4 rounded-lg bg-error-100 text-error-600 text-sm"
                 role="alert"
               >
-                {errors.general}
+                {generalErrorMessage}
               </div>
             )}
 

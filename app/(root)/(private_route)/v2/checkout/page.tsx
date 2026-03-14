@@ -330,12 +330,17 @@ export default function V2CheckoutPage() {
         <EmptyState
           title="v2 cart 정보를 불러오지 못했습니다"
           description={getErrorMessage(cartError)}
-          action={{
-            label: '다시 시도',
-            onClick: () => {
-              void refetchCart();
-            },
-          }}
+          action={
+            <Button
+              intent="primary"
+              size="sm"
+              onClick={() => {
+                void refetchCart();
+              }}
+            >
+              다시 시도
+            </Button>
+          }
         />
       </div>
     );

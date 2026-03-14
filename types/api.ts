@@ -43,9 +43,9 @@ export interface PaginatedResponse<T> {
 /**
  * Product API Types
  */
-export interface CreateProductRequest extends TablesInsert<'products'> {}
+export type CreateProductRequest = TablesInsert<'products'>;
 
-export interface UpdateProductRequest extends TablesUpdate<'products'> {}
+export type UpdateProductRequest = TablesUpdate<'products'>;
 
 export interface GetProductsQuery {
   page?: string;
@@ -90,7 +90,7 @@ export interface GetOrdersQuery {
 /**
  * Profile API Types
  */
-export interface UpdateProfileRequest extends TablesUpdate<'profiles'> {}
+export type UpdateProfileRequest = TablesUpdate<'profiles'>;
 
 /**
  * Log API Types

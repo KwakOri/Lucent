@@ -9,6 +9,11 @@ import { LogService } from '@/lib/server/services/log.service';
 import { handleApiError, successResponse } from '@/lib/server/utils/api-response';
 import { getCurrentUser } from '@/lib/server/utils/supabase';
 
+interface ExampleOrderItem {
+  name: string;
+  type: string;
+}
+
 // ===== 주문 생성 API 예시 =====
 
 export async function createOrderExample(request: NextRequest) {
@@ -21,19 +26,23 @@ export async function createOrderExample(request: NextRequest) {
       );
     }
 
-    const { items, shippingAddress, totalAmount } = await request.json();
+    const { items, shippingAddress, totalAmount } = (await request.json()) as {
+      items: ExampleOrderItem[];
+      shippingAddress: unknown;
+      totalAmount: number;
+    };
 
     // TODO: 주문 생성 로직
     // const order = await OrderService.createOrder({ userId: user.id, items, shippingAddress });
 
     const orderId = 'created-order-id'; // 실제로는 DB에서 생성된 order.id
-    const productNames = items.map((item: any) => item.name).join(', ');
+    const productNames = items.map((item) => item.name).join(', ');
 
     // 주문 생성 로그 기록
     await LogService.logOrderCreated(orderId, user.id, totalAmount, {
       productNames,
       itemCount: items.length,
-      hasPhysicalGoods: items.some((item: any) => item.type === 'PHYSICAL_GOODS'),
+      hasPhysicalGoods: items.some((item) => item.type === 'PHYSICAL_GOODS'),
     });
 
     return successResponse({ orderId, status: 'PENDING' });
