@@ -114,6 +114,13 @@ export default function CartPage() {
           <p className="text-text-secondary">
             {items.length}개의 상품이 담겨있습니다
           </p>
+          <div className="mt-4">
+            <Link href="/v2/cart">
+              <Button intent="secondary" size="sm">
+                v2 장바구니 테스트 열기
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 

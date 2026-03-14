@@ -262,6 +262,13 @@ export default function CheckoutPage() {
           <p className="mt-1 text-sm text-gray-500">
             주문 정보를 확인하고 결제를 진행합니다
           </p>
+          <div className="mt-4">
+            <Link href="/v2/checkout">
+              <Button intent="secondary" size="sm">
+                v2 체크아웃 테스트 열기
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Main Content */}
