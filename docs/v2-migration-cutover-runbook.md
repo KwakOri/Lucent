@@ -1,12 +1,13 @@
 # V2 Migration / Cutover Runbook
 
-이 문서는 07 영역의 P1~P3(전환 제어 기반 + 게이트 검증 체계 + 단계 실행 로그) 운영 기준을 정의한다.
+이 문서는 07 영역의 P1~P4(전환 제어 기반 + 게이트 검증 체계 + 단계 실행 로그 + 롤백/재오픈 운영) 기준을 정의한다.
 
 ## 1) 목표
 - 도메인별 cutover 상태와 다음 액션을 한 화면에서 관리한다.
 - gate 결과를 `PASS/FAIL/WARN/SKIP`로 누적 저장하고, 도메인별 READY/BLOCKED/REVIEW 결정을 자동 계산한다.
 - batch/routing flag를 운영자 관점에서 추적 가능하게 유지한다.
 - 단계 0~8 실행 기록과 이슈/복구 기록을 동일 기준으로 관리한다.
+- 롤백 이후 재오픈 승인 기준을 정량 지표로 일관되게 판정한다.
 
 ## 2) 주요 API
 - 도메인 상태판
@@ -28,6 +29,8 @@
 - stage issues
   - `GET /api/v2/admin/cutover/stage-issues`
   - `POST /api/v2/admin/cutover/stage-issues`
+- reopen readiness
+  - `GET /api/v2/admin/cutover/reopen-readiness`
 
 ## 3) 게이트 판정 규칙
 - required gate type: `DATA_CONSISTENCY`, `BEHAVIORAL`, `OPERATIONS`, `ROLLBACK_READY`
@@ -41,6 +44,7 @@
   - Domain Board 조회/업데이트
   - Gate/Batch/Routing 등록
   - Stage Run/Issue 등록 및 최근 기록 확인
+  - Rollback/Reopen readiness(READY/BLOCKED/NOT_REQUIRED) 확인
   - Checklist Decision 확인(READY/REVIEW/BLOCKED)
 
 ## 5) 자동 검증
@@ -57,6 +61,7 @@ npm run ops:v2-verify-07 -- \
 - cutover domains/gates/batches/routing-flags 조회 가능
 - stage-runs/stage-issues 조회 가능
 - checklist required gate type 무결성
+- reopen-readiness 조회 가능
 
 ## 6) 롤백 기준
 - `BLOCKED` 도메인이 증가하거나 `FAIL` gate가 연속 발생
@@ -68,3 +73,8 @@ npm run ops:v2-verify-07 -- \
 2. 신규 gate 입력을 중지하고 실패 원인 복구
 3. `BLOCKED` 사유가 해소될 때까지 제한 전환 중단
 4. 필요 시 stage issue를 `OPEN -> MITIGATING -> RESOLVED`로 갱신하며 복구 로그를 남김
+
+재오픈 승인 기준:
+1. checklist decision이 `READY`
+2. 미해결 stage issue(`OPEN`/`MITIGATING`)가 0건
+3. 최신 stage run 상태가 `COMPLETED`

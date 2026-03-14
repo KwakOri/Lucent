@@ -92,6 +92,7 @@ export type V2CutoverStageRunStatus =
 
 export type V2CutoverIssueStatus = 'OPEN' | 'MITIGATING' | 'RESOLVED';
 export type V2CutoverIssueSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type V2CutoverReopenDecision = 'NOT_REQUIRED' | 'READY' | 'BLOCKED';
 
 export interface V2CutoverDomain {
   id: string;
@@ -169,6 +170,71 @@ export interface V2CutoverGateChecklist {
     ready_count: number;
     review_count: number;
     blocked_count: number;
+  };
+}
+
+export interface V2CutoverReopenReadinessDomain {
+  domain: Pick<
+    V2CutoverDomain,
+    | 'id'
+    | 'domain_key'
+    | 'domain_name'
+    | 'status'
+    | 'current_stage'
+    | 'owner_role_code'
+    | 'next_action'
+  >;
+  gate: {
+    decision: V2CutoverGateChecklistDomain['decision'];
+    summary: V2CutoverGateChecklistDomain['summary'] | null;
+  };
+  issues: {
+    unresolved_count: number;
+    highest_severity: V2CutoverIssueSeverity | null;
+    latest_occurred_at: string | null;
+  };
+  latest_stage_run: {
+    id: string;
+    stage_no: number;
+    run_key: string;
+    status: V2CutoverStageRunStatus;
+    transition_mode: V2CutoverStageRun['transition_mode'];
+    started_at: string | null;
+    finished_at: string | null;
+    updated_at: string | null;
+  } | null;
+  active_routing_flag: {
+    id: string;
+    target: V2CutoverRouteTarget;
+    traffic_percent: number;
+    priority: number;
+    reason: string | null;
+    updated_at: string | null;
+  } | null;
+  rollback: {
+    mode_active: boolean;
+    has_rollback_history: boolean;
+    needs_reopen: boolean;
+  };
+  approval_checks: {
+    gate_ready: boolean;
+    unresolved_issues_cleared: boolean;
+    latest_stage_run_completed: boolean;
+  };
+  reopen_decision: V2CutoverReopenDecision;
+  blockers: string[];
+}
+
+export interface V2CutoverReopenReadiness {
+  generated_at: string;
+  required_gate_types: V2CutoverGateType[];
+  domains: V2CutoverReopenReadinessDomain[];
+  summary: {
+    total_domains: number;
+    reopen_required_count: number;
+    ready_count: number;
+    blocked_count: number;
+    not_required_count: number;
   };
 }
 
@@ -397,6 +463,10 @@ export interface ListV2AdminCutoverGateChecklistParams {
   domain_key?: string;
 }
 
+export interface ListV2AdminCutoverReopenReadinessParams {
+  domain_key?: string;
+}
+
 export interface SaveV2AdminCutoverGateReportInput {
   domain_key: string;
   gate_type: V2CutoverGateType;
@@ -608,6 +678,13 @@ export const V2AdminOpsAPI = {
   ): Promise<ApiResponse<V2CutoverGateChecklist>> {
     const query = toQueryString(params);
     return apiClient.get(`/api/v2/admin/cutover/gates/checklist${query}`);
+  },
+
+  async getCutoverReopenReadiness(
+    params: ListV2AdminCutoverReopenReadinessParams = {},
+  ): Promise<ApiResponse<V2CutoverReopenReadiness>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/cutover/reopen-readiness${query}`);
   },
 
   async saveCutoverGateReport(
