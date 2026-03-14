@@ -7,9 +7,9 @@ import { Download, LogOut, Settings, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
+import type { OrderWithItems } from '@/lib/client/api/orders.api';
 import type { V2CheckoutOrder } from '@/lib/client/api/v2-checkout.api';
 import {
-  type OrderWithItems,
   useCancelOrder,
   useDownloadDigitalProduct,
   useLogout,
