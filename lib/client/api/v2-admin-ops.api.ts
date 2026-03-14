@@ -56,6 +56,96 @@ export interface V2AdminCutoverPolicyCheckResult {
   decision: 'APPROVAL_REQUIRED' | 'DIRECT_EXECUTE';
 }
 
+export type V2CutoverStatus =
+  | 'NOT_STARTED'
+  | 'SCHEMA_READY'
+  | 'BACKFILL_DONE'
+  | 'SHADOW_VERIFIED'
+  | 'LIMITED_CUTOVER'
+  | 'WRITE_DEFAULT_V2'
+  | 'LEGACY_READONLY';
+
+export type V2CutoverGateType =
+  | 'DATA_CONSISTENCY'
+  | 'BEHAVIORAL'
+  | 'OPERATIONS'
+  | 'ROLLBACK_READY';
+
+export type V2CutoverGateResult = 'PASS' | 'FAIL' | 'WARN' | 'SKIP';
+
+export type V2CutoverBatchStatus =
+  | 'PENDING'
+  | 'RUNNING'
+  | 'SUCCEEDED'
+  | 'FAILED'
+  | 'CANCELED';
+
+export type V2CutoverRouteTarget = 'LEGACY' | 'V2' | 'SHADOW';
+
+export interface V2CutoverDomain {
+  id: string;
+  domain_key: string;
+  domain_name: string;
+  status: V2CutoverStatus;
+  current_stage: number;
+  next_action: string | null;
+  owner_role_code: string | null;
+  last_gate_result: V2CutoverGateResult;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface V2CutoverGateReport {
+  id: string;
+  domain_id: string;
+  gate_type: V2CutoverGateType;
+  gate_key: string;
+  gate_result: V2CutoverGateResult;
+  measured_at: string;
+  threshold_json: Record<string, unknown>;
+  metrics_json: Record<string, unknown>;
+  detail: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  domain?: Pick<V2CutoverDomain, 'domain_key' | 'domain_name' | 'status' | 'current_stage'>;
+}
+
+export interface V2CutoverBatch {
+  id: string;
+  domain_id: string;
+  batch_key: string;
+  run_type: string;
+  status: V2CutoverBatchStatus;
+  idempotency_key: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  source_snapshot: Record<string, unknown>;
+  result_summary: Record<string, unknown>;
+  error_message: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  domain?: Pick<V2CutoverDomain, 'domain_key' | 'domain_name' | 'status' | 'current_stage'>;
+}
+
+export interface V2CutoverRoutingFlag {
+  id: string;
+  domain_id: string;
+  channel: string | null;
+  campaign_id: string | null;
+  target: V2CutoverRouteTarget;
+  traffic_percent: number;
+  enabled: boolean;
+  priority: number;
+  reason: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  domain?: Pick<V2CutoverDomain, 'domain_key' | 'domain_name' | 'status' | 'current_stage'>;
+}
+
 export interface V2AdminRoleWithPermissions {
   id: string;
   code: string;
@@ -183,14 +273,88 @@ export interface ListV2AdminInventoryHealthParams {
   only_low_stock?: boolean;
 }
 
+export interface ListV2AdminCutoverDomainsParams {
+  limit?: number;
+  status?: V2CutoverStatus;
+}
+
+export interface UpdateV2AdminCutoverDomainInput {
+  status?: V2CutoverStatus;
+  current_stage?: number;
+  next_action?: string | null;
+  owner_role_code?: string | null;
+  last_gate_result?: V2CutoverGateResult;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface ListV2AdminCutoverGateReportsParams {
+  limit?: number;
+  domain_key?: string;
+  gate_type?: V2CutoverGateType;
+  gate_result?: V2CutoverGateResult;
+}
+
+export interface SaveV2AdminCutoverGateReportInput {
+  domain_key: string;
+  gate_type: V2CutoverGateType;
+  gate_key: string;
+  gate_result: V2CutoverGateResult;
+  measured_at?: string | null;
+  threshold_json?: Record<string, unknown> | null;
+  metrics_json?: Record<string, unknown> | null;
+  detail?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface ListV2AdminCutoverBatchesParams {
+  limit?: number;
+  domain_key?: string;
+  status?: V2CutoverBatchStatus;
+  run_type?: string;
+}
+
+export interface SaveV2AdminCutoverBatchInput {
+  domain_key: string;
+  batch_key: string;
+  run_type: string;
+  status?: V2CutoverBatchStatus;
+  idempotency_key?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  source_snapshot?: Record<string, unknown> | null;
+  result_summary?: Record<string, unknown> | null;
+  error_message?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface ListV2AdminCutoverRoutingFlagsParams {
+  limit?: number;
+  domain_key?: string;
+  channel?: string;
+  enabled?: boolean;
+}
+
+export interface SaveV2AdminCutoverRoutingFlagInput {
+  id?: string | null;
+  domain_key: string;
+  channel?: string | null;
+  campaign_id?: string | null;
+  target: V2CutoverRouteTarget;
+  traffic_percent?: number;
+  enabled?: boolean;
+  priority?: number;
+  reason?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
 export interface V2AdminListResponse<T> {
   items: T[];
   limit: number;
 }
 
-function toQueryString(params: Record<string, string | number | boolean | undefined | null>) {
+function toQueryString<T extends object>(params: T) {
   const searchParams = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
+  Object.entries(params as Record<string, unknown>).forEach(([key, value]) => {
     if (value === undefined || value === null || value === '') {
       return;
     }
@@ -267,6 +431,59 @@ export const V2AdminOpsAPI = {
   > {
     const query = toQueryString(params);
     return apiClient.get(`/api/v2/admin/ops/inventory-health${query}`);
+  },
+
+  async listCutoverDomains(
+    params: ListV2AdminCutoverDomainsParams = {},
+  ): Promise<ApiResponse<V2AdminListResponse<V2CutoverDomain>>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/cutover/domains${query}`);
+  },
+
+  async updateCutoverDomain(
+    domainKey: string,
+    data: UpdateV2AdminCutoverDomainInput,
+  ): Promise<ApiResponse<V2CutoverDomain>> {
+    return apiClient.patch(`/api/v2/admin/cutover/domains/${domainKey}`, data);
+  },
+
+  async listCutoverGateReports(
+    params: ListV2AdminCutoverGateReportsParams = {},
+  ): Promise<ApiResponse<V2AdminListResponse<V2CutoverGateReport>>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/cutover/gates${query}`);
+  },
+
+  async saveCutoverGateReport(
+    data: SaveV2AdminCutoverGateReportInput,
+  ): Promise<ApiResponse<V2CutoverGateReport>> {
+    return apiClient.post('/api/v2/admin/cutover/gates', data);
+  },
+
+  async listCutoverBatches(
+    params: ListV2AdminCutoverBatchesParams = {},
+  ): Promise<ApiResponse<V2AdminListResponse<V2CutoverBatch>>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/cutover/batches${query}`);
+  },
+
+  async saveCutoverBatch(
+    data: SaveV2AdminCutoverBatchInput,
+  ): Promise<ApiResponse<V2CutoverBatch>> {
+    return apiClient.post('/api/v2/admin/cutover/batches', data);
+  },
+
+  async listCutoverRoutingFlags(
+    params: ListV2AdminCutoverRoutingFlagsParams = {},
+  ): Promise<ApiResponse<V2AdminListResponse<V2CutoverRoutingFlag>>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/cutover/routing-flags${query}`);
+  },
+
+  async saveCutoverRoutingFlag(
+    data: SaveV2AdminCutoverRoutingFlagInput,
+  ): Promise<ApiResponse<V2CutoverRoutingFlag>> {
+    return apiClient.post('/api/v2/admin/cutover/routing-flags', data);
   },
 
   async refundOrder(

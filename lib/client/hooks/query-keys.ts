@@ -21,6 +21,10 @@ import type {
 import type {
   ListV2AdminActionLogsParams,
   ListV2AdminApprovalsParams,
+  ListV2AdminCutoverBatchesParams,
+  ListV2AdminCutoverDomainsParams,
+  ListV2AdminCutoverGateReportsParams,
+  ListV2AdminCutoverRoutingFlagsParams,
   ListV2AdminFulfillmentQueueParams,
   ListV2AdminInventoryHealthParams,
   ListV2AdminOrderQueueParams,
@@ -259,6 +263,14 @@ export const queryKeys = {
       all: ['v2-admin-ops', 'cutover'] as const,
       policy: () => [...queryKeys.v2AdminOps.cutover.all, 'policy'] as const,
       check: () => [...queryKeys.v2AdminOps.cutover.all, 'check'] as const,
+      domains: (params: ListV2AdminCutoverDomainsParams = {}) =>
+        [...queryKeys.v2AdminOps.cutover.all, 'domains', params] as const,
+      gates: (params: ListV2AdminCutoverGateReportsParams = {}) =>
+        [...queryKeys.v2AdminOps.cutover.all, 'gates', params] as const,
+      batches: (params: ListV2AdminCutoverBatchesParams = {}) =>
+        [...queryKeys.v2AdminOps.cutover.all, 'batches', params] as const,
+      routingFlags: (params: ListV2AdminCutoverRoutingFlagsParams = {}) =>
+        [...queryKeys.v2AdminOps.cutover.all, 'routing-flags', params] as const,
     },
     rbac: {
       all: ['v2-admin-ops', 'rbac'] as const,

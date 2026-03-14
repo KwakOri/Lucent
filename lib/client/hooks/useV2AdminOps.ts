@@ -11,9 +11,17 @@ import {
   V2AdminOpsAPI,
   type ListV2AdminActionLogsParams,
   type ListV2AdminApprovalsParams,
+  type ListV2AdminCutoverBatchesParams,
+  type ListV2AdminCutoverDomainsParams,
+  type ListV2AdminCutoverGateReportsParams,
+  type ListV2AdminCutoverRoutingFlagsParams,
   type ListV2AdminFulfillmentQueueParams,
   type ListV2AdminInventoryHealthParams,
   type ListV2AdminOrderQueueParams,
+  type SaveV2AdminCutoverBatchInput,
+  type SaveV2AdminCutoverGateReportInput,
+  type SaveV2AdminCutoverRoutingFlagInput,
+  type UpdateV2AdminCutoverDomainInput,
 } from '@/lib/client/api/v2-admin-ops.api';
 import { queryKeys } from './query-keys';
 
@@ -51,6 +59,54 @@ export function useV2AdminCutoverPolicy() {
     queryKey: queryKeys.v2AdminOps.cutover.policy(),
     queryFn: async () => {
       const response = await V2AdminOpsAPI.getCutoverPolicy();
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminCutoverDomains(
+  params: ListV2AdminCutoverDomainsParams = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.cutover.domains(params),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.listCutoverDomains(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminCutoverGateReports(
+  params: ListV2AdminCutoverGateReportsParams = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.cutover.gates(params),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.listCutoverGateReports(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminCutoverBatches(
+  params: ListV2AdminCutoverBatchesParams = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.cutover.batches(params),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.listCutoverBatches(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminCutoverRoutingFlags(
+  params: ListV2AdminCutoverRoutingFlagsParams = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.cutover.routingFlags(params),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.listCutoverRoutingFlags(params);
       return response.data;
     },
   });
@@ -203,6 +259,55 @@ export function useV2AdminCutoverPolicyCheck() {
     mutationFn: async (data: { action_key?: string; requires_approval?: boolean }) => {
       const response = await V2AdminOpsAPI.checkCutoverPolicy(data);
       return response.data;
+    },
+  });
+}
+
+export function useV2AdminUpdateCutoverDomain() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      domainKey,
+      data,
+    }: {
+      domainKey: string;
+      data: UpdateV2AdminCutoverDomainInput;
+    }) => V2AdminOpsAPI.updateCutoverDomain(domainKey, data),
+    onSettled: async () => {
+      await invalidateV2AdminOps(queryClient);
+    },
+  });
+}
+
+export function useV2AdminSaveCutoverGateReport() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: SaveV2AdminCutoverGateReportInput) =>
+      V2AdminOpsAPI.saveCutoverGateReport(data),
+    onSettled: async () => {
+      await invalidateV2AdminOps(queryClient);
+    },
+  });
+}
+
+export function useV2AdminSaveCutoverBatch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: SaveV2AdminCutoverBatchInput) =>
+      V2AdminOpsAPI.saveCutoverBatch(data),
+    onSettled: async () => {
+      await invalidateV2AdminOps(queryClient);
+    },
+  });
+}
+
+export function useV2AdminSaveCutoverRoutingFlag() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: SaveV2AdminCutoverRoutingFlagInput) =>
+      V2AdminOpsAPI.saveCutoverRoutingFlag(data),
+    onSettled: async () => {
+      await invalidateV2AdminOps(queryClient);
     },
   });
 }
