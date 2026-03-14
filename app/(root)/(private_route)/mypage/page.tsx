@@ -1,297 +1,469 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Download, LogOut, Settings, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Loading } from '@/components/ui/loading';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Download, LogOut, Package, Settings, X } from 'lucide-react';
-import { useSession, useMyOrders, useLogout, useDownloadDigitalProduct, useCancelOrder, type OrderWithItems } from '@/lib/client';
+import { Loading } from '@/components/ui/loading';
+import type { V2CheckoutOrder } from '@/lib/client/api/v2-checkout.api';
+import {
+  type OrderWithItems,
+  useCancelOrder,
+  useDownloadDigitalProduct,
+  useLogout,
+  useMyOrders,
+  useSession,
+  useV2CancelOrder,
+  useV2CheckoutOrders,
+} from '@/lib/client/hooks';
 import { useToast } from '@/src/components/toast';
-import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, ITEM_STATUS_LABELS, ITEM_STATUS_COLORS } from '@/src/constants';
-import type { Enums } from '@/types';
 
-// Order status types
-type OrderStatus = Enums<'order_status'>;
-type OrderItemStatus = Enums<'order_item_status'>;
+type UnifiedSource = 'V1' | 'V2';
+
+interface UnifiedOrderItem {
+  id: string;
+  title: string;
+  quantity: number;
+  lineTotal: number;
+  isDigital: boolean;
+  itemStatus: string;
+}
+
+interface UnifiedOrder {
+  source: UnifiedSource;
+  id: string;
+  orderNo: string;
+  orderedAt: string;
+  displayTotal: number;
+  orderStatus: string;
+  paymentStatus?: string;
+  fulfillmentStatus?: string;
+  items: UnifiedOrderItem[];
+}
+
+function asObject(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function readString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function readNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function formatCurrency(amount: number): string {
+  return `${Math.max(0, amount).toLocaleString()}원`;
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value || '-';
+  }
+  return date.toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function mapV1Order(order: OrderWithItems): UnifiedOrder {
+  const items: UnifiedOrderItem[] = (order.items || []).map((item) => ({
+    id: item.id,
+    title: item.product_name,
+    quantity: item.quantity,
+    lineTotal: item.price_snapshot * item.quantity,
+    isDigital: item.product_type === 'VOICE_PACK',
+    itemStatus: item.item_status || '',
+  }));
+
+  return {
+    source: 'V1',
+    id: order.id,
+    orderNo: order.order_number,
+    orderedAt: order.created_at,
+    displayTotal: order.total_price,
+    orderStatus: order.status,
+    items,
+  };
+}
+
+function mapV2Order(order: V2CheckoutOrder): UnifiedOrder {
+  const items: UnifiedOrderItem[] = (order.items || []).map((rawItem, index) => {
+    const item = asObject(rawItem);
+    const display = asObject(item.display_snapshot);
+    const title =
+      readString(display.title) ||
+      readString(display.variant_title) ||
+      readString(item.variant_id) ||
+      `상품 ${index + 1}`;
+    const fulfillmentType = readString(display.fulfillment_type);
+
+    return {
+      id: readString(item.id) || `${order.id}-${index}`,
+      title,
+      quantity: readNumber(item.quantity),
+      lineTotal: readNumber(item.final_line_total),
+      isDigital: fulfillmentType === 'DIGITAL',
+      itemStatus: readString(item.line_status),
+    };
+  });
+
+  return {
+    source: 'V2',
+    id: order.id,
+    orderNo: order.order_no,
+    orderedAt: order.placed_at || '',
+    displayTotal: order.grand_total,
+    orderStatus: order.order_status,
+    paymentStatus: order.payment_status,
+    fulfillmentStatus: order.fulfillment_status,
+    items,
+  };
+}
+
+function getStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    PENDING: '대기',
+    PAID: '입금확인',
+    MAKING: '제작중',
+    READY_TO_SHIP: '출고준비',
+    SHIPPING: '배송중',
+    DONE: '완료',
+    CONFIRMED: '확정',
+    COMPLETED: '완료',
+    CANCELED: '취소',
+    AUTHORIZED: '승인됨',
+    CAPTURED: '결제완료',
+    FAILED: '실패',
+    PARTIALLY_REFUNDED: '부분환불',
+    REFUNDED: '환불',
+    UNFULFILLED: '미이행',
+    PARTIAL: '부분이행',
+    FULFILLED: '이행완료',
+  };
+  return labels[status] || status;
+}
+
+function statusBadgeClass(status: string) {
+  if (status.includes('FAILED') || status.includes('CANCELED')) {
+    return 'bg-red-100 text-red-700';
+  }
+  if (
+    status.includes('PENDING') ||
+    status.includes('UNFULFILLED') ||
+    status.includes('READY_TO_SHIP')
+  ) {
+    return 'bg-yellow-100 text-yellow-700';
+  }
+  return 'bg-green-100 text-green-700';
+}
 
 export default function MyPage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const { user, isLoading: sessionLoading, isAuthenticated } = useSession();
+  const { mutate: logout, isPending: loggingOut } = useLogout();
+  const v1OrdersQuery = useMyOrders({ limit: 50 });
+  const v2OrdersQuery = useV2CheckoutOrders({ limit: 50 });
+  const downloadMutation = useDownloadDigitalProduct();
+  const cancelV1Order = useCancelOrder();
+  const cancelV2Order = useV2CancelOrder();
 
-  // API Hooks
-  const { user, isLoading: isSessionLoading, isAuthenticated } = useSession();
-  const { data: ordersData, isLoading: isOrdersLoading, error: ordersError } = useMyOrders();
-  const { mutate: logout, isPending: isLoggingOut } = useLogout();
-  const { mutate: download, isPending: isDownloading } = useDownloadDigitalProduct();
-  const { mutate: cancelOrder, isPending: isCancelling } = useCancelOrder();
-
-  // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isSessionLoading && !isAuthenticated) {
+    if (!sessionLoading && !isAuthenticated) {
       router.push('/login?redirect=/mypage');
     }
-  }, [isSessionLoading, isAuthenticated, router]);
+  }, [isAuthenticated, router, sessionLoading]);
 
-  const handleLogout = () => {
-    logout();
-  };
+  const mergedOrders = useMemo(() => {
+    const result = new Map<string, UnifiedOrder>();
+    const v2Orders = v2OrdersQuery.data?.items || [];
+    const v1Orders = v1OrdersQuery.data?.data || [];
 
-  const handleDownload = (orderId: string, itemId: string, productName: string) => {
-    download(
+    for (const order of v2Orders) {
+      const mapped = mapV2Order(order);
+      const key = mapped.orderNo || `V2:${mapped.id}`;
+      result.set(key, mapped);
+    }
+
+    for (const order of v1Orders) {
+      const mapped = mapV1Order(order);
+      const key = mapped.orderNo || `V1:${mapped.id}`;
+      if (!result.has(key)) {
+        result.set(key, mapped);
+      }
+    }
+
+    return Array.from(result.values()).sort((a, b) => {
+      const aTime = new Date(a.orderedAt).getTime() || 0;
+      const bTime = new Date(b.orderedAt).getTime() || 0;
+      return bTime - aTime;
+    });
+  }, [v1OrdersQuery.data?.data, v2OrdersQuery.data?.items]);
+
+  const isLoading = sessionLoading || v1OrdersQuery.isLoading || v2OrdersQuery.isLoading;
+  const error = v2OrdersQuery.error || v1OrdersQuery.error;
+
+  async function handleDownload(orderId: string, itemId: string, title: string) {
+    downloadMutation.mutate(
       { orderId, itemId },
       {
         onSuccess: () => {
-          showToast(`${productName} 다운로드가 시작되었습니다`, { type: 'success' });
+          showToast(`${title} 다운로드를 시작합니다.`, { type: 'success' });
         },
-        onError: (error) => {
-          console.error('Download failed:', error);
-          showToast('다운로드 중 오류가 발생했습니다', { type: 'error' });
+        onError: (mutationError) => {
+          showToast(
+            mutationError instanceof Error
+              ? mutationError.message
+              : '다운로드 중 오류가 발생했습니다.',
+            { type: 'error' },
+          );
         },
-      }
+      },
     );
-  };
+  }
 
-  const handleCancelOrder = (orderId: string, orderNumber: string) => {
-    if (!confirm(`주문 ${orderNumber}을(를) 취소하시겠습니까?\n\n취소된 주문은 복구할 수 없습니다.`)) {
+  function handleCancel(order: UnifiedOrder) {
+    if (!confirm(`주문 ${order.orderNo}를 취소하시겠습니까?`)) {
       return;
     }
 
-    cancelOrder(orderId, {
-      onSuccess: (result) => {
-        showToast(result.message, { type: 'success' });
-      },
-      onError: (error) => {
-        console.error('Cancel order failed:', error);
-        showToast(error.message || '주문 취소 중 오류가 발생했습니다', { type: 'error' });
-      },
-    });
-  };
+    if (order.source === 'V1') {
+      cancelV1Order.mutate(order.id, {
+        onSuccess: (result) => {
+          showToast(result.message, { type: 'success' });
+        },
+        onError: (mutationError) => {
+          showToast(
+            mutationError instanceof Error
+              ? mutationError.message
+              : '주문 취소 중 오류가 발생했습니다.',
+            { type: 'error' },
+          );
+        },
+      });
+      return;
+    }
 
-  const isLoading = isSessionLoading || isOrdersLoading;
-  const orders = ordersData?.data || [];
+    cancelV2Order.mutate(
+      {
+        orderId: order.id,
+        data: { reason: 'USER_REQUESTED' },
+      },
+      {
+        onSuccess: () => {
+          showToast('주문을 취소했습니다.', { type: 'success' });
+        },
+        onError: (mutationError) => {
+          showToast(
+            mutationError instanceof Error
+              ? mutationError.message
+              : '주문 취소 중 오류가 발생했습니다.',
+            { type: 'error' },
+          );
+        },
+      },
+    );
+  }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
         <Loading size="lg" />
       </div>
     );
   }
 
-  if (ordersError) {
+  if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
         <EmptyState
-          title="오류가 발생했습니다"
-          description={ordersError instanceof Error ? ordersError.message : '데이터를 불러오는 중 오류가 발생했습니다'}
+          title="주문 내역을 불러오지 못했습니다"
+          description={error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.'}
+          action={
+            <Button
+              intent="primary"
+              size="md"
+              onClick={() => {
+                void v1OrdersQuery.refetch();
+                void v2OrdersQuery.refetch();
+              }}
+            >
+              다시 시도
+            </Button>
+          }
         />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="max-w-6xl mx-auto px-4 py-12">
-        {/* Page Header */}
-        <div className="mb-12">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-4xl font-bold text-text-primary">
-              마이페이지
-            </h1>
-            <div className="flex items-center gap-3">
-              <Link href="/mypage/profile">
-                <Button
-                  intent="neutral"
-                  size="md"
-                >
-                  <Settings className="w-4 h-4" />
-                  회원정보 수정
-                </Button>
-              </Link>
-              <Button
-                intent="secondary"
-                size="md"
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-              >
-                <LogOut className="w-4 h-4" />
-                {isLoggingOut ? '로그아웃 중...' : '로그아웃'}
-              </Button>
-            </div>
+    <div className="min-h-screen bg-neutral-50 py-12">
+      <div className="mx-auto max-w-6xl px-4">
+        <header className="mb-10 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-4xl font-bold text-text-primary">마이페이지</h1>
+            <p className="mt-1 text-text-secondary">{user?.email}</p>
           </div>
-          <p className="text-lg text-text-secondary">
-            {user?.email}
-          </p>
-        </div>
+          <div className="flex items-center gap-2">
+            <Link href="/mypage/profile">
+              <Button intent="secondary" size="sm">
+                <Settings className="h-4 w-4" />
+                회원정보 수정
+              </Button>
+            </Link>
+            <Button
+              intent="neutral"
+              size="sm"
+              disabled={loggingOut}
+              onClick={() => logout()}
+            >
+              <LogOut className="h-4 w-4" />
+              {loggingOut ? '로그아웃 중...' : '로그아웃'}
+            </Button>
+          </div>
+        </header>
 
-        {/* Order List Section */}
-        <section className="mb-16">
-          <h2 className="text-2xl font-bold text-text-primary mb-6">
-            주문 내역
-          </h2>
-
-          {orders.length === 0 ? (
-            <div className="bg-white rounded-xl border border-neutral-200 p-12">
+        <section>
+          <h2 className="mb-5 text-2xl font-bold text-text-primary">주문 내역</h2>
+          {mergedOrders.length === 0 ? (
+            <div className="rounded-2xl border border-neutral-200 bg-white p-10">
               <EmptyState
                 title="아직 주문 내역이 없습니다"
-                description="상점에서 마음에 드는 상품을 찾아보세요"
-              >
-                <Link href="/shop">
-                  <Button intent="primary" size="md">
-                    <Package className="w-4 h-4" />
-                    상점 보러가기
-                  </Button>
-                </Link>
-              </EmptyState>
+                description="상점에서 원하는 상품을 담아 구매를 시작해 보세요."
+                action={
+                  <Link href="/shop">
+                    <Button intent="primary" size="md">
+                      상점 보러가기
+                    </Button>
+                  </Link>
+                }
+              />
             </div>
           ) : (
-            <div className="space-y-6">
-              {orders.map((order) => (
-                <div
-                  key={order.id}
-                  className="bg-white rounded-xl border border-neutral-200 p-6 hover:shadow-lg transition-shadow"
+            <div className="space-y-5">
+              {mergedOrders.map((order) => (
+                <article
+                  key={`${order.source}:${order.id}`}
+                  className="rounded-2xl border border-neutral-200 bg-white p-6"
                 >
-                  {/* Order Header */}
-                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-neutral-200">
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-neutral-200 pb-4">
                     <div>
-                      <p className="text-sm text-text-secondary mb-1">
-                        주문번호: {order.order_number}
-                      </p>
-                      <p className="text-sm text-text-muted">
-                        {new Date(order.created_at).toLocaleDateString('ko-KR', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
+                      <p className="text-sm text-text-secondary">주문번호: {order.orderNo}</p>
+                      <p className="text-sm text-text-secondary">
+                        주문일: {formatDate(order.orderedAt)}
                       </p>
                     </div>
-                    <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${ORDER_STATUS_COLORS[order.status as keyof typeof ORDER_STATUS_COLORS] || 'bg-gray-100 text-gray-800'}`}>
-                      {ORDER_STATUS_LABELS[order.status as keyof typeof ORDER_STATUS_LABELS] || order.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-neutral-100 px-2 py-1 text-xs font-semibold text-neutral-700">
+                        {order.source}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
+                          order.orderStatus,
+                        )}`}
+                      >
+                        {getStatusLabel(order.orderStatus)}
+                      </span>
+                      {order.paymentStatus && (
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
+                            order.paymentStatus,
+                          )}`}
+                        >
+                          결제: {getStatusLabel(order.paymentStatus)}
+                        </span>
+                      )}
+                      {order.fulfillmentStatus && (
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
+                            order.fulfillmentStatus,
+                          )}`}
+                        >
+                          이행: {getStatusLabel(order.fulfillmentStatus)}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Order Items */}
-                  <div className="space-y-3 mb-4">
+                  <div className="space-y-3">
                     {order.items.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between"
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-neutral-50 p-3"
                       >
-                        <div className="flex-1">
-                          <p className="text-base font-medium text-text-primary">
-                            {item.product_name}
+                        <div>
+                          <p className="font-medium text-text-primary">{item.title}</p>
+                          <p className="text-sm text-text-secondary">
+                            {item.quantity}개 · {formatCurrency(item.lineTotal)}
                           </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <p className="text-sm text-text-secondary">
-                              {item.quantity}개 × {item.price_snapshot.toLocaleString()}원
-                            </p>
-                            {item.item_status && (
-                              <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${ITEM_STATUS_COLORS[item.item_status as OrderItemStatus] || 'bg-gray-100 text-gray-800'}`}>
-                                {ITEM_STATUS_LABELS[item.item_status as OrderItemStatus] || item.item_status}
-                              </span>
-                            )}
-                          </div>
                         </div>
-
-                        {/* Download Button for Digital Products */}
-                        {item.product_type === 'VOICE_PACK' &&
-                          item.item_status === 'COMPLETED' && (
-                            <Button
-                              intent="primary"
-                              size="sm"
-                              onClick={() =>
-                                handleDownload(order.id, item.id, item.product_name)
-                              }
-                              disabled={isDownloading}
-                            >
-                              <Download className="w-4 h-4" />
-                              다운로드
-                            </Button>
-                          )}
+                        <div className="flex items-center gap-2">
+                          {order.source === 'V1' &&
+                            item.isDigital &&
+                            item.itemStatus === 'COMPLETED' && (
+                              <Button
+                                intent="primary"
+                                size="sm"
+                                disabled={downloadMutation.isPending}
+                                onClick={() =>
+                                  void handleDownload(order.id, item.id, item.title)
+                                }
+                              >
+                                <Download className="h-4 w-4" />
+                                다운로드
+                              </Button>
+                            )}
+                          <span className="text-xs text-text-secondary">
+                            {getStatusLabel(item.itemStatus)}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Order Footer */}
-                  <div className="pt-4 border-t border-neutral-200 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {order.shipping_main_address && (
-                        <p className="text-sm text-text-secondary">
-                          배송지: {order.shipping_main_address} {order.shipping_detail_address || ''}
-                        </p>
-                      )}
-                      {/* 취소 버튼 - PENDING 상태일 때만 표시 */}
-                      {order.status === 'PENDING' && (
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 pt-4">
+                    <div>
+                      {(order.source === 'V1' || order.orderStatus === 'PENDING') && (
                         <Button
                           intent="secondary"
                           size="sm"
-                          onClick={() => handleCancelOrder(order.id, order.order_number)}
-                          disabled={isCancelling}
+                          disabled={
+                            order.orderStatus !== 'PENDING' ||
+                            cancelV1Order.isPending ||
+                            cancelV2Order.isPending
+                          }
+                          onClick={() => handleCancel(order)}
                         >
-                          <X className="w-4 h-4" />
+                          <X className="h-4 w-4" />
                           주문 취소
                         </Button>
                       )}
                     </div>
                     <p className="text-xl font-bold text-primary-700">
-                      총 {order.total_price.toLocaleString()}원
+                      총 {formatCurrency(order.displayTotal)}
                     </p>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           )}
         </section>
-
-        {/* Digital Products Section */}
-        {orders.some((order) =>
-          order.items?.some((item) => item.product_type === 'VOICE_PACK')
-        ) && (
-          <section>
-            <h2 className="text-2xl font-bold text-text-primary mb-6">
-              디지털 상품
-            </h2>
-
-            <div className="bg-white rounded-xl border border-neutral-200 p-6">
-              <div className="space-y-4">
-                {orders
-                  .flatMap((order) =>
-                    order.items
-                      ?.filter((item) => item.product_type === 'VOICE_PACK' && item.item_status === 'COMPLETED')
-                      .map((item) => (
-                        <div
-                          key={`${order.id}-${item.id}`}
-                          className="flex items-center justify-between p-4 rounded-lg bg-neutral-50"
-                        >
-                          <div>
-                            <p className="font-medium text-text-primary">
-                              {item.product_name}
-                            </p>
-                            <p className="text-sm text-text-secondary">
-                              구매일:{' '}
-                              {new Date(order.created_at).toLocaleDateString('ko-KR')}
-                            </p>
-                          </div>
-                          <Button
-                            intent="primary"
-                            size="sm"
-                            onClick={() =>
-                              handleDownload(order.id, item.id, item.product_name)
-                            }
-                            disabled={isDownloading}
-                          >
-                            <Download className="w-4 h-4" />
-                            다운로드
-                          </Button>
-                        </div>
-                      ))
-                  )}
-              </div>
-            </div>
-          </section>
-        )}
       </div>
     </div>
   );
