@@ -15,6 +15,7 @@ import {
   type ListV2AdminCutoverGateChecklistParams,
   type ListV2AdminCutoverDomainsParams,
   type ListV2AdminCutoverGateReportsParams,
+  type ListV2AdminCutoverReopenReadinessParams,
   type ListV2AdminCutoverRoutingFlagsParams,
   type ListV2AdminCutoverStageIssuesParams,
   type ListV2AdminCutoverStageRunsParams,
@@ -100,6 +101,18 @@ export function useV2AdminCutoverGateChecklist(
     queryKey: queryKeys.v2AdminOps.cutover.gateChecklist(params),
     queryFn: async () => {
       const response = await V2AdminOpsAPI.getCutoverGateChecklist(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminCutoverReopenReadiness(
+  params: ListV2AdminCutoverReopenReadinessParams = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.cutover.reopenReadiness(params),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.getCutoverReopenReadiness(params);
       return response.data;
     },
   });

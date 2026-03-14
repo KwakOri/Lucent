@@ -25,6 +25,7 @@ import type {
   ListV2AdminCutoverGateChecklistParams,
   ListV2AdminCutoverDomainsParams,
   ListV2AdminCutoverGateReportsParams,
+  ListV2AdminCutoverReopenReadinessParams,
   ListV2AdminCutoverRoutingFlagsParams,
   ListV2AdminCutoverStageIssuesParams,
   ListV2AdminCutoverStageRunsParams,
@@ -272,6 +273,8 @@ export const queryKeys = {
         [...queryKeys.v2AdminOps.cutover.all, 'gates', params] as const,
       gateChecklist: (params: ListV2AdminCutoverGateChecklistParams = {}) =>
         [...queryKeys.v2AdminOps.cutover.all, 'gate-checklist', params] as const,
+      reopenReadiness: (params: ListV2AdminCutoverReopenReadinessParams = {}) =>
+        [...queryKeys.v2AdminOps.cutover.all, 'reopen-readiness', params] as const,
       batches: (params: ListV2AdminCutoverBatchesParams = {}) =>
         [...queryKeys.v2AdminOps.cutover.all, 'batches', params] as const,
       routingFlags: (params: ListV2AdminCutoverRoutingFlagsParams = {}) =>

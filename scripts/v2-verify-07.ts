@@ -340,6 +340,51 @@ async function run(args: VerifyArgs): Promise<VerifyResult> {
     });
   }
 
+  try {
+    const reopenReadiness = await fetchApi<{
+      domains: Array<{
+        domain: { domain_key: string };
+        reopen_decision: 'NOT_REQUIRED' | 'READY' | 'BLOCKED';
+      }>;
+      summary: {
+        total_domains: number;
+        reopen_required_count: number;
+        ready_count: number;
+        blocked_count: number;
+        not_required_count: number;
+      };
+    }>(
+      args.baseUrl,
+      `/api/v2/admin/cutover/reopen-readiness${withDomainFilter}`,
+      args.adminToken,
+    );
+
+    checks.push({
+      key: 'cutover_reopen_readiness_read',
+      passed: reopenReadiness.summary.total_domains >= 0,
+      detail: `domains=${reopenReadiness.summary.total_domains}, required=${reopenReadiness.summary.reopen_required_count}, ready=${reopenReadiness.summary.ready_count}, blocked=${reopenReadiness.summary.blocked_count}`,
+    });
+
+    if (args.domainKey) {
+      const domainReadiness = reopenReadiness.domains.find(
+        (item) => item.domain.domain_key === args.domainKey,
+      );
+      checks.push({
+        key: 'cutover_reopen_readiness_domain',
+        passed: Boolean(domainReadiness),
+        detail: domainReadiness
+          ? `${args.domainKey} reopen_decision=${domainReadiness.reopen_decision}`
+          : `${args.domainKey} reopen readiness 없음`,
+      });
+    }
+  } catch (error) {
+    checks.push({
+      key: 'cutover_reopen_readiness_read',
+      passed: false,
+      detail: error instanceof Error ? error.message : 'unknown error',
+    });
+  }
+
   const failed = checks.filter((check) => !check.passed).length;
   const passed = checks.length - failed;
 

@@ -15,6 +15,7 @@ import {
   useV2AdminCutoverGateReports,
   useV2AdminCutoverPolicy,
   useV2AdminCutoverPolicyCheck,
+  useV2AdminCutoverReopenReadiness,
   useV2AdminCutoverRoutingFlags,
   useV2AdminCutoverStageIssues,
   useV2AdminCutoverStageRuns,
@@ -148,6 +149,16 @@ function resolveIssueSeverityIntent(severity?: string | null) {
   return 'error' as const;
 }
 
+function resolveReopenDecisionIntent(decision?: string | null) {
+  if (decision === 'READY') {
+    return 'success' as const;
+  }
+  if (decision === 'BLOCKED') {
+    return 'error' as const;
+  }
+  return 'default' as const;
+}
+
 export default function V2AdminOpsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -212,6 +223,8 @@ export default function V2AdminOpsPage() {
     useV2AdminCutoverDomains({ limit: 50 });
   const { data: cutoverGateChecklist, isLoading: cutoverGateChecklistLoading } =
     useV2AdminCutoverGateChecklist();
+  const { data: cutoverReopenReadiness, isLoading: cutoverReopenReadinessLoading } =
+    useV2AdminCutoverReopenReadiness();
   const { data: cutoverGateReports, isLoading: cutoverGateReportsLoading } =
     useV2AdminCutoverGateReports({ limit: 20 });
   const { data: cutoverBatches, isLoading: cutoverBatchesLoading } =
@@ -271,10 +284,14 @@ export default function V2AdminOpsPage() {
       openIssues:
         cutoverStageIssues?.items?.filter((item) => item.status !== 'RESOLVED').length ??
         0,
+      reopenRequired: cutoverReopenReadiness?.summary?.reopen_required_count ?? 0,
+      reopenReady: cutoverReopenReadiness?.summary?.ready_count ?? 0,
+      reopenBlocked: cutoverReopenReadiness?.summary?.blocked_count ?? 0,
     }),
     [
       cutoverDomains,
       cutoverGateChecklist,
+      cutoverReopenReadiness,
       cutoverGateReports,
       cutoverBatches,
       cutoverRoutingFlags,
@@ -667,6 +684,9 @@ export default function V2AdminOpsPage() {
             <Badge intent="default">routing {cutoverSummary.routingFlags}</Badge>
             <Badge intent="default">stage-runs {cutoverSummary.stageRuns}</Badge>
             <Badge intent="warning">open-issues {cutoverSummary.openIssues}</Badge>
+            <Badge intent="info">reopen-required {cutoverSummary.reopenRequired}</Badge>
+            <Badge intent="success">reopen-ready {cutoverSummary.reopenReady}</Badge>
+            <Badge intent="error">reopen-blocked {cutoverSummary.reopenBlocked}</Badge>
           </div>
         </div>
 
@@ -740,6 +760,86 @@ export default function V2AdminOpsPage() {
               ))}
               {(!cutoverGateChecklist || cutoverGateChecklist.domains.length === 0) && (
                 <div className="text-xs text-gray-500">checklist 데이터가 없습니다.</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-lg border border-gray-200 p-4">
+          <div className="text-sm font-semibold text-gray-900">
+            Rollback / Reopen Readiness
+          </div>
+          {cutoverReopenReadinessLoading ? (
+            <div className="mt-2 text-xs text-gray-500">reopen readiness 로딩 중...</div>
+          ) : (
+            <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
+              {(cutoverReopenReadiness?.domains || []).map((item) => (
+                <div
+                  key={item.domain.id}
+                  className="rounded-md bg-gray-50 px-3 py-2 text-xs"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold text-gray-800">
+                      {item.domain.domain_key}
+                    </div>
+                    <Badge
+                      intent={resolveReopenDecisionIntent(item.reopen_decision)}
+                      size="sm"
+                    >
+                      {item.reopen_decision}
+                    </Badge>
+                  </div>
+                  <div className="mt-1 text-gray-600">
+                    gate {item.gate.decision} · unresolved {item.issues.unresolved_count} ·
+                    latest-run {item.latest_stage_run?.status || '-'}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    <Badge
+                      intent={item.approval_checks.gate_ready ? 'success' : 'error'}
+                      size="sm"
+                    >
+                      gate-ready
+                    </Badge>
+                    <Badge
+                      intent={
+                        item.approval_checks.unresolved_issues_cleared
+                          ? 'success'
+                          : 'error'
+                      }
+                      size="sm"
+                    >
+                      issues-cleared
+                    </Badge>
+                    <Badge
+                      intent={
+                        item.approval_checks.latest_stage_run_completed
+                          ? 'success'
+                          : 'warning'
+                      }
+                      size="sm"
+                    >
+                      run-completed
+                    </Badge>
+                    {item.rollback.needs_reopen ? (
+                      <Badge intent="warning" size="sm">
+                        reopen-required
+                      </Badge>
+                    ) : (
+                      <Badge intent="default" size="sm">
+                        not-required
+                      </Badge>
+                    )}
+                  </div>
+                  {item.blockers.length > 0 && (
+                    <div className="mt-1 text-red-600">{item.blockers.join(' / ')}</div>
+                  )}
+                </div>
+              ))}
+              {(!cutoverReopenReadiness ||
+                cutoverReopenReadiness.domains.length === 0) && (
+                <div className="text-xs text-gray-500">
+                  reopen readiness 데이터가 없습니다.
+                </div>
               )}
             </div>
           )}
