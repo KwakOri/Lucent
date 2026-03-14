@@ -18,6 +18,13 @@ import type {
   GetV2PriceListsParams,
   GetV2PromotionsParams,
 } from '@/lib/client/api/v2-catalog-admin.api';
+import type {
+  ListV2AdminActionLogsParams,
+  ListV2AdminApprovalsParams,
+  ListV2AdminFulfillmentQueueParams,
+  ListV2AdminInventoryHealthParams,
+  ListV2AdminOrderQueueParams,
+} from '@/lib/client/api/v2-admin-ops.api';
 
 export const queryKeys = {
   /**
@@ -239,6 +246,35 @@ export const queryKeys = {
           'remediation-tasks',
           sampleLimit,
         ] as const,
+    },
+  },
+
+  /**
+   * V2 Admin / Ops Query Keys
+   */
+  v2AdminOps: {
+    all: ['v2-admin-ops'] as const,
+    catalog: () => [...queryKeys.v2AdminOps.all, 'catalog'] as const,
+    rbac: {
+      all: ['v2-admin-ops', 'rbac'] as const,
+      me: () => [...queryKeys.v2AdminOps.rbac.all, 'me'] as const,
+      roles: () => [...queryKeys.v2AdminOps.rbac.all, 'roles'] as const,
+    },
+    audit: {
+      all: ['v2-admin-ops', 'audit'] as const,
+      actionLogs: (params: ListV2AdminActionLogsParams = {}) =>
+        [...queryKeys.v2AdminOps.audit.all, 'action-logs', params] as const,
+      approvals: (params: ListV2AdminApprovalsParams = {}) =>
+        [...queryKeys.v2AdminOps.audit.all, 'approvals', params] as const,
+    },
+    ops: {
+      all: ['v2-admin-ops', 'ops'] as const,
+      orderQueue: (params: ListV2AdminOrderQueueParams = {}) =>
+        [...queryKeys.v2AdminOps.ops.all, 'order-queue', params] as const,
+      fulfillmentQueue: (params: ListV2AdminFulfillmentQueueParams = {}) =>
+        [...queryKeys.v2AdminOps.ops.all, 'fulfillment-queue', params] as const,
+      inventoryHealth: (params: ListV2AdminInventoryHealthParams = {}) =>
+        [...queryKeys.v2AdminOps.ops.all, 'inventory-health', params] as const,
     },
   },
 } as const;
