@@ -84,6 +84,21 @@
 
 ---
 
+### 6. [V2 Fulfillment Cutover Runbook](./v2-fulfillment-cutover-runbook.md)
+**v2 fulfillment 운영 정착(P3) + 제한 전환(P4) 실행 가이드**
+
+- fulfillment write 컷오버 환경변수 기준
+- cutover policy / ops 모니터링 API 확인 절차
+- 로컬 자동 리허설(`ops:v2-verify-05:local`) 실행 방법
+- 제한 전환 순서 및 롤백 기준
+
+**사용 시기:**
+- v2 fulfillment write를 제한적으로 시작할 때
+- 채널/SKU allowlist 기반 점진 전환을 수행할 때
+- 운영 큐/재고 불일치 모니터링을 점검할 때
+
+---
+
 ## 🚀 빠른 시작
 
 ### 1. 환경 설정
@@ -188,6 +203,7 @@ npx tsx scripts/test-email.ts your-email@example.com
 | R2 환경변수를 찾고 싶어요 | [R2 설정 가이드](./r2-setup.md) |
 | 이미지/파일 스토리지를 설정하고 싶어요 | [R2 설정 가이드](./r2-setup.md) |
 | V2 read switch 전환을 승인하고 싶어요 | [V2 Read Switch 승인 Runbook](./v2-read-switch-approval-runbook.md) |
+| V2 fulfillment write를 전환하고 싶어요 | [V2 Fulfillment Cutover Runbook](./v2-fulfillment-cutover-runbook.md) |
 | API 스펙을 확인하고 싶어요 | `/specs/api/` 폴더 |
 | UI 스펙을 확인하고 싶어요 | `/specs/ui/` 폴더 |
 | 자동화 테스트를 실행하고 싶어요 | `/tests/README.md` |

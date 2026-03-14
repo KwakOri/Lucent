@@ -500,6 +500,41 @@ async function run(args: VerifyArgs): Promise<VerifyResult> {
         detail: `amount=${quote.amount}, expected=${args.expectedShippingFee ?? ">=0"}, rule_id=${quote.matched_rule?.id || "-"}`,
       });
 
+      const cutoverPolicy = await fetchApi<{
+        write_enabled: boolean;
+        shipment_write_enabled: boolean;
+        digital_write_enabled: boolean;
+        allowed_channels: string[];
+        allowed_variant_ids: string[];
+      }>(args.baseUrl, "/api/v2/fulfillment/admin/cutover-policy", adminToken);
+      checks.push({
+        key: "cutover_policy_read",
+        passed:
+          cutoverPolicy.write_enabled &&
+          cutoverPolicy.shipment_write_enabled &&
+          cutoverPolicy.digital_write_enabled,
+        detail: `write=${cutoverPolicy.write_enabled}, shipment=${cutoverPolicy.shipment_write_enabled}, digital=${cutoverPolicy.digital_write_enabled}`,
+      });
+
+      const cutoverCheck = await fetchApi<{
+        eligible: boolean;
+        reasons?: string[];
+      }>(args.baseUrl, "/api/v2/fulfillment/admin/cutover-policy/check", adminToken, {
+        method: "POST",
+        body: JSON.stringify({
+          order_id: createdOrderId,
+          reserve_inventory: true,
+          grant_entitlement: true,
+        }),
+      });
+      checks.push({
+        key: "cutover_policy_check",
+        passed: cutoverCheck.eligible,
+        detail: cutoverCheck.eligible
+          ? "eligible=true"
+          : `eligible=false reasons=${(cutoverCheck.reasons || []).join(";")}`,
+      });
+
       const orchestrate = await fetchApi<{
         created: {
           fulfillments: number;
@@ -725,6 +760,36 @@ async function run(args: VerifyArgs): Promise<VerifyResult> {
           });
         }
       }
+
+      const queueSummary = await fetchApi<{
+        summary: {
+          pending_group_count: number;
+          shipment_queue_count: number;
+          entitlement_queue_count: number;
+        };
+      }>(args.baseUrl, "/api/v2/fulfillment/admin/ops/queue-summary?limit=10", adminToken);
+      checks.push({
+        key: "ops_queue_summary",
+        passed:
+          typeof queueSummary.summary?.pending_group_count === "number" &&
+          typeof queueSummary.summary?.shipment_queue_count === "number" &&
+          typeof queueSummary.summary?.entitlement_queue_count === "number",
+        detail: `pending_groups=${queueSummary.summary?.pending_group_count ?? "-"}, shipment_queue=${queueSummary.summary?.shipment_queue_count ?? "-"}, entitlement_queue=${queueSummary.summary?.entitlement_queue_count ?? "-"}`,
+      });
+
+      const inventoryHealth = await fetchApi<{
+        summary: {
+          mismatch_count: number;
+          low_stock_count: number;
+        };
+      }>(args.baseUrl, "/api/v2/fulfillment/admin/ops/inventory-health?limit=10", adminToken);
+      checks.push({
+        key: "ops_inventory_health",
+        passed:
+          typeof inventoryHealth.summary?.mismatch_count === "number" &&
+          typeof inventoryHealth.summary?.low_stock_count === "number",
+        detail: `mismatch=${inventoryHealth.summary?.mismatch_count ?? "-"}, low_stock=${inventoryHealth.summary?.low_stock_count ?? "-"}`,
+      });
     } catch (error) {
       checks.push({
         key: "fulfillment_admin_flow",
