@@ -202,7 +202,7 @@ export default function V2CartPage() {
             <div className="flex flex-wrap gap-2">
               <Link href="/cart">
                 <Button intent="secondary" size="sm">
-                  v1 장바구니
+                  기본 /cart 경로
                 </Button>
               </Link>
               <Link href="/v2/checkout">

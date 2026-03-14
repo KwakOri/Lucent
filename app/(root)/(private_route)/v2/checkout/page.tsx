@@ -365,7 +365,7 @@ export default function V2CheckoutPage() {
               </Link>
               <Link href="/checkout">
                 <Button intent="ghost" size="sm">
-                  v1 체크아웃
+                  기본 /checkout 경로
                 </Button>
               </Link>
             </div>
