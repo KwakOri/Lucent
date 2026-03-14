@@ -1,165 +1,109 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { ArrowRight, Minus, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
-import { Button } from '@/components/ui/button';
-import { Input, Textarea } from '@/components/ui/input';
 import {
-  useV2AddCartItem,
   useV2CheckoutCart,
   useV2RemoveCartItem,
   useV2UpdateCartItemQuantity,
 } from '@/lib/client/hooks/useV2Checkout';
-import {
-  useV2AdminProducts,
-  useV2AdminVariants,
-} from '@/lib/client/hooks/useV2CatalogAdmin';
+import { ApiError } from '@/lib/client/utils/api-error';
+import { useToast } from '@/src/components/toast';
+
+function readNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function readUnitAmount(snapshot: Record<string, unknown> | null): number {
+  if (!snapshot) {
+    return 0;
+  }
+  const candidates = [
+    snapshot.final_unit_amount,
+    snapshot.sale_unit_amount,
+    snapshot.unit_amount,
+    snapshot.amount,
+  ];
+  for (const candidate of candidates) {
+    const amount = readNumber(candidate);
+    if (amount !== null) {
+      return amount;
+    }
+  }
+  return 0;
+}
+
+function formatCurrency(amount: number): string {
+  return `${Math.max(0, amount).toLocaleString()}원`;
+}
 
 function getErrorMessage(error: unknown): string {
-  if (error && typeof error === 'object') {
-    const maybe = error as {
-      message?: string;
-      response?: { data?: { message?: string } };
-    };
-    if (maybe.response?.data?.message) {
-      return maybe.response.data.message;
-    }
-    if (maybe.message) {
-      return maybe.message;
-    }
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+  if (error instanceof Error) {
+    return error.message;
   }
   return '요청 처리 중 오류가 발생했습니다.';
 }
 
-function parseOptionalObject(
-  raw: string,
-  fieldName: string,
-): Record<string, unknown> | null {
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  const parsed = JSON.parse(trimmed);
-  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
-    throw new Error(`${fieldName}은 JSON object여야 합니다.`);
-  }
-  return parsed as Record<string, unknown>;
-}
-
-function toNullable(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 export default function V2CartPage() {
-  const [selectedProductId, setSelectedProductId] = useState('');
-  const [variantId, setVariantId] = useState('');
-  const [quantity, setQuantity] = useState('1');
-  const [campaignId, setCampaignId] = useState('');
-  const [bundleConfigText, setBundleConfigText] = useState('');
-  const [displayPriceText, setDisplayPriceText] = useState('');
-  const [metadataText, setMetadataText] = useState('{}');
-  const [message, setMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [processingItemId, setProcessingItemId] = useState<string | null>(null);
-
-  const {
-    data: cart,
-    isLoading,
-    error,
-    refetch,
-  } = useV2CheckoutCart();
-  const addCartItem = useV2AddCartItem();
+  const router = useRouter();
+  const { showToast } = useToast();
+  const { data: cart, isLoading, error, refetch } = useV2CheckoutCart();
   const updateQuantity = useV2UpdateCartItemQuantity();
   const removeCartItem = useV2RemoveCartItem();
 
-  const { data: products, error: productsError } = useV2AdminProducts({
-    status: 'ACTIVE',
-  });
-  const { data: variants, error: variantsError } = useV2AdminVariants(
-    selectedProductId || null,
-  );
-
-  const itemCount = cart?.item_count ?? 0;
-  const quantityTotal = cart?.quantity_total ?? 0;
   const items = cart?.items ?? [];
+  const isEmpty = items.length === 0;
+  const hasAuthError = error instanceof ApiError && error.isAuthError();
+  const totalAmount = items.reduce((sum, item) => {
+    const unit = readUnitAmount(
+      (item.display_price_snapshot as Record<string, unknown> | null) || null,
+    );
+    return sum + unit * item.quantity;
+  }, 0);
 
-  async function handleAddItem() {
-    setMessage(null);
-    setErrorMessage(null);
-
-    try {
-      const parsedQuantity = Number.parseInt(quantity, 10);
-      if (!variantId.trim()) {
-        throw new Error('variant_id를 입력하세요.');
-      }
-      if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
-        throw new Error('수량은 1 이상의 정수여야 합니다.');
-      }
-
-      const payload = {
-        variant_id: variantId.trim(),
-        quantity: parsedQuantity,
-        campaign_id: toNullable(campaignId),
-        bundle_configuration_snapshot: parseOptionalObject(
-          bundleConfigText,
-          'bundle_configuration_snapshot',
-        ),
-        display_price_snapshot: parseOptionalObject(
-          displayPriceText,
-          'display_price_snapshot',
-        ),
-        metadata: parseOptionalObject(metadataText, 'metadata'),
-      };
-
-      await addCartItem.mutateAsync(payload);
-      setMessage('v2 cart에 item을 추가했습니다.');
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error));
-    }
-  }
+  const isUpdating = updateQuantity.isPending || removeCartItem.isPending;
 
   async function handleQuantityChange(itemId: string, nextQuantity: number) {
     if (nextQuantity <= 0) {
       return;
     }
-    setProcessingItemId(itemId);
-    setMessage(null);
-    setErrorMessage(null);
 
     try {
       await updateQuantity.mutateAsync({
         itemId,
         data: { quantity: nextQuantity },
       });
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error));
-    } finally {
-      setProcessingItemId(null);
+    } catch (mutationError) {
+      showToast(getErrorMessage(mutationError), { type: 'error' });
     }
   }
 
-  async function handleRemove(itemId: string) {
-    setProcessingItemId(itemId);
-    setMessage(null);
-    setErrorMessage(null);
-
+  async function handleRemoveItem(itemId: string) {
     try {
       await removeCartItem.mutateAsync(itemId);
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error));
-    } finally {
-      setProcessingItemId(null);
+      showToast('상품을 장바구니에서 삭제했습니다.', { type: 'info' });
+    } catch (mutationError) {
+      showToast(getErrorMessage(mutationError), { type: 'error' });
     }
   }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
         <Loading size="lg" />
       </div>
     );
@@ -167,20 +111,33 @@ export default function V2CartPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
         <EmptyState
-          title="v2 장바구니를 불러오지 못했습니다"
-          description={getErrorMessage(error)}
+          icon={ShoppingCart}
+          title={hasAuthError ? '로그인이 필요합니다' : '장바구니를 불러오지 못했습니다'}
+          description={
+            hasAuthError
+              ? '로그인 후 장바구니를 확인할 수 있습니다.'
+              : getErrorMessage(error)
+          }
           action={
-            <Button
-              intent="primary"
-              size="sm"
-              onClick={() => {
-                void refetch();
-              }}
-            >
-              다시 시도
-            </Button>
+            hasAuthError ? (
+              <Link href="/login?redirect=/cart">
+                <Button intent="primary" size="md">
+                  로그인하러 가기
+                </Button>
+              </Link>
+            ) : (
+              <Button
+                intent="primary"
+                size="md"
+                onClick={() => {
+                  void refetch();
+                }}
+              >
+                다시 시도
+              </Button>
+            )
           }
         />
       </div>
@@ -189,264 +146,141 @@ export default function V2CartPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 py-8">
-      <div className="max-w-5xl mx-auto px-4 space-y-6">
-        <section className="bg-white rounded-xl border border-neutral-200 p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-text-primary">
-                v2 장바구니 테스트 페이지
-              </h1>
-              <p className="text-sm text-text-secondary mt-1">
-                기존 v1 경로와 분리된 v2 전용 장바구니 경로입니다.
-              </p>
-              <div className="mt-3 flex items-center gap-3 text-sm text-text-secondary">
-                <span>item_count: {itemCount}</span>
-                <span>quantity_total: {quantityTotal}</span>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Link href="/cart">
-                <Button intent="secondary" size="sm">
-                  기본 /cart 경로
-                </Button>
-              </Link>
-              <Link href="/v2/checkout">
-                <Button intent="primary" size="sm">
-                  v2 체크아웃
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
-            </div>
+      <div className="mx-auto max-w-5xl px-4">
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-text-primary">장바구니</h1>
+            <p className="mt-1 text-sm text-text-secondary">
+              담아둔 상품을 확인하고 결제를 진행하세요.
+            </p>
           </div>
-        </section>
-
-        <section className="bg-white rounded-xl border border-neutral-200 p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-text-primary">v2 cart item 추가</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
-                제품 선택(관리자 전용 조회)
-              </label>
-              <select
-                className="w-full h-11 px-3 border border-neutral-200 rounded-lg text-sm"
-                value={selectedProductId}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setSelectedProductId(next);
-                  setVariantId('');
-                }}
-              >
-                <option value="">직접 variant_id 입력</option>
-                {(products ?? []).map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.title} ({product.id.slice(0, 8)}...)
-                  </option>
-                ))}
-              </select>
-              {productsError ? (
-                <p className="text-xs text-amber-600 mt-1">
-                  제품 목록 조회 실패(관리자 권한 필요): {getErrorMessage(productsError)}
-                </p>
-              ) : null}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
-                variant 선택(관리자 전용 조회)
-              </label>
-              <select
-                className="w-full h-11 px-3 border border-neutral-200 rounded-lg text-sm"
-                value={variantId}
-                onChange={(event) => setVariantId(event.target.value)}
-              >
-                <option value="">variant_id 직접 입력 또는 선택</option>
-                {(variants ?? []).map((variant) => (
-                  <option key={variant.id} value={variant.id}>
-                    {variant.title} / {variant.sku} ({variant.id.slice(0, 8)}...)
-                  </option>
-                ))}
-              </select>
-              {variantsError ? (
-                <p className="text-xs text-amber-600 mt-1">
-                  variant 목록 조회 실패: {getErrorMessage(variantsError)}
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
-                variant_id
-              </label>
-              <Input
-                value={variantId}
-                onChange={(event) => setVariantId(event.target.value)}
-                placeholder="UUID"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
-                quantity
-              </label>
-              <Input
-                value={quantity}
-                onChange={(event) => setQuantity(event.target.value)}
-                placeholder="1"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
-                campaign_id (optional)
-              </label>
-              <Input
-                value={campaignId}
-                onChange={(event) => setCampaignId(event.target.value)}
-                placeholder="UUID"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
-                bundle_configuration_snapshot (JSON)
-              </label>
-              <Textarea
-                rows={3}
-                value={bundleConfigText}
-                onChange={(event) => setBundleConfigText(event.target.value)}
-                placeholder='{"component_id":"variant_id"}'
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
-                display_price_snapshot (JSON)
-              </label>
-              <Textarea
-                rows={3}
-                value={displayPriceText}
-                onChange={(event) => setDisplayPriceText(event.target.value)}
-                placeholder='{"unit_amount":10000}'
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
-                metadata (JSON)
-              </label>
-              <Textarea
-                rows={3}
-                value={metadataText}
-                onChange={(event) => setMetadataText(event.target.value)}
-                placeholder='{"source":"v2-cart-page"}'
-              />
-            </div>
-          </div>
-
-          {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
-          {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={() => {
-                void handleAddItem();
-              }}
-              loading={addCartItem.isPending}
-            >
-              item 추가
+          <Link href="/shop">
+            <Button intent="secondary" size="sm">
+              상품 더 보기
             </Button>
-            <Button
-              intent="secondary"
-              onClick={() => {
-                void refetch();
-              }}
-              loading={isLoading}
-            >
-              <RefreshCw className="w-4 h-4" />
-              새로고침
-            </Button>
-          </div>
-        </section>
+          </Link>
+        </div>
 
-        <section className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-neutral-200">
-            <h2 className="text-lg font-semibold text-text-primary">현재 v2 cart items</h2>
+        {isEmpty ? (
+          <div className="rounded-2xl border border-neutral-200 bg-white p-8">
+            <EmptyState
+              icon={ShoppingCart}
+              title="장바구니가 비어 있습니다"
+              description="상점에서 원하는 상품을 담아보세요."
+              action={
+                <Link href="/shop">
+                  <Button intent="primary" size="md">
+                    상점으로 이동
+                  </Button>
+                </Link>
+              }
+            />
           </div>
-
-          {items.length === 0 ? (
-            <div className="p-6">
-              <EmptyState
-                title="v2 장바구니가 비어 있습니다"
-                description="variant_id를 입력해 item을 추가한 뒤 체크아웃 흐름을 테스트하세요."
-              />
-            </div>
-          ) : (
-            <div className="divide-y divide-neutral-200">
+        ) : (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+            <section className="space-y-4">
               {items.map((item) => {
-                const disabled = processingItemId === item.id;
-                const productTitle =
-                  item.variant?.product?.title || item.variant?.title || item.variant_id;
-
+                const unitAmount = readUnitAmount(
+                  (item.display_price_snapshot as Record<string, unknown> | null) ||
+                    null,
+                );
+                const lineTotal = unitAmount * item.quantity;
                 return (
-                  <div key={item.id} className={`p-6 ${disabled ? 'opacity-50' : ''}`}>
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <div className="space-y-1">
-                        <p className="font-semibold text-text-primary">{productTitle}</p>
-                        <p className="text-sm text-text-secondary">
-                          variant_id: {item.variant_id}
+                  <article
+                    key={item.id}
+                    className="rounded-xl border border-neutral-200 bg-white p-5"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-lg font-semibold text-text-primary">
+                          {item.variant?.title || '옵션 정보 없음'}
                         </p>
-                        <p className="text-xs text-text-secondary">
-                          product_kind: {item.product_kind_snapshot} / added_via:{' '}
-                          {item.added_via}
+                        <p className="text-sm text-text-secondary">
+                          {item.variant?.product?.title || '상품 정보 없음'}
+                        </p>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          개당 {formatCurrency(unitAmount)}
                         </p>
                       </div>
+                      <Button
+                        intent="ghost"
+                        size="sm"
+                        disabled={isUpdating}
+                        onClick={() => void handleRemoveItem(item.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        삭제
+                      </Button>
+                    </div>
 
+                    <div className="mt-4 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <button
-                          className="w-8 h-8 border border-neutral-300 rounded-lg flex items-center justify-center hover:bg-neutral-100 disabled:opacity-50"
+                        <Button
+                          intent="secondary"
+                          size="sm"
+                          disabled={item.quantity <= 1 || isUpdating}
                           onClick={() =>
                             void handleQuantityChange(item.id, item.quantity - 1)
                           }
-                          disabled={disabled || item.quantity <= 1}
                         >
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        <span className="w-10 text-center font-semibold">
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <span className="w-10 text-center text-sm font-semibold text-text-primary">
                           {item.quantity}
                         </span>
-                        <button
-                          className="w-8 h-8 border border-neutral-300 rounded-lg flex items-center justify-center hover:bg-neutral-100 disabled:opacity-50"
+                        <Button
+                          intent="secondary"
+                          size="sm"
+                          disabled={isUpdating}
                           onClick={() =>
                             void handleQuantityChange(item.id, item.quantity + 1)
                           }
-                          disabled={disabled}
                         >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                        <Button
-                          intent="ghost"
-                          size="sm"
-                          onClick={() => {
-                            void handleRemove(item.id);
-                          }}
-                          disabled={disabled}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          삭제
+                          <Plus className="h-4 w-4" />
                         </Button>
                       </div>
+
+                      <p className="text-base font-semibold text-text-primary">
+                        {formatCurrency(lineTotal)}
+                      </p>
                     </div>
-                  </div>
+                  </article>
                 );
               })}
-            </div>
-          )}
-        </section>
+            </section>
+
+            <aside className="h-fit rounded-xl border border-neutral-200 bg-white p-5">
+              <h2 className="text-lg font-semibold text-text-primary">주문 요약</h2>
+              <dl className="mt-4 space-y-2 text-sm text-text-secondary">
+                <div className="flex items-center justify-between">
+                  <dt>상품 개수</dt>
+                  <dd className="font-medium text-text-primary">{cart?.item_count ?? 0}개</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt>총 수량</dt>
+                  <dd className="font-medium text-text-primary">
+                    {cart?.quantity_total ?? 0}개
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between pt-2 text-base">
+                  <dt className="font-semibold text-text-primary">예상 결제 금액</dt>
+                  <dd className="font-bold text-primary-700">
+                    {formatCurrency(totalAmount)}
+                  </dd>
+                </div>
+              </dl>
+              <Button
+                intent="primary"
+                size="lg"
+                fullWidth
+                className="mt-5"
+                onClick={() => router.push('/checkout')}
+              >
+                체크아웃 진행
+              </Button>
+            </aside>
+          </div>
+        )}
       </div>
     </div>
   );
