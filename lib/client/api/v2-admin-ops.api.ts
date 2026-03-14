@@ -37,6 +37,25 @@ export interface V2AdminActionCatalog {
   screens: V2AdminActionCatalogScreen[];
 }
 
+export interface V2AdminCutoverPolicy {
+  rollout_stage: 'STAGE_1' | 'STAGE_2' | 'STAGE_3';
+  approval_enforced: boolean;
+  approval_enforced_actions: string[];
+  legacy_write_mode: string;
+  description: string;
+  updated_at: string;
+}
+
+export interface V2AdminCutoverPolicyCheckResult {
+  policy: V2AdminCutoverPolicy;
+  action: {
+    action_key: string | null;
+    requires_approval: boolean;
+    approval_enforced_for_action: boolean;
+  };
+  decision: 'APPROVAL_REQUIRED' | 'DIRECT_EXECUTE';
+}
+
 export interface V2AdminRoleWithPermissions {
   id: string;
   code: string;
@@ -188,6 +207,17 @@ export const V2AdminOpsAPI = {
 
   async getMyRbac(): Promise<ApiResponse<V2AdminMyRbac>> {
     return apiClient.get('/api/v2/admin/rbac/me');
+  },
+
+  async getCutoverPolicy(): Promise<ApiResponse<V2AdminCutoverPolicy>> {
+    return apiClient.get('/api/v2/admin/cutover-policy');
+  },
+
+  async checkCutoverPolicy(data: {
+    action_key?: string;
+    requires_approval?: boolean;
+  }): Promise<ApiResponse<V2AdminCutoverPolicyCheckResult>> {
+    return apiClient.post('/api/v2/admin/cutover-policy/check', data);
   },
 
   async getRoles(): Promise<ApiResponse<V2AdminRoleWithPermissions[]>> {

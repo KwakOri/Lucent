@@ -255,6 +255,11 @@ export const queryKeys = {
   v2AdminOps: {
     all: ['v2-admin-ops'] as const,
     catalog: () => [...queryKeys.v2AdminOps.all, 'catalog'] as const,
+    cutover: {
+      all: ['v2-admin-ops', 'cutover'] as const,
+      policy: () => [...queryKeys.v2AdminOps.cutover.all, 'policy'] as const,
+      check: () => [...queryKeys.v2AdminOps.cutover.all, 'check'] as const,
+    },
     rbac: {
       all: ['v2-admin-ops', 'rbac'] as const,
       me: () => [...queryKeys.v2AdminOps.rbac.all, 'me'] as const,

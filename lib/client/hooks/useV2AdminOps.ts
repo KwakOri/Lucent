@@ -46,6 +46,16 @@ export function useV2AdminMyRbac() {
   });
 }
 
+export function useV2AdminCutoverPolicy() {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.cutover.policy(),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.getCutoverPolicy();
+      return response.data;
+    },
+  });
+}
+
 export function useV2AdminRoles() {
   return useQuery({
     queryKey: queryKeys.v2AdminOps.rbac.roles(),
@@ -125,7 +135,7 @@ export function useV2AdminRefundOrder() {
         metadata?: Record<string, unknown> | null;
       };
     }) => V2AdminOpsAPI.refundOrder(orderId, data),
-    onSuccess: async () => {
+    onSettled: async () => {
       await invalidateV2AdminOps(queryClient);
     },
   });
@@ -141,7 +151,7 @@ export function useV2AdminDispatchShipment() {
       shipmentId: string;
       data?: { metadata?: Record<string, unknown> | null };
     }) => V2AdminOpsAPI.dispatchShipment(shipmentId, data),
-    onSuccess: async () => {
+    onSettled: async () => {
       await invalidateV2AdminOps(queryClient);
     },
   });
@@ -163,7 +173,7 @@ export function useV2AdminReissueEntitlement() {
         metadata?: Record<string, unknown> | null;
       };
     }) => V2AdminOpsAPI.reissueEntitlement(entitlementId, data),
-    onSuccess: async () => {
+    onSettled: async () => {
       await invalidateV2AdminOps(queryClient);
     },
   });
@@ -182,8 +192,17 @@ export function useV2AdminRevokeEntitlement() {
         metadata?: Record<string, unknown> | null;
       };
     }) => V2AdminOpsAPI.revokeEntitlement(entitlementId, data),
-    onSuccess: async () => {
+    onSettled: async () => {
       await invalidateV2AdminOps(queryClient);
+    },
+  });
+}
+
+export function useV2AdminCutoverPolicyCheck() {
+  return useMutation({
+    mutationFn: async (data: { action_key?: string; requires_approval?: boolean }) => {
+      const response = await V2AdminOpsAPI.checkCutoverPolicy(data);
+      return response.data;
     },
   });
 }
