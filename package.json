@@ -26,6 +26,7 @@
     "ops:v2-verify-06": "tsx scripts/v2-verify-06.ts",
     "ops:v2-verify-07": "tsx scripts/v2-verify-07.ts",
     "ops:v2-verify-all:local": "bash scripts/ops-v2-verify-all-local.sh",
+    "ops:v2-seed-dummy:local": "bash scripts/seed-v2-dummy-local.sh",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },

@@ -51,8 +51,11 @@ npm run ops:v2-verify-all:local -- --base-url http://127.0.0.1:3001
 
 ```bash
 cd /Users/kwakori/projects/promotion/lucent/frontend
+npm run ops:v2-seed-dummy:local
 npm run dev:v2-local
 ```
+
+`ops:v2-seed-dummy:local`는 v2 테스트용 더미 프로젝트/상품/variant/가격표를 로컬 DB에 upsert한다.
 
 옵션:
 
