@@ -114,6 +114,21 @@
 
 ---
 
+### 8. [V2 Migration/Cutover Gate Runbook](./v2-migration-cutover-runbook.md)
+**v2 migration 상태판 + gate checklist(P1~P2) 운영 가이드**
+
+- cutover domain/gate/batch/routing API 점검 절차
+- READY/REVIEW/BLOCKED 판정 기준
+- `/admin/v2-ops` 상태판 운영 포인트
+- `ops:v2-verify-07` 자동 검증 명령
+
+**사용 시기:**
+- 도메인별 컷오버 상태를 운영하면서 게이트 판정을 수행할 때
+- 단계 전환 승인 전에 BLOCKED 사유를 점검할 때
+- 라우팅/배치 상태를 함께 추적해야 할 때
+
+---
+
 ## 🚀 빠른 시작
 
 ### 1. 환경 설정
@@ -220,6 +235,7 @@ npx tsx scripts/test-email.ts your-email@example.com
 | V2 read switch 전환을 승인하고 싶어요 | [V2 Read Switch 승인 Runbook](./v2-read-switch-approval-runbook.md) |
 | V2 fulfillment write를 전환하고 싶어요 | [V2 Fulfillment Cutover Runbook](./v2-fulfillment-cutover-runbook.md) |
 | V2 admin 액션 승인 강제를 전환하고 싶어요 | [V2 Admin/Ops Cutover Runbook](./v2-admin-ops-cutover-runbook.md) |
+| V2 migration gate 판정을 운영하고 싶어요 | [V2 Migration/Cutover Gate Runbook](./v2-migration-cutover-runbook.md) |
 | API 스펙을 확인하고 싶어요 | `/specs/api/` 폴더 |
 | UI 스펙을 확인하고 싶어요 | `/specs/ui/` 폴더 |
 | 자동화 테스트를 실행하고 싶어요 | `/tests/README.md` |

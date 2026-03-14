@@ -11,6 +11,7 @@ import {
   useV2AdminApprovals,
   useV2AdminCutoverBatches,
   useV2AdminCutoverDomains,
+  useV2AdminCutoverGateChecklist,
   useV2AdminCutoverGateReports,
   useV2AdminCutoverPolicy,
   useV2AdminCutoverPolicyCheck,
@@ -164,6 +165,8 @@ export default function V2AdminOpsPage() {
   });
   const { data: cutoverDomains, isLoading: cutoverDomainsLoading } =
     useV2AdminCutoverDomains({ limit: 50 });
+  const { data: cutoverGateChecklist, isLoading: cutoverGateChecklistLoading } =
+    useV2AdminCutoverGateChecklist();
   const { data: cutoverGateReports, isLoading: cutoverGateReportsLoading } =
     useV2AdminCutoverGateReports({ limit: 20 });
   const { data: cutoverBatches, isLoading: cutoverBatchesLoading } =
@@ -205,11 +208,20 @@ export default function V2AdminOpsPage() {
   const cutoverSummary = useMemo(
     () => ({
       domains: cutoverDomains?.items?.length ?? 0,
+      readyDomains: cutoverGateChecklist?.summary?.ready_count ?? 0,
+      reviewDomains: cutoverGateChecklist?.summary?.review_count ?? 0,
+      blockedDomains: cutoverGateChecklist?.summary?.blocked_count ?? 0,
       gates: cutoverGateReports?.items?.length ?? 0,
       batches: cutoverBatches?.items?.length ?? 0,
       routingFlags: cutoverRoutingFlags?.items?.length ?? 0,
     }),
-    [cutoverDomains, cutoverGateReports, cutoverBatches, cutoverRoutingFlags],
+    [
+      cutoverDomains,
+      cutoverGateChecklist,
+      cutoverGateReports,
+      cutoverBatches,
+      cutoverRoutingFlags,
+    ],
   );
 
   const clearNotice = () => {
@@ -529,6 +541,9 @@ export default function V2AdminOpsPage() {
           <h2 className="text-lg font-semibold text-gray-900">Migration Cutover Board</h2>
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <Badge intent="info">domains {cutoverSummary.domains}</Badge>
+            <Badge intent="success">ready {cutoverSummary.readyDomains}</Badge>
+            <Badge intent="warning">review {cutoverSummary.reviewDomains}</Badge>
+            <Badge intent="error">blocked {cutoverSummary.blockedDomains}</Badge>
             <Badge intent="default">gates {cutoverSummary.gates}</Badge>
             <Badge intent="default">batches {cutoverSummary.batches}</Badge>
             <Badge intent="default">routing {cutoverSummary.routingFlags}</Badge>
@@ -566,6 +581,49 @@ export default function V2AdminOpsPage() {
             )}
           </div>
         )}
+
+        <div className="mt-4 rounded-lg border border-gray-200 p-4">
+          <div className="text-sm font-semibold text-gray-900">
+            Gate Checklist Decision
+          </div>
+          {cutoverGateChecklistLoading ? (
+            <div className="mt-2 text-xs text-gray-500">checklist 로딩 중...</div>
+          ) : (
+            <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
+              {(cutoverGateChecklist?.domains || []).map((item) => (
+                <div
+                  key={item.domain.id}
+                  className="rounded-md bg-gray-50 px-3 py-2 text-xs"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold text-gray-800">
+                      {item.domain.domain_key}
+                    </div>
+                    <Badge
+                      intent={
+                        item.decision === 'READY'
+                          ? 'success'
+                          : item.decision === 'REVIEW'
+                          ? 'warning'
+                          : 'error'
+                      }
+                      size="sm"
+                    >
+                      {item.decision}
+                    </Badge>
+                  </div>
+                  <div className="mt-1 text-gray-600">
+                    pass {item.summary.passed} / warn {item.summary.warn} / fail{' '}
+                    {item.summary.failed} / missing {item.summary.missing}
+                  </div>
+                </div>
+              ))}
+              {(!cutoverGateChecklist || cutoverGateChecklist.domains.length === 0) && (
+                <div className="text-xs text-gray-500">checklist 데이터가 없습니다.</div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="mt-4 rounded-lg border border-gray-200 p-4">
           <div className="text-sm font-semibold text-gray-900">도메인 상태 업데이트</div>

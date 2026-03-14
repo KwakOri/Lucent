@@ -112,6 +112,55 @@ export interface V2CutoverGateReport {
   domain?: Pick<V2CutoverDomain, 'domain_key' | 'domain_name' | 'status' | 'current_stage'>;
 }
 
+export interface V2CutoverGateChecklistCheck {
+  gate_type: V2CutoverGateType;
+  latest_result: V2CutoverGateResult | null;
+  latest_at: string | null;
+  detail: string | null;
+  report_id: string | null;
+  passed: boolean;
+  warn: boolean;
+  failed: boolean;
+  missing: boolean;
+  blocking: boolean;
+}
+
+export interface V2CutoverGateChecklistDomain {
+  domain: Pick<
+    V2CutoverDomain,
+    | 'id'
+    | 'domain_key'
+    | 'domain_name'
+    | 'status'
+    | 'current_stage'
+    | 'next_action'
+    | 'owner_role_code'
+    | 'last_gate_result'
+    | 'updated_at'
+  >;
+  gate_checks: V2CutoverGateChecklistCheck[];
+  summary: {
+    required_total: number;
+    passed: number;
+    warn: number;
+    failed: number;
+    missing: number;
+  };
+  decision: 'READY' | 'REVIEW' | 'BLOCKED';
+}
+
+export interface V2CutoverGateChecklist {
+  generated_at: string;
+  required_gate_types: V2CutoverGateType[];
+  domains: V2CutoverGateChecklistDomain[];
+  summary: {
+    total_domains: number;
+    ready_count: number;
+    review_count: number;
+    blocked_count: number;
+  };
+}
+
 export interface V2CutoverBatch {
   id: string;
   domain_id: string;
@@ -294,6 +343,10 @@ export interface ListV2AdminCutoverGateReportsParams {
   gate_result?: V2CutoverGateResult;
 }
 
+export interface ListV2AdminCutoverGateChecklistParams {
+  domain_key?: string;
+}
+
 export interface SaveV2AdminCutoverGateReportInput {
   domain_key: string;
   gate_type: V2CutoverGateType;
@@ -452,6 +505,13 @@ export const V2AdminOpsAPI = {
   ): Promise<ApiResponse<V2AdminListResponse<V2CutoverGateReport>>> {
     const query = toQueryString(params);
     return apiClient.get(`/api/v2/admin/cutover/gates${query}`);
+  },
+
+  async getCutoverGateChecklist(
+    params: ListV2AdminCutoverGateChecklistParams = {},
+  ): Promise<ApiResponse<V2CutoverGateChecklist>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/cutover/gates/checklist${query}`);
   },
 
   async saveCutoverGateReport(
