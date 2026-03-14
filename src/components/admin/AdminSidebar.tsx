@@ -12,6 +12,7 @@ import {
   DocumentTextIcon,
   ArrowsRightLeftIcon,
   CubeIcon,
+  BanknotesIcon,
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -25,6 +26,7 @@ const navigation = [
   { name: '로그 조회', href: '/admin/logs', icon: DocumentTextIcon },
   { name: 'V2 전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowsRightLeftIcon },
   { name: 'V2 Bundle Builder', href: '/admin/v2-catalog/bundles', icon: CubeIcon },
+  { name: 'V2 Pricing Ops', href: '/admin/v2-catalog/pricing', icon: BanknotesIcon },
 ];
 
 export function AdminSidebar() {

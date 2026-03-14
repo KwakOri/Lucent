@@ -9,34 +9,57 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   V2CatalogAdminAPI,
+  type BuildV2PriceQuoteData,
+  type CreateV2CampaignData,
+  type CreateV2CampaignTargetData,
   type CreateV2ArtistData,
   type CloneV2BundleDefinitionVersionData,
   type CreateV2BundleComponentData,
   type CreateV2BundleComponentOptionData,
   type CreateV2BundleDefinitionData,
+  type CreateV2CouponData,
   type CreateV2DigitalAssetData,
   type CreateV2MediaData,
+  type CreateV2PriceListData,
+  type CreateV2PriceListItemData,
   type CreateV2ProductData,
+  type CreateV2PromotionData,
+  type CreateV2PromotionRuleData,
   type CreateV2ProjectData,
   type CreateV2VariantData,
+  type GetV2CampaignsParams,
+  type GetV2CouponsParams,
   type GetV2BundleDefinitionsParams,
   type GetV2ArtistsParams,
+  type GetV2PriceListsParams,
   type GetV2ProductsParams,
+  type GetV2PromotionsParams,
   type GetV2ProjectsParams,
   type LinkV2ArtistToProjectData,
   type BuildV2BundleCanaryReportData,
   type BuildV2BundleOpsContractData,
   type PreviewV2BundleData,
+  type RedeemV2CouponRedemptionData,
+  type ReleaseV2CouponRedemptionData,
+  type ReserveV2CouponData,
   type ResolveV2BundleData,
+  type UpdateV2CampaignData,
+  type UpdateV2CampaignTargetData,
   type UpdateV2BundleComponentOptionData,
   type UpdateV2BundleComponentData,
   type UpdateV2BundleDefinitionData,
   type UpdateV2ArtistData,
+  type UpdateV2CouponData,
   type UpdateV2DigitalAssetData,
   type UpdateV2MediaData,
+  type UpdateV2PriceListData,
+  type UpdateV2PriceListItemData,
   type UpdateV2ProductData,
+  type UpdateV2PromotionData,
+  type UpdateV2PromotionRuleData,
   type UpdateV2ProjectData,
   type UpdateV2VariantData,
+  type ValidateV2CouponData,
   type ValidateV2BundleDefinitionData,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import { queryKeys } from './query-keys';
@@ -684,6 +707,492 @@ export function useV2ProductPublishReadiness(productId: string | null | undefine
       return response.data;
     },
     enabled: !!productId,
+  });
+}
+
+export function useV2Campaigns(params: GetV2CampaignsParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.list(params),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getCampaigns(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2Campaign(campaignId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.detail(campaignId || ''),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getCampaign(campaignId!);
+      return response.data;
+    },
+    enabled: !!campaignId,
+  });
+}
+
+export function useCreateV2Campaign() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateV2CampaignData) =>
+      V2CatalogAdminAPI.createCampaign(data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useUpdateV2Campaign() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdateV2CampaignData;
+    }) => V2CatalogAdminAPI.updateCampaign(id, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useActivateV2Campaign() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => V2CatalogAdminAPI.activateCampaign(id),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useSuspendV2Campaign() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => V2CatalogAdminAPI.suspendCampaign(id),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useCloseV2Campaign() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => V2CatalogAdminAPI.closeCampaign(id),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useV2CampaignTargets(campaignId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.targets(campaignId || ''),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getCampaignTargets(campaignId!);
+      return response.data;
+    },
+    enabled: !!campaignId,
+  });
+}
+
+export function useCreateV2CampaignTarget() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      campaignId,
+      data,
+    }: {
+      campaignId: string;
+      data: CreateV2CampaignTargetData;
+    }) => V2CatalogAdminAPI.createCampaignTarget(campaignId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useUpdateV2CampaignTarget() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      targetId,
+      data,
+    }: {
+      targetId: string;
+      data: UpdateV2CampaignTargetData;
+    }) => V2CatalogAdminAPI.updateCampaignTarget(targetId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useDeleteV2CampaignTarget() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (targetId: string) =>
+      V2CatalogAdminAPI.deleteCampaignTarget(targetId),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useV2PriceLists(params: GetV2PriceListsParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.pricing.priceLists.list(params),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getPriceLists(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2PriceList(priceListId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.pricing.priceLists.detail(priceListId || ''),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getPriceList(priceListId!);
+      return response.data;
+    },
+    enabled: !!priceListId,
+  });
+}
+
+export function useCreateV2PriceList() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateV2PriceListData) =>
+      V2CatalogAdminAPI.createPriceList(data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useUpdateV2PriceList() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdateV2PriceListData;
+    }) => V2CatalogAdminAPI.updatePriceList(id, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function usePublishV2PriceList() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => V2CatalogAdminAPI.publishPriceList(id),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useRollbackV2PriceList() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => V2CatalogAdminAPI.rollbackPriceList(id),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useV2PriceListItems(priceListId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.pricing.priceLists.items(priceListId || ''),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getPriceListItems(priceListId!);
+      return response.data;
+    },
+    enabled: !!priceListId,
+  });
+}
+
+export function useCreateV2PriceListItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      priceListId,
+      data,
+    }: {
+      priceListId: string;
+      data: CreateV2PriceListItemData;
+    }) => V2CatalogAdminAPI.createPriceListItem(priceListId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useUpdateV2PriceListItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      data,
+    }: {
+      itemId: string;
+      data: UpdateV2PriceListItemData;
+    }) => V2CatalogAdminAPI.updatePriceListItem(itemId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useDeactivateV2PriceListItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (itemId: string) =>
+      V2CatalogAdminAPI.deactivatePriceListItem(itemId),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useV2Promotions(params: GetV2PromotionsParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.pricing.promotions.list(params),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getPromotions(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2Promotion(promotionId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.pricing.promotions.detail(promotionId || ''),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getPromotion(promotionId!);
+      return response.data;
+    },
+    enabled: !!promotionId,
+  });
+}
+
+export function useCreateV2Promotion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateV2PromotionData) =>
+      V2CatalogAdminAPI.createPromotion(data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useUpdateV2Promotion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdateV2PromotionData;
+    }) => V2CatalogAdminAPI.updatePromotion(id, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useV2PromotionRules(promotionId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.pricing.promotions.rules(promotionId || ''),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getPromotionRules(promotionId!);
+      return response.data;
+    },
+    enabled: !!promotionId,
+  });
+}
+
+export function useCreateV2PromotionRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      promotionId,
+      data,
+    }: {
+      promotionId: string;
+      data: CreateV2PromotionRuleData;
+    }) => V2CatalogAdminAPI.createPromotionRule(promotionId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useUpdateV2PromotionRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      data,
+    }: {
+      ruleId: string;
+      data: UpdateV2PromotionRuleData;
+    }) => V2CatalogAdminAPI.updatePromotionRule(ruleId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useV2Coupons(params: GetV2CouponsParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.pricing.coupons.list(params),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getCoupons(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2Coupon(couponId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.pricing.coupons.detail(couponId || ''),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getCoupon(couponId!);
+      return response.data;
+    },
+    enabled: !!couponId,
+  });
+}
+
+export function useCreateV2Coupon() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateV2CouponData) => V2CatalogAdminAPI.createCoupon(data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useUpdateV2Coupon() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdateV2CouponData;
+    }) => V2CatalogAdminAPI.updateCoupon(id, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useValidateV2Coupon() {
+  return useMutation({
+    mutationFn: async (data: ValidateV2CouponData) => {
+      const response = await V2CatalogAdminAPI.validateCoupon(data);
+      return response.data;
+    },
+  });
+}
+
+export function useReserveV2Coupon() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      couponId,
+      data,
+    }: {
+      couponId: string;
+      data: ReserveV2CouponData;
+    }) => V2CatalogAdminAPI.reserveCoupon(couponId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useReleaseV2CouponRedemption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      redemptionId,
+      data,
+    }: {
+      redemptionId: string;
+      data?: ReleaseV2CouponRedemptionData;
+    }) => V2CatalogAdminAPI.releaseCouponRedemption(redemptionId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useRedeemV2CouponRedemption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      redemptionId,
+      data,
+    }: {
+      redemptionId: string;
+      data?: RedeemV2CouponRedemptionData;
+    }) => V2CatalogAdminAPI.redeemCouponRedemption(redemptionId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useBuildV2PriceQuote() {
+  return useMutation({
+    mutationFn: async (data: BuildV2PriceQuoteData) => {
+      const response = await V2CatalogAdminAPI.buildPriceQuote(data);
+      return response.data;
+    },
+  });
+}
+
+export function useEvaluateV2Promotions() {
+  return useMutation({
+    mutationFn: async (data: BuildV2PriceQuoteData) => {
+      const response = await V2CatalogAdminAPI.evaluatePromotions(data);
+      return response.data;
+    },
+  });
+}
+
+export function useV2PricingDebugTrace() {
+  return useMutation({
+    mutationFn: async (data: BuildV2PriceQuoteData) => {
+      const response = await V2CatalogAdminAPI.getPricingDebugTrace(data);
+      return response.data;
+    },
+  });
+}
+
+export function useV2OrderSnapshotContract() {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.pricing.orderSnapshotContract(),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getOrderSnapshotContract();
+      return response.data;
+    },
   });
 }
 

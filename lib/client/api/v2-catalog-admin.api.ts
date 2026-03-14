@@ -21,6 +21,52 @@ export type V2DigitalAssetStatus = 'DRAFT' | 'READY' | 'RETIRED';
 export type V2BundleMode = 'FIXED' | 'CUSTOMIZABLE';
 export type V2BundleStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
 export type V2BundlePricingStrategy = 'WEIGHTED' | 'FIXED_AMOUNT';
+export type V2CampaignType = 'POPUP' | 'EVENT' | 'SALE' | 'DROP' | 'ALWAYS_ON';
+export type V2CampaignStatus =
+  | 'DRAFT'
+  | 'ACTIVE'
+  | 'SUSPENDED'
+  | 'CLOSED'
+  | 'ARCHIVED';
+export type V2CampaignTargetType =
+  | 'PROJECT'
+  | 'PRODUCT'
+  | 'VARIANT'
+  | 'BUNDLE_DEFINITION';
+export type V2PriceListScope = 'BASE' | 'OVERRIDE';
+export type V2PriceListStatus = 'DRAFT' | 'PUBLISHED' | 'ROLLED_BACK' | 'ARCHIVED';
+export type V2PriceItemStatus = 'ACTIVE' | 'INACTIVE';
+export type V2PromotionType =
+  | 'ITEM_PERCENT'
+  | 'ITEM_FIXED'
+  | 'ORDER_PERCENT'
+  | 'ORDER_FIXED'
+  | 'SHIPPING_PERCENT'
+  | 'SHIPPING_FIXED';
+export type V2PromotionStatus = 'DRAFT' | 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
+export type V2CombinabilityMode = 'STACKABLE' | 'EXCLUSIVE';
+export type V2PromotionRuleType =
+  | 'MIN_ORDER_AMOUNT'
+  | 'MIN_ITEM_QUANTITY'
+  | 'TARGET_PROJECT'
+  | 'TARGET_PRODUCT'
+  | 'TARGET_VARIANT'
+  | 'TARGET_BUNDLE'
+  | 'CHANNEL'
+  | 'USER_SEGMENT';
+export type V2CouponStatus =
+  | 'DRAFT'
+  | 'ACTIVE'
+  | 'PAUSED'
+  | 'EXHAUSTED'
+  | 'EXPIRED'
+  | 'ARCHIVED';
+export type V2CouponRedemptionStatus =
+  | 'RESERVED'
+  | 'APPLIED'
+  | 'RELEASED'
+  | 'CANCELED'
+  | 'EXPIRED';
 export type MigrationCheckSeverity = 'BLOCKING' | 'ADVISORY';
 
 export interface V2Project {
@@ -427,6 +473,320 @@ export interface ReadSwitchRemediationTaskReport {
   recommended_order: string[];
 }
 
+export interface V2Campaign {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  campaign_type: V2CampaignType;
+  status: V2CampaignStatus;
+  starts_at: string | null;
+  ends_at: string | null;
+  channel_scope_json: unknown[];
+  purchase_limit_json: Record<string, unknown>;
+  source_type: string | null;
+  source_id: string | null;
+  source_snapshot_json: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface V2CampaignTarget {
+  id: string;
+  campaign_id: string;
+  target_type: V2CampaignTargetType;
+  target_id: string;
+  sort_order: number;
+  is_excluded: boolean;
+  source_type: string | null;
+  source_id: string | null;
+  source_snapshot_json: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface V2PriceList {
+  id: string;
+  campaign_id: string | null;
+  rollback_of_price_list_id: string | null;
+  name: string;
+  scope_type: V2PriceListScope;
+  status: V2PriceListStatus;
+  currency_code: string;
+  priority: number;
+  published_at: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  channel_scope_json: unknown[];
+  source_type: string | null;
+  source_id: string | null;
+  source_snapshot_json: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface V2PriceListItem {
+  id: string;
+  price_list_id: string;
+  product_id: string;
+  variant_id: string | null;
+  status: V2PriceItemStatus;
+  unit_amount: number;
+  compare_at_amount: number | null;
+  min_purchase_quantity: number;
+  max_purchase_quantity: number | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  channel_scope_json: unknown[];
+  source_type: string | null;
+  source_id: string | null;
+  source_snapshot_json: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  product?: Pick<V2Product, 'id' | 'title' | 'slug' | 'status' | 'product_kind'>;
+  variant?: Pick<
+    V2Variant,
+    | 'id'
+    | 'sku'
+    | 'title'
+    | 'status'
+    | 'fulfillment_type'
+    | 'requires_shipping'
+  > | null;
+}
+
+export interface V2Promotion {
+  id: string;
+  campaign_id: string | null;
+  name: string;
+  description: string | null;
+  promotion_type: V2PromotionType;
+  status: V2PromotionStatus;
+  combinability_mode: V2CombinabilityMode;
+  coupon_required: boolean;
+  priority: number;
+  discount_value: number;
+  max_discount_amount: number | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  channel_scope_json: unknown[];
+  purchase_limit_json: Record<string, unknown>;
+  source_type: string | null;
+  source_id: string | null;
+  source_snapshot_json: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface V2PromotionRule {
+  id: string;
+  promotion_id: string;
+  rule_type: V2PromotionRuleType;
+  status: V2PriceItemStatus;
+  sort_order: number;
+  rule_payload: Record<string, unknown>;
+  source_type: string | null;
+  source_id: string | null;
+  source_snapshot_json: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface V2Coupon {
+  id: string;
+  promotion_id: string | null;
+  code: string;
+  status: V2CouponStatus;
+  starts_at: string | null;
+  ends_at: string | null;
+  max_issuance: number | null;
+  max_redemptions_per_user: number;
+  reserved_count: number;
+  redeemed_count: number;
+  channel_scope_json: unknown[];
+  purchase_limit_json: Record<string, unknown>;
+  source_type: string | null;
+  source_id: string | null;
+  source_snapshot_json: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface V2CouponRedemption {
+  id: string;
+  coupon_id: string;
+  user_id: string;
+  order_id: string | null;
+  status: V2CouponRedemptionStatus;
+  quote_reference: string | null;
+  reserved_at: string;
+  applied_at: string | null;
+  released_at: string | null;
+  expires_at: string | null;
+  source_type: string | null;
+  source_id: string | null;
+  source_snapshot_json: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface V2CouponValidationResult {
+  code: string;
+  eligible: boolean;
+  reason: string | null;
+  evaluated_at: string;
+  coupon?: V2Coupon & {
+    promotion?: V2Promotion | null;
+  };
+  checks?: Array<{
+    key: string;
+    passed: boolean;
+    detail: string;
+  }>;
+}
+
+export interface V2PriceQuoteLineResult {
+  variant_id: string;
+  product_id: string;
+  project_id: string;
+  product_kind: V2ProductKind;
+  sku: string;
+  title: string;
+  quantity: number;
+  fulfillment_type: V2FulfillmentType;
+  requires_shipping: boolean;
+  pricing: {
+    base_price_list_id: string | null;
+    base_price_list_item_id: string | null;
+    base_unit_amount: number | null;
+    override_price_list_id: string | null;
+    override_price_list_item_id: string | null;
+    override_unit_amount: number | null;
+    selected_price_list_id: string;
+    selected_price_list_item_id: string;
+    unit_amount: number;
+    compare_at_amount: number | null;
+    line_subtotal: number;
+    line_total_after_item_discounts: number;
+  };
+  adjustments: Array<{
+    source_type: 'PROMOTION' | 'COUPON';
+    source_id: string;
+    label_snapshot: string;
+    amount: number;
+    phase: 'auto' | 'coupon' | 'shipping';
+  }>;
+  discounts: {
+    auto: number;
+    coupon: number;
+    manual: number;
+  };
+}
+
+export interface V2PriceQuoteResult {
+  quote_reference: string;
+  evaluated_at: string;
+  context: {
+    campaign_id: string | null;
+    channel: string | null;
+    coupon_code: string | null;
+    user_id: string | null;
+    shipping_amount: number;
+  };
+  price_candidates: Array<{
+    variant_id: string;
+    candidates: Array<{
+      item_id: string;
+      price_list_id: string;
+      scope_type: V2PriceListScope;
+      campaign_id: string | null;
+      priority: number;
+      unit_amount: number;
+      starts_at: string | null;
+      ends_at: string | null;
+      selected: boolean;
+    }>;
+  }>;
+  coupon: V2CouponValidationResult | null;
+  lines: V2PriceQuoteLineResult[];
+  promotion_evaluations: Array<{
+    promotion_id: string;
+    name: string;
+    phase: 'auto' | 'coupon' | 'shipping';
+    promotion_type: V2PromotionType;
+    combinability_mode: V2CombinabilityMode;
+    eligible: boolean;
+    coupon_matched: boolean;
+    skipped_reason: string | null;
+    applied_discount_amount: number;
+    rule_results: Array<{
+      rule_id: string;
+      passed: boolean;
+      detail: string;
+    }>;
+  }>;
+  applied_promotions: Array<{
+    promotion_id: string;
+    name: string;
+    phase: 'auto' | 'coupon' | 'shipping';
+    promotion_type: V2PromotionType;
+    applied_discount_amount: number;
+  }>;
+  summary: {
+    subtotal: number;
+    line_subtotal_after_item_discounts: number;
+    item_discount_total: number;
+    order_level_discount_total: number;
+    shipping_amount: number;
+    shipping_discount_total: number;
+    total_discount: number;
+    total_payable_amount: number;
+  };
+}
+
+export interface V2OrderSnapshotContract {
+  order_adjustments: {
+    required_fields: string[];
+    enums: {
+      target_scope: string[];
+      source_type: string[];
+    };
+  };
+  order_item_adjustments: {
+    required_fields: string[];
+    enums: {
+      source_type: string[];
+    };
+  };
+  mapping_examples: Array<{
+    pricing_source: string;
+    adjustment_target: string;
+    source_type: string;
+    target_scope?: string;
+  }>;
+}
+
+export interface V2PriceQuoteLineInput {
+  variant_id: string;
+  quantity: number;
+}
+
 export interface GetV2ProjectsParams {
   status?: V2ProjectStatus;
 }
@@ -443,6 +803,28 @@ export interface GetV2ProductsParams {
 export interface GetV2BundleDefinitionsParams {
   bundleProductId?: string;
   status?: V2BundleStatus;
+}
+
+export interface GetV2CampaignsParams {
+  status?: V2CampaignStatus;
+  campaignType?: V2CampaignType;
+}
+
+export interface GetV2PriceListsParams {
+  campaignId?: string;
+  scopeType?: V2PriceListScope;
+  status?: V2PriceListStatus;
+}
+
+export interface GetV2PromotionsParams {
+  campaignId?: string;
+  status?: V2PromotionStatus;
+  couponRequired?: boolean;
+}
+
+export interface GetV2CouponsParams {
+  promotionId?: string;
+  status?: V2CouponStatus;
 }
 
 export interface CreateV2ProjectData {
@@ -673,6 +1055,262 @@ export interface BuildV2BundleCanaryReportData {
   definition_ids?: string[];
   sample_parent_quantity?: number;
   sample_parent_unit_amount?: number | null;
+}
+
+export interface CreateV2CampaignData {
+  code: string;
+  name: string;
+  description?: string | null;
+  campaign_type?: V2CampaignType;
+  status?: V2CampaignStatus;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  channel_scope_json?: unknown[];
+  purchase_limit_json?: Record<string, unknown>;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateV2CampaignData {
+  code?: string;
+  name?: string;
+  description?: string | null;
+  campaign_type?: V2CampaignType;
+  status?: V2CampaignStatus;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  channel_scope_json?: unknown[];
+  purchase_limit_json?: Record<string, unknown>;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateV2CampaignTargetData {
+  target_type: V2CampaignTargetType;
+  target_id: string;
+  sort_order?: number;
+  is_excluded?: boolean;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateV2CampaignTargetData {
+  target_type?: V2CampaignTargetType;
+  target_id?: string;
+  sort_order?: number;
+  is_excluded?: boolean;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateV2PriceListData {
+  campaign_id?: string | null;
+  name: string;
+  scope_type?: V2PriceListScope;
+  status?: V2PriceListStatus;
+  currency_code?: string;
+  priority?: number;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  channel_scope_json?: unknown[];
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateV2PriceListData {
+  campaign_id?: string | null;
+  rollback_of_price_list_id?: string | null;
+  name?: string;
+  scope_type?: V2PriceListScope;
+  status?: V2PriceListStatus;
+  currency_code?: string;
+  priority?: number;
+  published_at?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  channel_scope_json?: unknown[];
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateV2PriceListItemData {
+  product_id: string;
+  variant_id?: string | null;
+  status?: V2PriceItemStatus;
+  unit_amount: number;
+  compare_at_amount?: number | null;
+  min_purchase_quantity?: number;
+  max_purchase_quantity?: number | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  channel_scope_json?: unknown[];
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateV2PriceListItemData {
+  product_id?: string;
+  variant_id?: string | null;
+  status?: V2PriceItemStatus;
+  unit_amount?: number;
+  compare_at_amount?: number | null;
+  min_purchase_quantity?: number;
+  max_purchase_quantity?: number | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  channel_scope_json?: unknown[];
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateV2PromotionData {
+  campaign_id?: string | null;
+  name: string;
+  description?: string | null;
+  promotion_type?: V2PromotionType;
+  status?: V2PromotionStatus;
+  combinability_mode?: V2CombinabilityMode;
+  coupon_required?: boolean;
+  priority?: number;
+  discount_value: number;
+  max_discount_amount?: number | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  channel_scope_json?: unknown[];
+  purchase_limit_json?: Record<string, unknown>;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateV2PromotionData {
+  campaign_id?: string | null;
+  name?: string;
+  description?: string | null;
+  promotion_type?: V2PromotionType;
+  status?: V2PromotionStatus;
+  combinability_mode?: V2CombinabilityMode;
+  coupon_required?: boolean;
+  priority?: number;
+  discount_value?: number;
+  max_discount_amount?: number | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  channel_scope_json?: unknown[];
+  purchase_limit_json?: Record<string, unknown>;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateV2PromotionRuleData {
+  rule_type: V2PromotionRuleType;
+  status?: V2PriceItemStatus;
+  sort_order?: number;
+  rule_payload?: Record<string, unknown>;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateV2PromotionRuleData {
+  rule_type?: V2PromotionRuleType;
+  status?: V2PriceItemStatus;
+  sort_order?: number;
+  rule_payload?: Record<string, unknown>;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateV2CouponData {
+  promotion_id?: string | null;
+  code: string;
+  status?: V2CouponStatus;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  max_issuance?: number | null;
+  max_redemptions_per_user?: number;
+  channel_scope_json?: unknown[];
+  purchase_limit_json?: Record<string, unknown>;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateV2CouponData {
+  promotion_id?: string | null;
+  code?: string;
+  status?: V2CouponStatus;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  max_issuance?: number | null;
+  max_redemptions_per_user?: number;
+  channel_scope_json?: unknown[];
+  purchase_limit_json?: Record<string, unknown>;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ValidateV2CouponData {
+  code: string;
+  user_id?: string | null;
+  campaign_id?: string | null;
+  channel?: string | null;
+  evaluated_at?: string | null;
+}
+
+export interface ReserveV2CouponData {
+  user_id: string;
+  quote_reference?: string | null;
+  expires_at?: string | null;
+  source_type?: string | null;
+  source_id?: string | null;
+  source_snapshot_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ReleaseV2CouponRedemptionData {
+  reason?: string | null;
+}
+
+export interface RedeemV2CouponRedemptionData {
+  order_id?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface BuildV2PriceQuoteData {
+  lines: V2PriceQuoteLineInput[];
+  campaign_id?: string | null;
+  channel?: string | null;
+  coupon_code?: string | null;
+  user_id?: string | null;
+  shipping_amount?: number | null;
+  quote_reference?: string | null;
+  evaluated_at?: string | null;
 }
 
 export interface PreviewV2BundleData {
@@ -1041,6 +1679,315 @@ export const V2CatalogAdminAPI = {
     return apiClient.get(
       `/api/v2/catalog/admin/products/${productId}/publish-readiness`,
     );
+  },
+
+  async getCampaigns(
+    params: GetV2CampaignsParams = {},
+  ): Promise<ApiResponse<V2Campaign[]>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/campaigns${buildSearchParams({
+        status: params.status,
+        campaignType: params.campaignType,
+      })}`,
+    );
+  },
+
+  async getCampaign(id: string): Promise<ApiResponse<V2Campaign>> {
+    return apiClient.get(`/api/v2/catalog/admin/campaigns/${id}`);
+  },
+
+  async createCampaign(
+    data: CreateV2CampaignData,
+  ): Promise<ApiResponse<V2Campaign>> {
+    return apiClient.post('/api/v2/catalog/admin/campaigns', data);
+  },
+
+  async updateCampaign(
+    id: string,
+    data: UpdateV2CampaignData,
+  ): Promise<ApiResponse<V2Campaign>> {
+    return apiClient.patch(`/api/v2/catalog/admin/campaigns/${id}`, data);
+  },
+
+  async activateCampaign(id: string): Promise<ApiResponse<V2Campaign>> {
+    return apiClient.post(`/api/v2/catalog/admin/campaigns/${id}/activate`, {});
+  },
+
+  async suspendCampaign(id: string): Promise<ApiResponse<V2Campaign>> {
+    return apiClient.post(`/api/v2/catalog/admin/campaigns/${id}/suspend`, {});
+  },
+
+  async closeCampaign(id: string): Promise<ApiResponse<V2Campaign>> {
+    return apiClient.post(`/api/v2/catalog/admin/campaigns/${id}/close`, {});
+  },
+
+  async getCampaignTargets(
+    campaignId: string,
+  ): Promise<ApiResponse<V2CampaignTarget[]>> {
+    return apiClient.get(`/api/v2/catalog/admin/campaigns/${campaignId}/targets`);
+  },
+
+  async createCampaignTarget(
+    campaignId: string,
+    data: CreateV2CampaignTargetData,
+  ): Promise<ApiResponse<V2CampaignTarget>> {
+    return apiClient.post(`/api/v2/catalog/admin/campaigns/${campaignId}/targets`, data);
+  },
+
+  async updateCampaignTarget(
+    targetId: string,
+    data: UpdateV2CampaignTargetData,
+  ): Promise<ApiResponse<V2CampaignTarget>> {
+    return apiClient.patch(`/api/v2/catalog/admin/campaign-targets/${targetId}`, data);
+  },
+
+  async deleteCampaignTarget(
+    targetId: string,
+  ): Promise<ApiResponse<{ message: string }>> {
+    return apiClient.delete(`/api/v2/catalog/admin/campaign-targets/${targetId}`);
+  },
+
+  async getPriceLists(
+    params: GetV2PriceListsParams = {},
+  ): Promise<ApiResponse<V2PriceList[]>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/price-lists${buildSearchParams({
+        campaignId: params.campaignId,
+        scopeType: params.scopeType,
+        status: params.status,
+      })}`,
+    );
+  },
+
+  async getPriceList(id: string): Promise<ApiResponse<V2PriceList>> {
+    return apiClient.get(`/api/v2/catalog/admin/price-lists/${id}`);
+  },
+
+  async createPriceList(
+    data: CreateV2PriceListData,
+  ): Promise<ApiResponse<V2PriceList>> {
+    return apiClient.post('/api/v2/catalog/admin/price-lists', data);
+  },
+
+  async updatePriceList(
+    id: string,
+    data: UpdateV2PriceListData,
+  ): Promise<ApiResponse<V2PriceList>> {
+    return apiClient.patch(`/api/v2/catalog/admin/price-lists/${id}`, data);
+  },
+
+  async publishPriceList(id: string): Promise<ApiResponse<V2PriceList>> {
+    return apiClient.post(`/api/v2/catalog/admin/price-lists/${id}/publish`, {});
+  },
+
+  async rollbackPriceList(
+    id: string,
+  ): Promise<
+    ApiResponse<{
+      rolled_back_price_list: V2PriceList;
+      restored_price_list: V2PriceList;
+    }>
+  > {
+    return apiClient.post(`/api/v2/catalog/admin/price-lists/${id}/rollback`, {});
+  },
+
+  async getPriceListItems(
+    priceListId: string,
+  ): Promise<ApiResponse<V2PriceListItem[]>> {
+    return apiClient.get(`/api/v2/catalog/admin/price-lists/${priceListId}/items`);
+  },
+
+  async createPriceListItem(
+    priceListId: string,
+    data: CreateV2PriceListItemData,
+  ): Promise<ApiResponse<V2PriceListItem>> {
+    return apiClient.post(`/api/v2/catalog/admin/price-lists/${priceListId}/items`, data);
+  },
+
+  async updatePriceListItem(
+    itemId: string,
+    data: UpdateV2PriceListItemData,
+  ): Promise<ApiResponse<V2PriceListItem>> {
+    return apiClient.patch(`/api/v2/catalog/admin/price-list-items/${itemId}`, data);
+  },
+
+  async deactivatePriceListItem(
+    itemId: string,
+  ): Promise<ApiResponse<V2PriceListItem>> {
+    return apiClient.post(`/api/v2/catalog/admin/price-list-items/${itemId}/deactivate`, {});
+  },
+
+  async getPromotions(
+    params: GetV2PromotionsParams = {},
+  ): Promise<ApiResponse<V2Promotion[]>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/promotions${buildSearchParams({
+        campaignId: params.campaignId,
+        status: params.status,
+        couponRequired:
+          params.couponRequired === undefined
+            ? undefined
+            : String(params.couponRequired),
+      })}`,
+    );
+  },
+
+  async getPromotion(id: string): Promise<ApiResponse<V2Promotion>> {
+    return apiClient.get(`/api/v2/catalog/admin/promotions/${id}`);
+  },
+
+  async createPromotion(
+    data: CreateV2PromotionData,
+  ): Promise<ApiResponse<V2Promotion>> {
+    return apiClient.post('/api/v2/catalog/admin/promotions', data);
+  },
+
+  async updatePromotion(
+    id: string,
+    data: UpdateV2PromotionData,
+  ): Promise<ApiResponse<V2Promotion>> {
+    return apiClient.patch(`/api/v2/catalog/admin/promotions/${id}`, data);
+  },
+
+  async getPromotionRules(
+    promotionId: string,
+  ): Promise<ApiResponse<V2PromotionRule[]>> {
+    return apiClient.get(`/api/v2/catalog/admin/promotions/${promotionId}/rules`);
+  },
+
+  async createPromotionRule(
+    promotionId: string,
+    data: CreateV2PromotionRuleData,
+  ): Promise<ApiResponse<V2PromotionRule>> {
+    return apiClient.post(`/api/v2/catalog/admin/promotions/${promotionId}/rules`, data);
+  },
+
+  async updatePromotionRule(
+    ruleId: string,
+    data: UpdateV2PromotionRuleData,
+  ): Promise<ApiResponse<V2PromotionRule>> {
+    return apiClient.patch(`/api/v2/catalog/admin/promotion-rules/${ruleId}`, data);
+  },
+
+  async getCoupons(
+    params: GetV2CouponsParams = {},
+  ): Promise<ApiResponse<V2Coupon[]>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/coupons${buildSearchParams({
+        promotionId: params.promotionId,
+        status: params.status,
+      })}`,
+    );
+  },
+
+  async getCoupon(id: string): Promise<ApiResponse<V2Coupon>> {
+    return apiClient.get(`/api/v2/catalog/admin/coupons/${id}`);
+  },
+
+  async createCoupon(data: CreateV2CouponData): Promise<ApiResponse<V2Coupon>> {
+    return apiClient.post('/api/v2/catalog/admin/coupons', data);
+  },
+
+  async updateCoupon(
+    id: string,
+    data: UpdateV2CouponData,
+  ): Promise<ApiResponse<V2Coupon>> {
+    return apiClient.patch(`/api/v2/catalog/admin/coupons/${id}`, data);
+  },
+
+  async getCouponRedemptions(params: {
+    couponId?: string;
+    userId?: string;
+    status?: V2CouponRedemptionStatus;
+    quoteReference?: string;
+  } = {}): Promise<ApiResponse<V2CouponRedemption[]>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/coupon-redemptions${buildSearchParams({
+        couponId: params.couponId,
+        userId: params.userId,
+        status: params.status,
+        quoteReference: params.quoteReference,
+      })}`,
+    );
+  },
+
+  async validateCoupon(
+    data: ValidateV2CouponData,
+  ): Promise<ApiResponse<V2CouponValidationResult>> {
+    return apiClient.post('/api/v2/catalog/admin/coupons/validate', data);
+  },
+
+  async reserveCoupon(
+    couponId: string,
+    data: ReserveV2CouponData,
+  ): Promise<
+    ApiResponse<{
+      coupon: V2Coupon;
+      redemption: V2CouponRedemption;
+    }>
+  > {
+    return apiClient.post(`/api/v2/catalog/admin/coupons/${couponId}/reserve`, data);
+  },
+
+  async releaseCouponRedemption(
+    redemptionId: string,
+    data: ReleaseV2CouponRedemptionData = {},
+  ): Promise<
+    ApiResponse<{
+      coupon: V2Coupon;
+      redemption: V2CouponRedemption;
+    }>
+  > {
+    return apiClient.post(
+      `/api/v2/catalog/admin/coupon-redemptions/${redemptionId}/release`,
+      data,
+    );
+  },
+
+  async redeemCouponRedemption(
+    redemptionId: string,
+    data: RedeemV2CouponRedemptionData = {},
+  ): Promise<
+    ApiResponse<{
+      coupon: V2Coupon;
+      redemption: V2CouponRedemption;
+    }>
+  > {
+    return apiClient.post(
+      `/api/v2/catalog/admin/coupon-redemptions/${redemptionId}/redeem`,
+      data,
+    );
+  },
+
+  async buildPriceQuote(
+    data: BuildV2PriceQuoteData,
+  ): Promise<ApiResponse<V2PriceQuoteResult>> {
+    return apiClient.post('/api/v2/catalog/admin/pricing/quote', data);
+  },
+
+  async evaluatePromotions(
+    data: BuildV2PriceQuoteData,
+  ): Promise<
+    ApiResponse<{
+      quote_reference: string;
+      evaluated_at: string;
+      coupon: V2CouponValidationResult | null;
+      promotion_evaluations: V2PriceQuoteResult['promotion_evaluations'];
+      applied_promotions: V2PriceQuoteResult['applied_promotions'];
+      summary: V2PriceQuoteResult['summary'];
+    }>
+  > {
+    return apiClient.post('/api/v2/catalog/admin/pricing/promotions/evaluate', data);
+  },
+
+  async getPricingDebugTrace(
+    data: BuildV2PriceQuoteData,
+  ): Promise<ApiResponse<V2PriceQuoteResult>> {
+    return apiClient.post('/api/v2/catalog/admin/pricing/debug', data);
+  },
+
+  async getOrderSnapshotContract(): Promise<ApiResponse<V2OrderSnapshotContract>> {
+    return apiClient.get('/api/v2/catalog/admin/pricing/order-snapshot-contract');
   },
 
   async getMigrationCompareReport(

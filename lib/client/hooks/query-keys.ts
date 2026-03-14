@@ -13,6 +13,10 @@ import type {
   GetV2ArtistsParams,
   GetV2ProductsParams,
   GetV2ProjectsParams,
+  GetV2CampaignsParams,
+  GetV2CouponsParams,
+  GetV2PriceListsParams,
+  GetV2PromotionsParams,
 } from '@/lib/client/api/v2-catalog-admin.api';
 
 export const queryKeys = {
@@ -158,6 +162,47 @@ export const queryKeys = {
           ] as const,
       },
       resolve: () => [...queryKeys.v2CatalogAdmin.bundles.all, 'resolve'] as const,
+    },
+    campaigns: {
+      all: ['v2-catalog-admin', 'campaigns'] as const,
+      list: (params: GetV2CampaignsParams = {}) =>
+        [...queryKeys.v2CatalogAdmin.campaigns.all, 'list', params] as const,
+      detail: (id: string) =>
+        [...queryKeys.v2CatalogAdmin.campaigns.all, 'detail', id] as const,
+      targets: (campaignId: string) =>
+        [...queryKeys.v2CatalogAdmin.campaigns.all, 'targets', campaignId] as const,
+    },
+    pricing: {
+      all: ['v2-catalog-admin', 'pricing'] as const,
+      priceLists: {
+        all: ['v2-catalog-admin', 'pricing', 'price-lists'] as const,
+        list: (params: GetV2PriceListsParams = {}) =>
+          [...queryKeys.v2CatalogAdmin.pricing.priceLists.all, 'list', params] as const,
+        detail: (id: string) =>
+          [...queryKeys.v2CatalogAdmin.pricing.priceLists.all, 'detail', id] as const,
+        items: (priceListId: string) =>
+          [...queryKeys.v2CatalogAdmin.pricing.priceLists.all, 'items', priceListId] as const,
+      },
+      promotions: {
+        all: ['v2-catalog-admin', 'pricing', 'promotions'] as const,
+        list: (params: GetV2PromotionsParams = {}) =>
+          [...queryKeys.v2CatalogAdmin.pricing.promotions.all, 'list', params] as const,
+        detail: (id: string) =>
+          [...queryKeys.v2CatalogAdmin.pricing.promotions.all, 'detail', id] as const,
+        rules: (promotionId: string) =>
+          [...queryKeys.v2CatalogAdmin.pricing.promotions.all, 'rules', promotionId] as const,
+      },
+      coupons: {
+        all: ['v2-catalog-admin', 'pricing', 'coupons'] as const,
+        list: (params: GetV2CouponsParams = {}) =>
+          [...queryKeys.v2CatalogAdmin.pricing.coupons.all, 'list', params] as const,
+        detail: (id: string) =>
+          [...queryKeys.v2CatalogAdmin.pricing.coupons.all, 'detail', id] as const,
+      },
+      quote: () => [...queryKeys.v2CatalogAdmin.pricing.all, 'quote'] as const,
+      debug: () => [...queryKeys.v2CatalogAdmin.pricing.all, 'debug'] as const,
+      orderSnapshotContract: () =>
+        [...queryKeys.v2CatalogAdmin.pricing.all, 'order-snapshot-contract'] as const,
     },
     migration: {
       all: ['v2-catalog-admin', 'migration'] as const,
