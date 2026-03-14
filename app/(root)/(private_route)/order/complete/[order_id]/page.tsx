@@ -140,6 +140,7 @@ export default function OrderCompletePage() {
     return display.requires_shipping === true;
   });
   const shippingSnapshot = asObject(order.shipping_address_snapshot);
+  const shippingLine1 = readString(shippingSnapshot.line1);
 
   return (
     <div className="min-h-screen bg-neutral-50 py-10">
@@ -271,7 +272,7 @@ export default function OrderCompletePage() {
           </dl>
         </section>
 
-        {hasShippingItem && shippingSnapshot.line1 && (
+        {hasShippingItem && shippingLine1 && (
           <section className="rounded-2xl border border-neutral-200 bg-white p-6">
             <h2 className="text-lg font-semibold text-text-primary">배송 정보</h2>
             <div className="mt-3 space-y-1 text-sm text-text-secondary">

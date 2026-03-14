@@ -164,7 +164,7 @@ export default function ProductDetailPage() {
         added_via: buyNow ? "BUY_NOW" : "SHOP_DETAIL",
         metadata: {
           source: "shop-detail",
-          product_id: data.product.id,
+          product_id: data?.product.id || productId,
         },
       });
 
