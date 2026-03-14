@@ -9,8 +9,12 @@ import {
   useV2AdminActionCatalog,
   useV2AdminActionLogs,
   useV2AdminApprovals,
+  useV2AdminCutoverBatches,
+  useV2AdminCutoverDomains,
+  useV2AdminCutoverGateReports,
   useV2AdminCutoverPolicy,
   useV2AdminCutoverPolicyCheck,
+  useV2AdminCutoverRoutingFlags,
   useV2AdminDispatchShipment,
   useV2AdminFulfillmentQueue,
   useV2AdminInventoryHealth,
@@ -19,8 +23,20 @@ import {
   useV2AdminRefundOrder,
   useV2AdminReissueEntitlement,
   useV2AdminRevokeEntitlement,
+  useV2AdminSaveCutoverBatch,
+  useV2AdminSaveCutoverGateReport,
+  useV2AdminSaveCutoverRoutingFlag,
+  useV2AdminUpdateCutoverDomain,
 } from '@/lib/client/hooks/useV2AdminOps';
-import type { V2AdminActionStatus } from '@/lib/client/api/v2-admin-ops.api';
+import type {
+  UpdateV2AdminCutoverDomainInput,
+  V2AdminActionStatus,
+  V2CutoverBatchStatus,
+  V2CutoverGateResult,
+  V2CutoverGateType,
+  V2CutoverRouteTarget,
+  V2CutoverStatus,
+} from '@/lib/client/api/v2-admin-ops.api';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -65,6 +81,42 @@ function resolveActionStatusIntent(status: V2AdminActionStatus) {
   return 'default' as const;
 }
 
+function resolveCutoverGateResultIntent(result?: string | null) {
+  if (result === 'PASS') {
+    return 'success' as const;
+  }
+  if (result === 'FAIL') {
+    return 'error' as const;
+  }
+  if (result === 'WARN') {
+    return 'warning' as const;
+  }
+  return 'default' as const;
+}
+
+function resolveCutoverStatusIntent(status?: string | null) {
+  if (status === 'LEGACY_READONLY' || status === 'WRITE_DEFAULT_V2') {
+    return 'success' as const;
+  }
+  if (status === 'LIMITED_CUTOVER' || status === 'SHADOW_VERIFIED') {
+    return 'warning' as const;
+  }
+  return 'default' as const;
+}
+
+function resolveCutoverBatchStatusIntent(status?: string | null) {
+  if (status === 'SUCCEEDED') {
+    return 'success' as const;
+  }
+  if (status === 'FAILED' || status === 'CANCELED') {
+    return 'error' as const;
+  }
+  if (status === 'RUNNING') {
+    return 'warning' as const;
+  }
+  return 'default' as const;
+}
+
 export default function V2AdminOpsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -78,6 +130,27 @@ export default function V2AdminOpsPage() {
   const [revokeEntitlementId, setRevokeEntitlementId] = useState('');
   const [revokeReason, setRevokeReason] = useState('manual revoke from ops');
 
+  const [domainUpdateKey, setDomainUpdateKey] = useState('');
+  const [domainUpdateStatus, setDomainUpdateStatus] = useState('');
+  const [domainUpdateStage, setDomainUpdateStage] = useState('');
+  const [domainUpdateNextAction, setDomainUpdateNextAction] = useState('');
+
+  const [gateDomainKey, setGateDomainKey] = useState('');
+  const [gateType, setGateType] = useState('DATA_CONSISTENCY');
+  const [gateKey, setGateKey] = useState('');
+  const [gateResult, setGateResult] = useState('PASS');
+  const [gateDetail, setGateDetail] = useState('');
+
+  const [batchDomainKey, setBatchDomainKey] = useState('');
+  const [batchKey, setBatchKey] = useState('');
+  const [batchRunType, setBatchRunType] = useState('BACKFILL');
+  const [batchStatus, setBatchStatus] = useState('PENDING');
+
+  const [routingDomainKey, setRoutingDomainKey] = useState('');
+  const [routingTarget, setRoutingTarget] = useState('LEGACY');
+  const [routingTrafficPercent, setRoutingTrafficPercent] = useState('0');
+  const [routingReason, setRoutingReason] = useState('');
+
   const { data: myRbac, isLoading: rbacLoading } = useV2AdminMyRbac();
   const { data: cutoverPolicy, isLoading: cutoverLoading } = useV2AdminCutoverPolicy();
   const { data: actionCatalog, isLoading: catalogLoading } = useV2AdminActionCatalog();
@@ -89,19 +162,35 @@ export default function V2AdminOpsPage() {
   const { data: inventoryHealth, isLoading: inventoryLoading } = useV2AdminInventoryHealth({
     limit: 20,
   });
+  const { data: cutoverDomains, isLoading: cutoverDomainsLoading } =
+    useV2AdminCutoverDomains({ limit: 50 });
+  const { data: cutoverGateReports, isLoading: cutoverGateReportsLoading } =
+    useV2AdminCutoverGateReports({ limit: 20 });
+  const { data: cutoverBatches, isLoading: cutoverBatchesLoading } =
+    useV2AdminCutoverBatches({ limit: 20 });
+  const { data: cutoverRoutingFlags, isLoading: cutoverRoutingFlagsLoading } =
+    useV2AdminCutoverRoutingFlags({ limit: 20 });
 
   const refundOrder = useV2AdminRefundOrder();
   const dispatchShipment = useV2AdminDispatchShipment();
   const reissueEntitlement = useV2AdminReissueEntitlement();
   const revokeEntitlement = useV2AdminRevokeEntitlement();
   const checkCutoverPolicy = useV2AdminCutoverPolicyCheck();
+  const updateCutoverDomain = useV2AdminUpdateCutoverDomain();
+  const saveCutoverGateReport = useV2AdminSaveCutoverGateReport();
+  const saveCutoverBatch = useV2AdminSaveCutoverBatch();
+  const saveCutoverRoutingFlag = useV2AdminSaveCutoverRoutingFlag();
 
   const isActionPending =
     refundOrder.isPending ||
     dispatchShipment.isPending ||
     reissueEntitlement.isPending ||
     revokeEntitlement.isPending ||
-    checkCutoverPolicy.isPending;
+    checkCutoverPolicy.isPending ||
+    updateCutoverDomain.isPending ||
+    saveCutoverGateReport.isPending ||
+    saveCutoverBatch.isPending ||
+    saveCutoverRoutingFlag.isPending;
 
   const queueSummary = useMemo(
     () => ({
@@ -111,6 +200,16 @@ export default function V2AdminOpsPage() {
       approvals: approvals?.items?.filter((item) => item.status === 'PENDING').length ?? 0,
     }),
     [orderQueue, fulfillmentQueue, inventoryHealth, approvals],
+  );
+
+  const cutoverSummary = useMemo(
+    () => ({
+      domains: cutoverDomains?.items?.length ?? 0,
+      gates: cutoverGateReports?.items?.length ?? 0,
+      batches: cutoverBatches?.items?.length ?? 0,
+      routingFlags: cutoverRoutingFlags?.items?.length ?? 0,
+    }),
+    [cutoverDomains, cutoverGateReports, cutoverBatches, cutoverRoutingFlags],
   );
 
   const clearNotice = () => {
@@ -240,6 +339,111 @@ export default function V2AdminOpsPage() {
     });
   };
 
+  const handleUpdateCutoverDomain = async () => {
+    const domainKey = domainUpdateKey.trim();
+    if (!domainKey) {
+      setErrorMessage('domain_key를 입력해주세요.');
+      return;
+    }
+
+    const payload: UpdateV2AdminCutoverDomainInput = {};
+    const normalizedStatus = domainUpdateStatus.trim();
+    if (normalizedStatus) {
+      payload.status = normalizedStatus as V2CutoverStatus;
+    }
+    const normalizedStage = domainUpdateStage.trim();
+    if (normalizedStage) {
+      const stage = Number.parseInt(normalizedStage, 10);
+      if (!Number.isInteger(stage) || stage < 0 || stage > 8) {
+        setErrorMessage('current_stage는 0~8 범위 정수여야 합니다.');
+        return;
+      }
+      payload.current_stage = stage;
+    }
+    if (domainUpdateNextAction.trim()) {
+      payload.next_action = domainUpdateNextAction.trim();
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setErrorMessage('업데이트할 값을 하나 이상 입력해주세요.');
+      return;
+    }
+
+    await runAction(async () => {
+      await updateCutoverDomain.mutateAsync({
+        domainKey,
+        data: payload,
+      });
+      setMessage('도메인 상태를 업데이트했습니다.');
+    });
+  };
+
+  const handleSaveGateReport = async () => {
+    const domainKey = gateDomainKey.trim();
+    const normalizedGateKey = gateKey.trim();
+    if (!domainKey || !normalizedGateKey) {
+      setErrorMessage('gate report는 domain_key와 gate_key가 필요합니다.');
+      return;
+    }
+
+    await runAction(async () => {
+      await saveCutoverGateReport.mutateAsync({
+        domain_key: domainKey,
+        gate_type: gateType.trim() as V2CutoverGateType,
+        gate_key: normalizedGateKey,
+        gate_result: gateResult.trim() as V2CutoverGateResult,
+        detail: gateDetail.trim() || null,
+      });
+      setMessage('gate report를 저장했습니다.');
+      setGateKey('');
+      setGateDetail('');
+    });
+  };
+
+  const handleSaveBatch = async () => {
+    const domainKey = batchDomainKey.trim();
+    const normalizedBatchKey = batchKey.trim();
+    const normalizedRunType = batchRunType.trim();
+    if (!domainKey || !normalizedBatchKey || !normalizedRunType) {
+      setErrorMessage('batch는 domain_key, batch_key, run_type이 필요합니다.');
+      return;
+    }
+
+    await runAction(async () => {
+      await saveCutoverBatch.mutateAsync({
+        domain_key: domainKey,
+        batch_key: normalizedBatchKey,
+        run_type: normalizedRunType,
+        status: batchStatus.trim() as V2CutoverBatchStatus,
+      });
+      setMessage('migration batch를 저장했습니다.');
+      setBatchKey('');
+    });
+  };
+
+  const handleSaveRoutingFlag = async () => {
+    const domainKey = routingDomainKey.trim();
+    if (!domainKey) {
+      setErrorMessage('routing flag는 domain_key가 필요합니다.');
+      return;
+    }
+    const trafficPercent = Number.parseInt(routingTrafficPercent.trim(), 10);
+    if (!Number.isInteger(trafficPercent) || trafficPercent < 0 || trafficPercent > 100) {
+      setErrorMessage('traffic_percent는 0~100 범위 정수여야 합니다.');
+      return;
+    }
+
+    await runAction(async () => {
+      await saveCutoverRoutingFlag.mutateAsync({
+        domain_key: domainKey,
+        target: routingTarget.trim() as V2CutoverRouteTarget,
+        traffic_percent: trafficPercent,
+        reason: routingReason.trim() || null,
+      });
+      setMessage('routing flag를 저장했습니다.');
+    });
+  };
+
   if (
     rbacLoading ||
     cutoverLoading ||
@@ -318,6 +522,248 @@ export default function V2AdminOpsPage() {
             enforced actions: {cutoverPolicy.approval_enforced_actions.join(', ')}
           </div>
         ) : null}
+      </section>
+
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-gray-900">Migration Cutover Board</h2>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Badge intent="info">domains {cutoverSummary.domains}</Badge>
+            <Badge intent="default">gates {cutoverSummary.gates}</Badge>
+            <Badge intent="default">batches {cutoverSummary.batches}</Badge>
+            <Badge intent="default">routing {cutoverSummary.routingFlags}</Badge>
+          </div>
+        </div>
+
+        {cutoverDomainsLoading ? (
+          <div className="mt-3 text-sm text-gray-500">도메인 상태 로딩 중...</div>
+        ) : (
+          <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
+            {(cutoverDomains?.items || []).map((domain) => (
+              <div key={domain.id} className="rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold text-gray-900">{domain.domain_key}</div>
+                  <Badge intent={resolveCutoverStatusIntent(domain.status)} size="sm">
+                    {domain.status}
+                  </Badge>
+                </div>
+                <div className="mt-1 text-xs text-gray-500">{domain.domain_name}</div>
+                <div className="mt-2 text-xs text-gray-600">stage {domain.current_stage}</div>
+                <div className="mt-1 text-xs text-gray-600">
+                  owner: {domain.owner_role_code || '-'}
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
+                  <span>gate</span>
+                  <Badge intent={resolveCutoverGateResultIntent(domain.last_gate_result)} size="sm">
+                    {domain.last_gate_result}
+                  </Badge>
+                </div>
+                <div className="mt-2 text-xs text-gray-600">{domain.next_action || '-'}</div>
+              </div>
+            ))}
+            {(!cutoverDomains || cutoverDomains.items.length === 0) && (
+              <div className="text-sm text-gray-500">도메인 상태 데이터가 없습니다.</div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-4 rounded-lg border border-gray-200 p-4">
+          <div className="text-sm font-semibold text-gray-900">도메인 상태 업데이트</div>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <Input
+              placeholder="domain_key (예: CATALOG)"
+              value={domainUpdateKey}
+              onChange={(event) => setDomainUpdateKey(event.target.value)}
+            />
+            <Input
+              placeholder="status (예: SHADOW_VERIFIED)"
+              value={domainUpdateStatus}
+              onChange={(event) => setDomainUpdateStatus(event.target.value)}
+            />
+            <Input
+              placeholder="current_stage (0~8)"
+              value={domainUpdateStage}
+              onChange={(event) => setDomainUpdateStage(event.target.value)}
+            />
+            <Input
+              placeholder="next_action"
+              value={domainUpdateNextAction}
+              onChange={(event) => setDomainUpdateNextAction(event.target.value)}
+            />
+          </div>
+          <div className="mt-3">
+            <Button
+              loading={updateCutoverDomain.isPending}
+              disabled={isActionPending}
+              onClick={handleUpdateCutoverDomain}
+            >
+              도메인 상태 저장
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <h3 className="text-base font-semibold text-gray-900">Gate Reports</h3>
+          <div className="mt-3 grid grid-cols-1 gap-2">
+            <Input
+              placeholder="domain_key"
+              value={gateDomainKey}
+              onChange={(event) => setGateDomainKey(event.target.value)}
+            />
+            <Input
+              placeholder="gate_type (DATA_CONSISTENCY)"
+              value={gateType}
+              onChange={(event) => setGateType(event.target.value)}
+            />
+            <Input
+              placeholder="gate_key"
+              value={gateKey}
+              onChange={(event) => setGateKey(event.target.value)}
+            />
+            <Input
+              placeholder="gate_result (PASS/FAIL/WARN/SKIP)"
+              value={gateResult}
+              onChange={(event) => setGateResult(event.target.value)}
+            />
+            <Textarea
+              placeholder="detail"
+              rows={2}
+              value={gateDetail}
+              onChange={(event) => setGateDetail(event.target.value)}
+            />
+            <Button
+              loading={saveCutoverGateReport.isPending}
+              disabled={isActionPending}
+              onClick={handleSaveGateReport}
+            >
+              Gate 저장
+            </Button>
+          </div>
+          {cutoverGateReportsLoading ? (
+            <div className="mt-3 text-xs text-gray-500">로딩 중...</div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {(cutoverGateReports?.items || []).slice(0, 5).map((item) => (
+                <div key={item.id} className="rounded-md bg-gray-50 px-3 py-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold text-gray-800">{item.gate_key}</div>
+                    <Badge intent={resolveCutoverGateResultIntent(item.gate_result)} size="sm">
+                      {item.gate_result}
+                    </Badge>
+                  </div>
+                  <div className="text-gray-600">
+                    {item.domain?.domain_key || '-'} · {item.gate_type}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <h3 className="text-base font-semibold text-gray-900">Migration Batches</h3>
+          <div className="mt-3 grid grid-cols-1 gap-2">
+            <Input
+              placeholder="domain_key"
+              value={batchDomainKey}
+              onChange={(event) => setBatchDomainKey(event.target.value)}
+            />
+            <Input
+              placeholder="batch_key"
+              value={batchKey}
+              onChange={(event) => setBatchKey(event.target.value)}
+            />
+            <Input
+              placeholder="run_type"
+              value={batchRunType}
+              onChange={(event) => setBatchRunType(event.target.value)}
+            />
+            <Input
+              placeholder="status (PENDING/RUNNING/SUCCEEDED/FAILED)"
+              value={batchStatus}
+              onChange={(event) => setBatchStatus(event.target.value)}
+            />
+            <Button
+              loading={saveCutoverBatch.isPending}
+              disabled={isActionPending}
+              onClick={handleSaveBatch}
+            >
+              Batch 저장
+            </Button>
+          </div>
+          {cutoverBatchesLoading ? (
+            <div className="mt-3 text-xs text-gray-500">로딩 중...</div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {(cutoverBatches?.items || []).slice(0, 5).map((item) => (
+                <div key={item.id} className="rounded-md bg-gray-50 px-3 py-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold text-gray-800">{item.batch_key}</div>
+                    <Badge intent={resolveCutoverBatchStatusIntent(item.status)} size="sm">
+                      {item.status}
+                    </Badge>
+                  </div>
+                  <div className="text-gray-600">
+                    {item.domain?.domain_key || '-'} · {item.run_type}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <h3 className="text-base font-semibold text-gray-900">Routing Flags</h3>
+          <div className="mt-3 grid grid-cols-1 gap-2">
+            <Input
+              placeholder="domain_key"
+              value={routingDomainKey}
+              onChange={(event) => setRoutingDomainKey(event.target.value)}
+            />
+            <Input
+              placeholder="target (LEGACY/V2/SHADOW)"
+              value={routingTarget}
+              onChange={(event) => setRoutingTarget(event.target.value)}
+            />
+            <Input
+              placeholder="traffic_percent (0~100)"
+              value={routingTrafficPercent}
+              onChange={(event) => setRoutingTrafficPercent(event.target.value)}
+            />
+            <Textarea
+              placeholder="reason"
+              rows={2}
+              value={routingReason}
+              onChange={(event) => setRoutingReason(event.target.value)}
+            />
+            <Button
+              loading={saveCutoverRoutingFlag.isPending}
+              disabled={isActionPending}
+              onClick={handleSaveRoutingFlag}
+            >
+              Routing 저장
+            </Button>
+          </div>
+          {cutoverRoutingFlagsLoading ? (
+            <div className="mt-3 text-xs text-gray-500">로딩 중...</div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {(cutoverRoutingFlags?.items || []).slice(0, 5).map((item) => (
+                <div key={item.id} className="rounded-md bg-gray-50 px-3 py-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold text-gray-800">{item.domain?.domain_key || '-'}</div>
+                    <Badge size="sm">{item.target}</Badge>
+                  </div>
+                  <div className="text-gray-600">
+                    traffic {item.traffic_percent}% · priority {item.priority}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
