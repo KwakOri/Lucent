@@ -131,6 +131,7 @@ export {
   useV2RemoveCartItem,
   useV2ValidateCheckout,
   useV2CreateOrder,
+  useV2CheckoutOrders,
   useV2CheckoutOrder,
   useV2CancelOrder,
   useV2ApplyPaymentCallback,

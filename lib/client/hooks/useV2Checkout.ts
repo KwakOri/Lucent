@@ -12,6 +12,7 @@ import {
   type AddV2CartItemData,
   type CancelV2OrderData,
   type CreateV2OrderData,
+  type V2OrderStatus,
   type PaymentCallbackData,
   type RefundV2OrderData,
   type UpdateV2CartItemQuantityData,
@@ -128,6 +129,21 @@ export function useV2CreateOrder() {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.v2Checkout.orders.detail(result.order.id),
       });
+    },
+  });
+}
+
+export function useV2CheckoutOrders(
+  params: {
+    limit?: number;
+    order_status?: V2OrderStatus;
+  } = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.v2Checkout.orders.list(params),
+    queryFn: async () => {
+      const response = await V2CheckoutAPI.getOrders(params);
+      return response.data;
     },
   });
 }

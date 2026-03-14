@@ -174,6 +174,12 @@ export interface V2ValidateCheckoutResult {
   quote: Record<string, unknown>;
 }
 
+export interface V2CheckoutOrdersListResult {
+  items: V2CheckoutOrder[];
+  total: number;
+  limit: number;
+}
+
 export const V2CheckoutAPI = {
   async getCart(): Promise<ApiResponse<V2CartSummary>> {
     return apiClient.get("/api/v2/checkout/cart");
@@ -210,6 +216,21 @@ export const V2CheckoutAPI = {
 
   async getOrder(orderId: string): Promise<ApiResponse<V2CheckoutOrder>> {
     return apiClient.get(`/api/v2/checkout/orders/${orderId}`);
+  },
+
+  async getOrders(params: {
+    limit?: number;
+    order_status?: V2OrderStatus;
+  } = {}): Promise<ApiResponse<V2CheckoutOrdersListResult>> {
+    const searchParams = new URLSearchParams();
+    if (params.limit !== undefined) {
+      searchParams.set('limit', String(params.limit));
+    }
+    if (params.order_status) {
+      searchParams.set('order_status', params.order_status);
+    }
+    const query = searchParams.toString();
+    return apiClient.get(`/api/v2/checkout/orders${query ? `?${query}` : ''}`);
   },
 
   async cancelOrder(
