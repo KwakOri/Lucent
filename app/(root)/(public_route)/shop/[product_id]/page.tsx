@@ -2,14 +2,20 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Headphones, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
-import { useV2ShopProduct } from "@/lib/client/hooks";
+import {
+  useSession,
+  useV2AddCartItem,
+  useV2ShopProduct,
+} from "@/lib/client/hooks";
 import type { V2ShopProductDetail } from "@/lib/client/api/v2-shop.api";
+import { ApiError } from "@/lib/client/utils/api-error";
+import { useToast } from "@/src/components/toast";
 
 function formatPrice(
   price: V2ShopProductDetail["variants"][number]["display_price"] | null,
@@ -32,13 +38,31 @@ function variantStockLabel(
   return "판매 준비 중";
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "요청 처리 중 오류가 발생했습니다.";
+}
+
 export default function ProductDetailPage() {
+  const router = useRouter();
+  const { isAuthenticated } = useSession();
+  const { showToast } = useToast();
+  const addCartItem = useV2AddCartItem();
   const params = useParams();
   const productId = params.product_id as string;
   const { data, isLoading, error } = useV2ShopProduct(productId);
 
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [pendingAction, setPendingAction] = useState<"ADD" | "BUY_NOW" | null>(
+    null,
+  );
 
   const selectedVariant = useMemo(() => {
     if (!data) {
@@ -83,6 +107,83 @@ export default function ProductDetailPage() {
   const mediaList = data.media.length > 0 ? data.media : [];
   const selectedMedia = mediaList[selectedMediaIndex] || null;
   const soldOut = data.purchase_constraints.sold_out;
+  const minQuantity = Math.max(
+    1,
+    selectedVariant?.purchase_constraints.min_quantity ||
+      data.purchase_constraints.min_quantity ||
+      1,
+  );
+  const maxQuantity =
+    selectedVariant?.purchase_constraints.max_quantity ||
+    data.purchase_constraints.max_quantity;
+  const hasSelectedVariant = !!selectedVariant;
+  const canPurchase =
+    hasSelectedVariant && selectedVariant.availability.sellable && !soldOut;
+
+  const requestLogin = () => {
+    router.push(`/login?redirect=${encodeURIComponent(`/shop/${productId}`)}`);
+  };
+
+  const handleQuantityChange = (nextQuantity: number) => {
+    if (nextQuantity < minQuantity) {
+      setQuantity(minQuantity);
+      return;
+    }
+    if (maxQuantity && nextQuantity > maxQuantity) {
+      setQuantity(maxQuantity);
+      return;
+    }
+    setQuantity(nextQuantity);
+  };
+
+  async function handleSubmitCart(buyNow: boolean) {
+    if (!hasSelectedVariant || !selectedVariant) {
+      showToast("구매할 옵션을 선택해 주세요.", { type: "warning" });
+      return;
+    }
+
+    if (!selectedVariant.availability.sellable || soldOut) {
+      showToast("현재 구매할 수 없는 옵션입니다.", { type: "warning" });
+      return;
+    }
+
+    if (!isAuthenticated) {
+      requestLogin();
+      return;
+    }
+
+    const normalizedQuantity = maxQuantity
+      ? Math.min(Math.max(quantity, minQuantity), maxQuantity)
+      : Math.max(quantity, minQuantity);
+
+    setPendingAction(buyNow ? "BUY_NOW" : "ADD");
+    try {
+      await addCartItem.mutateAsync({
+        variant_id: selectedVariant.id,
+        quantity: normalizedQuantity,
+        added_via: buyNow ? "BUY_NOW" : "SHOP_DETAIL",
+        metadata: {
+          source: "shop-detail",
+          product_id: data.product.id,
+        },
+      });
+
+      if (buyNow) {
+        router.push("/checkout");
+        return;
+      }
+
+      showToast("장바구니에 상품을 담았습니다.", { type: "success" });
+    } catch (submitError) {
+      if (submitError instanceof ApiError && submitError.isAuthError()) {
+        requestLogin();
+        return;
+      }
+      showToast(getErrorMessage(submitError), { type: "error" });
+    } finally {
+      setPendingAction(null);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -180,7 +281,17 @@ export default function ProductDetailPage() {
                     <button
                       key={variant.id}
                       type="button"
-                      onClick={() => setSelectedVariantId(variant.id)}
+                      onClick={() => {
+                        setSelectedVariantId(variant.id);
+                        setQuantity(
+                          Math.max(
+                            1,
+                            variant.purchase_constraints.min_quantity ||
+                              data.purchase_constraints.min_quantity ||
+                              1,
+                          ),
+                        );
+                      }}
                       className={`w-full rounded-lg border p-3 text-left transition-colors ${
                         selected
                           ? "border-primary-500 bg-primary-50"
@@ -230,12 +341,63 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
+            <div className="rounded-xl border border-neutral-200 bg-white p-5">
+              <p className="mb-3 text-sm font-semibold text-text-primary">수량</p>
+              <div className="flex items-center gap-2">
+                <Button
+                  intent="secondary"
+                  size="sm"
+                  disabled={quantity <= minQuantity}
+                  onClick={() => handleQuantityChange(quantity - 1)}
+                >
+                  -
+                </Button>
+                <input
+                  type="number"
+                  min={minQuantity}
+                  max={maxQuantity ?? undefined}
+                  value={quantity}
+                  onChange={(event) => {
+                    const next = Number.parseInt(event.target.value, 10);
+                    if (!Number.isFinite(next)) {
+                      return;
+                    }
+                    handleQuantityChange(next);
+                  }}
+                  className="h-10 w-20 rounded-lg border border-neutral-200 px-3 text-center text-sm"
+                />
+                <Button
+                  intent="secondary"
+                  size="sm"
+                  disabled={!!maxQuantity && quantity >= maxQuantity}
+                  onClick={() => handleQuantityChange(quantity + 1)}
+                >
+                  +
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-text-secondary">
+                최소 {minQuantity} / 최대 {maxQuantity ?? "제한 없음"}
+              </p>
+            </div>
+
             <div className="space-y-2">
-              <Button intent="primary" size="lg" fullWidth disabled>
-                장바구니 담기 (02 단계에서 연결)
+              <Button
+                intent="primary"
+                size="lg"
+                fullWidth
+                disabled={!canPurchase || pendingAction !== null}
+                onClick={() => void handleSubmitCart(false)}
+              >
+                {pendingAction === "ADD" ? "담는 중..." : "장바구니 담기"}
               </Button>
-              <Button intent="secondary" size="lg" fullWidth disabled>
-                바로 구매 (02 단계에서 연결)
+              <Button
+                intent="secondary"
+                size="lg"
+                fullWidth
+                disabled={!canPurchase || pendingAction !== null}
+                onClick={() => void handleSubmitCart(true)}
+              >
+                {pendingAction === "BUY_NOW" ? "이동 중..." : "바로 구매"}
               </Button>
             </div>
           </div>
