@@ -16,12 +16,16 @@ import {
   type ListV2AdminCutoverDomainsParams,
   type ListV2AdminCutoverGateReportsParams,
   type ListV2AdminCutoverRoutingFlagsParams,
+  type ListV2AdminCutoverStageIssuesParams,
+  type ListV2AdminCutoverStageRunsParams,
   type ListV2AdminFulfillmentQueueParams,
   type ListV2AdminInventoryHealthParams,
   type ListV2AdminOrderQueueParams,
   type SaveV2AdminCutoverBatchInput,
   type SaveV2AdminCutoverGateReportInput,
   type SaveV2AdminCutoverRoutingFlagInput,
+  type SaveV2AdminCutoverStageIssueInput,
+  type SaveV2AdminCutoverStageRunInput,
   type UpdateV2AdminCutoverDomainInput,
 } from '@/lib/client/api/v2-admin-ops.api';
 import { queryKeys } from './query-keys';
@@ -120,6 +124,30 @@ export function useV2AdminCutoverRoutingFlags(
     queryKey: queryKeys.v2AdminOps.cutover.routingFlags(params),
     queryFn: async () => {
       const response = await V2AdminOpsAPI.listCutoverRoutingFlags(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminCutoverStageRuns(
+  params: ListV2AdminCutoverStageRunsParams = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.cutover.stageRuns(params),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.listCutoverStageRuns(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminCutoverStageIssues(
+  params: ListV2AdminCutoverStageIssuesParams = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.cutover.stageIssues(params),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.listCutoverStageIssues(params);
       return response.data;
     },
   });
@@ -319,6 +347,28 @@ export function useV2AdminSaveCutoverRoutingFlag() {
   return useMutation({
     mutationFn: async (data: SaveV2AdminCutoverRoutingFlagInput) =>
       V2AdminOpsAPI.saveCutoverRoutingFlag(data),
+    onSettled: async () => {
+      await invalidateV2AdminOps(queryClient);
+    },
+  });
+}
+
+export function useV2AdminSaveCutoverStageRun() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: SaveV2AdminCutoverStageRunInput) =>
+      V2AdminOpsAPI.saveCutoverStageRun(data),
+    onSettled: async () => {
+      await invalidateV2AdminOps(queryClient);
+    },
+  });
+}
+
+export function useV2AdminSaveCutoverStageIssue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: SaveV2AdminCutoverStageIssueInput) =>
+      V2AdminOpsAPI.saveCutoverStageIssue(data),
     onSettled: async () => {
       await invalidateV2AdminOps(queryClient);
     },

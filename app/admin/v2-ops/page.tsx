@@ -16,6 +16,8 @@ import {
   useV2AdminCutoverPolicy,
   useV2AdminCutoverPolicyCheck,
   useV2AdminCutoverRoutingFlags,
+  useV2AdminCutoverStageIssues,
+  useV2AdminCutoverStageRuns,
   useV2AdminDispatchShipment,
   useV2AdminFulfillmentQueue,
   useV2AdminInventoryHealth,
@@ -27,6 +29,8 @@ import {
   useV2AdminSaveCutoverBatch,
   useV2AdminSaveCutoverGateReport,
   useV2AdminSaveCutoverRoutingFlag,
+  useV2AdminSaveCutoverStageIssue,
+  useV2AdminSaveCutoverStageRun,
   useV2AdminUpdateCutoverDomain,
 } from '@/lib/client/hooks/useV2AdminOps';
 import type {
@@ -35,7 +39,10 @@ import type {
   V2CutoverBatchStatus,
   V2CutoverGateResult,
   V2CutoverGateType,
+  V2CutoverIssueSeverity,
+  V2CutoverIssueStatus,
   V2CutoverRouteTarget,
+  V2CutoverStageRunStatus,
   V2CutoverStatus,
 } from '@/lib/client/api/v2-admin-ops.api';
 
@@ -118,6 +125,29 @@ function resolveCutoverBatchStatusIntent(status?: string | null) {
   return 'default' as const;
 }
 
+function resolveStageRunStatusIntent(status?: string | null) {
+  if (status === 'COMPLETED') {
+    return 'success' as const;
+  }
+  if (status === 'BLOCKED' || status === 'ROLLED_BACK' || status === 'CANCELED') {
+    return 'error' as const;
+  }
+  if (status === 'RUNNING') {
+    return 'warning' as const;
+  }
+  return 'default' as const;
+}
+
+function resolveIssueSeverityIntent(severity?: string | null) {
+  if (severity === 'LOW') {
+    return 'default' as const;
+  }
+  if (severity === 'MEDIUM') {
+    return 'warning' as const;
+  }
+  return 'error' as const;
+}
+
 export default function V2AdminOpsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -152,6 +182,21 @@ export default function V2AdminOpsPage() {
   const [routingTrafficPercent, setRoutingTrafficPercent] = useState('0');
   const [routingReason, setRoutingReason] = useState('');
 
+  const [stageRunDomainKey, setStageRunDomainKey] = useState('');
+  const [stageRunNo, setStageRunNo] = useState('');
+  const [stageRunKey, setStageRunKey] = useState('');
+  const [stageRunStatus, setStageRunStatus] = useState('PLANNED');
+  const [stageRunMode, setStageRunMode] = useState('LIMITED');
+
+  const [issueDomainKey, setIssueDomainKey] = useState('');
+  const [issueStageNo, setIssueStageNo] = useState('');
+  const [issueStageRunId, setIssueStageRunId] = useState('');
+  const [issueTitle, setIssueTitle] = useState('');
+  const [issueSeverity, setIssueSeverity] = useState('MEDIUM');
+  const [issueStatus, setIssueStatus] = useState('OPEN');
+  const [issueDetail, setIssueDetail] = useState('');
+  const [issueRecoveryAction, setIssueRecoveryAction] = useState('');
+
   const { data: myRbac, isLoading: rbacLoading } = useV2AdminMyRbac();
   const { data: cutoverPolicy, isLoading: cutoverLoading } = useV2AdminCutoverPolicy();
   const { data: actionCatalog, isLoading: catalogLoading } = useV2AdminActionCatalog();
@@ -173,6 +218,10 @@ export default function V2AdminOpsPage() {
     useV2AdminCutoverBatches({ limit: 20 });
   const { data: cutoverRoutingFlags, isLoading: cutoverRoutingFlagsLoading } =
     useV2AdminCutoverRoutingFlags({ limit: 20 });
+  const { data: cutoverStageRuns, isLoading: cutoverStageRunsLoading } =
+    useV2AdminCutoverStageRuns({ limit: 20 });
+  const { data: cutoverStageIssues, isLoading: cutoverStageIssuesLoading } =
+    useV2AdminCutoverStageIssues({ limit: 20 });
 
   const refundOrder = useV2AdminRefundOrder();
   const dispatchShipment = useV2AdminDispatchShipment();
@@ -183,6 +232,8 @@ export default function V2AdminOpsPage() {
   const saveCutoverGateReport = useV2AdminSaveCutoverGateReport();
   const saveCutoverBatch = useV2AdminSaveCutoverBatch();
   const saveCutoverRoutingFlag = useV2AdminSaveCutoverRoutingFlag();
+  const saveCutoverStageRun = useV2AdminSaveCutoverStageRun();
+  const saveCutoverStageIssue = useV2AdminSaveCutoverStageIssue();
 
   const isActionPending =
     refundOrder.isPending ||
@@ -193,7 +244,9 @@ export default function V2AdminOpsPage() {
     updateCutoverDomain.isPending ||
     saveCutoverGateReport.isPending ||
     saveCutoverBatch.isPending ||
-    saveCutoverRoutingFlag.isPending;
+    saveCutoverRoutingFlag.isPending ||
+    saveCutoverStageRun.isPending ||
+    saveCutoverStageIssue.isPending;
 
   const queueSummary = useMemo(
     () => ({
@@ -214,6 +267,10 @@ export default function V2AdminOpsPage() {
       gates: cutoverGateReports?.items?.length ?? 0,
       batches: cutoverBatches?.items?.length ?? 0,
       routingFlags: cutoverRoutingFlags?.items?.length ?? 0,
+      stageRuns: cutoverStageRuns?.items?.length ?? 0,
+      openIssues:
+        cutoverStageIssues?.items?.filter((item) => item.status !== 'RESOLVED').length ??
+        0,
     }),
     [
       cutoverDomains,
@@ -221,6 +278,8 @@ export default function V2AdminOpsPage() {
       cutoverGateReports,
       cutoverBatches,
       cutoverRoutingFlags,
+      cutoverStageRuns,
+      cutoverStageIssues,
     ],
   );
 
@@ -456,6 +515,65 @@ export default function V2AdminOpsPage() {
     });
   };
 
+  const handleSaveStageRun = async () => {
+    const domainKey = stageRunDomainKey.trim();
+    const runKey = stageRunKey.trim();
+    if (!domainKey || !runKey) {
+      setErrorMessage('stage run은 domain_key와 run_key가 필요합니다.');
+      return;
+    }
+
+    const stageNo = Number.parseInt(stageRunNo.trim(), 10);
+    if (!Number.isInteger(stageNo) || stageNo < 0 || stageNo > 8) {
+      setErrorMessage('stage_no는 0~8 범위 정수여야 합니다.');
+      return;
+    }
+
+    await runAction(async () => {
+      await saveCutoverStageRun.mutateAsync({
+        domain_key: domainKey,
+        stage_no: stageNo,
+        run_key: runKey,
+        status: stageRunStatus.trim() as V2CutoverStageRunStatus,
+        transition_mode: stageRunMode.trim() as 'BASELINE' | 'LIMITED' | 'FULL' | 'ROLLBACK',
+      });
+      setMessage('stage run을 저장했습니다.');
+      setStageRunKey('');
+    });
+  };
+
+  const handleSaveStageIssue = async () => {
+    const domainKey = issueDomainKey.trim();
+    const title = issueTitle.trim();
+    if (!domainKey || !title) {
+      setErrorMessage('stage issue는 domain_key와 title이 필요합니다.');
+      return;
+    }
+
+    const stageNo = Number.parseInt(issueStageNo.trim(), 10);
+    if (!Number.isInteger(stageNo) || stageNo < 0 || stageNo > 8) {
+      setErrorMessage('stage_no는 0~8 범위 정수여야 합니다.');
+      return;
+    }
+
+    await runAction(async () => {
+      await saveCutoverStageIssue.mutateAsync({
+        stage_run_id: issueStageRunId.trim() || null,
+        domain_key: domainKey,
+        stage_no: stageNo,
+        status: issueStatus.trim() as V2CutoverIssueStatus,
+        severity: issueSeverity.trim() as V2CutoverIssueSeverity,
+        title,
+        detail: issueDetail.trim() || null,
+        recovery_action: issueRecoveryAction.trim() || null,
+      });
+      setMessage('stage issue를 저장했습니다.');
+      setIssueTitle('');
+      setIssueDetail('');
+      setIssueRecoveryAction('');
+    });
+  };
+
   if (
     rbacLoading ||
     cutoverLoading ||
@@ -547,6 +665,8 @@ export default function V2AdminOpsPage() {
             <Badge intent="default">gates {cutoverSummary.gates}</Badge>
             <Badge intent="default">batches {cutoverSummary.batches}</Badge>
             <Badge intent="default">routing {cutoverSummary.routingFlags}</Badge>
+            <Badge intent="default">stage-runs {cutoverSummary.stageRuns}</Badge>
+            <Badge intent="warning">open-issues {cutoverSummary.openIssues}</Badge>
           </div>
         </div>
 
@@ -819,6 +939,155 @@ export default function V2AdminOpsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <h3 className="text-base font-semibold text-gray-900">Stage 0~8 Runs</h3>
+          <div className="mt-3 grid grid-cols-1 gap-2">
+            <Input
+              placeholder="domain_key"
+              value={stageRunDomainKey}
+              onChange={(event) => setStageRunDomainKey(event.target.value)}
+            />
+            <Input
+              placeholder="stage_no (0~8)"
+              value={stageRunNo}
+              onChange={(event) => setStageRunNo(event.target.value)}
+            />
+            <Input
+              placeholder="run_key (예: CATALOG-stage1-20260314)"
+              value={stageRunKey}
+              onChange={(event) => setStageRunKey(event.target.value)}
+            />
+            <Input
+              placeholder="status (PLANNED/RUNNING/COMPLETED/BLOCKED)"
+              value={stageRunStatus}
+              onChange={(event) => setStageRunStatus(event.target.value)}
+            />
+            <Input
+              placeholder="transition_mode (BASELINE/LIMITED/FULL/ROLLBACK)"
+              value={stageRunMode}
+              onChange={(event) => setStageRunMode(event.target.value)}
+            />
+            <Button
+              loading={saveCutoverStageRun.isPending}
+              disabled={isActionPending}
+              onClick={handleSaveStageRun}
+            >
+              Stage Run 저장
+            </Button>
+          </div>
+          {cutoverStageRunsLoading ? (
+            <div className="mt-3 text-xs text-gray-500">로딩 중...</div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {(cutoverStageRuns?.items || []).slice(0, 8).map((item) => (
+                <div key={item.id} className="rounded-md bg-gray-50 px-3 py-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold text-gray-800">{item.run_key}</div>
+                    <Badge intent={resolveStageRunStatusIntent(item.status)} size="sm">
+                      {item.status}
+                    </Badge>
+                  </div>
+                  <div className="text-gray-600">
+                    {item.domain?.domain_key || '-'} · stage {item.stage_no} ·{' '}
+                    {item.transition_mode}
+                  </div>
+                </div>
+              ))}
+              {(!cutoverStageRuns || cutoverStageRuns.items.length === 0) && (
+                <div className="text-xs text-gray-500">stage run 데이터가 없습니다.</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <h3 className="text-base font-semibold text-gray-900">Issue / Recovery Log</h3>
+          <div className="mt-3 grid grid-cols-1 gap-2">
+            <Input
+              placeholder="domain_key"
+              value={issueDomainKey}
+              onChange={(event) => setIssueDomainKey(event.target.value)}
+            />
+            <Input
+              placeholder="stage_no (0~8)"
+              value={issueStageNo}
+              onChange={(event) => setIssueStageNo(event.target.value)}
+            />
+            <Input
+              placeholder="stage_run_id (optional)"
+              value={issueStageRunId}
+              onChange={(event) => setIssueStageRunId(event.target.value)}
+            />
+            <Input
+              placeholder="title"
+              value={issueTitle}
+              onChange={(event) => setIssueTitle(event.target.value)}
+            />
+            <Input
+              placeholder="severity (LOW/MEDIUM/HIGH/CRITICAL)"
+              value={issueSeverity}
+              onChange={(event) => setIssueSeverity(event.target.value)}
+            />
+            <Input
+              placeholder="status (OPEN/MITIGATING/RESOLVED)"
+              value={issueStatus}
+              onChange={(event) => setIssueStatus(event.target.value)}
+            />
+            <Textarea
+              placeholder="detail"
+              rows={2}
+              value={issueDetail}
+              onChange={(event) => setIssueDetail(event.target.value)}
+            />
+            <Textarea
+              placeholder="recovery_action"
+              rows={2}
+              value={issueRecoveryAction}
+              onChange={(event) => setIssueRecoveryAction(event.target.value)}
+            />
+            <Button
+              loading={saveCutoverStageIssue.isPending}
+              disabled={isActionPending}
+              onClick={handleSaveStageIssue}
+            >
+              Stage Issue 저장
+            </Button>
+          </div>
+          {cutoverStageIssuesLoading ? (
+            <div className="mt-3 text-xs text-gray-500">로딩 중...</div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {(cutoverStageIssues?.items || []).slice(0, 8).map((item) => (
+                <div key={item.id} className="rounded-md bg-gray-50 px-3 py-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold text-gray-800">{item.title}</div>
+                    <div className="flex items-center gap-1">
+                      <Badge intent={resolveIssueSeverityIntent(item.severity)} size="sm">
+                        {item.severity}
+                      </Badge>
+                      <Badge
+                        intent={item.status === 'RESOLVED' ? 'success' : 'warning'}
+                        size="sm"
+                      >
+                        {item.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="text-gray-600">
+                    {item.domain?.domain_key || '-'} · stage {item.stage_no} ·{' '}
+                    {item.issue_type}
+                  </div>
+                </div>
+              ))}
+              {(!cutoverStageIssues || cutoverStageIssues.items.length === 0) && (
+                <div className="text-xs text-gray-500">stage issue 데이터가 없습니다.</div>
+              )}
             </div>
           )}
         </div>

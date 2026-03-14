@@ -26,6 +26,8 @@ import type {
   ListV2AdminCutoverDomainsParams,
   ListV2AdminCutoverGateReportsParams,
   ListV2AdminCutoverRoutingFlagsParams,
+  ListV2AdminCutoverStageIssuesParams,
+  ListV2AdminCutoverStageRunsParams,
   ListV2AdminFulfillmentQueueParams,
   ListV2AdminInventoryHealthParams,
   ListV2AdminOrderQueueParams,
@@ -274,6 +276,10 @@ export const queryKeys = {
         [...queryKeys.v2AdminOps.cutover.all, 'batches', params] as const,
       routingFlags: (params: ListV2AdminCutoverRoutingFlagsParams = {}) =>
         [...queryKeys.v2AdminOps.cutover.all, 'routing-flags', params] as const,
+      stageRuns: (params: ListV2AdminCutoverStageRunsParams = {}) =>
+        [...queryKeys.v2AdminOps.cutover.all, 'stage-runs', params] as const,
+      stageIssues: (params: ListV2AdminCutoverStageIssuesParams = {}) =>
+        [...queryKeys.v2AdminOps.cutover.all, 'stage-issues', params] as const,
     },
     rbac: {
       all: ['v2-admin-ops', 'rbac'] as const,

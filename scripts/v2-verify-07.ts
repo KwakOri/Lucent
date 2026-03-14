@@ -34,7 +34,7 @@ type VerifyResult = {
 function printHelp(): void {
   console.log(
     [
-      'V2 07 Gate/Checklist 자동 점검',
+      'V2 07 Migration/Cutover 자동 점검',
       '',
       'Usage:',
       '  npx tsx scripts/v2-verify-07.ts [options]',
@@ -134,7 +134,7 @@ async function fetchApi<T>(
 
 function buildMarkdown(result: VerifyResult): string {
   const lines = [
-    '# V2 07 Gate Checklist 검증 리포트',
+    '# V2 07 Migration/Cutover 검증 리포트',
     '',
     `- generated_at: ${result.generated_at}`,
     `- base_url: ${result.base_url}`,
@@ -242,6 +242,45 @@ async function run(args: VerifyArgs): Promise<VerifyResult> {
   } catch (error) {
     checks.push({
       key: 'cutover_routing_flags_read',
+      passed: false,
+      detail: error instanceof Error ? error.message : 'unknown error',
+    });
+  }
+
+  try {
+    const stageRuns = await fetchApi<{ items: Array<{ id: string }> }>(
+      args.baseUrl,
+      `/api/v2/admin/cutover/stage-runs?limit=20${args.domainKey ? `&domain_key=${encodeURIComponent(args.domainKey)}` : ''}`,
+      args.adminToken,
+    );
+    checks.push({
+      key: 'cutover_stage_runs_read',
+      passed: true,
+      detail: `items=${stageRuns.items.length}`,
+    });
+  } catch (error) {
+    checks.push({
+      key: 'cutover_stage_runs_read',
+      passed: false,
+      detail: error instanceof Error ? error.message : 'unknown error',
+    });
+  }
+
+  try {
+    const stageIssues = await fetchApi<{ items: Array<{ id: string; status: string }> }>(
+      args.baseUrl,
+      `/api/v2/admin/cutover/stage-issues?limit=20${args.domainKey ? `&domain_key=${encodeURIComponent(args.domainKey)}` : ''}`,
+      args.adminToken,
+    );
+    const openIssues = stageIssues.items.filter((item) => item.status !== 'RESOLVED').length;
+    checks.push({
+      key: 'cutover_stage_issues_read',
+      passed: true,
+      detail: `items=${stageIssues.items.length}, open=${openIssues}`,
+    });
+  } catch (error) {
+    checks.push({
+      key: 'cutover_stage_issues_read',
       passed: false,
       detail: error instanceof Error ? error.message : 'unknown error',
     });
