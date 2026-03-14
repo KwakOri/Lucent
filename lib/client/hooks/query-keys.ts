@@ -8,6 +8,7 @@ import type { GetOrdersParams } from '@/lib/client/api/orders.api';
 import type { GetArtistsParams } from '@/lib/client/api/artists.api';
 import type { GetProductsParams } from '@/lib/client/api/products.api';
 import type { GetProjectsParams } from '@/lib/client/api/projects.api';
+import type { GetV2ShopProductsParams } from '@/lib/client/api/v2-shop.api';
 import type {
   GetV2BundleDefinitionsParams,
   GetV2ArtistsParams,
@@ -82,6 +83,23 @@ export const queryKeys = {
     },
     debug: (orderId: string) =>
       [...queryKeys.v2Checkout.all, 'order-debug', orderId] as const,
+  },
+
+  /**
+   * V2 Shop Query Keys
+   */
+  v2Shop: {
+    all: ['v2-shop'] as const,
+    products: {
+      all: ['v2-shop', 'products'] as const,
+      list: (params: GetV2ShopProductsParams = {}) =>
+        [...queryKeys.v2Shop.products.all, 'list', params] as const,
+      detail: (
+        productId: string,
+        params: { channel?: string; campaign_id?: string } = {},
+      ) => [...queryKeys.v2Shop.products.all, 'detail', productId, params] as const,
+    },
+    pricePreview: () => [...queryKeys.v2Shop.all, 'price-preview'] as const,
   },
 
   /**
