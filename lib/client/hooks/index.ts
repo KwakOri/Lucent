@@ -136,3 +136,10 @@ export {
   useV2RefundOrder,
   useV2OrderDebug,
 } from './useV2Checkout';
+
+// V2 Shop Hooks
+export {
+  useV2ShopProducts,
+  useV2ShopProduct,
+  useV2ShopPricePreview,
+} from './useV2Shop';
