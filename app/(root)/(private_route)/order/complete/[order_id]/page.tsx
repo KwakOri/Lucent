@@ -1,385 +1,306 @@
-/**
- * Order Confirmation Page
- *
- * 주문 완료 안내 및 계좌이체 정보 제공 페이지
- */
+'use client';
 
-"use client";
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { CheckCircle, Package } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Loading } from '@/components/ui/loading';
+import { useV2CheckoutOrder } from '@/lib/client/hooks/useV2Checkout';
+import { ApiError } from '@/lib/client/utils/api-error';
 
-import { BankAccountInfo } from "@/components/order";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Loading } from "@/components/ui/loading";
-import { SHIPPING_FEE } from "@/constants";
-import { useOrder } from "@/lib/client/hooks/useOrders";
-import { CheckCircle, FileText, ShoppingBag } from "lucide-react";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+function readNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+}
 
-export default function OrderConfirmationPage() {
+function readString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function asObject(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function formatCurrency(amount: number): string {
+  return `${Math.max(0, amount).toLocaleString()}원`;
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) {
+    return '-';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function mapStatusLabel(
+  value: string,
+  type: 'order' | 'payment' | 'fulfillment',
+): string {
+  const dictionary: Record<string, string> =
+    type === 'order'
+      ? {
+          PENDING: '주문 대기',
+          CONFIRMED: '주문 확정',
+          CANCELED: '주문 취소',
+          COMPLETED: '주문 완료',
+        }
+      : type === 'payment'
+      ? {
+          PENDING: '결제 대기',
+          AUTHORIZED: '승인됨',
+          CAPTURED: '결제 완료',
+          FAILED: '결제 실패',
+          CANCELED: '결제 취소',
+          PARTIALLY_REFUNDED: '부분 환불',
+          REFUNDED: '환불 완료',
+        }
+      : {
+          UNFULFILLED: '미이행',
+          PARTIAL: '부분 이행',
+          FULFILLED: '이행 완료',
+          CANCELED: '이행 취소',
+        };
+
+  return dictionary[value] || value || '-';
+}
+
+function badgeClass(value: string) {
+  if (value.includes('FAILED') || value.includes('CANCELED')) {
+    return 'bg-red-100 text-red-700';
+  }
+  if (value.includes('PENDING') || value.includes('UNFULFILLED')) {
+    return 'bg-yellow-100 text-yellow-700';
+  }
+  return 'bg-green-100 text-green-700';
+}
+
+export default function OrderCompletePage() {
   const params = useParams();
-  const router = useRouter();
   const orderId = params.order_id as string;
-
-  const { data: order, isLoading, error } = useOrder(orderId);
-
-  // 상품 타입 확인
-  const hasPhysicalGoods = order?.items?.some(
-    (item) =>
-      item.product_type === "PHYSICAL_GOODS" || item.product_type === "BUNDLE"
-  );
-  const hasDigitalProducts = order?.items?.some(
-    (item) => item.product_type === "VOICE_PACK"
-  );
-
-  // 배송비 계산 (실물 굿즈가 포함된 경우)
-  const shippingFee = hasPhysicalGoods ? SHIPPING_FEE : 0;
-  const productTotal = order ? order.total_price - shippingFee : 0;
-
-  // 날짜 포맷
-  const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString("ko-KR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  const { data: order, isLoading, error } = useV2CheckoutOrder(orderId);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
         <Loading size="lg" />
       </div>
     );
   }
 
   if (error || !order) {
+    const hasAuthError = error instanceof ApiError && error.isAuthError();
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
         <EmptyState
-          title="주문을 찾을 수 없습니다"
+          title={hasAuthError ? '로그인이 필요합니다' : '주문 정보를 찾을 수 없습니다'}
           description={
-            error instanceof Error
+            hasAuthError
+              ? '로그인 후 주문 정보를 확인할 수 있습니다.'
+              : error instanceof Error
               ? error.message
-              : "주문 정보를 불러올 수 없습니다"
+              : '주문 정보를 불러오는 중 문제가 발생했습니다.'
           }
-        >
-          <Link href="/mypage/orders">
-            <Button intent="primary" size="md">
-              내 주문 목록 보기
-            </Button>
-          </Link>
-        </EmptyState>
+          action={
+            <Link href={hasAuthError ? '/login?redirect=/mypage' : '/mypage'}>
+              <Button intent="primary" size="md">
+                {hasAuthError ? '로그인하러 가기' : '마이페이지로 이동'}
+              </Button>
+            </Link>
+          }
+        />
       </div>
     );
   }
 
+  const items = Array.isArray(order.items) ? order.items : [];
+  const hasShippingItem = items.some((rawItem) => {
+    const display = asObject(asObject(rawItem).display_snapshot);
+    return display.requires_shipping === true;
+  });
+  const shippingSnapshot = asObject(order.shipping_address_snapshot);
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-3xl mx-auto px-4">
-        {/* Success Header */}
-        <section className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6 animate-scale-in">
-            <CheckCircle size={48} className="text-green-600" />
+    <div className="min-h-screen bg-neutral-50 py-10">
+      <div className="mx-auto max-w-4xl space-y-6 px-4">
+        <section className="rounded-2xl border border-neutral-200 bg-white p-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+            <CheckCircle className="h-9 w-9 text-green-600" />
           </div>
-
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">
-            주문이 완료되었습니다
-          </h1>
-
-          <p className="text-lg text-gray-600 mb-8">
-            입금 확인 후 {hasDigitalProducts ? "다운로드 가능" : "상품이 발송"}
-            됩니다
+          <h1 className="text-3xl font-bold text-text-primary">주문이 완료되었습니다</h1>
+          <p className="mt-2 text-text-secondary">
+            주문번호 <span className="font-semibold text-text-primary">{order.order_no}</span>
           </p>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6 inline-block">
-            <dl className="grid grid-cols-2 gap-6 text-left">
-              <div>
-                <dt className="text-sm text-gray-500 mb-1">주문번호</dt>
-                <dd className="font-mono font-semibold text-gray-900">
-                  {order.order_number}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm text-gray-500 mb-1">주문일시</dt>
-                <dd className="font-medium text-gray-900">
-                  {formatDateTime(order.created_at)}
-                </dd>
-              </div>
-            </dl>
-          </div>
+          <p className="mt-1 text-sm text-text-secondary">
+            주문 시각: {formatDateTime(order.placed_at)}
+          </p>
         </section>
 
-        {/* Bank Account Info */}
-        <div className="mb-8">
-          <BankAccountInfo
-            depositorName={order.buyer_name as string}
-            totalAmount={order.total_price}
-          />
-        </div>
-
-        {/* Order Items */}
-        <section className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <span>📦</span>
-            주문 상품
-          </h2>
-
-          <div className="space-y-4">
-            {order.items?.map((item) => (
-              <div
-                key={item.id}
-                className="flex gap-4 p-4 bg-gray-50 rounded-lg"
+        <section className="rounded-2xl border border-neutral-200 bg-white p-6">
+          <h2 className="text-lg font-semibold text-text-primary">주문 상태</h2>
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="rounded-lg border border-neutral-200 p-3">
+              <p className="text-xs text-text-secondary">주문 상태</p>
+              <span
+                className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${badgeClass(
+                  order.order_status,
+                )}`}
               >
-                <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
-                  <span className="text-3xl">
-                    {item.product_type === "VOICE_PACK" ? "🎵" : "📦"}
-                  </span>
-                </div>
-
-                <div className="flex-1">
-                  <h3 className="font-medium text-gray-900 mb-1">
-                    {item.product_name}
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-2">
-                    {item.product_type === "VOICE_PACK"
-                      ? "디지털 상품"
-                      : "실물 굿즈"}
-                  </p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {item.price_snapshot.toLocaleString()}원
-                  </p>
-                </div>
-              </div>
-            ))}
-
-            <div className="pt-4 border-t border-gray-200 space-y-2">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600">상품 금액</span>
-                <span className="font-medium text-gray-900">
-                  {productTotal.toLocaleString()}원
-                </span>
-              </div>
-
-              {shippingFee > 0 && (
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">배송비</span>
-                  <span className="font-medium text-gray-900">
-                    {shippingFee.toLocaleString()}원
-                  </span>
-                </div>
-              )}
-
-              <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
-                <span className="text-base font-semibold text-gray-900">
-                  총 결제 금액
-                </span>
-                <span className="text-2xl font-bold text-primary-600">
-                  {order.total_price.toLocaleString()}원
-                </span>
-              </div>
+                {mapStatusLabel(order.order_status, 'order')}
+              </span>
+            </div>
+            <div className="rounded-lg border border-neutral-200 p-3">
+              <p className="text-xs text-text-secondary">결제 상태</p>
+              <span
+                className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${badgeClass(
+                  order.payment_status,
+                )}`}
+              >
+                {mapStatusLabel(order.payment_status, 'payment')}
+              </span>
+            </div>
+            <div className="rounded-lg border border-neutral-200 p-3">
+              <p className="text-xs text-text-secondary">이행 상태</p>
+              <span
+                className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${badgeClass(
+                  order.fulfillment_status,
+                )}`}
+              >
+                {mapStatusLabel(order.fulfillment_status, 'fulfillment')}
+              </span>
             </div>
           </div>
         </section>
 
-        {/* Shipping Info (Physical Goods Only) */}
-        {hasPhysicalGoods && order.shipping_main_address && (
-          <section className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <span>🚚</span>
-              배송 정보
-            </h2>
+        <section className="rounded-2xl border border-neutral-200 bg-white p-6">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
+            <Package className="h-5 w-5" />
+            주문 상품
+          </h2>
+          <div className="mt-4 space-y-3">
+            {items.map((rawItem, index) => {
+              const item = asObject(rawItem);
+              const display = asObject(item.display_snapshot);
+              const title =
+                readString(display.title) ||
+                readString(display.variant_title) ||
+                readString(item.variant_id) ||
+                `상품 ${index + 1}`;
+              const lineType = readString(item.line_type);
+              const quantity = readNumber(item.quantity);
+              const lineTotal = readNumber(item.final_line_total);
 
-            <dl className="space-y-3">
-              <div className="flex">
-                <dt className="w-24 text-sm text-gray-500">수령인</dt>
-                <dd className="flex-1 text-sm font-medium text-gray-900">
-                  {order.shipping_name}
-                </dd>
-              </div>
-
-              <div className="flex">
-                <dt className="w-24 text-sm text-gray-500">연락처</dt>
-                <dd className="flex-1 text-sm font-medium text-gray-900">
-                  {order.shipping_phone}
-                </dd>
-              </div>
-
-              <div className="flex">
-                <dt className="w-24 text-sm text-gray-500">배송 주소</dt>
-                <dd className="flex-1 text-sm font-medium text-gray-900">
-                  {order.shipping_main_address}{" "}
-                  {order.shipping_detail_address || ""}
-                </dd>
-              </div>
-
-              {order.shipping_memo && (
-                <div className="flex">
-                  <dt className="w-24 text-sm text-gray-500">배송 메모</dt>
-                  <dd className="flex-1 text-sm text-gray-600">
-                    {order.shipping_memo}
-                  </dd>
+              return (
+                <div
+                  key={readString(item.id) || `${title}-${index}`}
+                  className="rounded-lg border border-neutral-200 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-text-primary">{title}</p>
+                      <p className="text-xs text-text-secondary">
+                        {lineType || 'STANDARD'} · 수량 {quantity}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-text-primary">
+                      {formatCurrency(lineTotal)}
+                    </p>
+                  </div>
                 </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-neutral-200 bg-white p-6">
+          <h2 className="text-lg font-semibold text-text-primary">결제 금액</h2>
+          <dl className="mt-4 space-y-2 text-sm text-text-secondary">
+            <div className="flex items-center justify-between">
+              <dt>상품 금액</dt>
+              <dd className="font-medium text-text-primary">
+                {formatCurrency(order.subtotal_amount)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt>상품 할인</dt>
+              <dd>-{formatCurrency(order.item_discount_total)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt>주문 할인</dt>
+              <dd>-{formatCurrency(order.order_discount_total)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt>배송비</dt>
+              <dd>{formatCurrency(order.shipping_amount)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt>배송 할인</dt>
+              <dd>-{formatCurrency(order.shipping_discount_total)}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt>세금</dt>
+              <dd>{formatCurrency(order.tax_total)}</dd>
+            </div>
+            <div className="flex items-center justify-between border-t border-neutral-200 pt-3 text-base">
+              <dt className="font-semibold text-text-primary">총 결제 금액</dt>
+              <dd className="font-bold text-primary-700">
+                {formatCurrency(order.grand_total)}
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        {hasShippingItem && shippingSnapshot.line1 && (
+          <section className="rounded-2xl border border-neutral-200 bg-white p-6">
+            <h2 className="text-lg font-semibold text-text-primary">배송 정보</h2>
+            <div className="mt-3 space-y-1 text-sm text-text-secondary">
+              <p>수령인: {readString(shippingSnapshot.recipient_name) || '-'}</p>
+              <p>연락처: {readString(shippingSnapshot.phone) || '-'}</p>
+              <p>
+                주소: {readString(shippingSnapshot.line1)}{' '}
+                {readString(shippingSnapshot.line2)}
+              </p>
+              {readString(shippingSnapshot.memo) && (
+                <p>배송 메모: {readString(shippingSnapshot.memo)}</p>
               )}
-            </dl>
+            </div>
           </section>
         )}
 
-        {/* Payment Guide */}
-        <section className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
-          <h2 className="text-lg font-semibold text-blue-900 mb-4 flex items-center gap-2">
-            <span>📝</span>
-            입금 안내
-          </h2>
-
-          <ul className="space-y-2 text-sm text-blue-800">
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 mt-0.5">•</span>
-              <span>
-                <strong>입금자명</strong>은 주문자 본인 이름(
-                <code className="bg-blue-100 px-1 py-0.5 rounded font-semibold">
-                  {order.buyer_name}
-                </code>
-                )으로 입금해주세요
-              </span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 mt-0.5">•</span>
-              <span>입금 확인까지 영업일 기준 1-2일 소요됩니다</span>
-            </li>
-            {hasDigitalProducts && (
-              <li className="flex items-start gap-2">
-                <span className="text-blue-600 mt-0.5">•</span>
-                <span>
-                  디지털 상품은 입금 확인 즉시 마이페이지에서 다운로드
-                  가능합니다
-                </span>
-              </li>
-            )}
-            {hasPhysicalGoods && (
-              <li className="flex items-start gap-2">
-                <span className="text-blue-600 mt-0.5">•</span>
-                <span>실물 굿즈는 입금 확인 후 3-5일 이내 배송됩니다</span>
-              </li>
-            )}
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 mt-0.5">•</span>
-              <span>주문 내역은 마이페이지에서 확인하실 수 있습니다</span>
-            </li>
-          </ul>
-        </section>
-
-        {/* Next Steps Timeline */}
-        <section className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">
-            다음 단계
-          </h2>
-
-          <div className="relative pl-8">
-            {/* Timeline Line */}
-            <div className="absolute left-3 top-2 bottom-2 w-0.5 bg-gray-200"></div>
-
-            {/* Step 1 - Current */}
-            <div className="relative mb-6">
-              <div className="absolute -left-8 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                <span className="text-xs text-white font-bold">1</span>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-1">주문 완료</h3>
-                <p className="text-sm text-gray-600">
-                  주문이 정상적으로 접수되었습니다
-                </p>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="relative mb-6">
-              <div className="absolute -left-8 w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center">
-                <span className="text-xs text-white font-bold">2</span>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-1">입금 대기</h3>
-                <p className="text-sm text-gray-600">계좌이체로 입금해주세요</p>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="relative mb-6">
-              <div className="absolute -left-8 w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center">
-                <span className="text-xs text-white font-bold">3</span>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-1">입금 확인</h3>
-                <p className="text-sm text-gray-600">영업일 기준 1-2일 소요</p>
-              </div>
-            </div>
-
-            {/* Step 4 */}
-            <div className="relative">
-              <div className="absolute -left-8 w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center">
-                <span className="text-xs text-white font-bold">4</span>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-1">
-                  {hasDigitalProducts ? "다운로드 가능" : "배송 시작"}
-                </h3>
-                <p className="text-sm text-gray-600">
-                  {hasDigitalProducts
-                    ? "마이페이지에서 다운로드"
-                    : "3-5일 이내 배송 완료"}
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Link href={`/mypage/orders/${order.id}`} className="flex-1">
-            <Button
-              intent="secondary"
-              size="lg"
-              fullWidth
-              className="flex items-center justify-center gap-2"
-            >
-              <FileText size={18} />
-              주문 상세 보기
+        <section className="flex flex-wrap items-center justify-center gap-3">
+          <Link href="/mypage">
+            <Button intent="primary" size="md">
+              마이페이지로 이동
             </Button>
           </Link>
-
-          <Link href="/shop" className="flex-1">
-            <Button
-              intent="primary"
-              size="lg"
-              fullWidth
-              className="flex items-center justify-center gap-2"
-            >
-              <ShoppingBag size={18} />
-              쇼핑 계속하기
+          <Link href="/shop">
+            <Button intent="secondary" size="md">
+              계속 쇼핑하기
             </Button>
           </Link>
-        </div>
+        </section>
       </div>
-
-      <style jsx>{`
-        @keyframes scale-in {
-          from {
-            transform: scale(0);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 }
