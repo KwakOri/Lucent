@@ -14,6 +14,7 @@ import type {
 import { useRouter } from 'next/navigation';
 import { AuthAPI } from '@/lib/client/api/auth.api';
 import { createClient } from '@/utils/supabase/client';
+import { queryKeys } from './query-keys';
 
 /**
  * 현재 세션 조회 Hook
@@ -93,6 +94,7 @@ export function useLogin() {
     onSuccess: () => {
       // 세션 캐시 무효화
       queryClient.invalidateQueries({ queryKey: ['auth', 'session'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.v2Checkout.cart() });
       // 메인 페이지로 리다이렉트
       router.push('/');
       router.refresh();
@@ -145,8 +147,9 @@ export function useLogout() {
       }
     },
     onSuccess: () => {
-      // 세션 캐시 무효화
       queryClient.invalidateQueries({ queryKey: ['auth', 'session'] });
+      queryClient.removeQueries({ queryKey: queryKeys.v2Checkout.all });
+      queryClient.removeQueries({ queryKey: ['cart'] });
       // 로그인 페이지로 리다이렉트
       router.push('/login');
       router.refresh();

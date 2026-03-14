@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useCartCount, useLogout, useSession } from "@/lib/client/hooks";
+import { useLogout, useSession, useV2CartCount } from "@/lib/client/hooks";
 import { Menu, ShoppingCart, X } from "lucide-react";
 
 import Link from "next/link";
@@ -55,7 +55,7 @@ CartBadge.displayName = "CartBadge";
 export function Header() {
   const { user, isAdmin, isLoading } = useSession();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
-  const { data: cartCount } = useCartCount();
+  const { data: cartCount } = useV2CartCount();
 
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

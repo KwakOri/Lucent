@@ -18,15 +18,37 @@ import {
   type ValidateV2CheckoutData,
 } from "@/lib/client/api/v2-checkout.api";
 import { queryKeys } from "./query-keys";
+import { useSession } from "./useAuth";
 
-export function useV2CheckoutCart() {
+interface UseV2CheckoutCartOptions {
+  enabled?: boolean;
+  refetchOnWindowFocus?: boolean;
+}
+
+export function useV2CheckoutCart(options: UseV2CheckoutCartOptions = {}) {
+  const { enabled = true, refetchOnWindowFocus = true } = options;
   return useQuery({
     queryKey: queryKeys.v2Checkout.cart(),
     queryFn: async () => {
       const response = await V2CheckoutAPI.getCart();
       return response.data;
     },
+    enabled,
+    refetchOnWindowFocus,
   });
+}
+
+export function useV2CartCount() {
+  const { isAuthenticated } = useSession();
+  const cartQuery = useV2CheckoutCart({
+    enabled: isAuthenticated,
+    refetchOnWindowFocus: true,
+  });
+
+  return {
+    ...cartQuery,
+    data: isAuthenticated ? (cartQuery.data?.item_count ?? 0) : 0,
+  };
 }
 
 export function useV2AddCartItem() {
