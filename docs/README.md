@@ -99,6 +99,21 @@
 
 ---
 
+### 7. [V2 Admin/Ops Cutover Runbook](./v2-admin-ops-cutover-runbook.md)
+**v2 admin action executor 단계적 강제(P4) 실행 가이드**
+
+- rollout stage(`STAGE_1~3`) 운영 기준
+- approval enforced 플래그/액션 allowlist 적용 순서
+- cutover policy / audit / approval API 점검 절차
+- `ops:v2-verify-06` 자동 검증 명령
+
+**사용 시기:**
+- 환불/디지털 회수 같은 민감 액션을 승인 강제로 전환할 때
+- legacy write를 제한하고 v2 액션 경로로 고정할 때
+- 운영 전환 전 리허설/롤백 기준을 점검할 때
+
+---
+
 ## 🚀 빠른 시작
 
 ### 1. 환경 설정
@@ -204,6 +219,7 @@ npx tsx scripts/test-email.ts your-email@example.com
 | 이미지/파일 스토리지를 설정하고 싶어요 | [R2 설정 가이드](./r2-setup.md) |
 | V2 read switch 전환을 승인하고 싶어요 | [V2 Read Switch 승인 Runbook](./v2-read-switch-approval-runbook.md) |
 | V2 fulfillment write를 전환하고 싶어요 | [V2 Fulfillment Cutover Runbook](./v2-fulfillment-cutover-runbook.md) |
+| V2 admin 액션 승인 강제를 전환하고 싶어요 | [V2 Admin/Ops Cutover Runbook](./v2-admin-ops-cutover-runbook.md) |
 | API 스펙을 확인하고 싶어요 | `/specs/api/` 폴더 |
 | UI 스펙을 확인하고 싶어요 | `/specs/ui/` 폴더 |
 | 자동화 테스트를 실행하고 싶어요 | `/tests/README.md` |

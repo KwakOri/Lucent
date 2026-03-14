@@ -9,6 +9,8 @@ import {
   useV2AdminActionCatalog,
   useV2AdminActionLogs,
   useV2AdminApprovals,
+  useV2AdminCutoverPolicy,
+  useV2AdminCutoverPolicyCheck,
   useV2AdminDispatchShipment,
   useV2AdminFulfillmentQueue,
   useV2AdminInventoryHealth,
@@ -34,6 +36,20 @@ function getErrorMessage(error: unknown): string {
     }
   }
   return '요청 처리 중 오류가 발생했습니다.';
+}
+
+function isApprovalRequiredError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const maybeError = error as { errorCode?: string; message?: string };
+  if (maybeError.errorCode === 'V2_ADMIN_APPROVAL_REQUIRED') {
+    return true;
+  }
+  if (typeof maybeError.message === 'string') {
+    return maybeError.message.includes('승인이 필요한 액션');
+  }
+  return false;
 }
 
 function resolveActionStatusIntent(status: V2AdminActionStatus) {
@@ -63,6 +79,7 @@ export default function V2AdminOpsPage() {
   const [revokeReason, setRevokeReason] = useState('manual revoke from ops');
 
   const { data: myRbac, isLoading: rbacLoading } = useV2AdminMyRbac();
+  const { data: cutoverPolicy, isLoading: cutoverLoading } = useV2AdminCutoverPolicy();
   const { data: actionCatalog, isLoading: catalogLoading } = useV2AdminActionCatalog();
   const { data: actionLogs, isLoading: logsLoading } = useV2AdminActionLogs({ limit: 20 });
   const { data: approvals, isLoading: approvalsLoading } = useV2AdminApprovals({ limit: 20 });
@@ -77,12 +94,14 @@ export default function V2AdminOpsPage() {
   const dispatchShipment = useV2AdminDispatchShipment();
   const reissueEntitlement = useV2AdminReissueEntitlement();
   const revokeEntitlement = useV2AdminRevokeEntitlement();
+  const checkCutoverPolicy = useV2AdminCutoverPolicyCheck();
 
   const isActionPending =
     refundOrder.isPending ||
     dispatchShipment.isPending ||
     reissueEntitlement.isPending ||
-    revokeEntitlement.isPending;
+    revokeEntitlement.isPending ||
+    checkCutoverPolicy.isPending;
 
   const queueSummary = useMemo(
     () => ({
@@ -121,14 +140,34 @@ export default function V2AdminOpsPage() {
     }
 
     await runAction(async () => {
-      await refundOrder.mutateAsync({
-        orderId,
-        data: {
-          amount: parsedAmount,
-          reason: refundReason.trim() || null,
-        },
+      const policyCheck = await checkCutoverPolicy.mutateAsync({
+        action_key: 'ORDER_REFUND_EXECUTE',
+        requires_approval: true,
       });
-      setMessage('환불 액션을 실행했습니다. Action Log에서 결과를 확인하세요.');
+      try {
+        await refundOrder.mutateAsync({
+          orderId,
+          data: {
+            amount: parsedAmount,
+            reason: refundReason.trim() || null,
+          },
+        });
+      } catch (error) {
+        if (
+          policyCheck.decision === 'APPROVAL_REQUIRED' &&
+          isApprovalRequiredError(error)
+        ) {
+          setMessage('환불 액션이 승인 대기로 등록되었습니다. 승인 큐를 확인하세요.');
+          return;
+        }
+        throw error;
+      }
+
+      if (policyCheck.decision === 'APPROVAL_REQUIRED') {
+        setMessage('환불 액션이 승인 대기로 등록되었습니다. 승인 큐를 확인하세요.');
+      } else {
+        setMessage('환불 액션을 실행했습니다. Action Log에서 결과를 확인하세요.');
+      }
     });
   };
 
@@ -172,17 +211,42 @@ export default function V2AdminOpsPage() {
     }
 
     await runAction(async () => {
-      await revokeEntitlement.mutateAsync({
-        entitlementId,
-        data: {
-          reason: revokeReason.trim() || null,
-        },
+      const policyCheck = await checkCutoverPolicy.mutateAsync({
+        action_key: 'FULFILLMENT_ENTITLEMENT_REVOKE',
+        requires_approval: true,
       });
-      setMessage('회수 액션을 실행했습니다. Action Log에서 결과를 확인하세요.');
+      try {
+        await revokeEntitlement.mutateAsync({
+          entitlementId,
+          data: {
+            reason: revokeReason.trim() || null,
+          },
+        });
+      } catch (error) {
+        if (
+          policyCheck.decision === 'APPROVAL_REQUIRED' &&
+          isApprovalRequiredError(error)
+        ) {
+          setMessage('회수 액션이 승인 대기로 등록되었습니다. 승인 큐를 확인하세요.');
+          return;
+        }
+        throw error;
+      }
+      if (policyCheck.decision === 'APPROVAL_REQUIRED') {
+        setMessage('회수 액션이 승인 대기로 등록되었습니다. 승인 큐를 확인하세요.');
+      } else {
+        setMessage('회수 액션을 실행했습니다. Action Log에서 결과를 확인하세요.');
+      }
     });
   };
 
-  if (rbacLoading || catalogLoading || logsLoading || approvalsLoading) {
+  if (
+    rbacLoading ||
+    cutoverLoading ||
+    catalogLoading ||
+    logsLoading ||
+    approvalsLoading
+  ) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
         <Loading size="lg" />
@@ -233,6 +297,27 @@ export default function V2AdminOpsPage() {
             {queueSummary.approvals}
           </div>
         </div>
+      </section>
+
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-lg font-semibold text-gray-900">Cutover Policy</h2>
+          <Badge intent="info" size="md">
+            {cutoverPolicy?.rollout_stage || 'STAGE_1'}
+          </Badge>
+          {cutoverPolicy?.approval_enforced ? (
+            <Badge intent="warning">approval enforced</Badge>
+          ) : (
+            <Badge intent="success">approval observe-only</Badge>
+          )}
+          <Badge>{cutoverPolicy?.legacy_write_mode || '-'}</Badge>
+        </div>
+        <p className="mt-2 text-sm text-gray-600">{cutoverPolicy?.description}</p>
+        {cutoverPolicy?.approval_enforced_actions?.length ? (
+          <div className="mt-3 text-xs text-gray-500">
+            enforced actions: {cutoverPolicy.approval_enforced_actions.join(', ')}
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
