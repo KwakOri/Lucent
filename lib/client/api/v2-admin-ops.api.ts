@@ -82,6 +82,17 @@ export type V2CutoverBatchStatus =
 
 export type V2CutoverRouteTarget = 'LEGACY' | 'V2' | 'SHADOW';
 
+export type V2CutoverStageRunStatus =
+  | 'PLANNED'
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'BLOCKED'
+  | 'ROLLED_BACK'
+  | 'CANCELED';
+
+export type V2CutoverIssueStatus = 'OPEN' | 'MITIGATING' | 'RESOLVED';
+export type V2CutoverIssueSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
 export interface V2CutoverDomain {
   id: string;
   domain_key: string;
@@ -193,6 +204,45 @@ export interface V2CutoverRoutingFlag {
   created_at: string;
   updated_at: string;
   domain?: Pick<V2CutoverDomain, 'domain_key' | 'domain_name' | 'status' | 'current_stage'>;
+}
+
+export interface V2CutoverStageRun {
+  id: string;
+  domain_id: string;
+  stage_no: number;
+  run_key: string;
+  status: V2CutoverStageRunStatus;
+  transition_mode: 'BASELINE' | 'LIMITED' | 'FULL' | 'ROLLBACK';
+  started_at: string | null;
+  finished_at: string | null;
+  limited_targets: unknown[];
+  summary: Record<string, unknown>;
+  approval_note: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  domain?: Pick<V2CutoverDomain, 'domain_key' | 'domain_name' | 'status' | 'current_stage'>;
+}
+
+export interface V2CutoverStageIssue {
+  id: string;
+  stage_run_id: string | null;
+  domain_id: string;
+  stage_no: number;
+  status: V2CutoverIssueStatus;
+  severity: V2CutoverIssueSeverity;
+  issue_type: string;
+  title: string;
+  detail: string | null;
+  recovery_action: string | null;
+  owner_role_code: string | null;
+  occurred_at: string;
+  resolved_at: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  domain?: Pick<V2CutoverDomain, 'domain_key' | 'domain_name' | 'status' | 'current_stage'>;
+  stage_run?: Pick<V2CutoverStageRun, 'id' | 'run_key' | 'status' | 'stage_no'>;
 }
 
 export interface V2AdminRoleWithPermissions {
@@ -400,6 +450,52 @@ export interface SaveV2AdminCutoverRoutingFlagInput {
   metadata?: Record<string, unknown> | null;
 }
 
+export interface ListV2AdminCutoverStageRunsParams {
+  limit?: number;
+  domain_key?: string;
+  stage_no?: number;
+  status?: V2CutoverStageRunStatus;
+}
+
+export interface SaveV2AdminCutoverStageRunInput {
+  domain_key: string;
+  stage_no: number;
+  run_key: string;
+  status?: V2CutoverStageRunStatus;
+  transition_mode?: 'BASELINE' | 'LIMITED' | 'FULL' | 'ROLLBACK';
+  started_at?: string | null;
+  finished_at?: string | null;
+  limited_targets?: unknown[] | null;
+  summary?: Record<string, unknown> | null;
+  approval_note?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface ListV2AdminCutoverStageIssuesParams {
+  limit?: number;
+  domain_key?: string;
+  stage_no?: number;
+  status?: V2CutoverIssueStatus;
+  severity?: V2CutoverIssueSeverity;
+}
+
+export interface SaveV2AdminCutoverStageIssueInput {
+  id?: string | null;
+  stage_run_id?: string | null;
+  domain_key: string;
+  stage_no: number;
+  status?: V2CutoverIssueStatus;
+  severity?: V2CutoverIssueSeverity;
+  issue_type?: string;
+  title: string;
+  detail?: string | null;
+  recovery_action?: string | null;
+  owner_role_code?: string | null;
+  occurred_at?: string | null;
+  resolved_at?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
 export interface V2AdminListResponse<T> {
   items: T[];
   limit: number;
@@ -544,6 +640,32 @@ export const V2AdminOpsAPI = {
     data: SaveV2AdminCutoverRoutingFlagInput,
   ): Promise<ApiResponse<V2CutoverRoutingFlag>> {
     return apiClient.post('/api/v2/admin/cutover/routing-flags', data);
+  },
+
+  async listCutoverStageRuns(
+    params: ListV2AdminCutoverStageRunsParams = {},
+  ): Promise<ApiResponse<V2AdminListResponse<V2CutoverStageRun>>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/cutover/stage-runs${query}`);
+  },
+
+  async saveCutoverStageRun(
+    data: SaveV2AdminCutoverStageRunInput,
+  ): Promise<ApiResponse<V2CutoverStageRun>> {
+    return apiClient.post('/api/v2/admin/cutover/stage-runs', data);
+  },
+
+  async listCutoverStageIssues(
+    params: ListV2AdminCutoverStageIssuesParams = {},
+  ): Promise<ApiResponse<V2AdminListResponse<V2CutoverStageIssue>>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/cutover/stage-issues${query}`);
+  },
+
+  async saveCutoverStageIssue(
+    data: SaveV2AdminCutoverStageIssueInput,
+  ): Promise<ApiResponse<V2CutoverStageIssue>> {
+    return apiClient.post('/api/v2/admin/cutover/stage-issues', data);
   },
 
   async refundOrder(
