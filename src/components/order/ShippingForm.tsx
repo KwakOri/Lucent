@@ -9,7 +9,7 @@
 import { AddressInput, NameInput, PhoneInput } from "@/components/form";
 import { FormField } from "@/components/ui/form-field";
 import { Textarea } from "@/components/ui/input";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export interface ShippingInfo {
   name: string;
@@ -41,17 +41,6 @@ export function ShippingForm({
     detailAddress: initialValues?.detailAddress || "",
     memo: initialValues?.memo || "",
   });
-
-  // initialValues나 customerInfo가 변경되면 state 업데이트
-  useEffect(() => {
-    setValues({
-      name: initialValues?.name || customerInfo?.name || "",
-      phone: initialValues?.phone || customerInfo?.phone || "",
-      mainAddress: initialValues?.mainAddress || "",
-      detailAddress: initialValues?.detailAddress || "",
-      memo: initialValues?.memo || "",
-    });
-  }, [initialValues, customerInfo]);
 
   const handleChange = (field: keyof ShippingInfo, value: string) => {
     const newValues = { ...values, [field]: value };

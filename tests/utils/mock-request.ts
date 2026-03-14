@@ -116,13 +116,23 @@ export async function parseResponse(response: Response) {
 /**
  * 응답이 성공인지 확인
  */
-export function isSuccessResponse(data: any): boolean {
-  return data?.status === 'success';
+export function isSuccessResponse(data: unknown): boolean {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'status' in data &&
+    (data as { status?: unknown }).status === 'success'
+  );
 }
 
 /**
  * 응답이 에러인지 확인
  */
-export function isErrorResponse(data: any): boolean {
-  return data?.status === 'error';
+export function isErrorResponse(data: unknown): boolean {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'status' in data &&
+    (data as { status?: unknown }).status === 'error'
+  );
 }

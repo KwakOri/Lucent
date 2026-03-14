@@ -171,12 +171,17 @@ export default function V2CartPage() {
         <EmptyState
           title="v2 장바구니를 불러오지 못했습니다"
           description={getErrorMessage(error)}
-          action={{
-            label: '다시 시도',
-            onClick: () => {
-              void refetch();
-            },
-          }}
+          action={
+            <Button
+              intent="primary"
+              size="sm"
+              onClick={() => {
+                void refetch();
+              }}
+            >
+              다시 시도
+            </Button>
+          }
         />
       </div>
     );

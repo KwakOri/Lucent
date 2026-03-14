@@ -304,7 +304,7 @@ export class ProjectService {
     }
 
     // 4. 프로젝트 수정
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (projectData.name !== undefined) updateData.name = projectData.name;
     if (projectData.slug !== undefined) updateData.slug = projectData.slug;
     if (projectData.cover_image_id !== undefined) updateData.cover_image_id = projectData.cover_image_id;

@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save, X } from 'lucide-react';
@@ -36,21 +36,23 @@ export default function ProfileEditPage() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isDirty, setIsDirty] = useState(false);
 
-  // 프로필 데이터로 폼 초기화
-  useEffect(() => {
-    if (profile) {
-      setFormData({
-        name: profile.name || '',
-        phone: profile.phone || '',
-        main_address: profile.main_address || '',
-        detail_address: profile.detail_address || '',
-      });
-    }
-  }, [profile]);
+  const profileFormData = useMemo(
+    () => ({
+      name: profile?.name || '',
+      phone: profile?.phone || '',
+      main_address: profile?.main_address || '',
+      detail_address: profile?.detail_address || '',
+    }),
+    [profile],
+  );
+  const effectiveFormData = isDirty ? formData : profileFormData;
 
   // 폼 변경 감지
   const handleChange = (field: keyof typeof formData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({
+      ...(isDirty ? prev : profileFormData),
+      [field]: value,
+    }));
     setIsDirty(true);
     // 해당 필드 에러 제거
     if (validationErrors[field]) {
@@ -67,7 +69,7 @@ export default function ProfileEditPage() {
     const errors: Record<string, string> = {};
 
     // 필수 필드 확인
-    if (!formData.name.trim()) {
+    if (!effectiveFormData.name.trim()) {
       errors.name = '이름을 입력해주세요';
     }
 
@@ -88,10 +90,10 @@ export default function ProfileEditPage() {
 
     updateProfile(
       {
-        name: formData.name,
-        phone: formData.phone || null,
-        main_address: formData.main_address || null,
-        detail_address: formData.detail_address || null,
+        name: effectiveFormData.name,
+        phone: effectiveFormData.phone || null,
+        main_address: effectiveFormData.main_address || null,
+        detail_address: effectiveFormData.detail_address || null,
       },
       {
         onSuccess: () => {
@@ -180,7 +182,7 @@ export default function ProfileEditPage() {
             {/* 이름 */}
             <NameInput
               id="name"
-              value={formData.name}
+              value={effectiveFormData.name}
               onChange={(value) => handleChange('name', value)}
               required
               error={validationErrors.name}
@@ -189,7 +191,7 @@ export default function ProfileEditPage() {
             {/* 전화번호 */}
             <PhoneInput
               id="phone"
-              value={formData.phone}
+              value={effectiveFormData.phone}
               onChange={(value) => handleChange('phone', value)}
               error={validationErrors.phone}
             />
@@ -197,11 +199,11 @@ export default function ProfileEditPage() {
             {/* 주소 */}
             <AddressInput
               mainAddressId="main_address"
-              mainAddressValue={formData.main_address}
+              mainAddressValue={effectiveFormData.main_address}
               onMainAddressChange={(value) => handleChange('main_address', value)}
               mainAddressError={validationErrors.main_address}
               detailAddressId="detail_address"
-              detailAddressValue={formData.detail_address}
+              detailAddressValue={effectiveFormData.detail_address}
               onDetailAddressChange={(value) => handleChange('detail_address', value)}
               detailAddressError={validationErrors.detail_address}
               showDetailAlways

@@ -316,7 +316,7 @@ export class ArtistService {
     }
 
     // 5. 아티스트 수정
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (artistData.name !== undefined) updateData.name = artistData.name;
     if (artistData.slug !== undefined) updateData.slug = artistData.slug;
     if (artistData.project_id !== undefined) updateData.project_id = artistData.project_id;

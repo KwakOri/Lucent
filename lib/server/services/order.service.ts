@@ -770,7 +770,7 @@ export class OrderService {
   /**
    * 최근 주문 조회 (관리자용)
    */
-  static async getRecentOrders(limit: number = 5): Promise<any[]> {
+  static async getRecentOrders(limit: number = 5): Promise<unknown[]> {
     const supabase = await createServerClient();
 
     const { data, error } = await supabase
@@ -803,7 +803,7 @@ export class OrderService {
   /**
    * 내 보이스팩 목록 조회 (사용자)
    */
-  static async getMyVoicePacks(userId: string): Promise<any[]> {
+  static async getMyVoicePacks(userId: string): Promise<unknown[]> {
     const supabase = await createServerClient();
 
     const { data, error } = await supabase

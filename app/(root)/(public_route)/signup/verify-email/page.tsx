@@ -85,16 +85,22 @@ function VerifyEmailContent() {
           signupWithToken(
             { email, verificationToken },
             {
-              onError: (error: any) => {
+              onError: (error: unknown) => {
                 console.error('[DEBUG] Client - signup failed:', error);
-                setError(error.message || '회원가입에 실패했습니다');
+                setError(
+                  error instanceof Error
+                    ? error.message
+                    : '회원가입에 실패했습니다',
+                );
               },
             }
           );
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
           console.error('[DEBUG] Client - verify-code failed:', error);
-          setError(error.message || '잘못된 인증 코드입니다');
+          setError(
+            error instanceof Error ? error.message : '잘못된 인증 코드입니다',
+          );
         },
       }
     );

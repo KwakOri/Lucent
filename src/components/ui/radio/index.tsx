@@ -1,4 +1,4 @@
-import { InputHTMLAttributes, forwardRef } from "react";
+import { InputHTMLAttributes, forwardRef, useId } from "react";
 import { clsx } from "clsx";
 
 export interface RadioProps
@@ -41,6 +41,7 @@ export const Radio = forwardRef<HTMLInputElement, RadioProps>(
     },
     ref
   ) => {
+    const generatedId = useId();
     const sizeClasses = {
       sm: "w-4 h-4",
       md: "w-5 h-5",
@@ -51,7 +52,7 @@ export const Radio = forwardRef<HTMLInputElement, RadioProps>(
       md: "w-2.5 h-2.5",
     };
 
-    const inputId = id || `radio-${Math.random().toString(36).substr(2, 9)}`;
+    const inputId = id || `radio-${generatedId}`;
 
     return (
       <div className={clsx("flex items-start gap-2", className)}>
@@ -62,7 +63,7 @@ export const Radio = forwardRef<HTMLInputElement, RadioProps>(
             id={inputId}
             className="peer sr-only"
             disabled={disabled}
-            aria-invalid={error}
+            aria-invalid={error || undefined}
             {...props}
           />
           <label
