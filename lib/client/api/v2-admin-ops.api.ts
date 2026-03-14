@@ -383,6 +383,17 @@ export interface V2AdminOrderQueueRow {
   active_entitlement_count: number;
 }
 
+export interface V2AdminOrderDetail {
+  order: Record<string, unknown>;
+  queue_row: V2AdminOrderQueueRow | null;
+  items: Array<Record<string, unknown>>;
+  adjustments: Array<Record<string, unknown>>;
+  payments: Array<Record<string, unknown>>;
+  fulfillment_queue: V2AdminFulfillmentQueueRow[];
+  action_logs: V2AdminActionLog[];
+  approvals: V2AdminApprovalRequest[];
+}
+
 export interface V2AdminFulfillmentQueueRow {
   fulfillment_group_id: string;
   order_id: string;
@@ -626,6 +637,10 @@ export const V2AdminOpsAPI = {
   ): Promise<ApiResponse<V2AdminListResponse<V2AdminOrderQueueRow>>> {
     const query = toQueryString(params);
     return apiClient.get(`/api/v2/admin/ops/order-queue${query}`);
+  },
+
+  async getOrderDetail(orderId: string): Promise<ApiResponse<V2AdminOrderDetail>> {
+    return apiClient.get(`/api/v2/admin/ops/orders/${orderId}/detail`);
   },
 
   async listFulfillmentQueue(
