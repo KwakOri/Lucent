@@ -206,6 +206,17 @@ export function useV2AdminOrderQueue(params: ListV2AdminOrderQueueParams = {}) {
   });
 }
 
+export function useV2AdminOrderDetail(orderId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...queryKeys.v2AdminOps.ops.orderQueue(), 'detail', orderId || ''],
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.getOrderDetail(orderId!);
+      return response.data;
+    },
+    enabled: !!orderId,
+  });
+}
+
 export function useV2AdminFulfillmentQueue(
   params: ListV2AdminFulfillmentQueueParams = {},
 ) {
