@@ -14,6 +14,7 @@ export { ProfilesAPI } from './profiles.api';
 export { CartAPI } from './cart.api';
 export { LogsAPI } from './logs.api';
 export { V2CatalogAdminAPI } from './v2-catalog-admin.api';
+export { V2CheckoutAPI } from './v2-checkout.api';
 
 // Types
 export type { SendVerificationData } from './auth.api';
@@ -84,3 +85,17 @@ export type {
   CreateV2DigitalAssetData,
   UpdateV2DigitalAssetData,
 } from './v2-catalog-admin.api';
+export type {
+  V2CartItem,
+  V2CartSummary,
+  V2CheckoutOrder,
+  V2CreateOrderResult,
+  V2ValidateCheckoutResult,
+  AddV2CartItemData,
+  UpdateV2CartItemQuantityData,
+  ValidateV2CheckoutData,
+  CreateV2OrderData,
+  PaymentCallbackData,
+  CancelV2OrderData,
+  RefundV2OrderData,
+} from './v2-checkout.api';

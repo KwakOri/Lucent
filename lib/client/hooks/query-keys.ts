@@ -55,6 +55,21 @@ export const queryKeys = {
   },
 
   /**
+   * V2 Checkout Query Keys
+   */
+  v2Checkout: {
+    all: ['v2-checkout'] as const,
+    cart: () => [...queryKeys.v2Checkout.all, 'cart'] as const,
+    orders: {
+      all: ['v2-checkout', 'orders'] as const,
+      detail: (id: string) =>
+        [...queryKeys.v2Checkout.orders.all, 'detail', id] as const,
+    },
+    debug: (orderId: string) =>
+      [...queryKeys.v2Checkout.all, 'order-debug', orderId] as const,
+  },
+
+  /**
    * Artists Query Keys
    */
   artists: {
