@@ -94,6 +94,7 @@ export interface ValidateV2CheckoutData {
   coupon_code?: string | null;
   channel?: string | null;
   shipping_amount?: number | null;
+  shipping_postcode?: string | null;
 }
 
 export interface CreateV2OrderData extends ValidateV2CheckoutData {
