@@ -546,6 +546,7 @@ export default function V2CheckoutPage() {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <Input
                   value={effectiveShippingAddress.recipient_name}
+                  className="bg-white"
                   onChange={(event) =>
                     {
                       setShippingTouched((prev) => ({
@@ -562,6 +563,7 @@ export default function V2CheckoutPage() {
                 />
                 <Input
                   value={effectiveShippingAddress.phone}
+                  className="bg-white"
                   onChange={(event) =>
                     {
                       setShippingTouched((prev) => ({ ...prev, phone: true }));
@@ -607,6 +609,7 @@ export default function V2CheckoutPage() {
                       line2: value,
                     }));
                   }}
+                  detailAddressInputClassName="bg-white"
                   showDetailAlways
                   searchButtonText="배송지 주소 검색"
                 />
