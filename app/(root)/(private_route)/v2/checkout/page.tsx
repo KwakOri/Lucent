@@ -266,16 +266,23 @@ export default function V2CheckoutPage() {
     router.push('/login?redirect=/checkout');
   }
 
-  async function handleValidate() {
+  async function runCheckoutValidation(options?: {
+    shippingPostcodeOverride?: string | null;
+    silent?: boolean;
+  }) {
     const shippingPostcode = shippingRequired
-      ? normalizePostcode(effectiveShippingAddress.postcode)
+      ? options?.shippingPostcodeOverride ??
+        normalizePostcode(effectiveShippingAddress.postcode)
       : null;
 
     if (shippingRequired && !shippingPostcode) {
-      showToast('배송비 계산을 위해 5자리 우편번호를 입력해 주세요.', {
-        type: 'warning',
-      });
-      return;
+      setQuoteSnapshot(null);
+      if (!options?.silent) {
+        showToast('배송비 계산을 위해 5자리 우편번호를 입력해 주세요.', {
+          type: 'warning',
+        });
+      }
+      return null;
     }
 
     try {
@@ -285,14 +292,19 @@ export default function V2CheckoutPage() {
         channel: 'WEB',
         shipping_postcode: shippingPostcode,
       });
-      setQuoteSnapshot((result.quote as Record<string, unknown>) || null);
-      showToast('주문 금액 검증이 완료되었습니다.', { type: 'success' });
+      const nextQuote = (result.quote as Record<string, unknown>) || null;
+      setQuoteSnapshot(nextQuote);
+      if (!options?.silent) {
+        showToast('주문 금액 검증이 완료되었습니다.', { type: 'success' });
+      }
+      return nextQuote;
     } catch (mutationError) {
       if (mutationError instanceof ApiError && mutationError.isAuthError()) {
         requestLogin();
-        return;
+        return null;
       }
       showToast(getErrorMessage(mutationError), { type: 'error' });
+      return null;
     }
   }
 
@@ -312,10 +324,13 @@ export default function V2CheckoutPage() {
       return;
     }
 
-    if (!quoteSnapshot) {
-      showToast('주문 생성 전에 금액 검증을 먼저 진행해 주세요.', {
-        type: 'warning',
-      });
+    const ensuredQuote =
+      quoteSnapshot ||
+      (await runCheckoutValidation({
+        shippingPostcodeOverride: shippingPostcode,
+        silent: true,
+      }));
+    if (!ensuredQuote) {
       return;
     }
 
@@ -503,7 +518,10 @@ export default function V2CheckoutPage() {
               </label>
               <Input
                 value={campaignId}
-                onChange={(event) => setCampaignId(event.target.value)}
+                onChange={(event) => {
+                  setCampaignId(event.target.value);
+                  setQuoteSnapshot(null);
+                }}
                 placeholder="campaign uuid"
               />
             </div>
@@ -513,7 +531,10 @@ export default function V2CheckoutPage() {
               </label>
               <Input
                 value={couponCode}
-                onChange={(event) => setCouponCode(event.target.value)}
+                onChange={(event) => {
+                  setCouponCode(event.target.value);
+                  setQuoteSnapshot(null);
+                }}
                 placeholder="쿠폰 코드 입력"
               />
             </div>
@@ -567,6 +588,14 @@ export default function V2CheckoutPage() {
                       line1: value,
                       postcode: extractedPostcode,
                     }));
+                    if (extractedPostcode) {
+                      void runCheckoutValidation({
+                        shippingPostcodeOverride: extractedPostcode,
+                        silent: true,
+                      });
+                    } else {
+                      setQuoteSnapshot(null);
+                    }
                   }}
                   detailAddressId="shipping-line2"
                   detailAddressLabel="상세 주소"
@@ -701,29 +730,18 @@ export default function V2CheckoutPage() {
 
           <div className="mt-5 space-y-2">
             <Button
-              intent="secondary"
-              size="md"
-              fullWidth
-              loading={validateCheckout.isPending}
-              onClick={() => void handleValidate()}
-            >
-              금액 검증
-            </Button>
-            <Button
               intent="primary"
               size="lg"
               fullWidth
-              loading={createOrder.isPending}
-              disabled={!quoteSnapshot}
+              loading={createOrder.isPending || validateCheckout.isPending}
+              disabled={validateCheckout.isPending}
               onClick={() => void handleCreateOrder()}
             >
               주문 생성
             </Button>
-            {!quoteSnapshot && (
-              <p className="text-xs text-text-secondary">
-                주문 생성 전에 금액 검증을 먼저 진행해 주세요.
-              </p>
-            )}
+            <p className="text-xs text-text-secondary">
+              배송지 주소 검색 시 금액이 자동으로 검증됩니다.
+            </p>
           </div>
         </aside>
       </div>
