@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AddressInput } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
@@ -548,44 +549,38 @@ export default function V2CheckoutPage() {
                   }
                   placeholder="연락처"
                 />
-                <Input
-                  value={effectiveShippingAddress.postcode}
-                  onChange={(event) =>
-                    {
-                      setShippingTouched((prev) => ({ ...prev, postcode: true }));
-                      setShippingAddress((prev) => ({
-                        ...prev,
-                        postcode: event.target.value,
-                      }));
-                    }
-                  }
-                  placeholder="우편번호"
+              </div>
+              <div>
+                <AddressInput
+                  mainAddressId="shipping-line1"
+                  mainAddressLabel="배송 주소"
+                  mainAddressValue={effectiveShippingAddress.line1}
+                  onMainAddressChange={(value) => {
+                    const extractedPostcode = extractPostcodeFromAddress(value);
+                    setShippingTouched((prev) => ({
+                      ...prev,
+                      line1: true,
+                      postcode: true,
+                    }));
+                    setShippingAddress((prev) => ({
+                      ...prev,
+                      line1: value,
+                      postcode: extractedPostcode,
+                    }));
+                  }}
+                  detailAddressId="shipping-line2"
+                  detailAddressLabel="상세 주소"
+                  detailAddressValue={effectiveShippingAddress.line2}
+                  onDetailAddressChange={(value) => {
+                    setShippingTouched((prev) => ({ ...prev, line2: true }));
+                    setShippingAddress((prev) => ({
+                      ...prev,
+                      line2: value,
+                    }));
+                  }}
+                  showDetailAlways
+                  searchButtonText="배송지 주소 검색"
                 />
-                <Input
-                  value={effectiveShippingAddress.line1}
-                  onChange={(event) =>
-                    {
-                      setShippingTouched((prev) => ({ ...prev, line1: true }));
-                      setShippingAddress((prev) => ({ ...prev, line1: event.target.value }));
-                    }
-                  }
-                  placeholder="기본 주소"
-                />
-                <div className="md:col-span-2">
-                  <Input
-                    value={effectiveShippingAddress.line2}
-                    onChange={(event) =>
-                      {
-                        setShippingTouched((prev) => ({ ...prev, line2: true }));
-                        setShippingAddress((prev) => ({
-                          ...prev,
-                          line2: event.target.value,
-                        }));
-                      }
-                    }
-                    placeholder="상세 주소"
-                  />
-                </div>
               </div>
             </div>
           )}
