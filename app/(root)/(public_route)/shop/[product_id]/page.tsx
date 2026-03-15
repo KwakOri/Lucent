@@ -13,7 +13,10 @@ import {
   useV2AddCartItem,
   useV2ShopProduct,
 } from "@/lib/client/hooks";
-import type { V2ShopProductDetail } from "@/lib/client/api/v2-shop.api";
+import type {
+  V2ShopDisplayPrice,
+  V2ShopProductDetail,
+} from "@/lib/client/api/v2-shop.api";
 import { ApiError } from "@/lib/client/utils/api-error";
 import { useToast } from "@/src/components/toast";
 
@@ -36,6 +39,21 @@ function variantStockLabel(
     return "품절";
   }
   return "판매 준비 중";
+}
+
+function buildDisplayPriceSnapshot(displayPrice: V2ShopDisplayPrice | null) {
+  if (!displayPrice) {
+    return null;
+  }
+
+  return {
+    amount: displayPrice.amount,
+    unit_amount: displayPrice.amount,
+    final_unit_amount: displayPrice.amount,
+    compare_at_amount: displayPrice.compare_at_amount,
+    currency_code: displayPrice.currency_code,
+    source: displayPrice.source,
+  };
 }
 
 function getErrorMessage(error: unknown): string {
@@ -161,6 +179,9 @@ export default function ProductDetailPage() {
       await addCartItem.mutateAsync({
         variant_id: selectedVariant.id,
         quantity: normalizedQuantity,
+        display_price_snapshot: buildDisplayPriceSnapshot(
+          selectedVariant.display_price,
+        ),
         added_via: buyNow ? "BUY_NOW" : "SHOP_DETAIL",
         metadata: {
           source: "shop-detail",
