@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
 import { useSession, useV2AddCartItem, useV2ShopProducts } from "@/lib/client/hooks";
-import type { V2ShopListItem } from "@/lib/client/api/v2-shop.api";
+import type {
+  V2ShopDisplayPrice,
+  V2ShopListItem,
+} from "@/lib/client/api/v2-shop.api";
 import { ApiError } from "@/lib/client/utils/api-error";
 import { Headphones, Package } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -16,6 +19,21 @@ function formatDisplayPrice(item: V2ShopListItem): string {
     return "가격 확인 필요";
   }
   return `${item.display_price.amount.toLocaleString()}원`;
+}
+
+function buildDisplayPriceSnapshot(displayPrice: V2ShopDisplayPrice | null) {
+  if (!displayPrice) {
+    return null;
+  }
+
+  return {
+    amount: displayPrice.amount,
+    unit_amount: displayPrice.amount,
+    final_unit_amount: displayPrice.amount,
+    compare_at_amount: displayPrice.compare_at_amount,
+    currency_code: displayPrice.currency_code,
+    source: displayPrice.source,
+  };
 }
 
 function renderSellableBadge(item: V2ShopListItem) {
@@ -191,6 +209,7 @@ export default function ShopPage() {
       await addCartItem.mutateAsync({
         variant_id: item.primary_variant_id,
         quantity: 1,
+        display_price_snapshot: buildDisplayPriceSnapshot(item.display_price),
         added_via: buyNow ? "BUY_NOW" : "SHOP_LIST",
         metadata: {
           source: "shop-list",
