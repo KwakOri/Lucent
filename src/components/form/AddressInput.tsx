@@ -67,6 +67,10 @@ export interface AddressInputProps {
    * 상세 주소 외부 에러 메시지
    */
   detailAddressError?: string;
+  /**
+   * 상세 주소 input 추가 className
+   */
+  detailAddressInputClassName?: string;
 
   /**
    * 필수 필드 여부
@@ -100,6 +104,7 @@ export function AddressInput({
   detailAddressValue,
   onDetailAddressChange,
   detailAddressError,
+  detailAddressInputClassName,
 
   required = false,
   showDetailAlways = false,
@@ -119,7 +124,7 @@ export function AddressInput({
         : selectedAddress;
 
       onMainAddressChange(fullAddress);
-    } catch (error) {
+    } catch {
       // 모달이 취소된 경우 (onAbort 호출)
       // 아무 작업도 하지 않음
     }
@@ -188,6 +193,7 @@ export function AddressInput({
             placeholder="예: 101동 202호"
             error={!!detailAddressError}
             disabled={disabled}
+            className={detailAddressInputClassName}
           />
         </FormField>
       )}
