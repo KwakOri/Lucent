@@ -83,6 +83,14 @@ function createIdempotencyKey() {
   return `checkout-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function normalizePostcode(value: string): string | null {
+  const digits = value.replace(/\D/g, '');
+  if (!/^\d{5}$/.test(digits)) {
+    return null;
+  }
+  return digits;
+}
+
 export default function V2CheckoutPage() {
   const router = useRouter();
   const { showToast } = useToast();
@@ -143,11 +151,23 @@ export default function V2CheckoutPage() {
   }
 
   async function handleValidate() {
+    const shippingPostcode = shippingRequired
+      ? normalizePostcode(shippingAddress.postcode)
+      : null;
+
+    if (shippingRequired && !shippingPostcode) {
+      showToast('배송비 계산을 위해 5자리 우편번호를 입력해 주세요.', {
+        type: 'warning',
+      });
+      return;
+    }
+
     try {
       const result = await validateCheckout.mutateAsync({
         campaign_id: campaignId.trim() || null,
         coupon_code: couponCode.trim() || null,
         channel: 'WEB',
+        shipping_postcode: shippingPostcode,
       });
       setQuoteSnapshot((result.quote as Record<string, unknown>) || null);
       showToast('주문 금액 검증이 완료되었습니다.', { type: 'success' });
@@ -161,8 +181,18 @@ export default function V2CheckoutPage() {
   }
 
   async function handleCreateOrder() {
+    const shippingPostcode = shippingRequired
+      ? normalizePostcode(shippingAddress.postcode)
+      : null;
+
     if (shippingRequired && !shippingAddress.line1.trim()) {
       showToast('배송지 주소를 입력해 주세요.', { type: 'warning' });
+      return;
+    }
+    if (shippingRequired && !shippingPostcode) {
+      showToast('배송비 계산을 위해 5자리 우편번호를 입력해 주세요.', {
+        type: 'warning',
+      });
       return;
     }
 
@@ -183,6 +213,7 @@ export default function V2CheckoutPage() {
         campaign_id: campaignId.trim() || null,
         coupon_code: couponCode.trim() || null,
         channel: 'WEB',
+        shipping_postcode: shippingPostcode,
         customer_snapshot: {
           name: customerName.trim() || null,
           email: customerEmail.trim() || null,
