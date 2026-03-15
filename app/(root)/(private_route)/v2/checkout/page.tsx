@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import { useProfile } from '@/lib/client/hooks';
 import {
   useV2CheckoutCart,
   useV2CreateOrder,
@@ -91,9 +92,33 @@ function normalizePostcode(value: string): string | null {
   return digits;
 }
 
+function extractPostcodeFromAddress(value: string | null | undefined): string {
+  if (!value) {
+    return '';
+  }
+  const matched = value.match(/\b\d{5}\b/);
+  return matched ? matched[0] : '';
+}
+
+interface CustomerTouchedState {
+  name: boolean;
+  email: boolean;
+  phone: boolean;
+}
+
+interface AddressTouchedState {
+  recipient_name: boolean;
+  phone: boolean;
+  postcode: boolean;
+  line1: boolean;
+  line2: boolean;
+  memo: boolean;
+}
+
 export default function V2CheckoutPage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const { data: profile } = useProfile();
   const { data: cart, isLoading, error, refetch } = useV2CheckoutCart();
   const validateCheckout = useV2ValidateCheckout();
   const createOrder = useV2CreateOrder();
@@ -113,6 +138,27 @@ export default function V2CheckoutPage() {
   const [quoteSnapshot, setQuoteSnapshot] = useState<Record<string, unknown> | null>(
     null,
   );
+  const [customerTouched, setCustomerTouched] = useState<CustomerTouchedState>({
+    name: false,
+    email: false,
+    phone: false,
+  });
+  const [shippingTouched, setShippingTouched] = useState<AddressTouchedState>({
+    recipient_name: false,
+    phone: false,
+    postcode: false,
+    line1: false,
+    line2: false,
+    memo: false,
+  });
+  const [billingTouched, setBillingTouched] = useState<AddressTouchedState>({
+    recipient_name: false,
+    phone: false,
+    postcode: false,
+    line1: false,
+    line2: false,
+    memo: false,
+  });
 
   const hasAuthError = error instanceof ApiError && error.isAuthError();
   const items = cart?.items ?? [];
@@ -146,13 +192,80 @@ export default function V2CheckoutPage() {
     return readQuoteSummary(quoteSnapshot);
   }, [fallbackSubtotal, quoteSnapshot]);
 
+  const profileAddressPrefill = useMemo(
+    () => ({
+      recipient_name: profile?.name || '',
+      phone: profile?.phone || '',
+      postcode: extractPostcodeFromAddress(profile?.main_address),
+      line1: profile?.main_address || '',
+      line2: profile?.detail_address || '',
+      memo: '',
+    }),
+    [profile],
+  );
+
+  const effectiveCustomer = useMemo(
+    () => ({
+      name: customerTouched.name ? customerName : customerName || profile?.name || '',
+      email: customerTouched.email
+        ? customerEmail
+        : customerEmail || profile?.email || '',
+      phone: customerTouched.phone ? customerPhone : customerPhone || profile?.phone || '',
+    }),
+    [customerEmail, customerName, customerPhone, customerTouched, profile],
+  );
+
+  const effectiveShippingAddress = useMemo(
+    () => ({
+      recipient_name: shippingTouched.recipient_name
+        ? shippingAddress.recipient_name
+        : shippingAddress.recipient_name || profileAddressPrefill.recipient_name,
+      phone: shippingTouched.phone
+        ? shippingAddress.phone
+        : shippingAddress.phone || profileAddressPrefill.phone,
+      postcode: shippingTouched.postcode
+        ? shippingAddress.postcode
+        : shippingAddress.postcode || profileAddressPrefill.postcode,
+      line1: shippingTouched.line1
+        ? shippingAddress.line1
+        : shippingAddress.line1 || profileAddressPrefill.line1,
+      line2: shippingTouched.line2
+        ? shippingAddress.line2
+        : shippingAddress.line2 || profileAddressPrefill.line2,
+      memo: shippingTouched.memo ? shippingAddress.memo : shippingAddress.memo || '',
+    }),
+    [profileAddressPrefill, shippingAddress, shippingTouched],
+  );
+
+  const effectiveBillingAddress = useMemo(
+    () => ({
+      recipient_name: billingTouched.recipient_name
+        ? billingAddress.recipient_name
+        : billingAddress.recipient_name || profileAddressPrefill.recipient_name,
+      phone: billingTouched.phone
+        ? billingAddress.phone
+        : billingAddress.phone || profileAddressPrefill.phone,
+      postcode: billingTouched.postcode
+        ? billingAddress.postcode
+        : billingAddress.postcode || profileAddressPrefill.postcode,
+      line1: billingTouched.line1
+        ? billingAddress.line1
+        : billingAddress.line1 || profileAddressPrefill.line1,
+      line2: billingTouched.line2
+        ? billingAddress.line2
+        : billingAddress.line2 || profileAddressPrefill.line2,
+      memo: billingTouched.memo ? billingAddress.memo : billingAddress.memo || '',
+    }),
+    [billingAddress, billingTouched, profileAddressPrefill],
+  );
+
   function requestLogin() {
     router.push('/login?redirect=/checkout');
   }
 
   async function handleValidate() {
     const shippingPostcode = shippingRequired
-      ? normalizePostcode(shippingAddress.postcode)
+      ? normalizePostcode(effectiveShippingAddress.postcode)
       : null;
 
     if (shippingRequired && !shippingPostcode) {
@@ -182,10 +295,10 @@ export default function V2CheckoutPage() {
 
   async function handleCreateOrder() {
     const shippingPostcode = shippingRequired
-      ? normalizePostcode(shippingAddress.postcode)
+      ? normalizePostcode(effectiveShippingAddress.postcode)
       : null;
 
-    if (shippingRequired && !shippingAddress.line1.trim()) {
+    if (shippingRequired && !effectiveShippingAddress.line1.trim()) {
       showToast('배송지 주소를 입력해 주세요.', { type: 'warning' });
       return;
     }
@@ -205,8 +318,8 @@ export default function V2CheckoutPage() {
 
     try {
       const selectedBillingAddress = billingSameAsShipping
-        ? shippingAddress
-        : billingAddress;
+        ? effectiveShippingAddress
+        : effectiveBillingAddress;
 
       const result = await createOrder.mutateAsync({
         idempotency_key: createIdempotencyKey(),
@@ -215,13 +328,13 @@ export default function V2CheckoutPage() {
         channel: 'WEB',
         shipping_postcode: shippingPostcode,
         customer_snapshot: {
-          name: customerName.trim() || null,
-          email: customerEmail.trim() || null,
-          phone: customerPhone.trim() || null,
+          name: effectiveCustomer.name.trim() || null,
+          email: effectiveCustomer.email.trim() || null,
+          phone: effectiveCustomer.phone.trim() || null,
         },
         shipping_address_snapshot: shippingRequired
           ? {
-              ...shippingAddress,
+              ...effectiveShippingAddress,
             }
           : null,
         billing_address_snapshot: selectedBillingAddress.line1.trim()
@@ -346,8 +459,11 @@ export default function V2CheckoutPage() {
                 주문자 이름
               </label>
               <Input
-                value={customerName}
-                onChange={(event) => setCustomerName(event.target.value)}
+                value={effectiveCustomer.name}
+                onChange={(event) => {
+                  setCustomerTouched((prev) => ({ ...prev, name: true }));
+                  setCustomerName(event.target.value);
+                }}
                 placeholder="홍길동"
               />
             </div>
@@ -357,8 +473,11 @@ export default function V2CheckoutPage() {
               </label>
               <Input
                 type="email"
-                value={customerEmail}
-                onChange={(event) => setCustomerEmail(event.target.value)}
+                value={effectiveCustomer.email}
+                onChange={(event) => {
+                  setCustomerTouched((prev) => ({ ...prev, email: true }));
+                  setCustomerEmail(event.target.value);
+                }}
                 placeholder="name@example.com"
               />
             </div>
@@ -367,8 +486,11 @@ export default function V2CheckoutPage() {
                 주문자 연락처
               </label>
               <Input
-                value={customerPhone}
-                onChange={(event) => setCustomerPhone(event.target.value)}
+                value={effectiveCustomer.phone}
+                onChange={(event) => {
+                  setCustomerTouched((prev) => ({ ...prev, phone: true }));
+                  setCustomerPhone(event.target.value);
+                }}
                 placeholder="010-0000-0000"
               />
             </div>
@@ -399,47 +521,65 @@ export default function V2CheckoutPage() {
               <h3 className="font-semibold text-text-primary">배송 정보</h3>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <Input
-                  value={shippingAddress.recipient_name}
+                  value={effectiveShippingAddress.recipient_name}
                   onChange={(event) =>
-                    setShippingAddress((prev) => ({
-                      ...prev,
-                      recipient_name: event.target.value,
-                    }))
+                    {
+                      setShippingTouched((prev) => ({
+                        ...prev,
+                        recipient_name: true,
+                      }));
+                      setShippingAddress((prev) => ({
+                        ...prev,
+                        recipient_name: event.target.value,
+                      }));
+                    }
                   }
                   placeholder="수령인"
                 />
                 <Input
-                  value={shippingAddress.phone}
+                  value={effectiveShippingAddress.phone}
                   onChange={(event) =>
-                    setShippingAddress((prev) => ({ ...prev, phone: event.target.value }))
+                    {
+                      setShippingTouched((prev) => ({ ...prev, phone: true }));
+                      setShippingAddress((prev) => ({ ...prev, phone: event.target.value }));
+                    }
                   }
                   placeholder="연락처"
                 />
                 <Input
-                  value={shippingAddress.postcode}
+                  value={effectiveShippingAddress.postcode}
                   onChange={(event) =>
-                    setShippingAddress((prev) => ({
-                      ...prev,
-                      postcode: event.target.value,
-                    }))
+                    {
+                      setShippingTouched((prev) => ({ ...prev, postcode: true }));
+                      setShippingAddress((prev) => ({
+                        ...prev,
+                        postcode: event.target.value,
+                      }));
+                    }
                   }
                   placeholder="우편번호"
                 />
                 <Input
-                  value={shippingAddress.line1}
+                  value={effectiveShippingAddress.line1}
                   onChange={(event) =>
-                    setShippingAddress((prev) => ({ ...prev, line1: event.target.value }))
+                    {
+                      setShippingTouched((prev) => ({ ...prev, line1: true }));
+                      setShippingAddress((prev) => ({ ...prev, line1: event.target.value }));
+                    }
                   }
                   placeholder="기본 주소"
                 />
                 <div className="md:col-span-2">
                   <Input
-                    value={shippingAddress.line2}
+                    value={effectiveShippingAddress.line2}
                     onChange={(event) =>
-                      setShippingAddress((prev) => ({
-                        ...prev,
-                        line2: event.target.value,
-                      }))
+                      {
+                        setShippingTouched((prev) => ({ ...prev, line2: true }));
+                        setShippingAddress((prev) => ({
+                          ...prev,
+                          line2: event.target.value,
+                        }));
+                      }
                     }
                     placeholder="상세 주소"
                   />
@@ -461,47 +601,65 @@ export default function V2CheckoutPage() {
             {!billingSameAsShipping && (
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <Input
-                  value={billingAddress.recipient_name}
+                  value={effectiveBillingAddress.recipient_name}
                   onChange={(event) =>
-                    setBillingAddress((prev) => ({
-                      ...prev,
-                      recipient_name: event.target.value,
-                    }))
+                    {
+                      setBillingTouched((prev) => ({
+                        ...prev,
+                        recipient_name: true,
+                      }));
+                      setBillingAddress((prev) => ({
+                        ...prev,
+                        recipient_name: event.target.value,
+                      }));
+                    }
                   }
                   placeholder="청구지 수령인"
                 />
                 <Input
-                  value={billingAddress.phone}
+                  value={effectiveBillingAddress.phone}
                   onChange={(event) =>
-                    setBillingAddress((prev) => ({ ...prev, phone: event.target.value }))
+                    {
+                      setBillingTouched((prev) => ({ ...prev, phone: true }));
+                      setBillingAddress((prev) => ({ ...prev, phone: event.target.value }));
+                    }
                   }
                   placeholder="청구지 연락처"
                 />
                 <Input
-                  value={billingAddress.postcode}
+                  value={effectiveBillingAddress.postcode}
                   onChange={(event) =>
-                    setBillingAddress((prev) => ({
-                      ...prev,
-                      postcode: event.target.value,
-                    }))
+                    {
+                      setBillingTouched((prev) => ({ ...prev, postcode: true }));
+                      setBillingAddress((prev) => ({
+                        ...prev,
+                        postcode: event.target.value,
+                      }));
+                    }
                   }
                   placeholder="청구지 우편번호"
                 />
                 <Input
-                  value={billingAddress.line1}
+                  value={effectiveBillingAddress.line1}
                   onChange={(event) =>
-                    setBillingAddress((prev) => ({ ...prev, line1: event.target.value }))
+                    {
+                      setBillingTouched((prev) => ({ ...prev, line1: true }));
+                      setBillingAddress((prev) => ({ ...prev, line1: event.target.value }));
+                    }
                   }
                   placeholder="청구지 기본 주소"
                 />
                 <div className="md:col-span-2">
                   <Input
-                    value={billingAddress.line2}
+                    value={effectiveBillingAddress.line2}
                     onChange={(event) =>
-                      setBillingAddress((prev) => ({
-                        ...prev,
-                        line2: event.target.value,
-                      }))
+                      {
+                        setBillingTouched((prev) => ({ ...prev, line2: true }));
+                        setBillingAddress((prev) => ({
+                          ...prev,
+                          line2: event.target.value,
+                        }));
+                      }
                     }
                     placeholder="청구지 상세 주소"
                   />
