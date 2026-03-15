@@ -33,6 +33,7 @@ const DEFAULT_ADDRESS: AddressFormState = {
   line2: '',
   memo: '',
 };
+const BASE_SHIPPING_FEE = 3500;
 
 function readNumber(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -180,17 +181,18 @@ export default function V2CheckoutPage() {
 
   const quoteTotals = useMemo(() => {
     if (!quoteSnapshot) {
+      const fallbackShipping = shippingRequired ? BASE_SHIPPING_FEE : 0;
       return {
         subtotal: fallbackSubtotal,
         itemDiscount: 0,
         orderDiscount: 0,
-        shipping: 0,
+        shipping: fallbackShipping,
         shippingDiscount: 0,
-        total: fallbackSubtotal,
+        total: fallbackSubtotal + fallbackShipping,
       };
     }
     return readQuoteSummary(quoteSnapshot);
-  }, [fallbackSubtotal, quoteSnapshot]);
+  }, [fallbackSubtotal, quoteSnapshot, shippingRequired]);
 
   const profileAddressPrefill = useMemo(
     () => ({
