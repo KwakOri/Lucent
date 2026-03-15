@@ -14,6 +14,8 @@ import {
 import { ApiError } from '@/lib/client/utils/api-error';
 import { useToast } from '@/src/components/toast';
 
+const BASE_SHIPPING_FEE = 3500;
+
 function readNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -68,12 +70,17 @@ export default function V2CartPage() {
   const items = cart?.items ?? [];
   const isEmpty = items.length === 0;
   const hasAuthError = error instanceof ApiError && error.isAuthError();
+  const hasShippingItem = items.some(
+    (item) => item.variant?.requires_shipping === true,
+  );
   const totalAmount = items.reduce((sum, item) => {
     const unit = readUnitAmount(
       (item.display_price_snapshot as Record<string, unknown> | null) || null,
     );
     return sum + unit * item.quantity;
   }, 0);
+  const estimatedShippingFee = hasShippingItem ? BASE_SHIPPING_FEE : 0;
+  const estimatedPayableAmount = totalAmount + estimatedShippingFee;
 
   const isUpdating = updateQuantity.isPending || removeCartItem.isPending;
 
@@ -262,10 +269,16 @@ export default function V2CartPage() {
                     {cart?.quantity_total ?? 0}개
                   </dd>
                 </div>
+                <div className="flex items-center justify-between">
+                  <dt>기본 배송비 (예상)</dt>
+                  <dd className="font-medium text-text-primary">
+                    {formatCurrency(estimatedShippingFee)}
+                  </dd>
+                </div>
                 <div className="flex items-center justify-between pt-2 text-base">
                   <dt className="font-semibold text-text-primary">예상 결제 금액</dt>
                   <dd className="font-bold text-primary-700">
-                    {formatCurrency(totalAmount)}
+                    {formatCurrency(estimatedPayableAmount)}
                   </dd>
                 </div>
               </dl>
