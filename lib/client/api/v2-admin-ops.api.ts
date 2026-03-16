@@ -384,6 +384,9 @@ export interface V2AdminOrderQueueRow {
   in_transit_shipment_count: number;
   delivered_shipment_count: number;
   active_entitlement_count: number;
+  has_bundle: boolean;
+  has_physical: boolean;
+  has_digital: boolean;
 }
 
 export interface V2AdminOrderDetail {

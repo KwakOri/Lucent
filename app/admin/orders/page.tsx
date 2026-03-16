@@ -42,6 +42,16 @@ function statusBadgeClass(status: string) {
   return 'bg-green-100 text-green-700';
 }
 
+function compositionBadgeClass(type: 'BUNDLE' | 'DIGITAL' | 'PHYSICAL') {
+  if (type === 'BUNDLE') {
+    return 'bg-indigo-100 text-indigo-700';
+  }
+  if (type === 'DIGITAL') {
+    return 'bg-sky-100 text-sky-700';
+  }
+  return 'bg-orange-100 text-orange-700';
+}
+
 export default function AdminOrdersPage() {
   const [orderStatusFilter, setOrderStatusFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -157,12 +167,44 @@ export default function AdminOrdersPage() {
                     waitingShipmentCount !== null ||
                     inTransitShipmentCount !== null ||
                     deliveredShipmentCount !== null;
+                  const hasBundle = row.has_bundle === true;
+                  const hasDigital = row.has_digital === true;
+                  const hasPhysical = row.has_physical === true;
 
                   return (
                     <tr key={row.order_id}>
                       <td className="px-4 py-3">
                         <p className="font-semibold text-gray-900">{row.order_no}</p>
                         <p className="text-xs text-gray-500">{row.order_id}</p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {hasBundle ? (
+                            <span
+                              className={`rounded-full px-2 py-1 text-[11px] font-semibold ${compositionBadgeClass(
+                                'BUNDLE',
+                              )}`}
+                            >
+                              번들
+                            </span>
+                          ) : null}
+                          {hasDigital ? (
+                            <span
+                              className={`rounded-full px-2 py-1 text-[11px] font-semibold ${compositionBadgeClass(
+                                'DIGITAL',
+                              )}`}
+                            >
+                              디지털
+                            </span>
+                          ) : null}
+                          {hasPhysical ? (
+                            <span
+                              className={`rounded-full px-2 py-1 text-[11px] font-semibold ${compositionBadgeClass(
+                                'PHYSICAL',
+                              )}`}
+                            >
+                              실물
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
