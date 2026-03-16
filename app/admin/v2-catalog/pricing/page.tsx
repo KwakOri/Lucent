@@ -13,7 +13,9 @@ import {
   useCreateV2CampaignTarget,
   useCreateV2Coupon,
   useCreateV2PriceList,
+  useCreateV2PriceListItem,
   useCreateV2Promotion,
+  useDeactivateV2PriceListItem,
   useDeleteV2CampaignTarget,
   useEvaluateV2Promotions,
   usePublishV2PriceList,
@@ -24,6 +26,8 @@ import {
   useSuspendV2Campaign,
   useUpdateV2Campaign,
   useUpdateV2CampaignTarget,
+  useUpdateV2PriceList,
+  useUpdateV2PriceListItem,
   useV2AdminProducts,
   useV2AdminProjects,
   useV2AdminVariants,
@@ -32,6 +36,7 @@ import {
   useV2CampaignTargets,
   useV2Coupons,
   useV2OrderSnapshotContract,
+  useV2PriceListItems,
   useV2PriceLists,
   useV2PricingDebugTrace,
   useV2Promotions,
@@ -97,6 +102,13 @@ type CampaignFilterStatus = 'ALL' | CampaignStatusValue;
 type CampaignFilterType = 'ALL' | CampaignTypeValue;
 type CampaignPeriodFilter = 'ALL' | 'LIVE' | 'UPCOMING' | 'ENDED' | 'NO_PERIOD';
 type CampaignSortKey = 'UPDATED_DESC' | 'STARTS_ASC' | 'ENDS_ASC' | 'NAME_ASC';
+type PriceListScopeValue = 'BASE' | 'OVERRIDE';
+type PriceListStatusValue = 'DRAFT' | 'PUBLISHED' | 'ROLLED_BACK' | 'ARCHIVED';
+type PriceListFilterStatus = 'ALL' | PriceListStatusValue;
+type PriceListFilterScope = 'ALL' | PriceListScopeValue;
+type PriceListFilterCampaign = 'ALL' | 'NONE' | string;
+type PriceListSortKey = 'UPDATED_DESC' | 'PRIORITY_ASC' | 'PUBLISHED_DESC' | 'NAME_ASC';
+type PriceItemStatusValue = 'ACTIVE' | 'INACTIVE';
 
 const CAMPAIGN_TYPES: CampaignTypeValue[] = ['EVENT', 'POPUP', 'SALE', 'DROP', 'ALWAYS_ON'];
 const CAMPAIGN_TARGET_TYPES: CampaignTargetTypeValue[] = [
@@ -105,6 +117,7 @@ const CAMPAIGN_TARGET_TYPES: CampaignTargetTypeValue[] = [
   'VARIANT',
   'BUNDLE_DEFINITION',
 ];
+const PRICE_LIST_SCOPES: PriceListScopeValue[] = ['BASE', 'OVERRIDE'];
 const FIELD_SELECT_CLASS_NAME = 'rounded-md border border-gray-300 px-3 py-2 text-sm';
 const CAMPAIGN_PERIOD_REFERENCE_MS = Date.now();
 
@@ -132,6 +145,30 @@ function parseDateTimeLocalInput(value: string, fieldName: string): string | nul
     throw new Error(`${fieldName} 형식이 올바르지 않습니다.`);
   }
   return parsed.toISOString();
+}
+
+function parseNonNegativeInteger(value: string, fieldName: string): number {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${fieldName}는 0 이상의 정수여야 합니다.`);
+  }
+  return parsed;
+}
+
+function parseNullableNonNegativeInteger(value: string, fieldName: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return parseNonNegativeInteger(trimmed, fieldName);
+}
+
+function parsePositiveInteger(value: string, fieldName: string): number {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${fieldName}는 1 이상의 정수여야 합니다.`);
+  }
+  return parsed;
 }
 
 function toDateTimeLocalValue(value: string | null): string {
@@ -225,6 +262,26 @@ function getCampaignPeriodLabel(period: Exclude<CampaignPeriodFilter, 'ALL'>): s
   return '상시';
 }
 
+function getPriceListStatusBadgeIntent(status: PriceListStatusValue): 'default' | 'success' | 'warning' | 'error' | 'info' {
+  if (status === 'PUBLISHED') {
+    return 'success';
+  }
+  if (status === 'ROLLED_BACK') {
+    return 'warning';
+  }
+  if (status === 'ARCHIVED') {
+    return 'error';
+  }
+  return 'default';
+}
+
+function getPriceListScopeBadgeIntent(scope: PriceListScopeValue): 'default' | 'success' | 'warning' | 'error' | 'info' {
+  if (scope === 'OVERRIDE') {
+    return 'info';
+  }
+  return 'default';
+}
+
 export default function V2CatalogPricingPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -266,10 +323,52 @@ export default function V2CatalogPricingPage() {
   const [editingTargetExcluded, setEditingTargetExcluded] = useState(false);
 
   const [priceListName, setPriceListName] = useState('');
-  const [priceListScope, setPriceListScope] = useState<'BASE' | 'OVERRIDE'>('BASE');
+  const [priceListScope, setPriceListScope] = useState<PriceListScopeValue>('BASE');
   const [priceListCampaignId, setPriceListCampaignId] = useState('');
   const [priceListCurrency, setPriceListCurrency] = useState('KRW');
   const [priceListPriority, setPriceListPriority] = useState('0');
+  const [priceListStartsAtInput, setPriceListStartsAtInput] = useState('');
+  const [priceListEndsAtInput, setPriceListEndsAtInput] = useState('');
+  const [priceListChannelScopeInput, setPriceListChannelScopeInput] = useState('');
+  const [priceListSearchKeyword, setPriceListSearchKeyword] = useState('');
+  const [priceListStatusFilter, setPriceListStatusFilter] = useState<PriceListFilterStatus>('ALL');
+  const [priceListScopeFilter, setPriceListScopeFilter] = useState<PriceListFilterScope>('ALL');
+  const [priceListCampaignFilter, setPriceListCampaignFilter] = useState<PriceListFilterCampaign>('ALL');
+  const [priceListSortKey, setPriceListSortKey] = useState<PriceListSortKey>('UPDATED_DESC');
+  const [editingPriceListId, setEditingPriceListId] = useState<string | null>(null);
+  const [editingPriceListName, setEditingPriceListName] = useState('');
+  const [editingPriceListScope, setEditingPriceListScope] = useState<PriceListScopeValue>('BASE');
+  const [editingPriceListStatus, setEditingPriceListStatus] = useState<PriceListStatusValue>('DRAFT');
+  const [editingPriceListCampaignId, setEditingPriceListCampaignId] = useState('');
+  const [editingPriceListCurrency, setEditingPriceListCurrency] = useState('KRW');
+  const [editingPriceListPriority, setEditingPriceListPriority] = useState('0');
+  const [editingPriceListStartsAtInput, setEditingPriceListStartsAtInput] = useState('');
+  const [editingPriceListEndsAtInput, setEditingPriceListEndsAtInput] = useState('');
+  const [editingPriceListChannelScopeInput, setEditingPriceListChannelScopeInput] = useState('');
+  const [selectedPriceListId, setSelectedPriceListId] = useState<string | null>(null);
+
+  const [newPriceItemProductId, setNewPriceItemProductId] = useState('');
+  const [newPriceItemVariantId, setNewPriceItemVariantId] = useState('');
+  const [newPriceItemStatus, setNewPriceItemStatus] = useState<PriceItemStatusValue>('ACTIVE');
+  const [newPriceItemUnitAmount, setNewPriceItemUnitAmount] = useState('0');
+  const [newPriceItemCompareAtAmount, setNewPriceItemCompareAtAmount] = useState('');
+  const [newPriceItemMinQuantity, setNewPriceItemMinQuantity] = useState('1');
+  const [newPriceItemMaxQuantity, setNewPriceItemMaxQuantity] = useState('');
+  const [newPriceItemStartsAtInput, setNewPriceItemStartsAtInput] = useState('');
+  const [newPriceItemEndsAtInput, setNewPriceItemEndsAtInput] = useState('');
+  const [newPriceItemChannelScopeInput, setNewPriceItemChannelScopeInput] = useState('');
+
+  const [editingPriceItemId, setEditingPriceItemId] = useState<string | null>(null);
+  const [editingPriceItemProductId, setEditingPriceItemProductId] = useState('');
+  const [editingPriceItemVariantId, setEditingPriceItemVariantId] = useState('');
+  const [editingPriceItemStatus, setEditingPriceItemStatus] = useState<PriceItemStatusValue>('ACTIVE');
+  const [editingPriceItemUnitAmount, setEditingPriceItemUnitAmount] = useState('0');
+  const [editingPriceItemCompareAtAmount, setEditingPriceItemCompareAtAmount] = useState('');
+  const [editingPriceItemMinQuantity, setEditingPriceItemMinQuantity] = useState('1');
+  const [editingPriceItemMaxQuantity, setEditingPriceItemMaxQuantity] = useState('');
+  const [editingPriceItemStartsAtInput, setEditingPriceItemStartsAtInput] = useState('');
+  const [editingPriceItemEndsAtInput, setEditingPriceItemEndsAtInput] = useState('');
+  const [editingPriceItemChannelScopeInput, setEditingPriceItemChannelScopeInput] = useState('');
 
   const [promotionName, setPromotionName] = useState('');
   const [promotionType, setPromotionType] = useState<
@@ -314,6 +413,9 @@ export default function V2CatalogPricingPage() {
     newTargetType === 'VARIANT' ? newVariantTargetProductId : null,
   );
   const { data: priceLists, isLoading: priceListsLoading, error: priceListsError } = useV2PriceLists();
+  const { data: priceListItems, isLoading: priceListItemsLoading } = useV2PriceListItems(selectedPriceListId);
+  const { data: newPriceItemVariants } = useV2AdminVariants(newPriceItemProductId || null);
+  const { data: editingPriceItemVariants } = useV2AdminVariants(editingPriceItemProductId || null);
   const { data: promotions, isLoading: promotionsLoading, error: promotionsError } = useV2Promotions();
   const { data: coupons, isLoading: couponsLoading, error: couponsError } = useV2Coupons();
   const { data: orderSnapshotContract } = useV2OrderSnapshotContract();
@@ -328,8 +430,12 @@ export default function V2CatalogPricingPage() {
   const deleteCampaignTarget = useDeleteV2CampaignTarget();
 
   const createPriceList = useCreateV2PriceList();
+  const updatePriceList = useUpdateV2PriceList();
   const publishPriceList = usePublishV2PriceList();
   const rollbackPriceList = useRollbackV2PriceList();
+  const createPriceListItem = useCreateV2PriceListItem();
+  const updatePriceListItem = useUpdateV2PriceListItem();
+  const deactivatePriceListItem = useDeactivateV2PriceListItem();
 
   const createPromotion = useCreateV2Promotion();
   const createCoupon = useCreateV2Coupon();
@@ -562,19 +668,24 @@ export default function V2CatalogPricingPage() {
   const handleCreatePriceList = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     await runWithNotice(async () => {
-      const priority = Number.parseInt(priceListPriority, 10);
-      if (!Number.isInteger(priority) || priority < 0) {
-        throw new Error('price list priority는 0 이상의 정수여야 합니다.');
-      }
+      const priority = parseNonNegativeInteger(priceListPriority, 'price list priority');
+      const startsAt = parseDateTimeLocalInput(priceListStartsAtInput, 'starts_at');
+      const endsAt = parseDateTimeLocalInput(priceListEndsAtInput, 'ends_at');
       await createPriceList.mutateAsync({
         name: priceListName.trim(),
         scope_type: priceListScope,
         campaign_id: toNullable(priceListCampaignId),
         currency_code: priceListCurrency.trim().toUpperCase(),
         priority,
+        starts_at: startsAt,
+        ends_at: endsAt,
+        channel_scope_json: parseChannelScopeInput(priceListChannelScopeInput),
       });
       setPriceListName('');
       setPriceListCampaignId('');
+      setPriceListStartsAtInput('');
+      setPriceListEndsAtInput('');
+      setPriceListChannelScopeInput('');
       setMessage('price list를 생성했습니다.');
     });
   };
@@ -591,6 +702,257 @@ export default function V2CatalogPricingPage() {
       }
       await rollbackPriceList.mutateAsync(priceListId);
       setMessage('price list rollback을 적용했습니다.');
+    });
+  };
+
+  const handleStartPriceListEdit = (priceList: {
+    id: string;
+    name: string;
+    scope_type: PriceListScopeValue;
+    status: PriceListStatusValue;
+    campaign_id: string | null;
+    currency_code: string;
+    priority: number;
+    starts_at: string | null;
+    ends_at: string | null;
+    channel_scope_json: unknown[];
+  }) => {
+    setEditingPriceListId(priceList.id);
+    setEditingPriceListName(priceList.name);
+    setEditingPriceListScope(priceList.scope_type);
+    setEditingPriceListStatus(priceList.status);
+    setEditingPriceListCampaignId(priceList.campaign_id ?? '');
+    setEditingPriceListCurrency(priceList.currency_code);
+    setEditingPriceListPriority(String(priceList.priority));
+    setEditingPriceListStartsAtInput(toDateTimeLocalValue(priceList.starts_at));
+    setEditingPriceListEndsAtInput(toDateTimeLocalValue(priceList.ends_at));
+    setEditingPriceListChannelScopeInput(formatChannelScopeInput(priceList.channel_scope_json));
+  };
+
+  const handleCancelPriceListEdit = () => {
+    setEditingPriceListId(null);
+    setEditingPriceListName('');
+    setEditingPriceListScope('BASE');
+    setEditingPriceListStatus('DRAFT');
+    setEditingPriceListCampaignId('');
+    setEditingPriceListCurrency('KRW');
+    setEditingPriceListPriority('0');
+    setEditingPriceListStartsAtInput('');
+    setEditingPriceListEndsAtInput('');
+    setEditingPriceListChannelScopeInput('');
+  };
+
+  const handleUpdatePriceList = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingPriceListId) {
+      return;
+    }
+    await runWithNotice(async () => {
+      const priority = parseNonNegativeInteger(
+        editingPriceListPriority,
+        'price list priority',
+      );
+      const startsAt = parseDateTimeLocalInput(
+        editingPriceListStartsAtInput,
+        'starts_at',
+      );
+      const endsAt = parseDateTimeLocalInput(
+        editingPriceListEndsAtInput,
+        'ends_at',
+      );
+      await updatePriceList.mutateAsync({
+        id: editingPriceListId,
+        data: {
+          name: editingPriceListName.trim(),
+          scope_type: editingPriceListScope,
+          status: editingPriceListStatus,
+          campaign_id: toNullable(editingPriceListCampaignId),
+          currency_code: editingPriceListCurrency.trim().toUpperCase(),
+          priority,
+          starts_at: startsAt,
+          ends_at: endsAt,
+          channel_scope_json: parseChannelScopeInput(editingPriceListChannelScopeInput),
+        },
+      });
+      setMessage('price list를 수정했습니다.');
+      handleCancelPriceListEdit();
+    });
+  };
+
+  const handleOpenPriceListItems = (priceListId: string) => {
+    setSelectedPriceListId(priceListId);
+    setEditingPriceItemId(null);
+    setNewPriceItemProductId('');
+    setNewPriceItemVariantId('');
+    setNewPriceItemStatus('ACTIVE');
+    setNewPriceItemUnitAmount('0');
+    setNewPriceItemCompareAtAmount('');
+    setNewPriceItemMinQuantity('1');
+    setNewPriceItemMaxQuantity('');
+    setNewPriceItemStartsAtInput('');
+    setNewPriceItemEndsAtInput('');
+    setNewPriceItemChannelScopeInput('');
+  };
+
+  const handleCreatePriceListItem = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedPriceListId) {
+      setErrorMessage('item을 추가할 price list를 선택해주세요.');
+      return;
+    }
+    await runWithNotice(async () => {
+      const productId = newPriceItemProductId.trim();
+      if (productId.length === 0) {
+        throw new Error('product_id는 필수입니다.');
+      }
+      const unitAmount = parseNonNegativeInteger(newPriceItemUnitAmount, 'unit_amount');
+      const minQuantity = parsePositiveInteger(newPriceItemMinQuantity, 'min_purchase_quantity');
+      const maxQuantity = parseNullableNonNegativeInteger(
+        newPriceItemMaxQuantity,
+        'max_purchase_quantity',
+      );
+      if (maxQuantity !== null && maxQuantity < minQuantity) {
+        throw new Error('max_purchase_quantity는 min_purchase_quantity 이상이어야 합니다.');
+      }
+      const compareAtAmount = parseNullableNonNegativeInteger(
+        newPriceItemCompareAtAmount,
+        'compare_at_amount',
+      );
+      if (compareAtAmount !== null && compareAtAmount < unitAmount) {
+        throw new Error('compare_at_amount는 unit_amount 이상이어야 합니다.');
+      }
+      const startsAt = parseDateTimeLocalInput(newPriceItemStartsAtInput, 'starts_at');
+      const endsAt = parseDateTimeLocalInput(newPriceItemEndsAtInput, 'ends_at');
+      await createPriceListItem.mutateAsync({
+        priceListId: selectedPriceListId,
+        data: {
+          product_id: productId,
+          variant_id: toNullable(newPriceItemVariantId),
+          status: newPriceItemStatus,
+          unit_amount: unitAmount,
+          compare_at_amount: compareAtAmount,
+          min_purchase_quantity: minQuantity,
+          max_purchase_quantity: maxQuantity,
+          starts_at: startsAt,
+          ends_at: endsAt,
+          channel_scope_json: parseChannelScopeInput(newPriceItemChannelScopeInput),
+        },
+      });
+      setNewPriceItemVariantId('');
+      setNewPriceItemStatus('ACTIVE');
+      setNewPriceItemUnitAmount('0');
+      setNewPriceItemCompareAtAmount('');
+      setNewPriceItemMinQuantity('1');
+      setNewPriceItemMaxQuantity('');
+      setNewPriceItemStartsAtInput('');
+      setNewPriceItemEndsAtInput('');
+      setNewPriceItemChannelScopeInput('');
+      setMessage('price list item을 추가했습니다.');
+    });
+  };
+
+  const handleStartPriceItemEdit = (item: {
+    id: string;
+    product_id: string;
+    variant_id: string | null;
+    status: PriceItemStatusValue;
+    unit_amount: number;
+    compare_at_amount: number | null;
+    min_purchase_quantity: number;
+    max_purchase_quantity: number | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    channel_scope_json: unknown[];
+  }) => {
+    setEditingPriceItemId(item.id);
+    setEditingPriceItemProductId(item.product_id);
+    setEditingPriceItemVariantId(item.variant_id ?? '');
+    setEditingPriceItemStatus(item.status);
+    setEditingPriceItemUnitAmount(String(item.unit_amount));
+    setEditingPriceItemCompareAtAmount(
+      item.compare_at_amount === null ? '' : String(item.compare_at_amount),
+    );
+    setEditingPriceItemMinQuantity(String(item.min_purchase_quantity));
+    setEditingPriceItemMaxQuantity(
+      item.max_purchase_quantity === null ? '' : String(item.max_purchase_quantity),
+    );
+    setEditingPriceItemStartsAtInput(toDateTimeLocalValue(item.starts_at));
+    setEditingPriceItemEndsAtInput(toDateTimeLocalValue(item.ends_at));
+    setEditingPriceItemChannelScopeInput(formatChannelScopeInput(item.channel_scope_json));
+  };
+
+  const handleCancelPriceItemEdit = () => {
+    setEditingPriceItemId(null);
+    setEditingPriceItemProductId('');
+    setEditingPriceItemVariantId('');
+    setEditingPriceItemStatus('ACTIVE');
+    setEditingPriceItemUnitAmount('0');
+    setEditingPriceItemCompareAtAmount('');
+    setEditingPriceItemMinQuantity('1');
+    setEditingPriceItemMaxQuantity('');
+    setEditingPriceItemStartsAtInput('');
+    setEditingPriceItemEndsAtInput('');
+    setEditingPriceItemChannelScopeInput('');
+  };
+
+  const handleUpdatePriceItem = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingPriceItemId) {
+      return;
+    }
+    await runWithNotice(async () => {
+      const productId = editingPriceItemProductId.trim();
+      if (productId.length === 0) {
+        throw new Error('product_id는 필수입니다.');
+      }
+      const unitAmount = parseNonNegativeInteger(editingPriceItemUnitAmount, 'unit_amount');
+      const minQuantity = parsePositiveInteger(
+        editingPriceItemMinQuantity,
+        'min_purchase_quantity',
+      );
+      const maxQuantity = parseNullableNonNegativeInteger(
+        editingPriceItemMaxQuantity,
+        'max_purchase_quantity',
+      );
+      if (maxQuantity !== null && maxQuantity < minQuantity) {
+        throw new Error('max_purchase_quantity는 min_purchase_quantity 이상이어야 합니다.');
+      }
+      const compareAtAmount = parseNullableNonNegativeInteger(
+        editingPriceItemCompareAtAmount,
+        'compare_at_amount',
+      );
+      if (compareAtAmount !== null && compareAtAmount < unitAmount) {
+        throw new Error('compare_at_amount는 unit_amount 이상이어야 합니다.');
+      }
+      const startsAt = parseDateTimeLocalInput(editingPriceItemStartsAtInput, 'starts_at');
+      const endsAt = parseDateTimeLocalInput(editingPriceItemEndsAtInput, 'ends_at');
+      await updatePriceListItem.mutateAsync({
+        itemId: editingPriceItemId,
+        data: {
+          product_id: productId,
+          variant_id: toNullable(editingPriceItemVariantId),
+          status: editingPriceItemStatus,
+          unit_amount: unitAmount,
+          compare_at_amount: compareAtAmount,
+          min_purchase_quantity: minQuantity,
+          max_purchase_quantity: maxQuantity,
+          starts_at: startsAt,
+          ends_at: endsAt,
+          channel_scope_json: parseChannelScopeInput(editingPriceItemChannelScopeInput),
+        },
+      });
+      setMessage('price list item을 수정했습니다.');
+      handleCancelPriceItemEdit();
+    });
+  };
+
+  const handleDeactivatePriceItem = async (itemId: string) => {
+    await runWithNotice(async () => {
+      await deactivatePriceListItem.mutateAsync(itemId);
+      if (editingPriceItemId === itemId) {
+        handleCancelPriceItemEdit();
+      }
+      setMessage('price list item을 비활성화했습니다.');
     });
   };
 
@@ -840,6 +1202,82 @@ export default function V2CatalogPricingPage() {
     }
     return variantTitleMap.get(targetId) ?? targetId;
   };
+
+  const campaignLabelMap = useMemo(
+    () =>
+      new Map((campaigns || []).map((campaign) => [campaign.id, `${campaign.code} (${campaign.name})`])),
+    [campaigns],
+  );
+
+  const filteredPriceLists = useMemo(() => {
+    const keyword = priceListSearchKeyword.trim().toLowerCase();
+    const list = (priceLists || []).filter((priceList) => {
+      if (priceListStatusFilter !== 'ALL' && priceList.status !== priceListStatusFilter) {
+        return false;
+      }
+      if (priceListScopeFilter !== 'ALL' && priceList.scope_type !== priceListScopeFilter) {
+        return false;
+      }
+      if (priceListCampaignFilter !== 'ALL') {
+        if (priceListCampaignFilter === 'NONE') {
+          if (priceList.campaign_id !== null) {
+            return false;
+          }
+        } else if (priceList.campaign_id !== priceListCampaignFilter) {
+          return false;
+        }
+      }
+      if (!keyword) {
+        return true;
+      }
+      const haystack = `${priceList.name} ${priceList.id} ${priceList.currency_code}`.toLowerCase();
+      return haystack.includes(keyword);
+    });
+
+    return list.sort((left, right) => {
+      if (priceListSortKey === 'PRIORITY_ASC') {
+        return left.priority - right.priority;
+      }
+      if (priceListSortKey === 'PUBLISHED_DESC') {
+        const leftPublished = left.published_at ? new Date(left.published_at).getTime() : 0;
+        const rightPublished = right.published_at ? new Date(right.published_at).getTime() : 0;
+        return rightPublished - leftPublished;
+      }
+      if (priceListSortKey === 'NAME_ASC') {
+        return left.name.localeCompare(right.name, 'ko');
+      }
+      return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+    });
+  }, [
+    priceListCampaignFilter,
+    priceListScopeFilter,
+    priceListSearchKeyword,
+    priceListSortKey,
+    priceListStatusFilter,
+    priceLists,
+  ]);
+
+  const selectedPriceList = useMemo(
+    () => (priceLists || []).find((priceList) => priceList.id === selectedPriceListId) ?? null,
+    [priceLists, selectedPriceListId],
+  );
+
+  const newPriceItemVariantOptions = useMemo(
+    () =>
+      (newPriceItemVariants || []).map((variant) => ({
+        id: variant.id,
+        label: `${variant.title} (${variant.sku})`,
+      })),
+    [newPriceItemVariants],
+  );
+  const editingPriceItemVariantOptions = useMemo(
+    () =>
+      (editingPriceItemVariants || []).map((variant) => ({
+        id: variant.id,
+        label: `${variant.title} (${variant.sku})`,
+      })),
+    [editingPriceItemVariants],
+  );
 
   if (campaignsLoading || priceListsLoading || promotionsLoading || couponsLoading) {
     return (
@@ -1346,7 +1784,7 @@ export default function V2CatalogPricingPage() {
         }`}
       >
         <h2 className="text-lg font-semibold text-gray-900">Price List Ops</h2>
-        <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5" onSubmit={handleCreatePriceList}>
+        <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-8" onSubmit={handleCreatePriceList}>
           <Input
             placeholder="name"
             value={priceListName}
@@ -1355,17 +1793,27 @@ export default function V2CatalogPricingPage() {
           />
           <select
             value={priceListScope}
-            onChange={(event) => setPriceListScope(event.target.value as typeof priceListScope)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            onChange={(event) => setPriceListScope(event.target.value as PriceListScopeValue)}
+            className={FIELD_SELECT_CLASS_NAME}
           >
-            <option value="BASE">BASE</option>
-            <option value="OVERRIDE">OVERRIDE</option>
+            {PRICE_LIST_SCOPES.map((scope) => (
+              <option key={scope} value={scope}>
+                {scope}
+              </option>
+            ))}
           </select>
-          <Input
-            placeholder="campaign_id (optional)"
+          <select
             value={priceListCampaignId}
             onChange={(event) => setPriceListCampaignId(event.target.value)}
-          />
+            className={FIELD_SELECT_CLASS_NAME}
+          >
+            <option value="">campaign 없음</option>
+            {(campaigns || []).map((campaign) => (
+              <option key={campaign.id} value={campaign.id}>
+                {campaign.code} ({campaign.name})
+              </option>
+            ))}
+          </select>
           <Input
             placeholder="currency (KRW)"
             value={priceListCurrency}
@@ -1376,36 +1824,426 @@ export default function V2CatalogPricingPage() {
             value={priceListPriority}
             onChange={(event) => setPriceListPriority(event.target.value)}
           />
-          <Button type="submit" loading={createPriceList.isPending} className="md:col-span-5 md:w-fit">
+          <Input
+            type="datetime-local"
+            value={priceListStartsAtInput}
+            onChange={(event) => setPriceListStartsAtInput(event.target.value)}
+          />
+          <Input
+            type="datetime-local"
+            value={priceListEndsAtInput}
+            onChange={(event) => setPriceListEndsAtInput(event.target.value)}
+          />
+          <Input
+            placeholder="channel scope (WEB, MOBILE)"
+            value={priceListChannelScopeInput}
+            onChange={(event) => setPriceListChannelScopeInput(event.target.value)}
+          />
+          <Button type="submit" loading={createPriceList.isPending} className="md:col-span-8 md:w-fit">
             price list 생성
           </Button>
         </form>
 
+        <div className="mt-6 rounded-md border border-gray-200 bg-gray-50 p-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+            <Input
+              placeholder="name/id/currency 검색"
+              value={priceListSearchKeyword}
+              onChange={(event) => setPriceListSearchKeyword(event.target.value)}
+            />
+            <select
+              value={priceListStatusFilter}
+              onChange={(event) => setPriceListStatusFilter(event.target.value as PriceListFilterStatus)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="ALL">모든 상태</option>
+              <option value="DRAFT">DRAFT</option>
+              <option value="PUBLISHED">PUBLISHED</option>
+              <option value="ROLLED_BACK">ROLLED_BACK</option>
+              <option value="ARCHIVED">ARCHIVED</option>
+            </select>
+            <select
+              value={priceListScopeFilter}
+              onChange={(event) => setPriceListScopeFilter(event.target.value as PriceListFilterScope)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="ALL">모든 scope</option>
+              {PRICE_LIST_SCOPES.map((scope) => (
+                <option key={scope} value={scope}>
+                  {scope}
+                </option>
+              ))}
+            </select>
+            <select
+              value={priceListCampaignFilter}
+              onChange={(event) => setPriceListCampaignFilter(event.target.value as PriceListFilterCampaign)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="ALL">모든 campaign</option>
+              <option value="NONE">campaign 없음</option>
+              {(campaigns || []).map((campaign) => (
+                <option key={campaign.id} value={campaign.id}>
+                  {campaign.code} ({campaign.name})
+                </option>
+              ))}
+            </select>
+            <select
+              value={priceListSortKey}
+              onChange={(event) => setPriceListSortKey(event.target.value as PriceListSortKey)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="UPDATED_DESC">최근 수정순</option>
+              <option value="PRIORITY_ASC">priority 낮은순</option>
+              <option value="PUBLISHED_DESC">publish 최신순</option>
+              <option value="NAME_ASC">이름순</option>
+            </select>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">검색 결과 {filteredPriceLists.length}건</p>
+        </div>
+
         <div className="mt-4 space-y-2">
-          {(priceLists || []).map((priceList) => (
+          {filteredPriceLists.length === 0 && (
+            <p className="rounded-md border border-dashed border-gray-300 px-3 py-5 text-center text-sm text-gray-500">
+              조건에 맞는 price list가 없습니다.
+            </p>
+          )}
+          {filteredPriceLists.map((priceList) => (
             <div
               key={priceList.id}
-              className="flex flex-col gap-2 rounded-md border border-gray-200 p-3 md:flex-row md:items-center md:justify-between"
+              className="rounded-md border border-gray-200 p-3"
             >
-              <div>
-                <p className="font-medium text-gray-900">
-                  {priceList.name} ({priceList.scope_type})
-                </p>
-                <p className="text-xs text-gray-500">
-                  {priceList.status} / priority={priceList.priority} / {priceList.id}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" intent="neutral" onClick={() => handlePriceListAction('publish', priceList.id)}>
-                  Publish
-                </Button>
-                <Button size="sm" intent="neutral" onClick={() => handlePriceListAction('rollback', priceList.id)}>
-                  Rollback
-                </Button>
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="font-medium text-gray-900">{priceList.name}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                    <Badge intent={getPriceListStatusBadgeIntent(priceList.status as PriceListStatusValue)}>
+                      {priceList.status}
+                    </Badge>
+                    <Badge intent={getPriceListScopeBadgeIntent(priceList.scope_type as PriceListScopeValue)}>
+                      {priceList.scope_type}
+                    </Badge>
+                    <span>{priceList.currency_code}</span>
+                    <span>priority={priceList.priority}</span>
+                    <span>{priceList.id}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    campaign={priceList.campaign_id ? campaignLabelMap.get(priceList.campaign_id) ?? priceList.campaign_id : '없음'} / 기간{' '}
+                    {formatDateTime(priceList.starts_at)} ~ {formatDateTime(priceList.ends_at)} / publish{' '}
+                    {formatDateTime(priceList.published_at)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" intent="neutral" onClick={() => handleStartPriceListEdit(priceList)}>
+                    Edit
+                  </Button>
+                  <Button size="sm" intent="neutral" onClick={() => handleOpenPriceListItems(priceList.id)}>
+                    Items
+                  </Button>
+                  <Button size="sm" intent="neutral" onClick={() => handlePriceListAction('publish', priceList.id)}>
+                    Publish
+                  </Button>
+                  <Button size="sm" intent="neutral" onClick={() => handlePriceListAction('rollback', priceList.id)}>
+                    Rollback
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
         </div>
+
+        {editingPriceListId && (
+          <form className="mt-6 rounded-md border border-indigo-200 bg-indigo-50 p-4" onSubmit={handleUpdatePriceList}>
+            <p className="text-sm font-semibold text-indigo-900">Price List 수정</p>
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-5">
+              <Input
+                placeholder="name"
+                value={editingPriceListName}
+                onChange={(event) => setEditingPriceListName(event.target.value)}
+                required
+              />
+              <select
+                value={editingPriceListScope}
+                onChange={(event) => setEditingPriceListScope(event.target.value as PriceListScopeValue)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                {PRICE_LIST_SCOPES.map((scope) => (
+                  <option key={scope} value={scope}>
+                    {scope}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={editingPriceListStatus}
+                onChange={(event) => setEditingPriceListStatus(event.target.value as PriceListStatusValue)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                <option value="DRAFT">DRAFT</option>
+                <option value="PUBLISHED">PUBLISHED</option>
+                <option value="ROLLED_BACK">ROLLED_BACK</option>
+                <option value="ARCHIVED">ARCHIVED</option>
+              </select>
+              <select
+                value={editingPriceListCampaignId}
+                onChange={(event) => setEditingPriceListCampaignId(event.target.value)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                <option value="">campaign 없음</option>
+                {(campaigns || []).map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.code} ({campaign.name})
+                  </option>
+                ))}
+              </select>
+              <Input
+                placeholder="currency"
+                value={editingPriceListCurrency}
+                onChange={(event) => setEditingPriceListCurrency(event.target.value)}
+              />
+              <Input
+                placeholder="priority"
+                value={editingPriceListPriority}
+                onChange={(event) => setEditingPriceListPriority(event.target.value)}
+              />
+              <Input
+                type="datetime-local"
+                value={editingPriceListStartsAtInput}
+                onChange={(event) => setEditingPriceListStartsAtInput(event.target.value)}
+              />
+              <Input
+                type="datetime-local"
+                value={editingPriceListEndsAtInput}
+                onChange={(event) => setEditingPriceListEndsAtInput(event.target.value)}
+              />
+              <Input
+                placeholder="channel scope (WEB, MOBILE)"
+                value={editingPriceListChannelScopeInput}
+                onChange={(event) => setEditingPriceListChannelScopeInput(event.target.value)}
+              />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Button type="submit" loading={updatePriceList.isPending}>
+                저장
+              </Button>
+              <Button type="button" intent="neutral" onClick={handleCancelPriceListEdit}>
+                취소
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {selectedPriceListId && (
+          <div className="mt-6 rounded-md border border-blue-200 bg-blue-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-blue-900">
+                Price List Items · {selectedPriceList?.name ?? selectedPriceListId}
+              </p>
+              <Button type="button" size="sm" intent="neutral" onClick={() => setSelectedPriceListId(null)}>
+                닫기
+              </Button>
+            </div>
+
+            <form className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-6" onSubmit={handleCreatePriceListItem}>
+              <select
+                value={newPriceItemProductId}
+                onChange={(event) => {
+                  setNewPriceItemProductId(event.target.value);
+                  setNewPriceItemVariantId('');
+                }}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                <option value="">product 선택</option>
+                {(adminProducts || []).map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.title}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={newPriceItemVariantId}
+                onChange={(event) => setNewPriceItemVariantId(event.target.value)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                <option value="">variant 없음 (product 기본)</option>
+                {newPriceItemVariantOptions.map((variant) => (
+                  <option key={variant.id} value={variant.id}>
+                    {variant.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={newPriceItemStatus}
+                onChange={(event) => setNewPriceItemStatus(event.target.value as PriceItemStatusValue)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="INACTIVE">INACTIVE</option>
+              </select>
+              <Input
+                placeholder="unit_amount"
+                value={newPriceItemUnitAmount}
+                onChange={(event) => setNewPriceItemUnitAmount(event.target.value)}
+              />
+              <Input
+                placeholder="compare_at_amount (optional)"
+                value={newPriceItemCompareAtAmount}
+                onChange={(event) => setNewPriceItemCompareAtAmount(event.target.value)}
+              />
+              <Input
+                placeholder="min_qty"
+                value={newPriceItemMinQuantity}
+                onChange={(event) => setNewPriceItemMinQuantity(event.target.value)}
+              />
+              <Input
+                placeholder="max_qty (optional)"
+                value={newPriceItemMaxQuantity}
+                onChange={(event) => setNewPriceItemMaxQuantity(event.target.value)}
+              />
+              <Input
+                type="datetime-local"
+                value={newPriceItemStartsAtInput}
+                onChange={(event) => setNewPriceItemStartsAtInput(event.target.value)}
+              />
+              <Input
+                type="datetime-local"
+                value={newPriceItemEndsAtInput}
+                onChange={(event) => setNewPriceItemEndsAtInput(event.target.value)}
+              />
+              <Input
+                placeholder="channel scope (WEB, MOBILE)"
+                value={newPriceItemChannelScopeInput}
+                onChange={(event) => setNewPriceItemChannelScopeInput(event.target.value)}
+              />
+              <Button type="submit" loading={createPriceListItem.isPending}>
+                Item 추가
+              </Button>
+            </form>
+
+            <div className="mt-4 space-y-2">
+              {priceListItemsLoading && (
+                <p className="text-sm text-gray-500">item 목록을 불러오는 중입니다...</p>
+              )}
+              {!priceListItemsLoading && (priceListItems || []).length === 0 && (
+                <p className="text-sm text-gray-500">등록된 item이 없습니다.</p>
+              )}
+              {(priceListItems || []).map((item) => (
+                <div key={item.id} className="rounded-md border border-blue-100 bg-white p-3">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {item.product?.title ?? item.product_id}
+                        {item.variant ? ` / ${item.variant.title} (${item.variant.sku})` : ' / product 기본가'}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                        <Badge intent={item.status === 'ACTIVE' ? 'success' : 'warning'}>{item.status}</Badge>
+                        <span>unit={item.unit_amount}</span>
+                        <span>compare={item.compare_at_amount ?? '-'}</span>
+                        <span>qty {item.min_purchase_quantity}~{item.max_purchase_quantity ?? '-'}</span>
+                        <span>{item.id}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        기간 {formatDateTime(item.starts_at)} ~ {formatDateTime(item.ends_at)}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" intent="neutral" onClick={() => handleStartPriceItemEdit(item)}>
+                        Edit
+                      </Button>
+                      <Button size="sm" intent="neutral" loading={deactivatePriceListItem.isPending} onClick={() => handleDeactivatePriceItem(item.id)}>
+                        Deactivate
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {editingPriceItemId && (
+              <form className="mt-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={handleUpdatePriceItem}>
+                <p className="text-sm font-semibold text-gray-900">Price Item 수정</p>
+                <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-6">
+                  <select
+                    value={editingPriceItemProductId}
+                    onChange={(event) => {
+                      setEditingPriceItemProductId(event.target.value);
+                      setEditingPriceItemVariantId('');
+                    }}
+                    className={FIELD_SELECT_CLASS_NAME}
+                  >
+                    <option value="">product 선택</option>
+                    {(adminProducts || []).map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.title}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={editingPriceItemVariantId}
+                    onChange={(event) => setEditingPriceItemVariantId(event.target.value)}
+                    className={FIELD_SELECT_CLASS_NAME}
+                  >
+                    <option value="">variant 없음 (product 기본)</option>
+                    {editingPriceItemVariantOptions.map((variant) => (
+                      <option key={variant.id} value={variant.id}>
+                        {variant.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={editingPriceItemStatus}
+                    onChange={(event) => setEditingPriceItemStatus(event.target.value as PriceItemStatusValue)}
+                    className={FIELD_SELECT_CLASS_NAME}
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="INACTIVE">INACTIVE</option>
+                  </select>
+                  <Input
+                    placeholder="unit_amount"
+                    value={editingPriceItemUnitAmount}
+                    onChange={(event) => setEditingPriceItemUnitAmount(event.target.value)}
+                  />
+                  <Input
+                    placeholder="compare_at_amount (optional)"
+                    value={editingPriceItemCompareAtAmount}
+                    onChange={(event) => setEditingPriceItemCompareAtAmount(event.target.value)}
+                  />
+                  <Input
+                    placeholder="min_qty"
+                    value={editingPriceItemMinQuantity}
+                    onChange={(event) => setEditingPriceItemMinQuantity(event.target.value)}
+                  />
+                  <Input
+                    placeholder="max_qty (optional)"
+                    value={editingPriceItemMaxQuantity}
+                    onChange={(event) => setEditingPriceItemMaxQuantity(event.target.value)}
+                  />
+                  <Input
+                    type="datetime-local"
+                    value={editingPriceItemStartsAtInput}
+                    onChange={(event) => setEditingPriceItemStartsAtInput(event.target.value)}
+                  />
+                  <Input
+                    type="datetime-local"
+                    value={editingPriceItemEndsAtInput}
+                    onChange={(event) => setEditingPriceItemEndsAtInput(event.target.value)}
+                  />
+                  <Input
+                    placeholder="channel scope (WEB, MOBILE)"
+                    value={editingPriceItemChannelScopeInput}
+                    onChange={(event) => setEditingPriceItemChannelScopeInput(event.target.value)}
+                  />
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button type="submit" loading={updatePriceListItem.isPending}>
+                    저장
+                  </Button>
+                  <Button type="button" intent="neutral" onClick={handleCancelPriceItemEdit}>
+                    취소
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
       </section>
 
       <section
