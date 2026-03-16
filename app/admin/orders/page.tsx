@@ -143,56 +143,80 @@ export default function AdminOrdersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {rows.map((row) => (
-                  <tr key={row.order_id}>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-gray-900">{row.order_no}</p>
-                      <p className="text-xs text-gray-500">{row.order_id}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
-                            row.order_status,
-                          )}`}
-                        >
-                          주문 {row.order_status}
-                        </span>
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
-                            row.payment_status,
-                          )}`}
-                        >
-                          결제 {row.payment_status}
-                        </span>
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
-                            row.fulfillment_status,
-                          )}`}
-                        >
-                          이행 {row.fulfillment_status}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {formatCurrency(row.grand_total)}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      <p>배송 진행중: {row.active_shipment_count}</p>
-                      <p>디지털 진행중: {row.active_entitlement_count}</p>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {formatDate(row.placed_at || row.created_at)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link href={`/admin/orders/${row.order_id}`}>
-                        <Button intent="secondary" size="sm">
-                          상세 보기
-                        </Button>
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((row) => {
+                  const waitingShipmentCount = Number.isFinite(row.waiting_shipment_count)
+                    ? row.waiting_shipment_count
+                    : null;
+                  const inTransitShipmentCount = Number.isFinite(row.in_transit_shipment_count)
+                    ? row.in_transit_shipment_count
+                    : null;
+                  const deliveredShipmentCount = Number.isFinite(row.delivered_shipment_count)
+                    ? row.delivered_shipment_count
+                    : null;
+                  const hasSplitShipmentCounts =
+                    waitingShipmentCount !== null ||
+                    inTransitShipmentCount !== null ||
+                    deliveredShipmentCount !== null;
+
+                  return (
+                    <tr key={row.order_id}>
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-gray-900">{row.order_no}</p>
+                        <p className="text-xs text-gray-500">{row.order_id}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
+                              row.order_status,
+                            )}`}
+                          >
+                            주문 {row.order_status}
+                          </span>
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
+                              row.payment_status,
+                            )}`}
+                          >
+                            결제 {row.payment_status}
+                          </span>
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
+                              row.fulfillment_status,
+                            )}`}
+                          >
+                            이행 {row.fulfillment_status}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-medium text-gray-900">
+                        {formatCurrency(row.grand_total)}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {hasSplitShipmentCounts ? (
+                          <>
+                            <p>배송 대기: {waitingShipmentCount ?? 0}</p>
+                            <p>배송 중: {inTransitShipmentCount ?? 0}</p>
+                            <p>배송 완료: {deliveredShipmentCount ?? 0}</p>
+                          </>
+                        ) : (
+                          <p>배송 진행중: {row.active_shipment_count}</p>
+                        )}
+                        <p>디지털 진행중: {row.active_entitlement_count}</p>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {formatDate(row.placed_at || row.created_at)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/admin/orders/${row.order_id}`}>
+                          <Button intent="secondary" size="sm">
+                            상세 보기
+                          </Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

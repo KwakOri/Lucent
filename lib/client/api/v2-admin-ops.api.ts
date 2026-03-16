@@ -380,6 +380,9 @@ export interface V2AdminOrderQueueRow {
   created_at: string;
   fulfillment_group_count: number;
   active_shipment_count: number;
+  waiting_shipment_count: number;
+  in_transit_shipment_count: number;
+  delivered_shipment_count: number;
   active_entitlement_count: number;
 }
 
