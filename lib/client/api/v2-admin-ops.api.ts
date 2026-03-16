@@ -447,12 +447,14 @@ export interface V2AdminBulkOrderActionResult {
 
 export type V2AdminOrderLinearStage =
   | 'PAYMENT_PENDING'
+  | 'PAYMENT_CONFIRMED'
   | 'PRODUCTION'
   | 'READY_TO_SHIP'
   | 'IN_TRANSIT'
   | 'DELIVERED';
 
 export type V2AdminOrderLinearTransitionActionKey =
+  | 'ORDER_PAYMENT_MARK_AUTHORIZED'
   | 'ORDER_PAYMENT_MARK_CAPTURED'
   | 'FULFILLMENT_SHIPMENT_DISPATCH'
   | 'FULFILLMENT_SHIPMENT_DELIVER'
