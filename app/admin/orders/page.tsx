@@ -65,6 +65,9 @@ function linearStageLabel(stage: V2AdminOrderLinearStage): string {
   if (stage === 'PAYMENT_PENDING') {
     return '입금 대기';
   }
+  if (stage === 'PAYMENT_CONFIRMED') {
+    return '입금 확인';
+  }
   if (stage === 'PRODUCTION') {
     return '제작중';
   }
@@ -79,9 +82,10 @@ function linearStageLabel(stage: V2AdminOrderLinearStage): string {
 
 function resolveLinearStageFromRow(row: V2AdminOrderQueueRow): V2AdminOrderLinearStage {
   const paymentStatus = String(row.payment_status || '').toUpperCase();
-  const isPaymentCaptured = ['AUTHORIZED', 'CAPTURED', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(
-    paymentStatus,
-  );
+  if (paymentStatus === 'AUTHORIZED') {
+    return 'PAYMENT_CONFIRMED';
+  }
+  const isPaymentCaptured = ['CAPTURED', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(paymentStatus);
   if (!isPaymentCaptured) {
     return 'PAYMENT_PENDING';
   }
@@ -296,6 +300,7 @@ export default function AdminOrdersPage() {
               className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm"
             >
               <option value="PAYMENT_PENDING">입금 대기</option>
+              <option value="PAYMENT_CONFIRMED">입금 확인</option>
               <option value="PRODUCTION">제작중</option>
               <option value="READY_TO_SHIP">배송 대기</option>
               <option value="IN_TRANSIT">배송 중</option>
