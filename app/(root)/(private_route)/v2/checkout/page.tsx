@@ -366,7 +366,7 @@ export default function V2CheckoutPage() {
       });
 
       showToast('주문이 생성되었습니다.', { type: 'success' });
-      router.push(`/order/complete/${result.order.id}`);
+      router.push(`/order/processing/${result.order.id}`);
     } catch (mutationError) {
       if (mutationError instanceof ApiError && mutationError.isAuthError()) {
         requestLogin();

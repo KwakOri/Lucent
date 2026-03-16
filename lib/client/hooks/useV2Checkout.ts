@@ -119,14 +119,14 @@ export function useV2CreateOrder() {
       const response = await V2CheckoutAPI.createOrder(data);
       return response.data;
     },
-    onSuccess: async (result) => {
-      await queryClient.invalidateQueries({
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.v2Checkout.cart(),
       });
-      await queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.v2Checkout.orders.all,
       });
-      await queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: queryKeys.v2Checkout.orders.detail(result.order.id),
       });
     },
