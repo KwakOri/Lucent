@@ -17,6 +17,8 @@ import {
   useV2AdminOrderQueue,
 } from '@/lib/client/hooks/useV2AdminOps';
 
+type V2OrderStageTab = 'ALL' | V2AdminOrderLinearStage;
+
 function formatCurrency(amount: number): string {
   return `${Math.max(0, amount).toLocaleString()}원`;
 }
@@ -113,8 +115,21 @@ function resolveLinearStageFromRow(row: V2AdminOrderQueueRow): V2AdminOrderLinea
   return 'PRODUCTION';
 }
 
+const LINEAR_STAGE_TABS: Array<{
+  key: V2OrderStageTab;
+  label: string;
+}> = [
+  { key: 'ALL', label: '전체' },
+  { key: 'PAYMENT_PENDING', label: linearStageLabel('PAYMENT_PENDING') },
+  { key: 'PAYMENT_CONFIRMED', label: linearStageLabel('PAYMENT_CONFIRMED') },
+  { key: 'PRODUCTION', label: linearStageLabel('PRODUCTION') },
+  { key: 'READY_TO_SHIP', label: linearStageLabel('READY_TO_SHIP') },
+  { key: 'IN_TRANSIT', label: linearStageLabel('IN_TRANSIT') },
+  { key: 'DELIVERED', label: linearStageLabel('DELIVERED') },
+];
+
 export default function AdminOrdersPage() {
-  const [orderStatusFilter, setOrderStatusFilter] = useState('');
+  const [stageTab, setStageTab] = useState<V2OrderStageTab>('ALL');
   const [search, setSearch] = useState('');
   const [targetStage, setTargetStage] = useState<V2AdminOrderLinearStage>('PRODUCTION');
   const [transitionReason, setTransitionReason] = useState('');
@@ -125,23 +140,47 @@ export default function AdminOrdersPage() {
 
   const { data, isLoading, error, refetch } = useV2AdminOrderQueue({
     limit: 200,
-    order_status: orderStatusFilter || undefined,
   });
   const previewTransition = useV2AdminOrderLinearTransitionPreview();
   const executeTransition = useV2AdminOrderLinearTransitionExecute();
 
+  const stageCounts = useMemo(() => {
+    const counts: Record<V2OrderStageTab, number> = {
+      ALL: 0,
+      PAYMENT_PENDING: 0,
+      PAYMENT_CONFIRMED: 0,
+      PRODUCTION: 0,
+      READY_TO_SHIP: 0,
+      IN_TRANSIT: 0,
+      DELIVERED: 0,
+    };
+
+    for (const item of data?.items || []) {
+      const stage = resolveLinearStageFromRow(item);
+      counts.ALL += 1;
+      counts[stage] += 1;
+    }
+
+    return counts;
+  }, [data?.items]);
+
   const rows = useMemo(() => {
     const items = data?.items || [];
+    const stageFiltered =
+      stageTab === 'ALL'
+        ? items
+        : items.filter((item) => resolveLinearStageFromRow(item) === stageTab);
+
     if (!search.trim()) {
-      return items;
+      return stageFiltered;
     }
     const keyword = search.trim().toLowerCase();
-    return items.filter(
+    return stageFiltered.filter(
       (item) =>
         item.order_no.toLowerCase().includes(keyword) ||
         item.order_id.toLowerCase().includes(keyword),
     );
-  }, [data?.items, search]);
+  }, [data?.items, search, stageTab]);
 
   useEffect(() => {
     const rowIdSet = new Set(rows.map((row) => row.order_id));
@@ -272,18 +311,33 @@ export default function AdminOrdersPage() {
       </header>
 
       <section className="rounded-xl border border-gray-200 bg-white p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[220px_1fr]">
-          <select
-            value={orderStatusFilter}
-            onChange={(event) => setOrderStatusFilter(event.target.value)}
-            className="h-11 rounded-lg border border-gray-300 px-3 text-sm"
-          >
-            <option value="">전체 주문 상태</option>
-            <option value="PENDING">PENDING</option>
-            <option value="CONFIRMED">CONFIRMED</option>
-            <option value="COMPLETED">COMPLETED</option>
-            <option value="CANCELED">CANCELED</option>
-          </select>
+        <div className="flex flex-wrap gap-2">
+          {LINEAR_STAGE_TABS.map((tab) => {
+            const isActive = stageTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setStageTab(tab.key)}
+                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  isActive
+                    ? 'border-blue-600 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-800'
+                }`}
+              >
+                {tab.label}
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs ${
+                    isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  {stageCounts[tab.key]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-3">
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
