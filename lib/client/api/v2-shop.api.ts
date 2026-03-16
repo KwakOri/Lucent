@@ -22,6 +22,16 @@ export interface GetV2ShopProductsParams {
   campaign_id?: string;
 }
 
+export interface GetV2ShopCampaignsParams {
+  channel?: string;
+  include_upcoming?: boolean;
+}
+
+export interface GetV2ShopCouponsParams {
+  campaign_id?: string;
+  channel?: string;
+}
+
 export interface GetV2ShopProductDetailParams {
   channel?: string;
   campaign_id?: string;
@@ -61,6 +71,34 @@ export interface V2ShopProductsResult {
   summary: {
     total: number;
   };
+}
+
+export interface V2ShopCampaign {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  campaign_type: "POPUP" | "EVENT" | "SALE" | "DROP" | "ALWAYS_ON";
+  status: "ACTIVE";
+  starts_at: string | null;
+  ends_at: string | null;
+  channel_scope_json: string[] | null;
+}
+
+export interface V2ShopCoupon {
+  id: string;
+  code: string;
+  status: "ACTIVE";
+  starts_at: string | null;
+  ends_at: string | null;
+  max_issuance: number | null;
+  max_redemptions_per_user: number;
+  reserved_count: number;
+  redeemed_count: number;
+  available_issuance: number | null;
+  promotion_id: string;
+  promotion_name: string;
+  campaign_id: string | null;
 }
 
 export interface V2ShopProductDetail {
@@ -150,6 +188,38 @@ export interface V2ShopPricePreview {
 }
 
 export const V2ShopAPI = {
+  async getCampaigns(
+    params: GetV2ShopCampaignsParams = {},
+  ): Promise<ApiResponse<V2ShopCampaign[]>> {
+    const searchParams = new URLSearchParams();
+
+    if (params.channel) {
+      searchParams.set("channel", params.channel);
+    }
+    if (params.include_upcoming !== undefined) {
+      searchParams.set("include_upcoming", String(params.include_upcoming));
+    }
+
+    const query = searchParams.toString();
+    return apiClient.get(`/api/v2/shop/campaigns${query ? `?${query}` : ""}`);
+  },
+
+  async getCoupons(
+    params: GetV2ShopCouponsParams = {},
+  ): Promise<ApiResponse<V2ShopCoupon[]>> {
+    const searchParams = new URLSearchParams();
+
+    if (params.campaign_id) {
+      searchParams.set("campaign_id", params.campaign_id);
+    }
+    if (params.channel) {
+      searchParams.set("channel", params.channel);
+    }
+
+    const query = searchParams.toString();
+    return apiClient.get(`/api/v2/shop/coupons${query ? `?${query}` : ""}`);
+  },
+
   async getProducts(
     params: GetV2ShopProductsParams = {},
   ): Promise<ApiResponse<V2ShopProductsResult>> {

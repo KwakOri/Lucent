@@ -3,15 +3,21 @@
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
-import { useSession, useV2AddCartItem, useV2ShopProducts } from "@/lib/client/hooks";
+import { Select } from "@/components/ui/select";
+import {
+  useSession,
+  useV2AddCartItem,
+  useV2ShopCampaigns,
+  useV2ShopProducts,
+} from "@/lib/client/hooks";
 import type {
   V2ShopDisplayPrice,
   V2ShopListItem,
 } from "@/lib/client/api/v2-shop.api";
 import { ApiError } from "@/lib/client/utils/api-error";
 import { Headphones, Package } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
 import { useToast } from "@/src/components/toast";
 
 function formatDisplayPrice(item: V2ShopListItem): string {
@@ -163,18 +169,41 @@ function ProductCard({
   );
 }
 
-export default function ShopPage() {
+function ShopPageContent() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isAuthenticated } = useSession();
   const { showToast } = useToast();
   const addCartItem = useV2AddCartItem();
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
+  const selectedCampaignId = searchParams.get("campaign_id")?.trim() || "";
+  const { data: campaigns = [] } = useV2ShopCampaigns({
+    channel: "WEB",
+  });
   const { data, isLoading, error } = useV2ShopProducts({
     limit: 60,
     sort: "SORT_ORDER",
+    channel: "WEB",
+    campaign_id: selectedCampaignId || undefined,
   });
 
   const items = data?.items || [];
+  const campaignOptions = useMemo(
+    () => [
+      { value: "", label: "상시 판매(기본)" },
+      ...campaigns.map((campaign) => ({
+        value: campaign.id,
+        label: campaign.name,
+      })),
+    ],
+    [campaigns],
+  );
+  const selectedCampaign = useMemo(
+    () =>
+      campaigns.find((campaign) => campaign.id === selectedCampaignId) || null,
+    [campaigns, selectedCampaignId],
+  );
   const digitalProducts = items.filter(
     (item) => item.fulfillment_type === "DIGITAL",
   );
@@ -182,8 +211,29 @@ export default function ShopPage() {
     (item) => item.fulfillment_type !== "DIGITAL",
   );
 
+  const getShopPath = (campaignId: string | null | undefined) =>
+    campaignId ? `/shop?campaign_id=${encodeURIComponent(campaignId)}` : "/shop";
+
+  const buildProductDetailPath = (productId: string) =>
+    selectedCampaignId
+      ? `/shop/${productId}?campaign_id=${encodeURIComponent(selectedCampaignId)}`
+      : `/shop/${productId}`;
+
   const requestLogin = () => {
-    router.push(`/login?redirect=${encodeURIComponent("/shop")}`);
+    router.push(
+      `/login?redirect=${encodeURIComponent(getShopPath(selectedCampaignId))}`,
+    );
+  };
+
+  const handleCampaignChange = (campaignId: string) => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (campaignId) {
+      nextParams.set("campaign_id", campaignId);
+    } else {
+      nextParams.delete("campaign_id");
+    }
+    const query = nextParams.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`);
   };
 
   async function handleAddToCart(item: V2ShopListItem, buyNow: boolean) {
@@ -209,16 +259,18 @@ export default function ShopPage() {
       await addCartItem.mutateAsync({
         variant_id: item.primary_variant_id,
         quantity: 1,
+        campaign_id: selectedCampaignId || null,
         display_price_snapshot: buildDisplayPriceSnapshot(item.display_price),
         added_via: buyNow ? "BUY_NOW" : "SHOP_LIST",
         metadata: {
           source: "shop-list",
           product_id: item.product_id,
+          campaign_id: selectedCampaignId || null,
         },
       });
 
       if (buyNow) {
-        router.push("/checkout");
+        router.push(selectedCampaignId ? `/checkout?campaign_id=${selectedCampaignId}` : "/checkout");
         return;
       }
 
@@ -268,6 +320,22 @@ export default function ShopPage() {
             v2 카탈로그 기준으로 구성된 상품 목록입니다. 상품 상세에서 옵션/구매 조건을
             확인하고 다음 단계에서 장바구니 담기를 진행할 수 있습니다.
           </p>
+          <div className="mt-8 max-w-lg rounded-xl border border-neutral-200 bg-white p-4">
+            <label className="mb-2 block text-sm font-semibold text-text-primary">
+              판매 캠페인
+            </label>
+            <Select
+              size="md"
+              value={selectedCampaignId}
+              options={campaignOptions}
+              onChange={(event) => handleCampaignChange(event.target.value)}
+            />
+            <p className="mt-2 text-xs text-text-secondary">
+              {selectedCampaign
+                ? `현재 "${selectedCampaign.name}" 기준 가격/재고를 조회 중입니다.`
+                : "상시 판매 기준으로 상품을 조회 중입니다."}
+            </p>
+          </div>
         </div>
       </section>
 
@@ -296,7 +364,7 @@ export default function ShopPage() {
                 <ProductCard
                   key={item.product_id}
                   item={item}
-                  onOpenDetail={() => router.push(`/shop/${item.product_id}`)}
+                  onOpenDetail={() => router.push(buildProductDetailPath(item.product_id))}
                   onAddToCart={() => void handleAddToCart(item, false)}
                   onBuyNow={() => void handleAddToCart(item, true)}
                   isAdding={pendingActionKey === `${item.product_id}:ADD`}
@@ -333,7 +401,7 @@ export default function ShopPage() {
                 <ProductCard
                   key={item.product_id}
                   item={item}
-                  onOpenDetail={() => router.push(`/shop/${item.product_id}`)}
+                  onOpenDetail={() => router.push(buildProductDetailPath(item.product_id))}
                   onAddToCart={() => void handleAddToCart(item, false)}
                   onBuyNow={() => void handleAddToCart(item, true)}
                   isAdding={pendingActionKey === `${item.product_id}:ADD`}
@@ -345,5 +413,19 @@ export default function ShopPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function ShopPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-neutral-50">
+          <Loading size="lg" />
+        </div>
+      }
+    >
+      <ShopPageContent />
+    </Suspense>
   );
 }

@@ -141,6 +141,8 @@ export {
 
 // V2 Shop Hooks
 export {
+  useV2ShopCampaigns,
+  useV2ShopCoupons,
   useV2ShopProducts,
   useV2ShopProduct,
   useV2ShopPricePreview,

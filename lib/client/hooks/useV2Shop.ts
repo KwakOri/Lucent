@@ -9,11 +9,35 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   V2ShopAPI,
+  type GetV2ShopCampaignsParams,
+  type GetV2ShopCouponsParams,
   type GetV2ShopPricePreviewData,
   type GetV2ShopProductDetailParams,
   type GetV2ShopProductsParams,
 } from "@/lib/client/api/v2-shop.api";
 import { queryKeys } from "./query-keys";
+
+export function useV2ShopCampaigns(params: GetV2ShopCampaignsParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.v2Shop.campaigns.list(params),
+    queryFn: async () => {
+      const response = await V2ShopAPI.getCampaigns(params);
+      return response.data;
+    },
+    staleTime: 1000 * 30,
+  });
+}
+
+export function useV2ShopCoupons(params: GetV2ShopCouponsParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.v2Shop.coupons.list(params),
+    queryFn: async () => {
+      const response = await V2ShopAPI.getCoupons(params);
+      return response.data;
+    },
+    staleTime: 1000 * 30,
+  });
+}
 
 export function useV2ShopProducts(params: GetV2ShopProductsParams = {}) {
   return useQuery({
