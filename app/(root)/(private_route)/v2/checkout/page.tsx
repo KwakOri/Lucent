@@ -140,6 +140,7 @@ export default function V2CheckoutPage() {
   const [quoteSnapshot, setQuoteSnapshot] = useState<Record<string, unknown> | null>(
     null,
   );
+  const [isOrderTransitioning, setIsOrderTransitioning] = useState(false);
   const [customerTouched, setCustomerTouched] = useState<CustomerTouchedState>({
     name: false,
     email: false,
@@ -339,6 +340,7 @@ export default function V2CheckoutPage() {
         ? effectiveShippingAddress
         : effectiveBillingAddress;
 
+      setIsOrderTransitioning(true);
       const result = await createOrder.mutateAsync({
         idempotency_key: createIdempotencyKey(),
         campaign_id: campaignId.trim() || null,
@@ -369,9 +371,11 @@ export default function V2CheckoutPage() {
       router.push(`/order/processing/${result.order.id}`);
     } catch (mutationError) {
       if (mutationError instanceof ApiError && mutationError.isAuthError()) {
+        setIsOrderTransitioning(false);
         requestLogin();
         return;
       }
+      setIsOrderTransitioning(false);
       showToast(getErrorMessage(mutationError), { type: 'error' });
     }
   }
@@ -414,6 +418,22 @@ export default function V2CheckoutPage() {
             )
           }
         />
+      </div>
+    );
+  }
+
+  if (isOrderTransitioning) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
+        <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-8 text-center">
+          <Loading size="lg" />
+          <h1 className="mt-6 text-2xl font-bold text-text-primary">
+            주문 정보를 처리 중입니다
+          </h1>
+          <p className="mt-2 text-sm text-text-secondary">
+            잠시만 기다려 주세요. 주문 완료 화면으로 이동합니다.
+          </p>
+        </div>
       </div>
     );
   }
@@ -737,8 +757,12 @@ export default function V2CheckoutPage() {
               intent="primary"
               size="lg"
               fullWidth
-              loading={createOrder.isPending || validateCheckout.isPending}
-              disabled={validateCheckout.isPending}
+              loading={
+                createOrder.isPending ||
+                validateCheckout.isPending ||
+                isOrderTransitioning
+              }
+              disabled={validateCheckout.isPending || isOrderTransitioning}
               onClick={() => void handleCreateOrder()}
             >
               주문 생성
