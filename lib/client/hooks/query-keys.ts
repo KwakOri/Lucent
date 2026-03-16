@@ -15,6 +15,7 @@ import type {
   GetV2ProductsParams,
   GetV2ProjectsParams,
   GetV2CampaignsParams,
+  GetV2CouponRedemptionsParams,
   GetV2CouponsParams,
   GetV2PriceListsParams,
   GetV2PromotionsParams,
@@ -248,6 +249,8 @@ export const queryKeys = {
           [...queryKeys.v2CatalogAdmin.pricing.coupons.all, 'list', params] as const,
         detail: (id: string) =>
           [...queryKeys.v2CatalogAdmin.pricing.coupons.all, 'detail', id] as const,
+        redemptions: (params: GetV2CouponRedemptionsParams = {}) =>
+          [...queryKeys.v2CatalogAdmin.pricing.coupons.all, 'redemptions', params] as const,
       },
       quote: () => [...queryKeys.v2CatalogAdmin.pricing.all, 'quote'] as const,
       debug: () => [...queryKeys.v2CatalogAdmin.pricing.all, 'debug'] as const,

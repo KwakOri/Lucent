@@ -28,6 +28,7 @@ import {
   type CreateV2ProjectData,
   type CreateV2VariantData,
   type GetV2CampaignsParams,
+  type GetV2CouponRedemptionsParams,
   type GetV2CouponsParams,
   type GetV2BundleDefinitionsParams,
   type GetV2ArtistsParams,
@@ -1073,6 +1074,16 @@ export function useV2Coupon(couponId: string | null | undefined) {
       return response.data;
     },
     enabled: !!couponId,
+  });
+}
+
+export function useV2CouponRedemptions(params: GetV2CouponRedemptionsParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.pricing.coupons.redemptions(params),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getCouponRedemptions(params);
+      return response.data;
+    },
   });
 }
 

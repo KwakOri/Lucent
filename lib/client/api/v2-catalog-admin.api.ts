@@ -827,6 +827,13 @@ export interface GetV2CouponsParams {
   status?: V2CouponStatus;
 }
 
+export interface GetV2CouponRedemptionsParams {
+  couponId?: string;
+  userId?: string;
+  status?: V2CouponRedemptionStatus;
+  quoteReference?: string;
+}
+
 export interface CreateV2ProjectData {
   name: string;
   slug: string;
@@ -1895,12 +1902,9 @@ export const V2CatalogAdminAPI = {
     return apiClient.patch(`/api/v2/catalog/admin/coupons/${id}`, data);
   },
 
-  async getCouponRedemptions(params: {
-    couponId?: string;
-    userId?: string;
-    status?: V2CouponRedemptionStatus;
-    quoteReference?: string;
-  } = {}): Promise<ApiResponse<V2CouponRedemption[]>> {
+  async getCouponRedemptions(
+    params: GetV2CouponRedemptionsParams = {},
+  ): Promise<ApiResponse<V2CouponRedemption[]>> {
     return apiClient.get(
       `/api/v2/catalog/admin/coupon-redemptions${buildSearchParams({
         couponId: params.couponId,
