@@ -115,6 +115,34 @@ function resolveLinearStageFromRow(row: V2AdminOrderQueueRow): V2AdminOrderLinea
   return 'PRODUCTION';
 }
 
+function getNextLinearStage(stage: V2AdminOrderLinearStage): V2AdminOrderLinearStage | null {
+  if (stage === 'PAYMENT_PENDING') {
+    return 'PAYMENT_CONFIRMED';
+  }
+  if (stage === 'PAYMENT_CONFIRMED') {
+    return 'PRODUCTION';
+  }
+  if (stage === 'PRODUCTION') {
+    return 'READY_TO_SHIP';
+  }
+  if (stage === 'READY_TO_SHIP') {
+    return 'IN_TRANSIT';
+  }
+  if (stage === 'IN_TRANSIT') {
+    return 'DELIVERED';
+  }
+  return null;
+}
+
+const LINEAR_STAGE_OPTIONS: V2AdminOrderLinearStage[] = [
+  'PAYMENT_PENDING',
+  'PAYMENT_CONFIRMED',
+  'PRODUCTION',
+  'READY_TO_SHIP',
+  'IN_TRANSIT',
+  'DELIVERED',
+];
+
 const LINEAR_STAGE_TABS: Array<{
   key: V2OrderStageTab;
   label: string;
@@ -187,30 +215,47 @@ export default function AdminOrdersPage() {
     setSelectedOrderIds((prev) => prev.filter((id) => rowIdSet.has(id)));
   }, [rows]);
 
+  const recommendedNextStage = useMemo(() => {
+    if (stageTab === 'ALL') {
+      return null;
+    }
+    return getNextLinearStage(stageTab);
+  }, [stageTab]);
+
+  useEffect(() => {
+    if (!recommendedNextStage) {
+      return;
+    }
+    setTargetStage(recommendedNextStage);
+  }, [recommendedNextStage]);
+
   const selectedIdSet = useMemo(() => new Set(selectedOrderIds), [selectedOrderIds]);
   const allVisibleSelected =
     rows.length > 0 && rows.every((row) => selectedIdSet.has(row.order_id));
 
   const canSubmitTransition =
     selectedOrderIds.length > 0 && !previewTransition.isPending && !executeTransition.isPending;
+  const canRunNextStage = canSubmitTransition && recommendedNextStage !== null;
 
-  const transitionPayload = {
-    order_ids: selectedOrderIds,
-    target_stage: targetStage,
-    reason: transitionReason.trim() || null,
-  };
+  function buildTransitionPayload(stage: V2AdminOrderLinearStage) {
+    return {
+      order_ids: selectedOrderIds,
+      target_stage: stage,
+      reason: transitionReason.trim() || null,
+    };
+  }
 
-  async function handlePreviewTransition() {
+  async function handlePreviewTransition(stage: V2AdminOrderLinearStage = targetStage) {
     if (selectedOrderIds.length === 0) {
       setTransitionMessage('주문을 1건 이상 선택해 주세요.');
       return;
     }
 
     try {
-      const result = await previewTransition.mutateAsync(transitionPayload);
+      const result = await previewTransition.mutateAsync(buildTransitionPayload(stage));
       setTransitionResult(result);
       setTransitionMessage(
-        `미리보기 완료: 실행 가능 ${result.summary.executable_order_count}건 / 차단 ${result.summary.blocked_order_count}건`,
+        `미리보기 완료(${linearStageLabel(stage)}): 실행 가능 ${result.summary.executable_order_count}건 / 차단 ${result.summary.blocked_order_count}건`,
       );
     } catch (previewError) {
       setTransitionMessage(
@@ -221,24 +266,24 @@ export default function AdminOrdersPage() {
     }
   }
 
-  async function handleExecuteTransition() {
+  async function handleExecuteTransition(stage: V2AdminOrderLinearStage = targetStage) {
     if (selectedOrderIds.length === 0) {
       setTransitionMessage('주문을 1건 이상 선택해 주세요.');
       return;
     }
 
     const confirmed = window.confirm(
-      `선택한 ${selectedOrderIds.length}건 주문을 "${linearStageLabel(targetStage)}" 단계로 전환할까요?`,
+      `선택한 ${selectedOrderIds.length}건 주문을 "${linearStageLabel(stage)}" 단계로 전환할까요?`,
     );
     if (!confirmed) {
       return;
     }
 
     try {
-      const result = await executeTransition.mutateAsync(transitionPayload);
+      const result = await executeTransition.mutateAsync(buildTransitionPayload(stage));
       setTransitionResult(result);
       setTransitionMessage(
-        `실행 완료: 성공 ${result.execute?.succeeded_count ?? 0}건 / 실패 ${result.execute?.failed_count ?? 0}건`,
+        `실행 완료(${linearStageLabel(stage)}): 성공 ${result.execute?.succeeded_count ?? 0}건 / 실패 ${result.execute?.failed_count ?? 0}건`,
       );
       await refetch();
     } catch (executeError) {
@@ -347,41 +392,63 @@ export default function AdminOrdersPage() {
 
         <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
           <p className="text-xs font-semibold text-gray-600">선형 단계 일괄 전환</p>
-          <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-[180px_1fr_auto_auto]">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button
+              intent="primary"
+              size="sm"
+              loading={executeTransition.isPending}
+              disabled={!canRunNextStage}
+              onClick={() => {
+                if (!recommendedNextStage) {
+                  return;
+                }
+                void handleExecuteTransition(recommendedNextStage);
+              }}
+            >
+              {recommendedNextStage
+                ? `다음 단계 실행 (${linearStageLabel(recommendedNextStage)})`
+                : '다음 단계 없음'}
+            </Button>
+            <p className="text-xs text-gray-500">
+              {stageTab === 'ALL'
+                ? '탭을 선택하면 다음 단계 버튼이 활성화됩니다.'
+                : `현재 탭 기준 기본 다음 단계: ${recommendedNextStage ? linearStageLabel(recommendedNextStage) : '없음'}`}
+            </p>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-[180px_1fr_auto_auto]">
             <select
               value={targetStage}
               onChange={(event) => setTargetStage(event.target.value as V2AdminOrderLinearStage)}
               className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm"
             >
-              <option value="PAYMENT_PENDING">입금 대기</option>
-              <option value="PAYMENT_CONFIRMED">입금 확인</option>
-              <option value="PRODUCTION">제작중</option>
-              <option value="READY_TO_SHIP">배송 대기</option>
-              <option value="IN_TRANSIT">배송 중</option>
-              <option value="DELIVERED">배송 완료</option>
+              {LINEAR_STAGE_OPTIONS.map((stage) => (
+                <option key={stage} value={stage}>
+                  {linearStageLabel(stage)}
+                </option>
+              ))}
             </select>
             <Input
               value={transitionReason}
               onChange={(event) => setTransitionReason(event.target.value)}
-              placeholder="전환 사유(선택)"
+              placeholder="전환 사유(선택, 기본값은 현재 탭의 다음 단계)"
             />
             <Button
               intent="secondary"
               size="sm"
               loading={previewTransition.isPending}
               disabled={!canSubmitTransition}
-              onClick={() => void handlePreviewTransition()}
+              onClick={() => void handlePreviewTransition(targetStage)}
             >
               미리보기
             </Button>
             <Button
-              intent="primary"
+              intent="secondary"
               size="sm"
               loading={executeTransition.isPending}
               disabled={!canSubmitTransition}
-              onClick={() => void handleExecuteTransition()}
+              onClick={() => void handleExecuteTransition(targetStage)}
             >
-              실행
+              선택 단계 실행
             </Button>
           </div>
           <p className="mt-2 text-xs text-gray-500">
