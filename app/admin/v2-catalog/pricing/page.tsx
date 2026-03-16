@@ -15,6 +15,7 @@ import {
   useCreateV2PriceList,
   useCreateV2PriceListItem,
   useCreateV2Promotion,
+  useCreateV2PromotionRule,
   useDeactivateV2PriceListItem,
   useDeleteV2CampaignTarget,
   useEvaluateV2Promotions,
@@ -26,19 +27,24 @@ import {
   useSuspendV2Campaign,
   useUpdateV2Campaign,
   useUpdateV2CampaignTarget,
+  useUpdateV2Coupon,
   useUpdateV2PriceList,
   useUpdateV2PriceListItem,
+  useUpdateV2Promotion,
+  useUpdateV2PromotionRule,
   useV2AdminProducts,
   useV2AdminProjects,
   useV2AdminVariants,
   useV2BundleDefinitions,
   useV2Campaigns,
   useV2CampaignTargets,
+  useV2CouponRedemptions,
   useV2Coupons,
   useV2OrderSnapshotContract,
   useV2PriceListItems,
   useV2PriceLists,
   useV2PricingDebugTrace,
+  useV2PromotionRules,
   useV2Promotions,
   useValidateV2Coupon,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
@@ -109,6 +115,32 @@ type PriceListFilterScope = 'ALL' | PriceListScopeValue;
 type PriceListFilterCampaign = 'ALL' | 'NONE' | string;
 type PriceListSortKey = 'UPDATED_DESC' | 'PRIORITY_ASC' | 'PUBLISHED_DESC' | 'NAME_ASC';
 type PriceItemStatusValue = 'ACTIVE' | 'INACTIVE';
+type PromotionTypeValue =
+  | 'ITEM_PERCENT'
+  | 'ITEM_FIXED'
+  | 'ORDER_PERCENT'
+  | 'ORDER_FIXED'
+  | 'SHIPPING_PERCENT'
+  | 'SHIPPING_FIXED';
+type PromotionStatusValue = 'DRAFT' | 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
+type PromotionCombinabilityValue = 'STACKABLE' | 'EXCLUSIVE';
+type PromotionRuleTypeValue =
+  | 'MIN_ORDER_AMOUNT'
+  | 'MIN_ITEM_QUANTITY'
+  | 'TARGET_PROJECT'
+  | 'TARGET_PRODUCT'
+  | 'TARGET_VARIANT'
+  | 'TARGET_BUNDLE'
+  | 'CHANNEL'
+  | 'USER_SEGMENT';
+type PromotionFilterStatus = 'ALL' | PromotionStatusValue;
+type PromotionFilterType = 'ALL' | PromotionTypeValue;
+type PromotionFilterCouponRequired = 'ALL' | 'YES' | 'NO';
+type PromotionSortKey = 'UPDATED_DESC' | 'PRIORITY_ASC' | 'NAME_ASC';
+type CouponStatusValue = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'EXHAUSTED' | 'EXPIRED' | 'ARCHIVED';
+type CouponFilterStatus = 'ALL' | CouponStatusValue;
+type CouponSortKey = 'UPDATED_DESC' | 'CODE_ASC' | 'REDEEMED_DESC';
+type CouponRedemptionStatusValue = 'RESERVED' | 'APPLIED' | 'RELEASED' | 'CANCELED' | 'EXPIRED';
 
 const CAMPAIGN_TYPES: CampaignTypeValue[] = ['EVENT', 'POPUP', 'SALE', 'DROP', 'ALWAYS_ON'];
 const CAMPAIGN_TARGET_TYPES: CampaignTargetTypeValue[] = [
@@ -118,6 +150,24 @@ const CAMPAIGN_TARGET_TYPES: CampaignTargetTypeValue[] = [
   'BUNDLE_DEFINITION',
 ];
 const PRICE_LIST_SCOPES: PriceListScopeValue[] = ['BASE', 'OVERRIDE'];
+const PROMOTION_TYPES: PromotionTypeValue[] = [
+  'ORDER_PERCENT',
+  'ORDER_FIXED',
+  'ITEM_PERCENT',
+  'ITEM_FIXED',
+  'SHIPPING_PERCENT',
+  'SHIPPING_FIXED',
+];
+const PROMOTION_RULE_TYPES: PromotionRuleTypeValue[] = [
+  'MIN_ORDER_AMOUNT',
+  'MIN_ITEM_QUANTITY',
+  'TARGET_PROJECT',
+  'TARGET_PRODUCT',
+  'TARGET_VARIANT',
+  'TARGET_BUNDLE',
+  'CHANNEL',
+  'USER_SEGMENT',
+];
 const FIELD_SELECT_CLASS_NAME = 'rounded-md border border-gray-300 px-3 py-2 text-sm';
 const CAMPAIGN_PERIOD_REFERENCE_MS = Date.now();
 
@@ -169,6 +219,23 @@ function parsePositiveInteger(value: string, fieldName: string): number {
     throw new Error(`${fieldName}는 1 이상의 정수여야 합니다.`);
   }
   return parsed;
+}
+
+function parseOptionalObjectJson(raw: string, fieldName: string): Record<string, unknown> {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return {};
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    throw new Error(`${fieldName} JSON 형식이 올바르지 않습니다.`);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`${fieldName}는 JSON object 형식이어야 합니다.`);
+  }
+  return parsed as Record<string, unknown>;
 }
 
 function toDateTimeLocalValue(value: string | null): string {
@@ -282,6 +349,35 @@ function getPriceListScopeBadgeIntent(scope: PriceListScopeValue): 'default' | '
   return 'default';
 }
 
+function getPromotionStatusBadgeIntent(status: PromotionStatusValue): 'default' | 'success' | 'warning' | 'error' | 'info' {
+  if (status === 'ACTIVE') {
+    return 'success';
+  }
+  if (status === 'SUSPENDED') {
+    return 'warning';
+  }
+  if (status === 'ARCHIVED') {
+    return 'error';
+  }
+  return 'default';
+}
+
+function getCouponStatusBadgeIntent(status: CouponStatusValue): 'default' | 'success' | 'warning' | 'error' | 'info' {
+  if (status === 'ACTIVE') {
+    return 'success';
+  }
+  if (status === 'PAUSED') {
+    return 'warning';
+  }
+  if (status === 'EXHAUSTED' || status === 'EXPIRED') {
+    return 'info';
+  }
+  if (status === 'ARCHIVED') {
+    return 'error';
+  }
+  return 'default';
+}
+
 export default function V2CatalogPricingPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -371,15 +467,78 @@ export default function V2CatalogPricingPage() {
   const [editingPriceItemChannelScopeInput, setEditingPriceItemChannelScopeInput] = useState('');
 
   const [promotionName, setPromotionName] = useState('');
-  const [promotionType, setPromotionType] = useState<
-    'ITEM_PERCENT' | 'ITEM_FIXED' | 'ORDER_PERCENT' | 'ORDER_FIXED' | 'SHIPPING_PERCENT' | 'SHIPPING_FIXED'
-  >('ORDER_PERCENT');
+  const [promotionDescription, setPromotionDescription] = useState('');
+  const [promotionType, setPromotionType] = useState<PromotionTypeValue>('ORDER_PERCENT');
+  const [promotionStatus, setPromotionStatus] = useState<PromotionStatusValue>('DRAFT');
+  const [promotionCombinability, setPromotionCombinability] = useState<PromotionCombinabilityValue>('STACKABLE');
   const [promotionDiscountValue, setPromotionDiscountValue] = useState('10');
+  const [promotionMaxDiscountAmount, setPromotionMaxDiscountAmount] = useState('');
+  const [promotionPriority, setPromotionPriority] = useState('0');
+  const [promotionStartsAtInput, setPromotionStartsAtInput] = useState('');
+  const [promotionEndsAtInput, setPromotionEndsAtInput] = useState('');
+  const [promotionChannelScopeInput, setPromotionChannelScopeInput] = useState('');
   const [promotionCampaignId, setPromotionCampaignId] = useState('');
   const [promotionCouponRequired, setPromotionCouponRequired] = useState(false);
+  const [promotionSearchKeyword, setPromotionSearchKeyword] = useState('');
+  const [promotionStatusFilter, setPromotionStatusFilter] = useState<PromotionFilterStatus>('ALL');
+  const [promotionTypeFilter, setPromotionTypeFilter] = useState<PromotionFilterType>('ALL');
+  const [promotionCouponRequiredFilter, setPromotionCouponRequiredFilter] = useState<PromotionFilterCouponRequired>('ALL');
+  const [promotionCampaignFilter, setPromotionCampaignFilter] = useState<'ALL' | 'NONE' | string>('ALL');
+  const [promotionSortKey, setPromotionSortKey] = useState<PromotionSortKey>('UPDATED_DESC');
+  const [editingPromotionId, setEditingPromotionId] = useState<string | null>(null);
+  const [editingPromotionName, setEditingPromotionName] = useState('');
+  const [editingPromotionDescription, setEditingPromotionDescription] = useState('');
+  const [editingPromotionType, setEditingPromotionType] = useState<PromotionTypeValue>('ORDER_PERCENT');
+  const [editingPromotionStatus, setEditingPromotionStatus] = useState<PromotionStatusValue>('DRAFT');
+  const [editingPromotionCombinability, setEditingPromotionCombinability] = useState<PromotionCombinabilityValue>('STACKABLE');
+  const [editingPromotionDiscountValue, setEditingPromotionDiscountValue] = useState('0');
+  const [editingPromotionMaxDiscountAmount, setEditingPromotionMaxDiscountAmount] = useState('');
+  const [editingPromotionPriority, setEditingPromotionPriority] = useState('0');
+  const [editingPromotionCampaignId, setEditingPromotionCampaignId] = useState('');
+  const [editingPromotionCouponRequired, setEditingPromotionCouponRequired] = useState(false);
+  const [editingPromotionStartsAtInput, setEditingPromotionStartsAtInput] = useState('');
+  const [editingPromotionEndsAtInput, setEditingPromotionEndsAtInput] = useState('');
+  const [editingPromotionChannelScopeInput, setEditingPromotionChannelScopeInput] = useState('');
+  const [selectedPromotionId, setSelectedPromotionId] = useState<string | null>(null);
+
+  const [newRuleType, setNewRuleType] = useState<PromotionRuleTypeValue>('MIN_ORDER_AMOUNT');
+  const [newRuleStatus, setNewRuleStatus] = useState<PriceItemStatusValue>('ACTIVE');
+  const [newRuleSortOrder, setNewRuleSortOrder] = useState('0');
+  const [newRulePayloadJson, setNewRulePayloadJson] = useState('{\n  "min_amount": 50000\n}');
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [editingRuleType, setEditingRuleType] = useState<PromotionRuleTypeValue>('MIN_ORDER_AMOUNT');
+  const [editingRuleStatus, setEditingRuleStatus] = useState<PriceItemStatusValue>('ACTIVE');
+  const [editingRuleSortOrder, setEditingRuleSortOrder] = useState('0');
+  const [editingRulePayloadJson, setEditingRulePayloadJson] = useState('{}');
 
   const [couponCode, setCouponCode] = useState('');
   const [couponPromotionId, setCouponPromotionId] = useState('');
+  const [couponStatus, setCouponStatus] = useState<CouponStatusValue>('DRAFT');
+  const [couponStartsAtInput, setCouponStartsAtInput] = useState('');
+  const [couponEndsAtInput, setCouponEndsAtInput] = useState('');
+  const [couponMaxIssuance, setCouponMaxIssuance] = useState('');
+  const [couponMaxPerUser, setCouponMaxPerUser] = useState('1');
+  const [couponChannelScopeInput, setCouponChannelScopeInput] = useState('');
+  const [couponSearchKeyword, setCouponSearchKeyword] = useState('');
+  const [couponStatusFilter, setCouponStatusFilter] = useState<CouponFilterStatus>('ALL');
+  const [couponPromotionFilter, setCouponPromotionFilter] = useState<'ALL' | 'NONE' | string>('ALL');
+  const [couponSortKey, setCouponSortKey] = useState<CouponSortKey>('UPDATED_DESC');
+  const [editingCouponId, setEditingCouponId] = useState<string | null>(null);
+  const [editingCouponCode, setEditingCouponCode] = useState('');
+  const [editingCouponStatus, setEditingCouponStatus] = useState<CouponStatusValue>('DRAFT');
+  const [editingCouponPromotionId, setEditingCouponPromotionId] = useState('');
+  const [editingCouponStartsAtInput, setEditingCouponStartsAtInput] = useState('');
+  const [editingCouponEndsAtInput, setEditingCouponEndsAtInput] = useState('');
+  const [editingCouponMaxIssuance, setEditingCouponMaxIssuance] = useState('');
+  const [editingCouponMaxPerUser, setEditingCouponMaxPerUser] = useState('1');
+  const [editingCouponChannelScopeInput, setEditingCouponChannelScopeInput] = useState('');
+
+  const [redemptionCouponFilter, setRedemptionCouponFilter] = useState('');
+  const [redemptionUserIdFilter, setRedemptionUserIdFilter] = useState('');
+  const [redemptionStatusFilter, setRedemptionStatusFilter] = useState<
+    'ALL' | CouponRedemptionStatusValue
+  >('ALL');
+  const [redemptionQuoteReferenceFilter, setRedemptionQuoteReferenceFilter] = useState('');
 
   const [quoteLinesJson, setQuoteLinesJson] = useState(
     '[\n  {\n    "variant_id": "",\n    "quantity": 1\n  }\n]',
@@ -417,7 +576,14 @@ export default function V2CatalogPricingPage() {
   const { data: newPriceItemVariants } = useV2AdminVariants(newPriceItemProductId || null);
   const { data: editingPriceItemVariants } = useV2AdminVariants(editingPriceItemProductId || null);
   const { data: promotions, isLoading: promotionsLoading, error: promotionsError } = useV2Promotions();
+  const { data: promotionRules, isLoading: promotionRulesLoading } = useV2PromotionRules(selectedPromotionId);
   const { data: coupons, isLoading: couponsLoading, error: couponsError } = useV2Coupons();
+  const { data: couponRedemptions, isLoading: couponRedemptionsLoading } = useV2CouponRedemptions({
+    couponId: redemptionCouponFilter.trim() || undefined,
+    userId: redemptionUserIdFilter.trim() || undefined,
+    status: redemptionStatusFilter === 'ALL' ? undefined : redemptionStatusFilter,
+    quoteReference: redemptionQuoteReferenceFilter.trim() || undefined,
+  });
   const { data: orderSnapshotContract } = useV2OrderSnapshotContract();
 
   const createCampaign = useCreateV2Campaign();
@@ -438,7 +604,11 @@ export default function V2CatalogPricingPage() {
   const deactivatePriceListItem = useDeactivateV2PriceListItem();
 
   const createPromotion = useCreateV2Promotion();
+  const updatePromotion = useUpdateV2Promotion();
+  const createPromotionRule = useCreateV2PromotionRule();
+  const updatePromotionRule = useUpdateV2PromotionRule();
   const createCoupon = useCreateV2Coupon();
+  const updateCoupon = useUpdateV2Coupon();
 
   const buildPriceQuote = useBuildV2PriceQuote();
   const evaluatePromotions = useEvaluateV2Promotions();
@@ -963,15 +1133,218 @@ export default function V2CatalogPricingPage() {
       if (!Number.isFinite(discountValue) || discountValue < 0) {
         throw new Error('discount_value는 0 이상의 숫자여야 합니다.');
       }
+      const maxDiscountAmount = parseNullableNonNegativeInteger(
+        promotionMaxDiscountAmount,
+        'max_discount_amount',
+      );
+      if (maxDiscountAmount !== null && maxDiscountAmount < discountValue) {
+        throw new Error('max_discount_amount는 discount_value 이상이어야 합니다.');
+      }
+      const priority = parseNonNegativeInteger(promotionPriority, 'priority');
+      const startsAt = parseDateTimeLocalInput(promotionStartsAtInput, 'starts_at');
+      const endsAt = parseDateTimeLocalInput(promotionEndsAtInput, 'ends_at');
       await createPromotion.mutateAsync({
         name: promotionName.trim(),
+        description: toNullable(promotionDescription),
         campaign_id: toNullable(promotionCampaignId),
         promotion_type: promotionType,
+        status: promotionStatus,
+        combinability_mode: promotionCombinability,
+        priority,
         discount_value: discountValue,
+        max_discount_amount: maxDiscountAmount,
         coupon_required: promotionCouponRequired,
+        starts_at: startsAt,
+        ends_at: endsAt,
+        channel_scope_json: parseChannelScopeInput(promotionChannelScopeInput),
       });
       setPromotionName('');
+      setPromotionDescription('');
+      setPromotionStatus('DRAFT');
+      setPromotionCombinability('STACKABLE');
+      setPromotionPriority('0');
+      setPromotionMaxDiscountAmount('');
+      setPromotionStartsAtInput('');
+      setPromotionEndsAtInput('');
+      setPromotionChannelScopeInput('');
       setMessage('promotion을 생성했습니다.');
+    });
+  };
+
+  const handleStartPromotionEdit = (promotion: {
+    id: string;
+    name: string;
+    description: string | null;
+    promotion_type: PromotionTypeValue;
+    status: PromotionStatusValue;
+    combinability_mode: PromotionCombinabilityValue;
+    priority: number;
+    discount_value: number;
+    max_discount_amount: number | null;
+    coupon_required: boolean;
+    campaign_id: string | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    channel_scope_json: unknown[];
+  }) => {
+    setEditingPromotionId(promotion.id);
+    setEditingPromotionName(promotion.name);
+    setEditingPromotionDescription(promotion.description ?? '');
+    setEditingPromotionType(promotion.promotion_type);
+    setEditingPromotionStatus(promotion.status);
+    setEditingPromotionCombinability(promotion.combinability_mode);
+    setEditingPromotionPriority(String(promotion.priority));
+    setEditingPromotionDiscountValue(String(promotion.discount_value));
+    setEditingPromotionMaxDiscountAmount(
+      promotion.max_discount_amount === null ? '' : String(promotion.max_discount_amount),
+    );
+    setEditingPromotionCouponRequired(promotion.coupon_required);
+    setEditingPromotionCampaignId(promotion.campaign_id ?? '');
+    setEditingPromotionStartsAtInput(toDateTimeLocalValue(promotion.starts_at));
+    setEditingPromotionEndsAtInput(toDateTimeLocalValue(promotion.ends_at));
+    setEditingPromotionChannelScopeInput(
+      formatChannelScopeInput(promotion.channel_scope_json),
+    );
+  };
+
+  const handleCancelPromotionEdit = () => {
+    setEditingPromotionId(null);
+    setEditingPromotionName('');
+    setEditingPromotionDescription('');
+    setEditingPromotionType('ORDER_PERCENT');
+    setEditingPromotionStatus('DRAFT');
+    setEditingPromotionCombinability('STACKABLE');
+    setEditingPromotionPriority('0');
+    setEditingPromotionDiscountValue('0');
+    setEditingPromotionMaxDiscountAmount('');
+    setEditingPromotionCouponRequired(false);
+    setEditingPromotionCampaignId('');
+    setEditingPromotionStartsAtInput('');
+    setEditingPromotionEndsAtInput('');
+    setEditingPromotionChannelScopeInput('');
+  };
+
+  const handleUpdatePromotion = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingPromotionId) {
+      return;
+    }
+    await runWithNotice(async () => {
+      const discountValue = Number.parseFloat(editingPromotionDiscountValue);
+      if (!Number.isFinite(discountValue) || discountValue < 0) {
+        throw new Error('discount_value는 0 이상의 숫자여야 합니다.');
+      }
+      const maxDiscountAmount = parseNullableNonNegativeInteger(
+        editingPromotionMaxDiscountAmount,
+        'max_discount_amount',
+      );
+      if (maxDiscountAmount !== null && maxDiscountAmount < discountValue) {
+        throw new Error('max_discount_amount는 discount_value 이상이어야 합니다.');
+      }
+      const priority = parseNonNegativeInteger(editingPromotionPriority, 'priority');
+      const startsAt = parseDateTimeLocalInput(
+        editingPromotionStartsAtInput,
+        'starts_at',
+      );
+      const endsAt = parseDateTimeLocalInput(editingPromotionEndsAtInput, 'ends_at');
+
+      await updatePromotion.mutateAsync({
+        id: editingPromotionId,
+        data: {
+          name: editingPromotionName.trim(),
+          description: toNullable(editingPromotionDescription),
+          promotion_type: editingPromotionType,
+          status: editingPromotionStatus,
+          combinability_mode: editingPromotionCombinability,
+          campaign_id: toNullable(editingPromotionCampaignId),
+          priority,
+          discount_value: discountValue,
+          max_discount_amount: maxDiscountAmount,
+          coupon_required: editingPromotionCouponRequired,
+          starts_at: startsAt,
+          ends_at: endsAt,
+          channel_scope_json: parseChannelScopeInput(editingPromotionChannelScopeInput),
+        },
+      });
+      setMessage('promotion을 수정했습니다.');
+      handleCancelPromotionEdit();
+    });
+  };
+
+  const handleOpenPromotionRules = (promotionId: string) => {
+    setSelectedPromotionId(promotionId);
+    setEditingRuleId(null);
+    setNewRuleType('MIN_ORDER_AMOUNT');
+    setNewRuleStatus('ACTIVE');
+    setNewRuleSortOrder('0');
+    setNewRulePayloadJson('{\n  "min_amount": 50000\n}');
+  };
+
+  const handleCreatePromotionRule = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedPromotionId) {
+      setErrorMessage('rule을 추가할 promotion을 선택해주세요.');
+      return;
+    }
+    await runWithNotice(async () => {
+      const sortOrder = parseNonNegativeInteger(newRuleSortOrder, 'sort_order');
+      const payload = parseOptionalObjectJson(newRulePayloadJson, 'rule_payload');
+      await createPromotionRule.mutateAsync({
+        promotionId: selectedPromotionId,
+        data: {
+          rule_type: newRuleType,
+          status: newRuleStatus,
+          sort_order: sortOrder,
+          rule_payload: payload,
+        },
+      });
+      setNewRuleSortOrder('0');
+      setNewRulePayloadJson('{\n  "min_amount": 50000\n}');
+      setMessage('promotion rule을 추가했습니다.');
+    });
+  };
+
+  const handleStartRuleEdit = (rule: {
+    id: string;
+    rule_type: PromotionRuleTypeValue;
+    status: PriceItemStatusValue;
+    sort_order: number;
+    rule_payload: Record<string, unknown>;
+  }) => {
+    setEditingRuleId(rule.id);
+    setEditingRuleType(rule.rule_type);
+    setEditingRuleStatus(rule.status);
+    setEditingRuleSortOrder(String(rule.sort_order));
+    setEditingRulePayloadJson(JSON.stringify(rule.rule_payload ?? {}, null, 2));
+  };
+
+  const handleCancelRuleEdit = () => {
+    setEditingRuleId(null);
+    setEditingRuleType('MIN_ORDER_AMOUNT');
+    setEditingRuleStatus('ACTIVE');
+    setEditingRuleSortOrder('0');
+    setEditingRulePayloadJson('{}');
+  };
+
+  const handleUpdateRule = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingRuleId) {
+      return;
+    }
+    await runWithNotice(async () => {
+      const sortOrder = parseNonNegativeInteger(editingRuleSortOrder, 'sort_order');
+      const payload = parseOptionalObjectJson(editingRulePayloadJson, 'rule_payload');
+      await updatePromotionRule.mutateAsync({
+        ruleId: editingRuleId,
+        data: {
+          rule_type: editingRuleType,
+          status: editingRuleStatus,
+          sort_order: sortOrder,
+          rule_payload: payload,
+        },
+      });
+      setMessage('promotion rule을 수정했습니다.');
+      handleCancelRuleEdit();
     });
   };
 
@@ -982,12 +1355,104 @@ export default function V2CatalogPricingPage() {
       if (!promotionId) {
         throw new Error('coupon 생성 시 promotion_id는 필수입니다.');
       }
+      const maxPerUser = parsePositiveInteger(
+        couponMaxPerUser,
+        'max_redemptions_per_user',
+      );
+      const maxIssuance = parseNullableNonNegativeInteger(
+        couponMaxIssuance,
+        'max_issuance',
+      );
+      const startsAt = parseDateTimeLocalInput(couponStartsAtInput, 'starts_at');
+      const endsAt = parseDateTimeLocalInput(couponEndsAtInput, 'ends_at');
       await createCoupon.mutateAsync({
         code: couponCode.trim(),
         promotion_id: promotionId,
+        status: couponStatus,
+        starts_at: startsAt,
+        ends_at: endsAt,
+        max_issuance: maxIssuance,
+        max_redemptions_per_user: maxPerUser,
+        channel_scope_json: parseChannelScopeInput(couponChannelScopeInput),
       });
       setCouponCode('');
+      setCouponStatus('DRAFT');
+      setCouponStartsAtInput('');
+      setCouponEndsAtInput('');
+      setCouponMaxIssuance('');
+      setCouponMaxPerUser('1');
+      setCouponChannelScopeInput('');
       setMessage('coupon을 생성했습니다.');
+    });
+  };
+
+  const handleStartCouponEdit = (coupon: {
+    id: string;
+    code: string;
+    status: CouponStatusValue;
+    promotion_id: string | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    max_issuance: number | null;
+    max_redemptions_per_user: number;
+    channel_scope_json: unknown[];
+  }) => {
+    setEditingCouponId(coupon.id);
+    setEditingCouponCode(coupon.code);
+    setEditingCouponStatus(coupon.status);
+    setEditingCouponPromotionId(coupon.promotion_id ?? '');
+    setEditingCouponStartsAtInput(toDateTimeLocalValue(coupon.starts_at));
+    setEditingCouponEndsAtInput(toDateTimeLocalValue(coupon.ends_at));
+    setEditingCouponMaxIssuance(
+      coupon.max_issuance === null ? '' : String(coupon.max_issuance),
+    );
+    setEditingCouponMaxPerUser(String(coupon.max_redemptions_per_user));
+    setEditingCouponChannelScopeInput(formatChannelScopeInput(coupon.channel_scope_json));
+  };
+
+  const handleCancelCouponEdit = () => {
+    setEditingCouponId(null);
+    setEditingCouponCode('');
+    setEditingCouponStatus('DRAFT');
+    setEditingCouponPromotionId('');
+    setEditingCouponStartsAtInput('');
+    setEditingCouponEndsAtInput('');
+    setEditingCouponMaxIssuance('');
+    setEditingCouponMaxPerUser('1');
+    setEditingCouponChannelScopeInput('');
+  };
+
+  const handleUpdateCoupon = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingCouponId) {
+      return;
+    }
+    await runWithNotice(async () => {
+      const maxPerUser = parsePositiveInteger(
+        editingCouponMaxPerUser,
+        'max_redemptions_per_user',
+      );
+      const maxIssuance = parseNullableNonNegativeInteger(
+        editingCouponMaxIssuance,
+        'max_issuance',
+      );
+      const startsAt = parseDateTimeLocalInput(editingCouponStartsAtInput, 'starts_at');
+      const endsAt = parseDateTimeLocalInput(editingCouponEndsAtInput, 'ends_at');
+      await updateCoupon.mutateAsync({
+        id: editingCouponId,
+        data: {
+          code: editingCouponCode.trim(),
+          status: editingCouponStatus,
+          promotion_id: toNullable(editingCouponPromotionId),
+          starts_at: startsAt,
+          ends_at: endsAt,
+          max_issuance: maxIssuance,
+          max_redemptions_per_user: maxPerUser,
+          channel_scope_json: parseChannelScopeInput(editingCouponChannelScopeInput),
+        },
+      });
+      setMessage('coupon을 수정했습니다.');
+      handleCancelCouponEdit();
     });
   };
 
@@ -1277,6 +1742,115 @@ export default function V2CatalogPricingPage() {
         label: `${variant.title} (${variant.sku})`,
       })),
     [editingPriceItemVariants],
+  );
+
+  const filteredPromotions = useMemo(() => {
+    const keyword = promotionSearchKeyword.trim().toLowerCase();
+    const list = (promotions || []).filter((promotion) => {
+      if (promotionStatusFilter !== 'ALL' && promotion.status !== promotionStatusFilter) {
+        return false;
+      }
+      if (promotionTypeFilter !== 'ALL' && promotion.promotion_type !== promotionTypeFilter) {
+        return false;
+      }
+      if (promotionCouponRequiredFilter !== 'ALL') {
+        if (promotionCouponRequiredFilter === 'YES' && !promotion.coupon_required) {
+          return false;
+        }
+        if (promotionCouponRequiredFilter === 'NO' && promotion.coupon_required) {
+          return false;
+        }
+      }
+      if (promotionCampaignFilter !== 'ALL') {
+        if (promotionCampaignFilter === 'NONE') {
+          if (promotion.campaign_id !== null) {
+            return false;
+          }
+        } else if (promotion.campaign_id !== promotionCampaignFilter) {
+          return false;
+        }
+      }
+      if (!keyword) {
+        return true;
+      }
+      const haystack = `${promotion.name} ${promotion.id}`.toLowerCase();
+      return haystack.includes(keyword);
+    });
+
+    return list.sort((left, right) => {
+      if (promotionSortKey === 'PRIORITY_ASC') {
+        return left.priority - right.priority;
+      }
+      if (promotionSortKey === 'NAME_ASC') {
+        return left.name.localeCompare(right.name, 'ko');
+      }
+      return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+    });
+  }, [
+    promotionCampaignFilter,
+    promotionCouponRequiredFilter,
+    promotionSearchKeyword,
+    promotionSortKey,
+    promotionStatusFilter,
+    promotionTypeFilter,
+    promotions,
+  ]);
+
+  const selectedPromotion = useMemo(
+    () => (promotions || []).find((promotion) => promotion.id === selectedPromotionId) ?? null,
+    [promotions, selectedPromotionId],
+  );
+
+  const promotionLabelMap = useMemo(
+    () => new Map((promotions || []).map((promotion) => [promotion.id, promotion.name])),
+    [promotions],
+  );
+
+  const filteredCoupons = useMemo(() => {
+    const keyword = couponSearchKeyword.trim().toLowerCase();
+    const list = (coupons || []).filter((coupon) => {
+      if (couponStatusFilter !== 'ALL' && coupon.status !== couponStatusFilter) {
+        return false;
+      }
+      if (couponPromotionFilter !== 'ALL') {
+        if (couponPromotionFilter === 'NONE') {
+          if (coupon.promotion_id !== null) {
+            return false;
+          }
+        } else if (coupon.promotion_id !== couponPromotionFilter) {
+          return false;
+        }
+      }
+      if (!keyword) {
+        return true;
+      }
+      const haystack = `${coupon.code} ${coupon.id}`.toLowerCase();
+      return haystack.includes(keyword);
+    });
+
+    return list.sort((left, right) => {
+      if (couponSortKey === 'CODE_ASC') {
+        return left.code.localeCompare(right.code, 'ko');
+      }
+      if (couponSortKey === 'REDEEMED_DESC') {
+        return right.redeemed_count - left.redeemed_count;
+      }
+      return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+    });
+  }, [
+    couponPromotionFilter,
+    couponSearchKeyword,
+    couponSortKey,
+    couponStatusFilter,
+    coupons,
+  ]);
+
+  const sortedCouponRedemptions = useMemo(
+    () =>
+      [...(couponRedemptions || [])].sort(
+        (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+      ),
+    [couponRedemptions],
   );
 
   if (campaignsLoading || priceListsLoading || promotionsLoading || couponsLoading) {
@@ -2252,24 +2826,48 @@ export default function V2CatalogPricingPage() {
         }`}
       >
         <h2 className="text-lg font-semibold text-gray-900">Promotion / Coupon</h2>
-        <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5" onSubmit={handleCreatePromotion}>
+        <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-10" onSubmit={handleCreatePromotion}>
           <Input
             placeholder="promotion name"
             value={promotionName}
             onChange={(event) => setPromotionName(event.target.value)}
             required
           />
+          <Input
+            placeholder="description (optional)"
+            value={promotionDescription}
+            onChange={(event) => setPromotionDescription(event.target.value)}
+          />
           <select
             value={promotionType}
-            onChange={(event) => setPromotionType(event.target.value as typeof promotionType)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            onChange={(event) => setPromotionType(event.target.value as PromotionTypeValue)}
+            className={FIELD_SELECT_CLASS_NAME}
           >
-            <option value="ORDER_PERCENT">ORDER_PERCENT</option>
-            <option value="ORDER_FIXED">ORDER_FIXED</option>
-            <option value="ITEM_PERCENT">ITEM_PERCENT</option>
-            <option value="ITEM_FIXED">ITEM_FIXED</option>
-            <option value="SHIPPING_PERCENT">SHIPPING_PERCENT</option>
-            <option value="SHIPPING_FIXED">SHIPPING_FIXED</option>
+            {PROMOTION_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+          <select
+            value={promotionStatus}
+            onChange={(event) => setPromotionStatus(event.target.value as PromotionStatusValue)}
+            className={FIELD_SELECT_CLASS_NAME}
+          >
+            <option value="DRAFT">DRAFT</option>
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="SUSPENDED">SUSPENDED</option>
+            <option value="ARCHIVED">ARCHIVED</option>
+          </select>
+          <select
+            value={promotionCombinability}
+            onChange={(event) =>
+              setPromotionCombinability(event.target.value as PromotionCombinabilityValue)
+            }
+            className={FIELD_SELECT_CLASS_NAME}
+          >
+            <option value="STACKABLE">STACKABLE</option>
+            <option value="EXCLUSIVE">EXCLUSIVE</option>
           </select>
           <Input
             placeholder="discount_value"
@@ -2277,10 +2875,27 @@ export default function V2CatalogPricingPage() {
             onChange={(event) => setPromotionDiscountValue(event.target.value)}
           />
           <Input
-            placeholder="campaign_id (optional)"
+            placeholder="max_discount_amount (optional)"
+            value={promotionMaxDiscountAmount}
+            onChange={(event) => setPromotionMaxDiscountAmount(event.target.value)}
+          />
+          <Input
+            placeholder="priority"
+            value={promotionPriority}
+            onChange={(event) => setPromotionPriority(event.target.value)}
+          />
+          <select
             value={promotionCampaignId}
             onChange={(event) => setPromotionCampaignId(event.target.value)}
-          />
+            className={FIELD_SELECT_CLASS_NAME}
+          >
+            <option value="">campaign 없음</option>
+            {(campaigns || []).map((campaign) => (
+              <option key={campaign.id} value={campaign.id}>
+                {campaign.code} ({campaign.name})
+              </option>
+            ))}
+          </select>
           <label className="flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm">
             <input
               type="checkbox"
@@ -2289,57 +2904,578 @@ export default function V2CatalogPricingPage() {
             />
             coupon_required
           </label>
-          <Button type="submit" loading={createPromotion.isPending} className="md:col-span-5 md:w-fit">
+          <Input
+            type="datetime-local"
+            value={promotionStartsAtInput}
+            onChange={(event) => setPromotionStartsAtInput(event.target.value)}
+          />
+          <Input
+            type="datetime-local"
+            value={promotionEndsAtInput}
+            onChange={(event) => setPromotionEndsAtInput(event.target.value)}
+          />
+          <Input
+            placeholder="channel scope (WEB, MOBILE)"
+            value={promotionChannelScopeInput}
+            onChange={(event) => setPromotionChannelScopeInput(event.target.value)}
+          />
+          <Button type="submit" loading={createPromotion.isPending} className="md:col-span-10 md:w-fit">
             promotion 생성
           </Button>
         </form>
 
-        <form className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3" onSubmit={handleCreateCoupon}>
+        <div className="mt-6 rounded-md border border-gray-200 bg-gray-50 p-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
+            <Input
+              placeholder="promotion 검색(name/id)"
+              value={promotionSearchKeyword}
+              onChange={(event) => setPromotionSearchKeyword(event.target.value)}
+            />
+            <select
+              value={promotionStatusFilter}
+              onChange={(event) => setPromotionStatusFilter(event.target.value as PromotionFilterStatus)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="ALL">모든 상태</option>
+              <option value="DRAFT">DRAFT</option>
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="SUSPENDED">SUSPENDED</option>
+              <option value="ARCHIVED">ARCHIVED</option>
+            </select>
+            <select
+              value={promotionTypeFilter}
+              onChange={(event) => setPromotionTypeFilter(event.target.value as PromotionFilterType)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="ALL">모든 타입</option>
+              {PROMOTION_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+            <select
+              value={promotionCouponRequiredFilter}
+              onChange={(event) =>
+                setPromotionCouponRequiredFilter(event.target.value as PromotionFilterCouponRequired)
+              }
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="ALL">coupon_required 전체</option>
+              <option value="YES">required</option>
+              <option value="NO">optional</option>
+            </select>
+            <select
+              value={promotionCampaignFilter}
+              onChange={(event) => setPromotionCampaignFilter(event.target.value)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="ALL">모든 campaign</option>
+              <option value="NONE">campaign 없음</option>
+              {(campaigns || []).map((campaign) => (
+                <option key={campaign.id} value={campaign.id}>
+                  {campaign.code} ({campaign.name})
+                </option>
+              ))}
+            </select>
+            <select
+              value={promotionSortKey}
+              onChange={(event) => setPromotionSortKey(event.target.value as PromotionSortKey)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="UPDATED_DESC">최근 수정순</option>
+              <option value="PRIORITY_ASC">priority 낮은순</option>
+              <option value="NAME_ASC">이름순</option>
+            </select>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">검색 결과 {filteredPromotions.length}건</p>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {filteredPromotions.length === 0 && (
+            <p className="rounded-md border border-dashed border-gray-300 px-3 py-5 text-center text-sm text-gray-500">
+              조건에 맞는 promotion이 없습니다.
+            </p>
+          )}
+          {filteredPromotions.map((promotion) => (
+            <div key={promotion.id} className="rounded-md border border-gray-200 p-3">
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="font-medium text-gray-900">{promotion.name}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                    <Badge intent={getPromotionStatusBadgeIntent(promotion.status as PromotionStatusValue)}>
+                      {promotion.status}
+                    </Badge>
+                    <Badge intent="default">{promotion.promotion_type}</Badge>
+                    <Badge intent={promotion.coupon_required ? 'warning' : 'default'}>
+                      coupon_required={promotion.coupon_required ? 'YES' : 'NO'}
+                    </Badge>
+                    <span>priority={promotion.priority}</span>
+                    <span>{promotion.id}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    discount={promotion.discount_value} / max={promotion.max_discount_amount ?? '-'} / campaign=
+                    {promotion.campaign_id ? campaignLabelMap.get(promotion.campaign_id) ?? promotion.campaign_id : '없음'} / 기간{' '}
+                    {formatDateTime(promotion.starts_at)} ~ {formatDateTime(promotion.ends_at)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" intent="neutral" onClick={() => handleStartPromotionEdit(promotion)}>
+                    Edit
+                  </Button>
+                  <Button size="sm" intent="neutral" onClick={() => handleOpenPromotionRules(promotion.id)}>
+                    Rules
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {editingPromotionId && (
+          <form className="mt-6 rounded-md border border-indigo-200 bg-indigo-50 p-4" onSubmit={handleUpdatePromotion}>
+            <p className="text-sm font-semibold text-indigo-900">Promotion 수정</p>
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-5">
+              <Input
+                placeholder="name"
+                value={editingPromotionName}
+                onChange={(event) => setEditingPromotionName(event.target.value)}
+                required
+              />
+              <Input
+                placeholder="description"
+                value={editingPromotionDescription}
+                onChange={(event) => setEditingPromotionDescription(event.target.value)}
+              />
+              <select
+                value={editingPromotionType}
+                onChange={(event) => setEditingPromotionType(event.target.value as PromotionTypeValue)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                {PROMOTION_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={editingPromotionStatus}
+                onChange={(event) => setEditingPromotionStatus(event.target.value as PromotionStatusValue)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                <option value="DRAFT">DRAFT</option>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="SUSPENDED">SUSPENDED</option>
+                <option value="ARCHIVED">ARCHIVED</option>
+              </select>
+              <select
+                value={editingPromotionCombinability}
+                onChange={(event) =>
+                  setEditingPromotionCombinability(event.target.value as PromotionCombinabilityValue)
+                }
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                <option value="STACKABLE">STACKABLE</option>
+                <option value="EXCLUSIVE">EXCLUSIVE</option>
+              </select>
+              <Input
+                placeholder="discount_value"
+                value={editingPromotionDiscountValue}
+                onChange={(event) => setEditingPromotionDiscountValue(event.target.value)}
+              />
+              <Input
+                placeholder="max_discount_amount (optional)"
+                value={editingPromotionMaxDiscountAmount}
+                onChange={(event) => setEditingPromotionMaxDiscountAmount(event.target.value)}
+              />
+              <Input
+                placeholder="priority"
+                value={editingPromotionPriority}
+                onChange={(event) => setEditingPromotionPriority(event.target.value)}
+              />
+              <select
+                value={editingPromotionCampaignId}
+                onChange={(event) => setEditingPromotionCampaignId(event.target.value)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                <option value="">campaign 없음</option>
+                {(campaigns || []).map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.code} ({campaign.name})
+                  </option>
+                ))}
+              </select>
+              <label className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={editingPromotionCouponRequired}
+                  onChange={(event) => setEditingPromotionCouponRequired(event.target.checked)}
+                />
+                coupon_required
+              </label>
+              <Input
+                type="datetime-local"
+                value={editingPromotionStartsAtInput}
+                onChange={(event) => setEditingPromotionStartsAtInput(event.target.value)}
+              />
+              <Input
+                type="datetime-local"
+                value={editingPromotionEndsAtInput}
+                onChange={(event) => setEditingPromotionEndsAtInput(event.target.value)}
+              />
+              <Input
+                placeholder="channel scope"
+                value={editingPromotionChannelScopeInput}
+                onChange={(event) => setEditingPromotionChannelScopeInput(event.target.value)}
+              />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Button type="submit" loading={updatePromotion.isPending}>
+                저장
+              </Button>
+              <Button type="button" intent="neutral" onClick={handleCancelPromotionEdit}>
+                취소
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {selectedPromotionId && (
+          <div className="mt-6 rounded-md border border-blue-200 bg-blue-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-blue-900">
+                Promotion Rules · {selectedPromotion?.name ?? selectedPromotionId}
+              </p>
+              <Button type="button" size="sm" intent="neutral" onClick={() => setSelectedPromotionId(null)}>
+                닫기
+              </Button>
+            </div>
+            <form className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4" onSubmit={handleCreatePromotionRule}>
+              <select
+                value={newRuleType}
+                onChange={(event) => setNewRuleType(event.target.value as PromotionRuleTypeValue)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                {PROMOTION_RULE_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={newRuleStatus}
+                onChange={(event) => setNewRuleStatus(event.target.value as PriceItemStatusValue)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="INACTIVE">INACTIVE</option>
+              </select>
+              <Input
+                placeholder="sort_order"
+                value={newRuleSortOrder}
+                onChange={(event) => setNewRuleSortOrder(event.target.value)}
+              />
+              <Textarea
+                rows={5}
+                value={newRulePayloadJson}
+                onChange={(event) => setNewRulePayloadJson(event.target.value)}
+                placeholder='{"min_amount":50000}'
+                className="md:col-span-3"
+              />
+              <Button type="submit" loading={createPromotionRule.isPending}>
+                Rule 추가
+              </Button>
+            </form>
+            <div className="mt-4 space-y-2">
+              {promotionRulesLoading && (
+                <p className="text-sm text-gray-500">rule 목록을 불러오는 중입니다...</p>
+              )}
+              {!promotionRulesLoading && (promotionRules || []).length === 0 && (
+                <p className="text-sm text-gray-500">등록된 rule이 없습니다.</p>
+              )}
+              {(promotionRules || []).map((rule) => (
+                <div key={rule.id} className="rounded-md border border-blue-100 bg-white p-3">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                        <Badge intent="default">{rule.rule_type}</Badge>
+                        <Badge intent={rule.status === 'ACTIVE' ? 'success' : 'warning'}>{rule.status}</Badge>
+                        <span>sort={rule.sort_order}</span>
+                        <span>{rule.id}</span>
+                      </div>
+                      <pre className="mt-2 overflow-auto rounded bg-gray-900 p-2 text-xs text-gray-100">
+                        {JSON.stringify(rule.rule_payload ?? {}, null, 2)}
+                      </pre>
+                    </div>
+                    <Button size="sm" intent="neutral" onClick={() => handleStartRuleEdit(rule)}>
+                      Edit
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {editingRuleId && (
+              <form className="mt-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={handleUpdateRule}>
+                <p className="text-sm font-semibold text-gray-900">Rule 수정</p>
+                <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-4">
+                  <select
+                    value={editingRuleType}
+                    onChange={(event) => setEditingRuleType(event.target.value as PromotionRuleTypeValue)}
+                    className={FIELD_SELECT_CLASS_NAME}
+                  >
+                    {PROMOTION_RULE_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={editingRuleStatus}
+                    onChange={(event) => setEditingRuleStatus(event.target.value as PriceItemStatusValue)}
+                    className={FIELD_SELECT_CLASS_NAME}
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="INACTIVE">INACTIVE</option>
+                  </select>
+                  <Input
+                    placeholder="sort_order"
+                    value={editingRuleSortOrder}
+                    onChange={(event) => setEditingRuleSortOrder(event.target.value)}
+                  />
+                  <Textarea
+                    rows={5}
+                    value={editingRulePayloadJson}
+                    onChange={(event) => setEditingRulePayloadJson(event.target.value)}
+                    className="md:col-span-3"
+                  />
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button type="submit" loading={updatePromotionRule.isPending}>
+                    저장
+                  </Button>
+                  <Button type="button" intent="neutral" onClick={handleCancelRuleEdit}>
+                    취소
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+
+        <hr className="my-8 border-gray-200" />
+
+        <h3 className="text-base font-semibold text-gray-900">Coupon 관리</h3>
+        <form className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-8" onSubmit={handleCreateCoupon}>
           <Input
             placeholder="coupon code"
             value={couponCode}
             onChange={(event) => setCouponCode(event.target.value)}
             required
           />
-          <Input
-            placeholder="promotion_id"
+          <select
             value={couponPromotionId}
             onChange={(event) => setCouponPromotionId(event.target.value)}
-            required
+            className={FIELD_SELECT_CLASS_NAME}
+          >
+            <option value="">promotion 선택</option>
+            {(promotions || []).map((promotion) => (
+              <option key={promotion.id} value={promotion.id}>
+                {promotion.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={couponStatus}
+            onChange={(event) => setCouponStatus(event.target.value as CouponStatusValue)}
+            className={FIELD_SELECT_CLASS_NAME}
+          >
+            <option value="DRAFT">DRAFT</option>
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="PAUSED">PAUSED</option>
+            <option value="ARCHIVED">ARCHIVED</option>
+          </select>
+          <Input
+            type="datetime-local"
+            value={couponStartsAtInput}
+            onChange={(event) => setCouponStartsAtInput(event.target.value)}
           />
-          <Button type="submit" loading={createCoupon.isPending}>
+          <Input
+            type="datetime-local"
+            value={couponEndsAtInput}
+            onChange={(event) => setCouponEndsAtInput(event.target.value)}
+          />
+          <Input
+            placeholder="max_issuance (optional)"
+            value={couponMaxIssuance}
+            onChange={(event) => setCouponMaxIssuance(event.target.value)}
+          />
+          <Input
+            placeholder="max_redemptions_per_user"
+            value={couponMaxPerUser}
+            onChange={(event) => setCouponMaxPerUser(event.target.value)}
+          />
+          <Input
+            placeholder="channel scope (WEB, MOBILE)"
+            value={couponChannelScopeInput}
+            onChange={(event) => setCouponChannelScopeInput(event.target.value)}
+          />
+          <Button type="submit" loading={createCoupon.isPending} className="md:col-span-8 md:w-fit">
             coupon 생성
           </Button>
         </form>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <p className="text-sm font-medium text-gray-700">Promotions</p>
-            <div className="mt-2 space-y-2">
+        <div className="mt-6 rounded-md border border-gray-200 bg-gray-50 p-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+            <Input
+              placeholder="coupon 검색(code/id)"
+              value={couponSearchKeyword}
+              onChange={(event) => setCouponSearchKeyword(event.target.value)}
+            />
+            <select
+              value={couponStatusFilter}
+              onChange={(event) => setCouponStatusFilter(event.target.value as CouponFilterStatus)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="ALL">모든 상태</option>
+              <option value="DRAFT">DRAFT</option>
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="PAUSED">PAUSED</option>
+              <option value="EXHAUSTED">EXHAUSTED</option>
+              <option value="EXPIRED">EXPIRED</option>
+              <option value="ARCHIVED">ARCHIVED</option>
+            </select>
+            <select
+              value={couponPromotionFilter}
+              onChange={(event) => setCouponPromotionFilter(event.target.value)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="ALL">모든 promotion</option>
+              <option value="NONE">promotion 없음</option>
               {(promotions || []).map((promotion) => (
-                <div key={promotion.id} className="rounded border border-gray-200 p-2 text-xs">
-                  <p className="font-medium text-gray-900">{promotion.name}</p>
-                  <p className="text-gray-500">
-                    {promotion.promotion_type} / {promotion.status} / discount={promotion.discount_value}
-                  </p>
-                </div>
+                <option key={promotion.id} value={promotion.id}>
+                  {promotion.name}
+                </option>
               ))}
-            </div>
+            </select>
+            <select
+              value={couponSortKey}
+              onChange={(event) => setCouponSortKey(event.target.value as CouponSortKey)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="UPDATED_DESC">최근 수정순</option>
+              <option value="CODE_ASC">코드순</option>
+              <option value="REDEEMED_DESC">redeemed 많은순</option>
+            </select>
           </div>
-          <div>
-            <p className="text-sm font-medium text-gray-700">Coupons</p>
-            <div className="mt-2 space-y-2">
-              {(coupons || []).map((coupon) => (
-                <div key={coupon.id} className="rounded border border-gray-200 p-2 text-xs">
-                  <p className="font-medium text-gray-900">{coupon.code}</p>
-                  <p className="text-gray-500">
-                    {coupon.status} / reserved={coupon.reserved_count} / redeemed={coupon.redeemed_count}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
+          <p className="mt-2 text-xs text-gray-500">검색 결과 {filteredCoupons.length}건</p>
         </div>
+
+        <div className="mt-4 space-y-2">
+          {filteredCoupons.length === 0 && (
+            <p className="rounded-md border border-dashed border-gray-300 px-3 py-5 text-center text-sm text-gray-500">
+              조건에 맞는 coupon이 없습니다.
+            </p>
+          )}
+          {filteredCoupons.map((coupon) => (
+            <div key={coupon.id} className="rounded-md border border-gray-200 p-3">
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="font-medium text-gray-900">{coupon.code}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                    <Badge intent={getCouponStatusBadgeIntent(coupon.status as CouponStatusValue)}>
+                      {coupon.status}
+                    </Badge>
+                    <span>promotion={coupon.promotion_id ? promotionLabelMap.get(coupon.promotion_id) ?? coupon.promotion_id : '없음'}</span>
+                    <span>reserved={coupon.reserved_count}</span>
+                    <span>redeemed={coupon.redeemed_count}</span>
+                    <span>{coupon.id}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    기간 {formatDateTime(coupon.starts_at)} ~ {formatDateTime(coupon.ends_at)} / max_issuance=
+                    {coupon.max_issuance ?? '-'} / per_user={coupon.max_redemptions_per_user}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" intent="neutral" onClick={() => handleStartCouponEdit(coupon)}>
+                    Edit
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {editingCouponId && (
+          <form className="mt-6 rounded-md border border-indigo-200 bg-indigo-50 p-4" onSubmit={handleUpdateCoupon}>
+            <p className="text-sm font-semibold text-indigo-900">Coupon 수정</p>
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-5">
+              <Input
+                placeholder="coupon code"
+                value={editingCouponCode}
+                onChange={(event) => setEditingCouponCode(event.target.value)}
+                required
+              />
+              <select
+                value={editingCouponStatus}
+                onChange={(event) => setEditingCouponStatus(event.target.value as CouponStatusValue)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                <option value="DRAFT">DRAFT</option>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="PAUSED">PAUSED</option>
+                <option value="EXHAUSTED">EXHAUSTED</option>
+                <option value="EXPIRED">EXPIRED</option>
+                <option value="ARCHIVED">ARCHIVED</option>
+              </select>
+              <select
+                value={editingCouponPromotionId}
+                onChange={(event) => setEditingCouponPromotionId(event.target.value)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                <option value="">promotion 없음</option>
+                {(promotions || []).map((promotion) => (
+                  <option key={promotion.id} value={promotion.id}>
+                    {promotion.name}
+                  </option>
+                ))}
+              </select>
+              <Input
+                type="datetime-local"
+                value={editingCouponStartsAtInput}
+                onChange={(event) => setEditingCouponStartsAtInput(event.target.value)}
+              />
+              <Input
+                type="datetime-local"
+                value={editingCouponEndsAtInput}
+                onChange={(event) => setEditingCouponEndsAtInput(event.target.value)}
+              />
+              <Input
+                placeholder="max_issuance (optional)"
+                value={editingCouponMaxIssuance}
+                onChange={(event) => setEditingCouponMaxIssuance(event.target.value)}
+              />
+              <Input
+                placeholder="max_redemptions_per_user"
+                value={editingCouponMaxPerUser}
+                onChange={(event) => setEditingCouponMaxPerUser(event.target.value)}
+              />
+              <Input
+                placeholder="channel scope"
+                value={editingCouponChannelScopeInput}
+                onChange={(event) => setEditingCouponChannelScopeInput(event.target.value)}
+              />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Button type="submit" loading={updateCoupon.isPending}>
+                저장
+              </Button>
+              <Button type="button" intent="neutral" onClick={handleCancelCouponEdit}>
+                취소
+              </Button>
+            </div>
+          </form>
+        )}
       </section>
 
       <section
@@ -2438,11 +3574,18 @@ export default function V2CatalogPricingPage() {
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Input
-            placeholder="reserve coupon_id"
+          <select
             value={reserveCouponId}
             onChange={(event) => setReserveCouponId(event.target.value)}
-          />
+            className={FIELD_SELECT_CLASS_NAME}
+          >
+            <option value="">reserve coupon 선택</option>
+            {(coupons || []).map((coupon) => (
+              <option key={coupon.id} value={coupon.id}>
+                {coupon.code} ({coupon.status})
+              </option>
+            ))}
+          </select>
           <Input
             placeholder="reserve user_id"
             value={reserveCouponUserId}
@@ -2487,6 +3630,94 @@ export default function V2CatalogPricingPage() {
           <pre className="overflow-auto rounded-md bg-gray-900 p-3 text-xs text-gray-100">
             {JSON.stringify(couponOpResult, null, 2)}
           </pre>
+        </div>
+
+        <div className="mt-6 rounded-md border border-gray-200 bg-gray-50 p-4">
+          <p className="text-sm font-semibold text-gray-900">Coupon Redemptions</p>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <select
+              value={redemptionCouponFilter}
+              onChange={(event) => setRedemptionCouponFilter(event.target.value)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="">coupon 전체</option>
+              {(coupons || []).map((coupon) => (
+                <option key={coupon.id} value={coupon.id}>
+                  {coupon.code}
+                </option>
+              ))}
+            </select>
+            <Input
+              placeholder="user_id"
+              value={redemptionUserIdFilter}
+              onChange={(event) => setRedemptionUserIdFilter(event.target.value)}
+            />
+            <select
+              value={redemptionStatusFilter}
+              onChange={(event) =>
+                setRedemptionStatusFilter(
+                  event.target.value as 'ALL' | CouponRedemptionStatusValue,
+                )
+              }
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="ALL">status 전체</option>
+              <option value="RESERVED">RESERVED</option>
+              <option value="APPLIED">APPLIED</option>
+              <option value="RELEASED">RELEASED</option>
+              <option value="CANCELED">CANCELED</option>
+              <option value="EXPIRED">EXPIRED</option>
+            </select>
+            <Input
+              placeholder="quote_reference"
+              value={redemptionQuoteReferenceFilter}
+              onChange={(event) => setRedemptionQuoteReferenceFilter(event.target.value)}
+            />
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {couponRedemptionsLoading && (
+              <p className="text-sm text-gray-500">redemption 목록을 불러오는 중입니다...</p>
+            )}
+            {!couponRedemptionsLoading && sortedCouponRedemptions.length === 0 && (
+              <p className="text-sm text-gray-500">조건에 맞는 redemption이 없습니다.</p>
+            )}
+            {sortedCouponRedemptions.map((redemption) => (
+              <div key={redemption.id} className="rounded-md border border-gray-200 bg-white p-3">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                      <Badge intent="default">{redemption.status}</Badge>
+                      <span>coupon={redemption.coupon_id}</span>
+                      <span>user={redemption.user_id}</span>
+                      <span>{redemption.id}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      reserved={formatDateTime(redemption.reserved_at)} / applied=
+                      {formatDateTime(redemption.applied_at)} / released=
+                      {formatDateTime(redemption.released_at)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      intent="neutral"
+                      onClick={() => setReleaseRedemptionId(redemption.id)}
+                    >
+                      Release ID 채우기
+                    </Button>
+                    <Button
+                      size="sm"
+                      intent="neutral"
+                      onClick={() => setRedeemRedemptionId(redemption.id)}
+                    >
+                      Redeem ID 채우기
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
