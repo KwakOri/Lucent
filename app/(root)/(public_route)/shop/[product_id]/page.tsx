@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Headphones, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Loading } from "@/components/ui/loading";
 import {
   useSession,
   useV2AddCartItem,
+  useV2ShopCampaigns,
   useV2ShopProduct,
 } from "@/lib/client/hooks";
 import type {
@@ -72,8 +73,27 @@ export default function ProductDetailPage() {
   const { showToast } = useToast();
   const addCartItem = useV2AddCartItem();
   const params = useParams();
+  const searchParams = useSearchParams();
   const productId = params.product_id as string;
-  const { data, isLoading, error } = useV2ShopProduct(productId);
+  const selectedCampaignId = searchParams.get("campaign_id")?.trim() || "";
+  const shopPath = selectedCampaignId
+    ? `/shop?campaign_id=${encodeURIComponent(selectedCampaignId)}`
+    : "/shop";
+  const detailPath = selectedCampaignId
+    ? `/shop/${productId}?campaign_id=${encodeURIComponent(selectedCampaignId)}`
+    : `/shop/${productId}`;
+  const { data: campaigns = [] } = useV2ShopCampaigns({
+    channel: "WEB",
+  });
+  const selectedCampaign = useMemo(
+    () =>
+      campaigns.find((campaign) => campaign.id === selectedCampaignId) || null,
+    [campaigns, selectedCampaignId],
+  );
+  const { data, isLoading, error } = useV2ShopProduct(productId, {
+    channel: "WEB",
+    campaign_id: selectedCampaignId || undefined,
+  });
 
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
@@ -111,7 +131,7 @@ export default function ProductDetailPage() {
               : "요청하신 상품 정보를 불러오지 못했습니다."
           }
         >
-          <Link href="/shop">
+          <Link href={shopPath}>
             <Button intent="primary" size="md">
               <ArrowLeft className="h-4 w-4" />
               상점으로 돌아가기
@@ -139,7 +159,7 @@ export default function ProductDetailPage() {
     hasSelectedVariant && selectedVariant.availability.sellable && !soldOut;
 
   const requestLogin = () => {
-    router.push(`/login?redirect=${encodeURIComponent(`/shop/${productId}`)}`);
+    router.push(`/login?redirect=${encodeURIComponent(detailPath)}`);
   };
 
   const handleQuantityChange = (nextQuantity: number) => {
@@ -179,6 +199,7 @@ export default function ProductDetailPage() {
       await addCartItem.mutateAsync({
         variant_id: selectedVariant.id,
         quantity: normalizedQuantity,
+        campaign_id: selectedCampaignId || null,
         display_price_snapshot: buildDisplayPriceSnapshot(
           selectedVariant.display_price,
         ),
@@ -186,11 +207,16 @@ export default function ProductDetailPage() {
         metadata: {
           source: "shop-detail",
           product_id: data?.product.id || productId,
+          campaign_id: selectedCampaignId || null,
         },
       });
 
       if (buyNow) {
-        router.push("/checkout");
+        router.push(
+          selectedCampaignId
+            ? `/checkout?campaign_id=${selectedCampaignId}`
+            : "/checkout",
+        );
         return;
       }
 
@@ -210,7 +236,7 @@ export default function ProductDetailPage() {
     <div className="min-h-screen bg-neutral-50">
       <div className="mx-auto max-w-6xl px-4 py-12">
         <Link
-          href="/shop"
+          href={shopPath}
           className="mb-8 inline-flex items-center gap-2 text-text-secondary transition-colors hover:text-text-primary"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -272,6 +298,9 @@ export default function ProductDetailPage() {
                 <Badge intent="default">
                   {data.product.product_kind === "BUNDLE" ? "Bundle" : "Standard"}
                 </Badge>
+                {selectedCampaign && (
+                  <Badge intent="info">{selectedCampaign.name}</Badge>
+                )}
                 {!data.product.availability.sellable && (
                   <Badge intent="error">
                     {data.product.availability.reason === "OUT_OF_STOCK"
