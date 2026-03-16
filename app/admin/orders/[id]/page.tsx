@@ -12,6 +12,7 @@ import {
   useV2AdminOrderDetail,
   useV2AdminRefundOrder,
 } from '@/lib/client/hooks/useV2AdminOps';
+import { groupV2OrderItems } from '@/lib/client/utils/v2-order-item-groups';
 import { useToast } from '@/src/components/toast';
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -67,6 +68,16 @@ function statusBadgeClass(status: string) {
   return 'bg-green-100 text-green-700';
 }
 
+function lineTypeLabel(lineType: string): string {
+  if (lineType === 'BUNDLE_PARENT') {
+    return '번들';
+  }
+  if (lineType === 'BUNDLE_COMPONENT') {
+    return '구성품';
+  }
+  return '일반';
+}
+
 export default function AdminOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = params.id;
@@ -81,8 +92,8 @@ export default function AdminOrderDetailPage() {
   const detail = orderDetailQuery.data;
   const order = detail?.order ? asObject(detail.order) : null;
 
-  const orderItems = useMemo(
-    () => ((detail?.items || []) as Array<Record<string, unknown>>),
+  const orderItemGroups = useMemo(
+    () => groupV2OrderItems((detail?.items || []) as Array<Record<string, unknown>>),
     [detail?.items],
   );
 
@@ -241,30 +252,51 @@ export default function AdminOrderDetailPage() {
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <h2 className="text-lg font-semibold text-gray-900">주문 아이템</h2>
         <div className="mt-4 space-y-3">
-          {orderItems.map((item, index) => {
-            const display = asObject(item.display_snapshot);
-            const title =
-              readString(display.title) ||
-              readString(display.variant_title) ||
-              `아이템 ${index + 1}`;
-            return (
+          {orderItemGroups.length === 0 ? (
+            <p className="text-sm text-gray-500">주문 아이템이 없습니다.</p>
+          ) : (
+            orderItemGroups.map((group, index) => (
               <div
-                key={readString(item.id) || `${index}`}
+                key={group.key || `${group.id}-${index}`}
                 className="rounded-lg border border-gray-200 p-3"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium text-gray-900">{title}</p>
-                  <p className="font-semibold text-gray-900">
-                    {formatCurrency(readNumber(item.final_line_total))}
-                  </p>
+                  <p className="font-medium text-gray-900">{group.title}</p>
+                  <p className="font-semibold text-gray-900">{formatCurrency(group.lineTotal)}</p>
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  {readString(item.line_type)} · 수량 {readNumber(item.quantity)} · 상태{' '}
-                  {readString(item.line_status)}
+                  {lineTypeLabel(group.lineType)} · 수량 {group.quantity} · 상태{' '}
+                  {group.lineStatus || '-'}
                 </p>
+
+                {group.components.length > 0 && (
+                  <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+                    <p className="text-xs font-semibold text-gray-700">
+                      구성품 {group.components.length}개
+                    </p>
+                    <div className="mt-2 space-y-2">
+                      {group.components.map((component, componentIndex) => (
+                        <div
+                          key={`${component.id}-${componentIndex}`}
+                          className="flex items-start justify-between gap-2"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">{component.title}</p>
+                            <p className="text-xs text-gray-500">
+                              수량 {component.quantity} · 상태 {component.lineStatus || '-'}
+                            </p>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {formatCurrency(component.lineTotal)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            );
-          })}
+            ))
+          )}
         </div>
       </section>
 

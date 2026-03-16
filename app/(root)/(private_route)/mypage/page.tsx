@@ -18,6 +18,7 @@ import {
   useV2CancelOrder,
   useV2CheckoutOrders,
 } from '@/lib/client/hooks';
+import { groupV2OrderItems } from '@/lib/client/utils/v2-order-item-groups';
 import { useToast } from '@/src/components/toast';
 
 type UnifiedSource = 'V1' | 'V2';
@@ -29,6 +30,14 @@ interface UnifiedOrderItem {
   lineTotal: number;
   isDigital: boolean;
   itemStatus: string;
+  lineType: 'STANDARD' | 'BUNDLE_PARENT' | 'BUNDLE_COMPONENT';
+  components: Array<{
+    id: string;
+    title: string;
+    quantity: number;
+    lineTotal: number;
+    itemStatus: string;
+  }>;
 }
 
 interface UnifiedOrder {
@@ -41,28 +50,6 @@ interface UnifiedOrder {
   paymentStatus?: string;
   fulfillmentStatus?: string;
   items: UnifiedOrderItem[];
-}
-
-function asObject(value: unknown): Record<string, unknown> {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return {};
-}
-
-function readString(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function readNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
 }
 
 function formatCurrency(amount: number): string {
@@ -89,6 +76,8 @@ function mapV1Order(order: OrderWithItems): UnifiedOrder {
     lineTotal: item.price_snapshot * item.quantity,
     isDigital: item.product_type === 'VOICE_PACK',
     itemStatus: item.item_status || '',
+    lineType: 'STANDARD',
+    components: [],
   }));
 
   return {
@@ -103,25 +92,24 @@ function mapV1Order(order: OrderWithItems): UnifiedOrder {
 }
 
 function mapV2Order(order: V2CheckoutOrder): UnifiedOrder {
-  const items: UnifiedOrderItem[] = (order.items || []).map((rawItem, index) => {
-    const item = asObject(rawItem);
-    const display = asObject(item.display_snapshot);
-    const title =
-      readString(display.title) ||
-      readString(display.variant_title) ||
-      readString(item.variant_id) ||
-      `상품 ${index + 1}`;
-    const fulfillmentType = readString(display.fulfillment_type);
-
-    return {
-      id: readString(item.id) || `${order.id}-${index}`,
-      title,
-      quantity: readNumber(item.quantity),
-      lineTotal: readNumber(item.final_line_total),
-      isDigital: fulfillmentType === 'DIGITAL',
-      itemStatus: readString(item.line_status),
-    };
-  });
+  const items: UnifiedOrderItem[] = groupV2OrderItems(
+    (order.items || []) as Array<Record<string, unknown>>,
+  ).map((group, index) => ({
+    id: group.id || `${order.id}-${index}`,
+    title: group.title,
+    quantity: group.quantity,
+    lineTotal: group.lineTotal,
+    isDigital: !group.requiresShipping,
+    itemStatus: group.lineStatus,
+    lineType: group.lineType,
+    components: group.components.map((component) => ({
+      id: component.id,
+      title: component.title,
+      quantity: component.quantity,
+      lineTotal: component.lineTotal,
+      itemStatus: component.lineStatus,
+    })),
+  }));
 
   return {
     source: 'V2',
@@ -405,34 +393,74 @@ export default function MyPage() {
                     {order.items.map((item) => (
                       <div
                         key={item.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-neutral-50 p-3"
+                        className="rounded-lg bg-neutral-50 p-3"
                       >
-                        <div>
-                          <p className="font-medium text-text-primary">{item.title}</p>
-                          <p className="text-sm text-text-secondary">
-                            {item.quantity}개 · {formatCurrency(item.lineTotal)}
-                          </p>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-text-primary">{item.title}</p>
+                              {order.source === 'V2' && item.lineType === 'BUNDLE_PARENT' && (
+                                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                                  번들
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-text-secondary">
+                              {item.quantity}개 · {formatCurrency(item.lineTotal)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {order.source === 'V1' &&
+                              item.isDigital &&
+                              item.itemStatus === 'COMPLETED' && (
+                                <Button
+                                  intent="primary"
+                                  size="sm"
+                                  disabled={downloadMutation.isPending}
+                                  onClick={() =>
+                                    void handleDownload(order.id, item.id, item.title)
+                                  }
+                                >
+                                  <Download className="h-4 w-4" />
+                                  다운로드
+                                </Button>
+                              )}
+                            <span className="text-xs text-text-secondary">
+                              {item.itemStatus ? getStatusLabel(item.itemStatus) : '-'}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {order.source === 'V1' &&
-                            item.isDigital &&
-                            item.itemStatus === 'COMPLETED' && (
-                              <Button
-                                intent="primary"
-                                size="sm"
-                                disabled={downloadMutation.isPending}
-                                onClick={() =>
-                                  void handleDownload(order.id, item.id, item.title)
-                                }
-                              >
-                                <Download className="h-4 w-4" />
-                                다운로드
-                              </Button>
-                            )}
-                          <span className="text-xs text-text-secondary">
-                            {getStatusLabel(item.itemStatus)}
-                          </span>
-                        </div>
+
+                        {item.components.length > 0 && (
+                          <div className="mt-2 rounded-md border border-neutral-200 bg-white p-2">
+                            <p className="text-xs font-semibold text-text-secondary">
+                              구성품 {item.components.length}개
+                            </p>
+                            <div className="mt-2 space-y-2">
+                              {item.components.map((component) => (
+                                <div
+                                  key={component.id}
+                                  className="flex items-start justify-between gap-3"
+                                >
+                                  <div>
+                                    <p className="text-sm font-medium text-text-primary">
+                                      {component.title}
+                                    </p>
+                                    <p className="text-xs text-text-secondary">
+                                      {component.quantity}개 ·{' '}
+                                      {component.itemStatus
+                                        ? getStatusLabel(component.itemStatus)
+                                        : '-'}
+                                    </p>
+                                  </div>
+                                  <p className="text-sm font-medium text-text-primary">
+                                    {formatCurrency(component.lineTotal)}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
