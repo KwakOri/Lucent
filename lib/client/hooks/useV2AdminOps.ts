@@ -29,6 +29,7 @@ import {
   type SaveV2AdminCutoverStageIssueInput,
   type SaveV2AdminCutoverStageRunInput,
   type UpdateV2AdminCutoverDomainInput,
+  type V2AdminOrderLinearTransitionInput,
 } from '@/lib/client/api/v2-admin-ops.api';
 import { queryKeys } from './query-keys';
 
@@ -223,6 +224,28 @@ export function useV2AdminBulkOrderAction() {
   return useMutation({
     mutationFn: async (data: BulkV2AdminOrderActionInput) => {
       const response = await V2AdminOpsAPI.bulkOrderAction(data);
+      return response.data;
+    },
+    onSettled: async () => {
+      await invalidateV2AdminOps(queryClient);
+    },
+  });
+}
+
+export function useV2AdminOrderLinearTransitionPreview() {
+  return useMutation({
+    mutationFn: async (data: V2AdminOrderLinearTransitionInput) => {
+      const response = await V2AdminOpsAPI.previewOrderLinearTransition(data);
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminOrderLinearTransitionExecute() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: V2AdminOrderLinearTransitionInput) => {
+      const response = await V2AdminOpsAPI.executeOrderLinearTransition(data);
       return response.data;
     },
     onSettled: async () => {

@@ -445,6 +445,73 @@ export interface V2AdminBulkOrderActionResult {
   };
 }
 
+export type V2AdminOrderLinearStage =
+  | 'PAYMENT_PENDING'
+  | 'PRODUCTION'
+  | 'READY_TO_SHIP'
+  | 'IN_TRANSIT'
+  | 'DELIVERED';
+
+export type V2AdminOrderLinearTransitionActionKey =
+  | 'ORDER_PAYMENT_MARK_CAPTURED'
+  | 'FULFILLMENT_SHIPMENT_DISPATCH'
+  | 'FULFILLMENT_SHIPMENT_DELIVER'
+  | 'FULFILLMENT_ENTITLEMENT_REISSUE';
+
+export interface V2AdminOrderLinearTransitionAction {
+  sequence: number;
+  action_key: V2AdminOrderLinearTransitionActionKey;
+  resource_type: 'ORDER' | 'SHIPMENT' | 'DIGITAL_ENTITLEMENT';
+  resource_id: string;
+  from_state: string | null;
+  to_state: string | null;
+  requires_approval: boolean;
+  note: string | null;
+}
+
+export interface V2AdminOrderLinearTransitionRow {
+  order_id: string;
+  order_no: string | null;
+  exists: boolean;
+  current_stage: V2AdminOrderLinearStage | null;
+  target_stage: V2AdminOrderLinearStage;
+  executable: boolean;
+  statuses: {
+    order_status: string;
+    payment_status: string;
+    fulfillment_status: string;
+  } | null;
+  composition: {
+    has_bundle: boolean;
+    has_physical: boolean;
+    has_digital: boolean;
+  };
+  action_count: number;
+  actions: V2AdminOrderLinearTransitionAction[];
+  blocked_reasons: string[];
+}
+
+export interface V2AdminOrderLinearTransitionResult {
+  mode: 'PREVIEW' | 'EXECUTE';
+  requested_at: string;
+  target_stage: V2AdminOrderLinearStage;
+  summary: {
+    requested_order_count: number;
+    found_order_count: number;
+    executable_order_count: number;
+    blocked_order_count: number;
+    total_action_count: number;
+  };
+  rows: V2AdminOrderLinearTransitionRow[];
+  execute?: {
+    attempted_action_count: number;
+    succeeded_count: number;
+    pending_approval_count: number;
+    failed_count: number;
+    logs: Array<Record<string, unknown>>;
+  };
+}
+
 export interface V2AdminFulfillmentQueueRow {
   fulfillment_group_id: string;
   order_id: string;
@@ -495,6 +562,14 @@ export interface BulkV2AdminOrderActionInput {
   reason?: string | null;
   request_id?: string | null;
   preview_limit?: number;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface V2AdminOrderLinearTransitionInput {
+  order_ids: string[];
+  target_stage: V2AdminOrderLinearStage;
+  reason?: string | null;
+  request_id?: string | null;
   metadata?: Record<string, unknown> | null;
 }
 
@@ -708,6 +783,18 @@ export const V2AdminOpsAPI = {
     data: BulkV2AdminOrderActionInput,
   ): Promise<ApiResponse<V2AdminBulkOrderActionResult>> {
     return apiClient.post('/api/v2/admin/ops/orders/bulk-actions', data);
+  },
+
+  async previewOrderLinearTransition(
+    data: V2AdminOrderLinearTransitionInput,
+  ): Promise<ApiResponse<V2AdminOrderLinearTransitionResult>> {
+    return apiClient.post('/api/v2/admin/ops/orders/transition-preview', data);
+  },
+
+  async executeOrderLinearTransition(
+    data: V2AdminOrderLinearTransitionInput,
+  ): Promise<ApiResponse<V2AdminOrderLinearTransitionResult>> {
+    return apiClient.post('/api/v2/admin/ops/orders/transition-execute', data);
   },
 
   async listFulfillmentQueue(

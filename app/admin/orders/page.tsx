@@ -1,12 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
 import { Input } from '@/components/ui/input';
-import { useV2AdminOrderQueue } from '@/lib/client/hooks/useV2AdminOps';
+import type {
+  V2AdminOrderLinearStage,
+  V2AdminOrderLinearTransitionResult,
+  V2AdminOrderQueueRow,
+} from '@/lib/client/api/v2-admin-ops.api';
+import {
+  useV2AdminOrderLinearTransitionExecute,
+  useV2AdminOrderLinearTransitionPreview,
+  useV2AdminOrderQueue,
+} from '@/lib/client/hooks/useV2AdminOps';
 
 function formatCurrency(amount: number): string {
   return `${Math.max(0, amount).toLocaleString()}원`;
@@ -52,13 +61,70 @@ function compositionBadgeClass(type: 'BUNDLE' | 'DIGITAL' | 'PHYSICAL') {
   return 'bg-orange-100 text-orange-700';
 }
 
+function linearStageLabel(stage: V2AdminOrderLinearStage): string {
+  if (stage === 'PAYMENT_PENDING') {
+    return '입금 대기';
+  }
+  if (stage === 'PRODUCTION') {
+    return '제작중';
+  }
+  if (stage === 'READY_TO_SHIP') {
+    return '배송 대기';
+  }
+  if (stage === 'IN_TRANSIT') {
+    return '배송 중';
+  }
+  return '배송 완료';
+}
+
+function resolveLinearStageFromRow(row: V2AdminOrderQueueRow): V2AdminOrderLinearStage {
+  const paymentStatus = String(row.payment_status || '').toUpperCase();
+  const isPaymentCaptured = ['AUTHORIZED', 'CAPTURED', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(
+    paymentStatus,
+  );
+  if (!isPaymentCaptured) {
+    return 'PAYMENT_PENDING';
+  }
+
+  if (row.has_physical) {
+    const waiting = Number(row.waiting_shipment_count || 0);
+    const inTransit = Number(row.in_transit_shipment_count || 0);
+    const delivered = Number(row.delivered_shipment_count || 0);
+
+    if (inTransit > 0) {
+      return 'IN_TRANSIT';
+    }
+    if (waiting > 0) {
+      return 'READY_TO_SHIP';
+    }
+    if (delivered > 0 && waiting === 0 && inTransit === 0) {
+      return 'DELIVERED';
+    }
+    return 'PRODUCTION';
+  }
+
+  if (row.has_digital && Number(row.active_entitlement_count || 0) === 0) {
+    return 'DELIVERED';
+  }
+  return 'PRODUCTION';
+}
+
 export default function AdminOrdersPage() {
   const [orderStatusFilter, setOrderStatusFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [targetStage, setTargetStage] = useState<V2AdminOrderLinearStage>('PRODUCTION');
+  const [transitionReason, setTransitionReason] = useState('');
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [transitionResult, setTransitionResult] =
+    useState<V2AdminOrderLinearTransitionResult | null>(null);
+  const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
+
   const { data, isLoading, error, refetch } = useV2AdminOrderQueue({
     limit: 200,
     order_status: orderStatusFilter || undefined,
   });
+  const previewTransition = useV2AdminOrderLinearTransitionPreview();
+  const executeTransition = useV2AdminOrderLinearTransitionExecute();
 
   const rows = useMemo(() => {
     const items = data?.items || [];
@@ -72,6 +138,95 @@ export default function AdminOrdersPage() {
         item.order_id.toLowerCase().includes(keyword),
     );
   }, [data?.items, search]);
+
+  useEffect(() => {
+    const rowIdSet = new Set(rows.map((row) => row.order_id));
+    setSelectedOrderIds((prev) => prev.filter((id) => rowIdSet.has(id)));
+  }, [rows]);
+
+  const selectedIdSet = useMemo(() => new Set(selectedOrderIds), [selectedOrderIds]);
+  const allVisibleSelected =
+    rows.length > 0 && rows.every((row) => selectedIdSet.has(row.order_id));
+
+  const canSubmitTransition =
+    selectedOrderIds.length > 0 && !previewTransition.isPending && !executeTransition.isPending;
+
+  const transitionPayload = {
+    order_ids: selectedOrderIds,
+    target_stage: targetStage,
+    reason: transitionReason.trim() || null,
+  };
+
+  async function handlePreviewTransition() {
+    if (selectedOrderIds.length === 0) {
+      setTransitionMessage('주문을 1건 이상 선택해 주세요.');
+      return;
+    }
+
+    try {
+      const result = await previewTransition.mutateAsync(transitionPayload);
+      setTransitionResult(result);
+      setTransitionMessage(
+        `미리보기 완료: 실행 가능 ${result.summary.executable_order_count}건 / 차단 ${result.summary.blocked_order_count}건`,
+      );
+    } catch (previewError) {
+      setTransitionMessage(
+        previewError instanceof Error
+          ? previewError.message
+          : '미리보기 실행 중 오류가 발생했습니다.',
+      );
+    }
+  }
+
+  async function handleExecuteTransition() {
+    if (selectedOrderIds.length === 0) {
+      setTransitionMessage('주문을 1건 이상 선택해 주세요.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `선택한 ${selectedOrderIds.length}건 주문을 "${linearStageLabel(targetStage)}" 단계로 전환할까요?`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const result = await executeTransition.mutateAsync(transitionPayload);
+      setTransitionResult(result);
+      setTransitionMessage(
+        `실행 완료: 성공 ${result.execute?.succeeded_count ?? 0}건 / 실패 ${result.execute?.failed_count ?? 0}건`,
+      );
+      await refetch();
+    } catch (executeError) {
+      setTransitionMessage(
+        executeError instanceof Error
+          ? executeError.message
+          : '전환 실행 중 오류가 발생했습니다.',
+      );
+    }
+  }
+
+  function toggleOrderSelection(orderId: string) {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId],
+    );
+  }
+
+  function toggleAllVisible() {
+    if (allVisibleSelected) {
+      setSelectedOrderIds((prev) => prev.filter((id) => !rows.some((row) => row.order_id === id)));
+      return;
+    }
+
+    setSelectedOrderIds((prev) => {
+      const merged = new Set(prev);
+      for (const row of rows) {
+        merged.add(row.order_id);
+      }
+      return Array.from(merged);
+    });
+  }
 
   if (isLoading) {
     return (
@@ -131,7 +286,73 @@ export default function AdminOrdersPage() {
             placeholder="주문번호 또는 주문 ID 검색"
           />
         </div>
+
+        <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <p className="text-xs font-semibold text-gray-600">선형 단계 일괄 전환</p>
+          <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-[180px_1fr_auto_auto]">
+            <select
+              value={targetStage}
+              onChange={(event) => setTargetStage(event.target.value as V2AdminOrderLinearStage)}
+              className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm"
+            >
+              <option value="PAYMENT_PENDING">입금 대기</option>
+              <option value="PRODUCTION">제작중</option>
+              <option value="READY_TO_SHIP">배송 대기</option>
+              <option value="IN_TRANSIT">배송 중</option>
+              <option value="DELIVERED">배송 완료</option>
+            </select>
+            <Input
+              value={transitionReason}
+              onChange={(event) => setTransitionReason(event.target.value)}
+              placeholder="전환 사유(선택)"
+            />
+            <Button
+              intent="secondary"
+              size="sm"
+              loading={previewTransition.isPending}
+              disabled={!canSubmitTransition}
+              onClick={() => void handlePreviewTransition()}
+            >
+              미리보기
+            </Button>
+            <Button
+              intent="primary"
+              size="sm"
+              loading={executeTransition.isPending}
+              disabled={!canSubmitTransition}
+              onClick={() => void handleExecuteTransition()}
+            >
+              실행
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            선택 주문: {selectedOrderIds.length}건 · 목표 단계: {linearStageLabel(targetStage)}
+          </p>
+          {transitionMessage ? (
+            <p className="mt-2 text-xs font-medium text-gray-700">{transitionMessage}</p>
+          ) : null}
+        </div>
       </section>
+
+      {transitionResult ? (
+        <section className="rounded-xl border border-gray-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-gray-800">
+            전환 {transitionResult.mode === 'PREVIEW' ? '미리보기' : '실행'} 결과
+          </h2>
+          <p className="mt-1 text-xs text-gray-500">
+            요청 {transitionResult.summary.requested_order_count}건 · 실행 가능{' '}
+            {transitionResult.summary.executable_order_count}건 · 액션{' '}
+            {transitionResult.summary.total_action_count}건
+          </p>
+          {transitionResult.execute ? (
+            <p className="mt-1 text-xs text-gray-600">
+              실행 요약: 성공 {transitionResult.execute.succeeded_count} · 실패{' '}
+              {transitionResult.execute.failed_count} · 승인대기{' '}
+              {transitionResult.execute.pending_approval_count}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
         {rows.length === 0 ? (
@@ -144,6 +365,14 @@ export default function AdminOrdersPage() {
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={toggleAllVisible}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">주문</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">상태</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">금액</th>
@@ -170,9 +399,18 @@ export default function AdminOrdersPage() {
                   const hasBundle = row.has_bundle === true;
                   const hasDigital = row.has_digital === true;
                   const hasPhysical = row.has_physical === true;
+                  const currentLinearStage = resolveLinearStageFromRow(row);
 
                   return (
                     <tr key={row.order_id}>
+                      <td className="px-4 py-3 align-top">
+                        <input
+                          type="checkbox"
+                          checked={selectedIdSet.has(row.order_id)}
+                          onChange={() => toggleOrderSelection(row.order_id)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <p className="font-semibold text-gray-900">{row.order_no}</p>
                         <p className="text-xs text-gray-500">{row.order_id}</p>
@@ -229,6 +467,9 @@ export default function AdminOrdersPage() {
                           >
                             이행 {row.fulfillment_status}
                           </span>
+                          <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                            단계 {linearStageLabel(currentLinearStage)}
+                          </span>
                         </div>
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-900">
@@ -264,6 +505,37 @@ export default function AdminOrdersPage() {
           </div>
         )}
       </section>
+
+      {transitionResult ? (
+        <section className="rounded-xl border border-gray-200 bg-white p-4">
+          <h3 className="text-sm font-semibold text-gray-800">주문별 전환 계획</h3>
+          <div className="mt-3 space-y-2">
+            {transitionResult.rows.map((row) => (
+              <div key={`${row.order_id}-${row.target_stage}`} className="rounded-lg border border-gray-200 p-3">
+                <p className="text-sm font-semibold text-gray-900">
+                  {row.order_no || row.order_id}
+                </p>
+                <p className="mt-1 text-xs text-gray-600">
+                  {row.current_stage ? linearStageLabel(row.current_stage) : '-'} →{' '}
+                  {linearStageLabel(row.target_stage)} · 액션 {row.action_count}건
+                </p>
+                {row.blocked_reasons.length > 0 ? (
+                  <p className="mt-1 text-xs text-red-600">
+                    차단 사유: {row.blocked_reasons.join(' / ')}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-emerald-700">실행 가능</p>
+                )}
+                {row.actions.length > 0 ? (
+                  <p className="mt-1 text-xs text-gray-600">
+                    액션: {row.actions.map((action) => action.action_key).join(', ')}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
