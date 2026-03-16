@@ -88,6 +88,10 @@ export interface AddressInputProps {
    * 검색 버튼 텍스트
    */
   searchButtonText?: string;
+  /**
+   * 검색 버튼 추가 className
+   */
+  searchButtonClassName?: string;
 }
 
 export function AddressInput({
@@ -110,6 +114,7 @@ export function AddressInput({
   showDetailAlways = false,
   disabled = false,
   searchButtonText = "주소 검색",
+  searchButtonClassName,
 }: AddressInputProps) {
   const { openModal, renderModal } = useModal();
 
@@ -153,7 +158,7 @@ export function AddressInput({
             size="md"
             onClick={handleSearchClick}
             disabled={disabled}
-            className="w-full"
+            className={`w-full ${searchButtonClassName || ""}`}
           >
             <Search size={18} />
             <span className="ml-2">{searchButtonText}</span>

@@ -612,6 +612,7 @@ export default function V2CheckoutPage() {
                   detailAddressInputClassName="bg-white"
                   showDetailAlways
                   searchButtonText="배송지 주소 검색"
+                  searchButtonClassName="bg-white"
                 />
               </div>
             </div>
