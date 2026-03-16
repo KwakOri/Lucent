@@ -7,20 +7,8 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
 import { useV2CheckoutOrder } from '@/lib/client/hooks/useV2Checkout';
+import { groupV2OrderItems } from '@/lib/client/utils/v2-order-item-groups';
 import { ApiError } from '@/lib/client/utils/api-error';
-
-function readNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return 0;
-}
 
 function readString(value: unknown): string {
   return typeof value === 'string' ? value : '';
@@ -135,6 +123,7 @@ export default function OrderCompletePage() {
   }
 
   const items = Array.isArray(order.items) ? order.items : [];
+  const itemGroups = groupV2OrderItems(items as Array<Record<string, unknown>>);
   const hasShippingItem = items.some((rawItem) => {
     const display = asObject(asObject(rawItem).display_snapshot);
     return display.requires_shipping === true;
@@ -200,37 +189,53 @@ export default function OrderCompletePage() {
             주문 상품
           </h2>
           <div className="mt-4 space-y-3">
-            {items.map((rawItem, index) => {
-              const item = asObject(rawItem);
-              const display = asObject(item.display_snapshot);
-              const title =
-                readString(display.title) ||
-                readString(display.variant_title) ||
-                readString(item.variant_id) ||
-                `상품 ${index + 1}`;
-              const lineType = readString(item.line_type);
-              const quantity = readNumber(item.quantity);
-              const lineTotal = readNumber(item.final_line_total);
-
-              return (
-                <div
-                  key={readString(item.id) || `${title}-${index}`}
-                  className="rounded-lg border border-neutral-200 p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-text-primary">{title}</p>
-                      <p className="text-xs text-text-secondary">
-                        {lineType || 'STANDARD'} · 수량 {quantity}
-                      </p>
-                    </div>
-                    <p className="font-semibold text-text-primary">
-                      {formatCurrency(lineTotal)}
+            {itemGroups.map((group, index) => (
+              <div
+                key={group.key || `${group.id}-${index}`}
+                className="rounded-lg border border-neutral-200 p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-text-primary">{group.title}</p>
+                    <p className="text-xs text-text-secondary">
+                      {group.lineType === 'BUNDLE_PARENT' ? '번들 상품' : '일반 상품'} · 수량{' '}
+                      {group.quantity}
                     </p>
                   </div>
+                  <p className="font-semibold text-text-primary">
+                    {formatCurrency(group.lineTotal)}
+                  </p>
                 </div>
-              );
-            })}
+
+                {group.components.length > 0 && (
+                  <div className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+                    <p className="text-xs font-semibold text-text-secondary">
+                      번들 구성품 {group.components.length}개
+                    </p>
+                    <div className="mt-2 space-y-2">
+                      {group.components.map((component, componentIndex) => (
+                        <div
+                          key={`${component.id}-${componentIndex}`}
+                          className="flex items-start justify-between gap-3"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-text-primary">
+                              {component.title}
+                            </p>
+                            <p className="text-xs text-text-secondary">
+                              수량 {component.quantity}
+                            </p>
+                          </div>
+                          <p className="text-sm font-medium text-text-primary">
+                            {formatCurrency(component.lineTotal)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </section>
 
