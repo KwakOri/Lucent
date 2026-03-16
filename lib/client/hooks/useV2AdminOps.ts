@@ -9,6 +9,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   V2AdminOpsAPI,
+  type BulkV2AdminOrderActionInput,
   type ListV2AdminActionLogsParams,
   type ListV2AdminApprovalsParams,
   type ListV2AdminCutoverBatchesParams,
@@ -214,6 +215,19 @@ export function useV2AdminOrderDetail(orderId: string | null | undefined) {
       return response.data;
     },
     enabled: !!orderId,
+  });
+}
+
+export function useV2AdminBulkOrderAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: BulkV2AdminOrderActionInput) => {
+      const response = await V2AdminOpsAPI.bulkOrderAction(data);
+      return response.data;
+    },
+    onSettled: async () => {
+      await invalidateV2AdminOps(queryClient);
+    },
   });
 }
 

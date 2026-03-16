@@ -400,6 +400,51 @@ export interface V2AdminOrderDetail {
   approvals: V2AdminApprovalRequest[];
 }
 
+export type V2AdminBulkOrderActionMode = 'DRY_RUN' | 'EXECUTE';
+export type V2AdminBulkOrderActionKey =
+  | 'FULFILLMENT_SHIPMENT_DISPATCH'
+  | 'FULFILLMENT_ENTITLEMENT_REISSUE'
+  | 'FULFILLMENT_ENTITLEMENT_REVOKE';
+
+export interface V2AdminBulkOrderActionCandidate {
+  resource_type: 'SHIPMENT' | 'DIGITAL_ENTITLEMENT';
+  resource_id: string;
+  current_status: string | null;
+  transition_key: string;
+}
+
+export interface V2AdminBulkOrderActionRow {
+  order_id: string;
+  order_no: string | null;
+  exists: boolean;
+  statuses: {
+    order_status: string;
+    payment_status: string;
+    fulfillment_status: string;
+  } | null;
+  candidate_count: number;
+  candidates: V2AdminBulkOrderActionCandidate[];
+}
+
+export interface V2AdminBulkOrderActionResult {
+  mode: V2AdminBulkOrderActionMode;
+  action_key: V2AdminBulkOrderActionKey;
+  requested_at: string;
+  summary: {
+    requested_order_count: number;
+    found_order_count: number;
+    missing_order_count: number;
+    candidate_count: number;
+  };
+  rows: V2AdminBulkOrderActionRow[];
+  execute?: {
+    queued_count: number;
+    action_log_ids: string[];
+    logs: Array<Record<string, unknown>>;
+    note: string;
+  };
+}
+
 export interface V2AdminFulfillmentQueueRow {
   fulfillment_group_id: string;
   order_id: string;
@@ -441,6 +486,16 @@ export interface ListV2AdminApprovalsParams {
 export interface ListV2AdminOrderQueueParams {
   limit?: number;
   order_status?: string;
+}
+
+export interface BulkV2AdminOrderActionInput {
+  mode?: V2AdminBulkOrderActionMode;
+  action_key: V2AdminBulkOrderActionKey;
+  order_ids: string[];
+  reason?: string | null;
+  request_id?: string | null;
+  preview_limit?: number;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface ListV2AdminFulfillmentQueueParams {
@@ -647,6 +702,12 @@ export const V2AdminOpsAPI = {
 
   async getOrderDetail(orderId: string): Promise<ApiResponse<V2AdminOrderDetail>> {
     return apiClient.get(`/api/v2/admin/ops/orders/${orderId}/detail`);
+  },
+
+  async bulkOrderAction(
+    data: BulkV2AdminOrderActionInput,
+  ): Promise<ApiResponse<V2AdminBulkOrderActionResult>> {
+    return apiClient.post('/api/v2/admin/ops/orders/bulk-actions', data);
   },
 
   async listFulfillmentQueue(
