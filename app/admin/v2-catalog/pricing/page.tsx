@@ -74,9 +74,17 @@ function toNullable(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+type PricingOpsTabKey =
+  | 'campaign'
+  | 'price-list'
+  | 'promotion'
+  | 'coupon-ops'
+  | 'simulator';
+
 export default function V2CatalogPricingPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<PricingOpsTabKey>('campaign');
 
   const [campaignCode, setCampaignCode] = useState('');
   const [campaignName, setCampaignName] = useState('');
@@ -395,7 +403,56 @@ export default function V2CatalogPricingPage() {
         </div>
       )}
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6">
+      <section className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            intent={activeTab === 'campaign' ? 'primary' : 'neutral'}
+            onClick={() => setActiveTab('campaign')}
+          >
+            Campaign
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            intent={activeTab === 'price-list' ? 'primary' : 'neutral'}
+            onClick={() => setActiveTab('price-list')}
+          >
+            Price List
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            intent={activeTab === 'promotion' ? 'primary' : 'neutral'}
+            onClick={() => setActiveTab('promotion')}
+          >
+            Promotion
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            intent={activeTab === 'coupon-ops' ? 'primary' : 'neutral'}
+            onClick={() => setActiveTab('coupon-ops')}
+          >
+            Coupon Ops
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            intent={activeTab === 'simulator' ? 'primary' : 'neutral'}
+            onClick={() => setActiveTab('simulator')}
+          >
+            Simulator
+          </Button>
+        </div>
+      </section>
+
+      <section
+        className={`rounded-lg border border-gray-200 bg-white p-6 ${
+          activeTab === 'campaign' ? '' : 'hidden'
+        }`}
+      >
         <h2 className="text-lg font-semibold text-gray-900">Campaign Ops</h2>
         <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4" onSubmit={handleCreateCampaign}>
           <Input
@@ -456,7 +513,11 @@ export default function V2CatalogPricingPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6">
+      <section
+        className={`rounded-lg border border-gray-200 bg-white p-6 ${
+          activeTab === 'price-list' ? '' : 'hidden'
+        }`}
+      >
         <h2 className="text-lg font-semibold text-gray-900">Price List Ops</h2>
         <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5" onSubmit={handleCreatePriceList}>
           <Input
@@ -520,7 +581,11 @@ export default function V2CatalogPricingPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6">
+      <section
+        className={`rounded-lg border border-gray-200 bg-white p-6 ${
+          activeTab === 'promotion' ? '' : 'hidden'
+        }`}
+      >
         <h2 className="text-lg font-semibold text-gray-900">Promotion / Coupon</h2>
         <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5" onSubmit={handleCreatePromotion}>
           <Input
@@ -612,7 +677,11 @@ export default function V2CatalogPricingPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6">
+      <section
+        className={`rounded-lg border border-gray-200 bg-white p-6 ${
+          activeTab === 'simulator' ? '' : 'hidden'
+        }`}
+      >
         <h2 className="text-lg font-semibold text-gray-900">Pricing Quote / Debug</h2>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
           <Input
@@ -681,7 +750,11 @@ export default function V2CatalogPricingPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6">
+      <section
+        className={`rounded-lg border border-gray-200 bg-white p-6 ${
+          activeTab === 'coupon-ops' ? '' : 'hidden'
+        }`}
+      >
         <h2 className="text-lg font-semibold text-gray-900">Coupon Reserve / Release / Redeem</h2>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
           <Input
@@ -752,7 +825,11 @@ export default function V2CatalogPricingPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6">
+      <section
+        className={`rounded-lg border border-gray-200 bg-white p-6 ${
+          activeTab === 'simulator' ? '' : 'hidden'
+        }`}
+      >
         <h2 className="text-lg font-semibold text-gray-900">Order Snapshot Contract</h2>
         <pre className="mt-4 overflow-auto rounded-md bg-gray-900 p-3 text-xs text-gray-100">
           {JSON.stringify(orderSnapshotContract, null, 2)}
