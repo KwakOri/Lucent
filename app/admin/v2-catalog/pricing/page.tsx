@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input, Textarea } from '@/components/ui/input';
@@ -10,9 +10,11 @@ import {
   useBuildV2PriceQuote,
   useCloseV2Campaign,
   useCreateV2Campaign,
+  useCreateV2CampaignTarget,
   useCreateV2Coupon,
   useCreateV2PriceList,
   useCreateV2Promotion,
+  useDeleteV2CampaignTarget,
   useEvaluateV2Promotions,
   usePublishV2PriceList,
   useRedeemV2CouponRedemption,
@@ -20,7 +22,14 @@ import {
   useReserveV2Coupon,
   useRollbackV2PriceList,
   useSuspendV2Campaign,
+  useUpdateV2Campaign,
+  useUpdateV2CampaignTarget,
+  useV2AdminProducts,
+  useV2AdminProjects,
+  useV2AdminVariants,
+  useV2BundleDefinitions,
   useV2Campaigns,
+  useV2CampaignTargets,
   useV2Coupons,
   useV2OrderSnapshotContract,
   useV2PriceLists,
@@ -81,6 +90,141 @@ type PricingOpsTabKey =
   | 'coupon-ops'
   | 'simulator';
 
+type CampaignTypeValue = 'POPUP' | 'EVENT' | 'SALE' | 'DROP' | 'ALWAYS_ON';
+type CampaignStatusValue = 'DRAFT' | 'ACTIVE' | 'SUSPENDED' | 'CLOSED' | 'ARCHIVED';
+type CampaignTargetTypeValue = 'PROJECT' | 'PRODUCT' | 'VARIANT' | 'BUNDLE_DEFINITION';
+type CampaignFilterStatus = 'ALL' | CampaignStatusValue;
+type CampaignFilterType = 'ALL' | CampaignTypeValue;
+type CampaignPeriodFilter = 'ALL' | 'LIVE' | 'UPCOMING' | 'ENDED' | 'NO_PERIOD';
+type CampaignSortKey = 'UPDATED_DESC' | 'STARTS_ASC' | 'ENDS_ASC' | 'NAME_ASC';
+
+const CAMPAIGN_TYPES: CampaignTypeValue[] = ['EVENT', 'POPUP', 'SALE', 'DROP', 'ALWAYS_ON'];
+const CAMPAIGN_TARGET_TYPES: CampaignTargetTypeValue[] = [
+  'PROJECT',
+  'PRODUCT',
+  'VARIANT',
+  'BUNDLE_DEFINITION',
+];
+const FIELD_SELECT_CLASS_NAME = 'rounded-md border border-gray-300 px-3 py-2 text-sm';
+const CAMPAIGN_PERIOD_REFERENCE_MS = Date.now();
+
+function parseChannelScopeInput(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+}
+
+function formatChannelScopeInput(raw: unknown[] | null | undefined): string {
+  if (!Array.isArray(raw)) {
+    return '';
+  }
+  return raw.filter((value): value is string => typeof value === 'string').join(', ');
+}
+
+function parseDateTimeLocalInput(value: string, fieldName: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`${fieldName} 형식이 올바르지 않습니다.`);
+  }
+  return parsed.toISOString();
+}
+
+function toDateTimeLocalValue(value: string | null): string {
+  if (!value) {
+    return '';
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+  const offsetMs = parsed.getTimezoneOffset() * 60000;
+  return new Date(parsed.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) {
+    return '-';
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function getCampaignStatusBadgeIntent(status: CampaignStatusValue): 'default' | 'success' | 'warning' | 'error' | 'info' {
+  if (status === 'ACTIVE') {
+    return 'success';
+  }
+  if (status === 'SUSPENDED') {
+    return 'warning';
+  }
+  if (status === 'ARCHIVED') {
+    return 'error';
+  }
+  if (status === 'CLOSED') {
+    return 'info';
+  }
+  return 'default';
+}
+
+function getCampaignPeriod(
+  startsAt: string | null,
+  endsAt: string | null,
+  nowMs: number,
+): Exclude<CampaignPeriodFilter, 'ALL'> {
+  const startsMs = startsAt ? new Date(startsAt).getTime() : null;
+  const endsMs = endsAt ? new Date(endsAt).getTime() : null;
+  const hasNoPeriod = startsAt === null && endsAt === null;
+  if (hasNoPeriod) {
+    return 'NO_PERIOD';
+  }
+  if (startsMs !== null && Number.isFinite(startsMs) && startsMs > nowMs) {
+    return 'UPCOMING';
+  }
+  if (endsMs !== null && Number.isFinite(endsMs) && endsMs < nowMs) {
+    return 'ENDED';
+  }
+  return 'LIVE';
+}
+
+function getCampaignPeriodBadgeIntent(period: Exclude<CampaignPeriodFilter, 'ALL'>): 'default' | 'success' | 'warning' | 'error' | 'info' {
+  if (period === 'LIVE') {
+    return 'success';
+  }
+  if (period === 'UPCOMING') {
+    return 'warning';
+  }
+  if (period === 'ENDED') {
+    return 'info';
+  }
+  return 'default';
+}
+
+function getCampaignPeriodLabel(period: Exclude<CampaignPeriodFilter, 'ALL'>): string {
+  if (period === 'LIVE') {
+    return '진행중';
+  }
+  if (period === 'UPCOMING') {
+    return '예정';
+  }
+  if (period === 'ENDED') {
+    return '종료';
+  }
+  return '상시';
+}
+
 export default function V2CatalogPricingPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -88,7 +232,38 @@ export default function V2CatalogPricingPage() {
 
   const [campaignCode, setCampaignCode] = useState('');
   const [campaignName, setCampaignName] = useState('');
-  const [campaignType, setCampaignType] = useState<'POPUP' | 'EVENT' | 'SALE' | 'DROP' | 'ALWAYS_ON'>('EVENT');
+  const [campaignType, setCampaignType] = useState<CampaignTypeValue>('EVENT');
+  const [campaignDescription, setCampaignDescription] = useState('');
+  const [campaignStartsAtInput, setCampaignStartsAtInput] = useState('');
+  const [campaignEndsAtInput, setCampaignEndsAtInput] = useState('');
+  const [campaignChannelScopeInput, setCampaignChannelScopeInput] = useState('');
+  const [campaignSearchKeyword, setCampaignSearchKeyword] = useState('');
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState<CampaignFilterStatus>('ALL');
+  const [campaignTypeFilter, setCampaignTypeFilter] = useState<CampaignFilterType>('ALL');
+  const [campaignPeriodFilter, setCampaignPeriodFilter] = useState<CampaignPeriodFilter>('ALL');
+  const [campaignSortKey, setCampaignSortKey] = useState<CampaignSortKey>('UPDATED_DESC');
+
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
+  const [editingCampaignCode, setEditingCampaignCode] = useState('');
+  const [editingCampaignName, setEditingCampaignName] = useState('');
+  const [editingCampaignDescription, setEditingCampaignDescription] = useState('');
+  const [editingCampaignType, setEditingCampaignType] = useState<CampaignTypeValue>('EVENT');
+  const [editingCampaignStartsAtInput, setEditingCampaignStartsAtInput] = useState('');
+  const [editingCampaignEndsAtInput, setEditingCampaignEndsAtInput] = useState('');
+  const [editingCampaignChannelScopeInput, setEditingCampaignChannelScopeInput] = useState('');
+
+  const [targetCampaignId, setTargetCampaignId] = useState<string | null>(null);
+  const [newTargetType, setNewTargetType] = useState<CampaignTargetTypeValue>('PROJECT');
+  const [newTargetId, setNewTargetId] = useState('');
+  const [newVariantTargetProductId, setNewVariantTargetProductId] = useState('');
+  const [newTargetSortOrder, setNewTargetSortOrder] = useState('0');
+  const [newTargetExcluded, setNewTargetExcluded] = useState(false);
+
+  const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
+  const [editingTargetType, setEditingTargetType] = useState<CampaignTargetTypeValue>('PROJECT');
+  const [editingTargetEntityId, setEditingTargetEntityId] = useState('');
+  const [editingTargetSortOrder, setEditingTargetSortOrder] = useState('0');
+  const [editingTargetExcluded, setEditingTargetExcluded] = useState(false);
 
   const [priceListName, setPriceListName] = useState('');
   const [priceListScope, setPriceListScope] = useState<'BASE' | 'OVERRIDE'>('BASE');
@@ -131,15 +306,26 @@ export default function V2CatalogPricingPage() {
   const [couponOpResult, setCouponOpResult] = useState<unknown>(null);
 
   const { data: campaigns, isLoading: campaignsLoading, error: campaignsError } = useV2Campaigns();
+  const { data: campaignTargets, isLoading: campaignTargetsLoading } = useV2CampaignTargets(targetCampaignId);
+  const { data: adminProjects } = useV2AdminProjects();
+  const { data: adminProducts } = useV2AdminProducts();
+  const { data: bundleDefinitions } = useV2BundleDefinitions();
+  const { data: variantTargetOptions } = useV2AdminVariants(
+    newTargetType === 'VARIANT' ? newVariantTargetProductId : null,
+  );
   const { data: priceLists, isLoading: priceListsLoading, error: priceListsError } = useV2PriceLists();
   const { data: promotions, isLoading: promotionsLoading, error: promotionsError } = useV2Promotions();
   const { data: coupons, isLoading: couponsLoading, error: couponsError } = useV2Coupons();
   const { data: orderSnapshotContract } = useV2OrderSnapshotContract();
 
   const createCampaign = useCreateV2Campaign();
+  const updateCampaign = useUpdateV2Campaign();
   const activateCampaign = useActivateV2Campaign();
   const suspendCampaign = useSuspendV2Campaign();
   const closeCampaign = useCloseV2Campaign();
+  const createCampaignTarget = useCreateV2CampaignTarget();
+  const updateCampaignTarget = useUpdateV2CampaignTarget();
+  const deleteCampaignTarget = useDeleteV2CampaignTarget();
 
   const createPriceList = useCreateV2PriceList();
   const publishPriceList = usePublishV2PriceList();
@@ -175,13 +361,23 @@ export default function V2CatalogPricingPage() {
   const handleCreateCampaign = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     await runWithNotice(async () => {
+      const startsAt = parseDateTimeLocalInput(campaignStartsAtInput, 'starts_at');
+      const endsAt = parseDateTimeLocalInput(campaignEndsAtInput, 'ends_at');
       await createCampaign.mutateAsync({
         code: campaignCode.trim(),
         name: campaignName.trim(),
         campaign_type: campaignType,
+        description: toNullable(campaignDescription),
+        starts_at: startsAt,
+        ends_at: endsAt,
+        channel_scope_json: parseChannelScopeInput(campaignChannelScopeInput),
       });
       setCampaignCode('');
       setCampaignName('');
+      setCampaignDescription('');
+      setCampaignStartsAtInput('');
+      setCampaignEndsAtInput('');
+      setCampaignChannelScopeInput('');
       setMessage('campaign을 생성했습니다.');
     });
   };
@@ -203,6 +399,163 @@ export default function V2CatalogPricingPage() {
       }
       await closeCampaign.mutateAsync(campaignId);
       setMessage('campaign을 CLOSED로 전환했습니다.');
+    });
+  };
+
+  const handleStartCampaignEdit = (campaign: {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    campaign_type: CampaignTypeValue;
+    starts_at: string | null;
+    ends_at: string | null;
+    channel_scope_json: unknown[];
+  }) => {
+    setEditingCampaignId(campaign.id);
+    setEditingCampaignCode(campaign.code);
+    setEditingCampaignName(campaign.name);
+    setEditingCampaignDescription(campaign.description ?? '');
+    setEditingCampaignType(campaign.campaign_type);
+    setEditingCampaignStartsAtInput(toDateTimeLocalValue(campaign.starts_at));
+    setEditingCampaignEndsAtInput(toDateTimeLocalValue(campaign.ends_at));
+    setEditingCampaignChannelScopeInput(formatChannelScopeInput(campaign.channel_scope_json));
+  };
+
+  const handleCancelCampaignEdit = () => {
+    setEditingCampaignId(null);
+    setEditingCampaignCode('');
+    setEditingCampaignName('');
+    setEditingCampaignDescription('');
+    setEditingCampaignType('EVENT');
+    setEditingCampaignStartsAtInput('');
+    setEditingCampaignEndsAtInput('');
+    setEditingCampaignChannelScopeInput('');
+  };
+
+  const handleUpdateCampaign = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingCampaignId) {
+      return;
+    }
+    await runWithNotice(async () => {
+      const startsAt = parseDateTimeLocalInput(editingCampaignStartsAtInput, 'starts_at');
+      const endsAt = parseDateTimeLocalInput(editingCampaignEndsAtInput, 'ends_at');
+      await updateCampaign.mutateAsync({
+        id: editingCampaignId,
+        data: {
+          code: editingCampaignCode.trim(),
+          name: editingCampaignName.trim(),
+          campaign_type: editingCampaignType,
+          description: toNullable(editingCampaignDescription),
+          starts_at: startsAt,
+          ends_at: endsAt,
+          channel_scope_json: parseChannelScopeInput(editingCampaignChannelScopeInput),
+        },
+      });
+      setMessage('campaign을 수정했습니다.');
+      handleCancelCampaignEdit();
+    });
+  };
+
+  const handleOpenCampaignTargets = (campaignId: string) => {
+    setTargetCampaignId(campaignId);
+    setEditingTargetId(null);
+    setNewTargetId('');
+    setNewTargetType('PROJECT');
+    setNewVariantTargetProductId('');
+    setNewTargetSortOrder('0');
+    setNewTargetExcluded(false);
+  };
+
+  const handleCreateCampaignTarget = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!targetCampaignId) {
+      setErrorMessage('target campaign이 선택되지 않았습니다.');
+      return;
+    }
+    await runWithNotice(async () => {
+      const sortOrder = Number.parseInt(newTargetSortOrder, 10);
+      if (!Number.isInteger(sortOrder) || sortOrder < 0) {
+        throw new Error('target sort_order는 0 이상의 정수여야 합니다.');
+      }
+      const targetId = newTargetId.trim();
+      if (targetId.length === 0) {
+        throw new Error('target_id는 필수입니다.');
+      }
+      await createCampaignTarget.mutateAsync({
+        campaignId: targetCampaignId,
+        data: {
+          target_type: newTargetType,
+          target_id: targetId,
+          sort_order: sortOrder,
+          is_excluded: newTargetExcluded,
+        },
+      });
+      setNewTargetId('');
+      setNewTargetSortOrder('0');
+      setNewTargetExcluded(false);
+      setMessage('campaign target을 추가했습니다.');
+    });
+  };
+
+  const handleStartTargetEdit = (target: {
+    id: string;
+    target_type: CampaignTargetTypeValue;
+    target_id: string;
+    sort_order: number;
+    is_excluded: boolean;
+  }) => {
+    setEditingTargetId(target.id);
+    setEditingTargetType(target.target_type);
+    setEditingTargetEntityId(target.target_id);
+    setEditingTargetSortOrder(String(target.sort_order));
+    setEditingTargetExcluded(target.is_excluded);
+  };
+
+  const handleCancelTargetEdit = () => {
+    setEditingTargetId(null);
+    setEditingTargetType('PROJECT');
+    setEditingTargetEntityId('');
+    setEditingTargetSortOrder('0');
+    setEditingTargetExcluded(false);
+  };
+
+  const handleUpdateTarget = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingTargetId) {
+      return;
+    }
+    await runWithNotice(async () => {
+      const sortOrder = Number.parseInt(editingTargetSortOrder, 10);
+      if (!Number.isInteger(sortOrder) || sortOrder < 0) {
+        throw new Error('target sort_order는 0 이상의 정수여야 합니다.');
+      }
+      const targetId = editingTargetEntityId.trim();
+      if (targetId.length === 0) {
+        throw new Error('target_id는 필수입니다.');
+      }
+      await updateCampaignTarget.mutateAsync({
+        targetId: editingTargetId,
+        data: {
+          target_type: editingTargetType,
+          target_id: targetId,
+          sort_order: sortOrder,
+          is_excluded: editingTargetExcluded,
+        },
+      });
+      setMessage('campaign target을 수정했습니다.');
+      handleCancelTargetEdit();
+    });
+  };
+
+  const handleDeleteTarget = async (targetId: string) => {
+    await runWithNotice(async () => {
+      await deleteCampaignTarget.mutateAsync(targetId);
+      if (editingTargetId === targetId) {
+        handleCancelTargetEdit();
+      }
+      setMessage('campaign target을 삭제했습니다.');
     });
   };
 
@@ -362,6 +715,132 @@ export default function V2CatalogPricingPage() {
     });
   };
 
+  const selectedTargetCampaign = useMemo(
+    () => (campaigns || []).find((campaign) => campaign.id === targetCampaignId) ?? null,
+    [campaigns, targetCampaignId],
+  );
+
+  const projectNameMap = useMemo(
+    () =>
+      new Map((adminProjects || []).map((project) => [project.id, project.name])),
+    [adminProjects],
+  );
+  const productNameMap = useMemo(
+    () =>
+      new Map((adminProducts || []).map((product) => [product.id, product.title])),
+    [adminProducts],
+  );
+  const bundleLabelMap = useMemo(
+    () =>
+      new Map(
+        (bundleDefinitions || []).map((definition) => [
+          definition.id,
+          `${definition.bundle_product_id} (v${definition.version_no})`,
+        ]),
+      ),
+    [bundleDefinitions],
+  );
+  const variantTitleMap = useMemo(
+    () =>
+      new Map(
+        (variantTargetOptions || []).map((variant) => [
+          variant.id,
+          `${variant.title} (${variant.sku})`,
+        ]),
+      ),
+    [variantTargetOptions],
+  );
+
+  const filteredCampaigns = useMemo(() => {
+    const keyword = campaignSearchKeyword.trim().toLowerCase();
+    const list = (campaigns || []).filter((campaign) => {
+      if (campaignStatusFilter !== 'ALL' && campaign.status !== campaignStatusFilter) {
+        return false;
+      }
+      if (campaignTypeFilter !== 'ALL' && campaign.campaign_type !== campaignTypeFilter) {
+        return false;
+      }
+      const period = getCampaignPeriod(
+        campaign.starts_at,
+        campaign.ends_at,
+        CAMPAIGN_PERIOD_REFERENCE_MS,
+      );
+      if (campaignPeriodFilter !== 'ALL' && period !== campaignPeriodFilter) {
+        return false;
+      }
+      if (!keyword) {
+        return true;
+      }
+      const haystack = `${campaign.code} ${campaign.name} ${campaign.id}`.toLowerCase();
+      return haystack.includes(keyword);
+    });
+
+    return list.sort((left, right) => {
+      if (campaignSortKey === 'NAME_ASC') {
+        return left.name.localeCompare(right.name, 'ko');
+      }
+      if (campaignSortKey === 'STARTS_ASC') {
+        const leftStarts = left.starts_at ? new Date(left.starts_at).getTime() : Number.POSITIVE_INFINITY;
+        const rightStarts = right.starts_at ? new Date(right.starts_at).getTime() : Number.POSITIVE_INFINITY;
+        return leftStarts - rightStarts;
+      }
+      if (campaignSortKey === 'ENDS_ASC') {
+        const leftEnds = left.ends_at ? new Date(left.ends_at).getTime() : Number.POSITIVE_INFINITY;
+        const rightEnds = right.ends_at ? new Date(right.ends_at).getTime() : Number.POSITIVE_INFINITY;
+        return leftEnds - rightEnds;
+      }
+      return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+    });
+  }, [
+    campaignPeriodFilter,
+    campaignSearchKeyword,
+    campaigns,
+    campaignSortKey,
+    campaignStatusFilter,
+    campaignTypeFilter,
+  ]);
+
+  const selectedTypeTargetOptions = useMemo(() => {
+    if (newTargetType === 'PROJECT') {
+      return (adminProjects || []).map((project) => ({
+        id: project.id,
+        label: `${project.name} (${project.slug})`,
+      }));
+    }
+    if (newTargetType === 'PRODUCT') {
+      return (adminProducts || []).map((product) => ({
+        id: product.id,
+        label: `${product.title} (${product.slug})`,
+      }));
+    }
+    if (newTargetType === 'BUNDLE_DEFINITION') {
+      return (bundleDefinitions || []).map((definition) => ({
+        id: definition.id,
+        label: `${definition.bundle_product_id} (v${definition.version_no})`,
+      }));
+    }
+    return (variantTargetOptions || []).map((variant) => ({
+      id: variant.id,
+      label: `${variant.title} (${variant.sku})`,
+    }));
+  }, [adminProducts, adminProjects, bundleDefinitions, newTargetType, variantTargetOptions]);
+
+  const resolveTargetLabel = (
+    targetType: CampaignTargetTypeValue,
+    targetId: string,
+  ): string => {
+    if (targetType === 'PROJECT') {
+      return projectNameMap.get(targetId) ?? targetId;
+    }
+    if (targetType === 'PRODUCT') {
+      return productNameMap.get(targetId) ?? targetId;
+    }
+    if (targetType === 'BUNDLE_DEFINITION') {
+      return bundleLabelMap.get(targetId) ?? targetId;
+    }
+    return variantTitleMap.get(targetId) ?? targetId;
+  };
+
   if (campaignsLoading || priceListsLoading || promotionsLoading || couponsLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -454,7 +933,7 @@ export default function V2CatalogPricingPage() {
         }`}
       >
         <h2 className="text-lg font-semibold text-gray-900">Campaign Ops</h2>
-        <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4" onSubmit={handleCreateCampaign}>
+        <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-8" onSubmit={handleCreateCampaign}>
           <Input
             placeholder="code"
             value={campaignCode}
@@ -469,48 +948,396 @@ export default function V2CatalogPricingPage() {
           />
           <select
             value={campaignType}
-            onChange={(event) => setCampaignType(event.target.value as typeof campaignType)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            onChange={(event) => setCampaignType(event.target.value as CampaignTypeValue)}
+            className={FIELD_SELECT_CLASS_NAME}
           >
-            <option value="EVENT">EVENT</option>
-            <option value="POPUP">POPUP</option>
-            <option value="SALE">SALE</option>
-            <option value="DROP">DROP</option>
-            <option value="ALWAYS_ON">ALWAYS_ON</option>
+            {CAMPAIGN_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
           </select>
-          <Button type="submit" loading={createCampaign.isPending}>
+          <Input
+            placeholder="description (optional)"
+            value={campaignDescription}
+            onChange={(event) => setCampaignDescription(event.target.value)}
+          />
+          <Input
+            type="datetime-local"
+            value={campaignStartsAtInput}
+            onChange={(event) => setCampaignStartsAtInput(event.target.value)}
+          />
+          <Input
+            type="datetime-local"
+            value={campaignEndsAtInput}
+            onChange={(event) => setCampaignEndsAtInput(event.target.value)}
+          />
+          <Input
+            placeholder="channel scope (WEB, MOBILE)"
+            value={campaignChannelScopeInput}
+            onChange={(event) => setCampaignChannelScopeInput(event.target.value)}
+          />
+          <Button type="submit" loading={createCampaign.isPending} className="md:col-span-1">
             campaign 생성
           </Button>
         </form>
 
-        <div className="mt-4 space-y-2">
-          {(campaigns || []).map((campaign) => (
-            <div
-              key={campaign.id}
-              className="flex flex-col gap-2 rounded-md border border-gray-200 p-3 md:flex-row md:items-center md:justify-between"
+        <div className="mt-6 rounded-md border border-gray-200 bg-gray-50 p-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+            <Input
+              placeholder="code/name/id 검색"
+              value={campaignSearchKeyword}
+              onChange={(event) => setCampaignSearchKeyword(event.target.value)}
+            />
+            <select
+              value={campaignStatusFilter}
+              onChange={(event) => setCampaignStatusFilter(event.target.value as CampaignFilterStatus)}
+              className={FIELD_SELECT_CLASS_NAME}
             >
-              <div>
-                <p className="font-medium text-gray-900">
-                  {campaign.code} - {campaign.name}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {campaign.campaign_type} / {campaign.status} / {campaign.id}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" intent="neutral" onClick={() => handleCampaignAction('activate', campaign.id)}>
-                  Activate
-                </Button>
-                <Button size="sm" intent="neutral" onClick={() => handleCampaignAction('suspend', campaign.id)}>
-                  Suspend
-                </Button>
-                <Button size="sm" intent="neutral" onClick={() => handleCampaignAction('close', campaign.id)}>
-                  Close
-                </Button>
-              </div>
-            </div>
-          ))}
+              <option value="ALL">모든 상태</option>
+              <option value="DRAFT">DRAFT</option>
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="SUSPENDED">SUSPENDED</option>
+              <option value="CLOSED">CLOSED</option>
+              <option value="ARCHIVED">ARCHIVED</option>
+            </select>
+            <select
+              value={campaignTypeFilter}
+              onChange={(event) => setCampaignTypeFilter(event.target.value as CampaignFilterType)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="ALL">모든 타입</option>
+              {CAMPAIGN_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+            <select
+              value={campaignPeriodFilter}
+              onChange={(event) => setCampaignPeriodFilter(event.target.value as CampaignPeriodFilter)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="ALL">전체 기간</option>
+              <option value="LIVE">진행중</option>
+              <option value="UPCOMING">예정</option>
+              <option value="ENDED">종료</option>
+              <option value="NO_PERIOD">상시(기간 없음)</option>
+            </select>
+            <select
+              value={campaignSortKey}
+              onChange={(event) => setCampaignSortKey(event.target.value as CampaignSortKey)}
+              className={FIELD_SELECT_CLASS_NAME}
+            >
+              <option value="UPDATED_DESC">최근 수정순</option>
+              <option value="STARTS_ASC">시작일 빠른순</option>
+              <option value="ENDS_ASC">종료일 빠른순</option>
+              <option value="NAME_ASC">이름순</option>
+            </select>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">검색 결과 {filteredCampaigns.length}건</p>
         </div>
+
+        <div className="mt-4 space-y-2">
+          {filteredCampaigns.length === 0 && (
+            <p className="rounded-md border border-dashed border-gray-300 px-3 py-5 text-center text-sm text-gray-500">
+              조건에 맞는 campaign이 없습니다.
+            </p>
+          )}
+          {filteredCampaigns.map((campaign) => {
+            const period = getCampaignPeriod(
+              campaign.starts_at,
+              campaign.ends_at,
+              CAMPAIGN_PERIOD_REFERENCE_MS,
+            );
+            return (
+              <div
+                key={campaign.id}
+                className="space-y-2 rounded-md border border-gray-200 p-3"
+              >
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {campaign.code} - {campaign.name}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                      <Badge intent={getCampaignStatusBadgeIntent(campaign.status as CampaignStatusValue)}>
+                        {campaign.status}
+                      </Badge>
+                      <Badge intent={getCampaignPeriodBadgeIntent(period)}>
+                        {getCampaignPeriodLabel(period)}
+                      </Badge>
+                      <Badge intent="default">{campaign.campaign_type}</Badge>
+                      <span>{campaign.id}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      기간 {formatDateTime(campaign.starts_at)} ~ {formatDateTime(campaign.ends_at)} / 수정{' '}
+                      {formatDateTime(campaign.updated_at)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" intent="neutral" onClick={() => handleStartCampaignEdit(campaign)}>
+                      Edit
+                    </Button>
+                    <Button size="sm" intent="neutral" onClick={() => handleOpenCampaignTargets(campaign.id)}>
+                      Targets
+                    </Button>
+                    <Button size="sm" intent="neutral" onClick={() => handleCampaignAction('activate', campaign.id)}>
+                      Activate
+                    </Button>
+                    <Button size="sm" intent="neutral" onClick={() => handleCampaignAction('suspend', campaign.id)}>
+                      Suspend
+                    </Button>
+                    <Button size="sm" intent="neutral" onClick={() => handleCampaignAction('close', campaign.id)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {editingCampaignId && (
+          <form className="mt-6 rounded-md border border-indigo-200 bg-indigo-50 p-4" onSubmit={handleUpdateCampaign}>
+            <p className="text-sm font-semibold text-indigo-900">Campaign 수정</p>
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+              <Input
+                placeholder="code"
+                value={editingCampaignCode}
+                onChange={(event) => setEditingCampaignCode(event.target.value)}
+                required
+              />
+              <Input
+                placeholder="name"
+                value={editingCampaignName}
+                onChange={(event) => setEditingCampaignName(event.target.value)}
+                required
+              />
+              <select
+                value={editingCampaignType}
+                onChange={(event) => setEditingCampaignType(event.target.value as CampaignTypeValue)}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                {CAMPAIGN_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+              <Input
+                placeholder="description (optional)"
+                value={editingCampaignDescription}
+                onChange={(event) => setEditingCampaignDescription(event.target.value)}
+              />
+              <Input
+                type="datetime-local"
+                value={editingCampaignStartsAtInput}
+                onChange={(event) => setEditingCampaignStartsAtInput(event.target.value)}
+              />
+              <Input
+                type="datetime-local"
+                value={editingCampaignEndsAtInput}
+                onChange={(event) => setEditingCampaignEndsAtInput(event.target.value)}
+              />
+              <Input
+                placeholder="channel scope (WEB, MOBILE)"
+                value={editingCampaignChannelScopeInput}
+                onChange={(event) => setEditingCampaignChannelScopeInput(event.target.value)}
+              />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="submit" loading={updateCampaign.isPending}>
+                저장
+              </Button>
+              <Button type="button" intent="neutral" onClick={handleCancelCampaignEdit}>
+                취소
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {targetCampaignId && (
+          <div className="mt-6 rounded-md border border-blue-200 bg-blue-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-blue-900">
+                Campaign Targets · {selectedTargetCampaign?.code ?? targetCampaignId}
+              </p>
+              <Button type="button" size="sm" intent="neutral" onClick={() => setTargetCampaignId(null)}>
+                닫기
+              </Button>
+            </div>
+
+            <form className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-6" onSubmit={handleCreateCampaignTarget}>
+              <select
+                value={newTargetType}
+                onChange={(event) => {
+                  const nextType = event.target.value as CampaignTargetTypeValue;
+                  setNewTargetType(nextType);
+                  setNewTargetId('');
+                  if (nextType !== 'VARIANT') {
+                    setNewVariantTargetProductId('');
+                  }
+                }}
+                className={FIELD_SELECT_CLASS_NAME}
+              >
+                {CAMPAIGN_TARGET_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+              {newTargetType === 'VARIANT' ? (
+                <select
+                  value={newVariantTargetProductId}
+                  onChange={(event) => {
+                    setNewVariantTargetProductId(event.target.value);
+                    setNewTargetId('');
+                  }}
+                  className={FIELD_SELECT_CLASS_NAME}
+                >
+                  <option value="">variant 조회 product 선택</option>
+                  {(adminProducts || []).map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.title}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  value={newTargetId}
+                  onChange={(event) => setNewTargetId(event.target.value)}
+                  className={FIELD_SELECT_CLASS_NAME}
+                >
+                  <option value="">target 선택</option>
+                  {selectedTypeTargetOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {newTargetType === 'VARIANT' && (
+                <select
+                  value={newTargetId}
+                  onChange={(event) => setNewTargetId(event.target.value)}
+                  className={FIELD_SELECT_CLASS_NAME}
+                >
+                  <option value="">variant 선택</option>
+                  {selectedTypeTargetOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <Input
+                placeholder="target_id (수동 입력 가능)"
+                value={newTargetId}
+                onChange={(event) => setNewTargetId(event.target.value)}
+              />
+              <Input
+                placeholder="sort_order"
+                value={newTargetSortOrder}
+                onChange={(event) => setNewTargetSortOrder(event.target.value)}
+              />
+              <label className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={newTargetExcluded}
+                  onChange={(event) => setNewTargetExcluded(event.target.checked)}
+                />
+                제외 대상
+              </label>
+              <Button type="submit" loading={createCampaignTarget.isPending}>
+                Target 추가
+              </Button>
+            </form>
+
+            <div className="mt-4 space-y-2">
+              {campaignTargetsLoading && (
+                <p className="text-sm text-gray-500">target 목록을 불러오는 중입니다...</p>
+              )}
+              {!campaignTargetsLoading && (campaignTargets || []).length === 0 && (
+                <p className="text-sm text-gray-500">등록된 target이 없습니다.</p>
+              )}
+              {(campaignTargets || []).map((target) => (
+                <div key={target.id} className="rounded-md border border-blue-100 bg-white p-3">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <Badge intent="default">{target.target_type}</Badge>
+                        {target.is_excluded ? <Badge intent="warning">EXCLUDED</Badge> : <Badge intent="success">INCLUDED</Badge>}
+                      </div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {resolveTargetLabel(
+                          target.target_type as CampaignTargetTypeValue,
+                          target.target_id,
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        target_id={target.target_id} / sort_order={target.sort_order}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" intent="neutral" onClick={() => handleStartTargetEdit(target)}>
+                        Edit
+                      </Button>
+                      <Button size="sm" intent="neutral" loading={deleteCampaignTarget.isPending} onClick={() => handleDeleteTarget(target.id)}>
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {editingTargetId && (
+              <form className="mt-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={handleUpdateTarget}>
+                <p className="text-sm font-semibold text-gray-900">Target 수정</p>
+                <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-5">
+                  <select
+                    value={editingTargetType}
+                    onChange={(event) => setEditingTargetType(event.target.value as CampaignTargetTypeValue)}
+                    className={FIELD_SELECT_CLASS_NAME}
+                  >
+                    {CAMPAIGN_TARGET_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                  <Input
+                    placeholder="target_id"
+                    value={editingTargetEntityId}
+                    onChange={(event) => setEditingTargetEntityId(event.target.value)}
+                  />
+                  <Input
+                    placeholder="sort_order"
+                    value={editingTargetSortOrder}
+                    onChange={(event) => setEditingTargetSortOrder(event.target.value)}
+                  />
+                  <label className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={editingTargetExcluded}
+                      onChange={(event) => setEditingTargetExcluded(event.target.checked)}
+                    />
+                    제외 대상
+                  </label>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button type="submit" loading={updateCampaignTarget.isPending}>
+                    저장
+                  </Button>
+                  <Button type="button" intent="neutral" onClick={handleCancelTargetEdit}>
+                    취소
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
       </section>
 
       <section
