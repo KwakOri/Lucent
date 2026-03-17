@@ -415,6 +415,7 @@ export default function V2CatalogPricingPage() {
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [editingTargetType, setEditingTargetType] = useState<CampaignTargetTypeValue>('PROJECT');
   const [editingTargetEntityId, setEditingTargetEntityId] = useState('');
+  const [editingVariantTargetProductId, setEditingVariantTargetProductId] = useState('');
   const [editingTargetSortOrder, setEditingTargetSortOrder] = useState('0');
   const [editingTargetExcluded, setEditingTargetExcluded] = useState(false);
 
@@ -570,6 +571,9 @@ export default function V2CatalogPricingPage() {
   const { data: bundleDefinitions } = useV2BundleDefinitions();
   const { data: variantTargetOptions } = useV2AdminVariants(
     newTargetType === 'VARIANT' ? newVariantTargetProductId : null,
+  );
+  const { data: editingVariantTargetOptions } = useV2AdminVariants(
+    editingTargetType === 'VARIANT' ? editingVariantTargetProductId : null,
   );
   const { data: priceLists, isLoading: priceListsLoading, error: priceListsError } = useV2PriceLists();
   const { data: priceListItems, isLoading: priceListItemsLoading } = useV2PriceListItems(selectedPriceListId);
@@ -782,9 +786,18 @@ export default function V2CatalogPricingPage() {
     sort_order: number;
     is_excluded: boolean;
   }) => {
+    let initialVariantProductId = '';
+    if (target.target_type === 'VARIANT') {
+      const knownVariant =
+        (variantTargetOptions || []).find((variant) => variant.id === target.target_id) ||
+        (newPriceItemVariants || []).find((variant) => variant.id === target.target_id) ||
+        (editingPriceItemVariants || []).find((variant) => variant.id === target.target_id);
+      initialVariantProductId = knownVariant?.product_id ?? '';
+    }
     setEditingTargetId(target.id);
     setEditingTargetType(target.target_type);
     setEditingTargetEntityId(target.target_id);
+    setEditingVariantTargetProductId(initialVariantProductId);
     setEditingTargetSortOrder(String(target.sort_order));
     setEditingTargetExcluded(target.is_excluded);
   };
@@ -793,6 +806,7 @@ export default function V2CatalogPricingPage() {
     setEditingTargetId(null);
     setEditingTargetType('PROJECT');
     setEditingTargetEntityId('');
+    setEditingVariantTargetProductId('');
     setEditingTargetSortOrder('0');
     setEditingTargetExcluded(false);
   };
@@ -1652,6 +1666,54 @@ export default function V2CatalogPricingPage() {
     }));
   }, [adminProducts, adminProjects, bundleDefinitions, newTargetType, variantTargetOptions]);
 
+  const selectedEditingTypeTargetOptions = useMemo(() => {
+    let options: Array<{ id: string; label: string }> = [];
+
+    if (editingTargetType === 'PROJECT') {
+      options = (adminProjects || []).map((project) => ({
+        id: project.id,
+        label: `${project.name} (${project.slug})`,
+      }));
+    } else if (editingTargetType === 'PRODUCT') {
+      options = (adminProducts || []).map((product) => ({
+        id: product.id,
+        label: `${product.title} (${product.slug})`,
+      }));
+    } else if (editingTargetType === 'BUNDLE_DEFINITION') {
+      options = (bundleDefinitions || []).map((definition) => ({
+        id: definition.id,
+        label: `${definition.bundle_product_id} (v${definition.version_no})`,
+      }));
+    } else {
+      options = (editingVariantTargetOptions || []).map((variant) => ({
+        id: variant.id,
+        label: `${variant.title} (${variant.sku})`,
+      }));
+    }
+
+    if (
+      editingTargetEntityId &&
+      !options.some((option) => option.id === editingTargetEntityId)
+    ) {
+      return [
+        {
+          id: editingTargetEntityId,
+          label: `현재 target (${editingTargetEntityId})`,
+        },
+        ...options,
+      ];
+    }
+
+    return options;
+  }, [
+    adminProducts,
+    adminProjects,
+    bundleDefinitions,
+    editingTargetEntityId,
+    editingTargetType,
+    editingVariantTargetOptions,
+  ]);
+
   const resolveTargetLabel = (
     targetType: CampaignTargetTypeValue,
     targetId: string,
@@ -2244,11 +2306,6 @@ export default function V2CatalogPricingPage() {
                 </select>
               )}
               <Input
-                placeholder="target_id (수동 입력 가능)"
-                value={newTargetId}
-                onChange={(event) => setNewTargetId(event.target.value)}
-              />
-              <Input
                 placeholder="sort_order"
                 value={newTargetSortOrder}
                 onChange={(event) => setNewTargetSortOrder(event.target.value)}
@@ -2307,10 +2364,17 @@ export default function V2CatalogPricingPage() {
             {editingTargetId && (
               <form className="mt-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={handleUpdateTarget}>
                 <p className="text-sm font-semibold text-gray-900">Target 수정</p>
-                <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-5">
+                <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-6">
                   <select
                     value={editingTargetType}
-                    onChange={(event) => setEditingTargetType(event.target.value as CampaignTargetTypeValue)}
+                    onChange={(event) => {
+                      const nextType = event.target.value as CampaignTargetTypeValue;
+                      setEditingTargetType(nextType);
+                      setEditingTargetEntityId('');
+                      if (nextType !== 'VARIANT') {
+                        setEditingVariantTargetProductId('');
+                      }
+                    }}
                     className={FIELD_SELECT_CLASS_NAME}
                   >
                     {CAMPAIGN_TARGET_TYPES.map((type) => (
@@ -2319,11 +2383,50 @@ export default function V2CatalogPricingPage() {
                       </option>
                     ))}
                   </select>
-                  <Input
-                    placeholder="target_id"
-                    value={editingTargetEntityId}
-                    onChange={(event) => setEditingTargetEntityId(event.target.value)}
-                  />
+                  {editingTargetType === 'VARIANT' ? (
+                    <>
+                      <select
+                        value={editingVariantTargetProductId}
+                        onChange={(event) => {
+                          setEditingVariantTargetProductId(event.target.value);
+                          setEditingTargetEntityId('');
+                        }}
+                        className={FIELD_SELECT_CLASS_NAME}
+                      >
+                        <option value="">variant 조회 product 선택</option>
+                        {(adminProducts || []).map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.title}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={editingTargetEntityId}
+                        onChange={(event) => setEditingTargetEntityId(event.target.value)}
+                        className={FIELD_SELECT_CLASS_NAME}
+                      >
+                        <option value="">variant 선택</option>
+                        {selectedEditingTypeTargetOptions.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  ) : (
+                    <select
+                      value={editingTargetEntityId}
+                      onChange={(event) => setEditingTargetEntityId(event.target.value)}
+                      className={FIELD_SELECT_CLASS_NAME}
+                    >
+                      <option value="">target 선택</option>
+                      {selectedEditingTypeTargetOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <Input
                     placeholder="sort_order"
                     value={editingTargetSortOrder}
