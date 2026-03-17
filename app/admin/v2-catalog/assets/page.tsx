@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input, Textarea } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
-import { ImageUpload } from '@/src/components/admin/ImageUpload';
 import type {
   V2AssetRole,
   V2DigitalAssetStatus,
@@ -23,6 +22,7 @@ import {
   useDeactivateV2DigitalAsset,
   useDeactivateV2ProductMedia,
   useV2AdminMediaAssets,
+  useUploadV2MediaAssetFile,
   useUpdateV2DigitalAsset,
   useUpdateV2ProductMedia,
   useV2AdminProductMedia,
@@ -160,6 +160,45 @@ function parseAssetFromSourceUrl(sourceUrl: string): {
   };
 }
 
+function inferMediaAssetKindFromFile(file: File): V2MediaAssetKind {
+  const mime = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  if (mime.startsWith('image/')) {
+    return 'IMAGE';
+  }
+  if (mime.startsWith('video/')) {
+    return 'VIDEO';
+  }
+  if (mime.startsWith('audio/')) {
+    return 'AUDIO';
+  }
+  if (mime === 'application/pdf' || name.endsWith('.pdf')) {
+    return 'DOCUMENT';
+  }
+  if (name.endsWith('.zip')) {
+    return 'ARCHIVE';
+  }
+  return 'FILE';
+}
+
+function formatBytes(value: number | null): string {
+  if (!value || value <= 0) {
+    return '-';
+  }
+  if (value < 1024) {
+    return `${value} B`;
+  }
+  const kb = value / 1024;
+  if (kb < 1024) {
+    return `${kb.toFixed(1)} KB`;
+  }
+  const mb = kb / 1024;
+  if (mb < 1024) {
+    return `${mb.toFixed(1)} MB`;
+  }
+  return `${(mb / 1024).toFixed(1)} GB`;
+}
+
 function resolveMediaStatusIntent(
   status: V2MediaStatus,
 ): 'default' | 'success' | 'warning' | 'error' | 'info' {
@@ -236,6 +275,8 @@ export default function V2CatalogAssetsPage() {
   const [newRegistryMimeType, setNewRegistryMimeType] = useState('application/octet-stream');
   const [newRegistryFileSize, setNewRegistryFileSize] = useState('');
   const [newRegistryChecksum, setNewRegistryChecksum] = useState('');
+  const [newRegistryUploadFile, setNewRegistryUploadFile] = useState<File | null>(null);
+  const [newRegistryUploadMetadataJson, setNewRegistryUploadMetadataJson] = useState('{}');
 
   const {
     data: products,
@@ -249,6 +290,7 @@ export default function V2CatalogAssetsPage() {
   } = useV2AdminMediaAssets();
 
   const createMediaAsset = useCreateV2MediaAsset();
+  const uploadMediaAssetFile = useUploadV2MediaAssetFile();
 
   const activeProductId = useMemo(() => {
     if (
@@ -383,6 +425,38 @@ export default function V2CatalogAssetsPage() {
       setNewRegistryChecksum('');
       setNewRegistryStatus('ACTIVE');
       setNewRegistryKind('IMAGE');
+    });
+  };
+
+  const handleUploadRegistryAsset = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!newRegistryUploadFile) {
+      setErrorMessage('업로드할 파일을 선택하세요.');
+      return;
+    }
+
+    await runAction(async () => {
+      const metadata = JSON.parse(newRegistryUploadMetadataJson || '{}') as Record<
+        string,
+        unknown
+      >;
+      const inferredKind = inferMediaAssetKindFromFile(newRegistryUploadFile);
+      const response = await uploadMediaAssetFile.mutateAsync({
+        file: newRegistryUploadFile,
+        asset_kind: newRegistryKind || inferredKind,
+        status: newRegistryStatus,
+        metadata,
+      });
+      const created = response.data;
+      if (created.asset_kind === 'IMAGE' || created.asset_kind === 'VIDEO') {
+        setNewMediaAssetId(created.id);
+      }
+      if (created.file_size && created.file_size > 0) {
+        setNewAssetMediaAssetId(created.id);
+      }
+      setMessage('파일을 업로드하고 media asset으로 등록했습니다.');
+      setNewRegistryUploadFile(null);
+      setNewRegistryUploadMetadataJson('{}');
     });
   };
 
@@ -657,8 +731,8 @@ export default function V2CatalogAssetsPage() {
             </div>
 
             <form
-              className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-4"
-              onSubmit={handleCreateRegistryAsset}
+              className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 lg:grid-cols-4"
+              onSubmit={handleUploadRegistryAsset}
             >
               <select
                 value={newRegistryKind}
@@ -686,54 +760,196 @@ export default function V2CatalogAssetsPage() {
                   </option>
                 ))}
               </select>
-              <Input
-                placeholder="파일 URL (선택)"
-                value={newRegistrySourceUrl}
-                onChange={(event) => setNewRegistrySourceUrl(event.target.value)}
-              />
-              <Button type="button" intent="neutral" onClick={handleApplyRegistrySourceUrl}>
-                URL 파싱
-              </Button>
-              <Input
-                placeholder="storage_path"
-                value={newRegistryStoragePath}
-                onChange={(event) => setNewRegistryStoragePath(event.target.value)}
-                required
-              />
-              <Input
-                placeholder="file_name"
-                value={newRegistryFileName}
-                onChange={(event) => setNewRegistryFileName(event.target.value)}
-              />
-              <Input
-                placeholder="mime_type"
-                value={newRegistryMimeType}
-                onChange={(event) => setNewRegistryMimeType(event.target.value)}
+              <input
+                type="file"
+                accept={
+                  newRegistryKind === 'IMAGE'
+                    ? 'image/*'
+                    : newRegistryKind === 'VIDEO'
+                      ? 'video/*'
+                      : newRegistryKind === 'AUDIO'
+                        ? 'audio/*'
+                        : newRegistryKind === 'DOCUMENT'
+                          ? 'application/pdf'
+                          : newRegistryKind === 'ARCHIVE'
+                            ? '.zip,application/zip'
+                            : '*/*'
+                }
+                onChange={(event) => setNewRegistryUploadFile(event.target.files?.[0] || null)}
+                className="h-11 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-xs file:font-medium file:text-gray-700 hover:file:bg-gray-200"
               />
               <Input
-                placeholder="file_size (bytes, 선택)"
-                value={newRegistryFileSize}
-                onChange={(event) => setNewRegistryFileSize(event.target.value)}
+                placeholder='업로드 metadata JSON (선택, 예: {"source":"admin"})'
+                value={newRegistryUploadMetadataJson}
+                onChange={(event) => setNewRegistryUploadMetadataJson(event.target.value)}
               />
-              <Input
-                placeholder="checksum (선택)"
-                value={newRegistryChecksum}
-                onChange={(event) => setNewRegistryChecksum(event.target.value)}
-                className="lg:col-span-3"
-              />
-              <div>
-                <Button type="submit" loading={createMediaAsset.isPending}>
-                  에셋 등록
+              <div className="lg:col-span-4 flex items-center justify-between gap-2">
+                <p className="text-xs text-gray-500">
+                  이미지/오디오 파일을 R2로 업로드하고 media_assets에 자동 등록합니다.
+                </p>
+                <Button type="submit" loading={uploadMediaAssetFile.isPending}>
+                  파일 업로드
                 </Button>
               </div>
             </form>
 
-            {mediaAssetsLoading && (
-              <p className="mt-3 text-sm text-gray-500">레지스트리를 불러오는 중입니다.</p>
-            )}
-            {!mediaAssetsLoading && mediaAssetsError && (
-              <p className="mt-3 text-sm text-red-600">레지스트리를 불러오지 못했습니다.</p>
-            )}
+            <details className="mt-4 rounded-lg border border-gray-200 bg-white p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-gray-700">
+                수동 등록 (URL/경로 기반)
+              </summary>
+              <form
+                className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-4"
+                onSubmit={handleCreateRegistryAsset}
+              >
+                <Input
+                  placeholder="파일 URL (선택)"
+                  value={newRegistrySourceUrl}
+                  onChange={(event) => setNewRegistrySourceUrl(event.target.value)}
+                />
+                <Button type="button" intent="neutral" onClick={handleApplyRegistrySourceUrl}>
+                  URL 파싱
+                </Button>
+                <Input
+                  placeholder="storage_path"
+                  value={newRegistryStoragePath}
+                  onChange={(event) => setNewRegistryStoragePath(event.target.value)}
+                  required
+                />
+                <Input
+                  placeholder="file_name"
+                  value={newRegistryFileName}
+                  onChange={(event) => setNewRegistryFileName(event.target.value)}
+                />
+                <Input
+                  placeholder="mime_type"
+                  value={newRegistryMimeType}
+                  onChange={(event) => setNewRegistryMimeType(event.target.value)}
+                />
+                <Input
+                  placeholder="file_size (bytes, 선택)"
+                  value={newRegistryFileSize}
+                  onChange={(event) => setNewRegistryFileSize(event.target.value)}
+                />
+                <Input
+                  placeholder="checksum (선택)"
+                  value={newRegistryChecksum}
+                  onChange={(event) => setNewRegistryChecksum(event.target.value)}
+                  className="lg:col-span-3"
+                />
+                <div>
+                  <Button type="submit" loading={createMediaAsset.isPending}>
+                    에셋 등록
+                  </Button>
+                </div>
+              </form>
+            </details>
+
+            <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      파일
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      타입/상태
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      경로
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      선택
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {mediaAssetsLoading && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                        레지스트리를 불러오는 중입니다.
+                      </td>
+                    </tr>
+                  )}
+                  {!mediaAssetsLoading && mediaAssetsError && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-sm text-red-600">
+                        레지스트리를 불러오지 못했습니다.
+                      </td>
+                    </tr>
+                  )}
+                  {!mediaAssetsLoading && !mediaAssetsError && (mediaAssets || []).length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                        등록된 media asset이 없습니다.
+                      </td>
+                    </tr>
+                  )}
+                  {!mediaAssetsLoading &&
+                    !mediaAssetsError &&
+                    (mediaAssets || []).map((asset) => (
+                      <tr key={asset.id}>
+                        <td className="px-4 py-3">
+                          <p className="text-sm font-semibold text-gray-900">{asset.file_name}</p>
+                          <p className="mt-1 text-xs text-gray-500">{formatBytes(asset.file_size)}</p>
+                          {asset.public_url ? (
+                            <a
+                              href={asset.public_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-1 inline-block text-xs text-blue-600 hover:underline"
+                            >
+                              파일 열기
+                            </a>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Badge intent="default">{asset.asset_kind}</Badge>
+                            <Badge
+                              intent={
+                                asset.status === 'ACTIVE'
+                                  ? 'success'
+                                  : asset.status === 'INACTIVE'
+                                    ? 'info'
+                                    : 'warning'
+                              }
+                            >
+                              {asset.status}
+                            </Badge>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-600">
+                          <p className="break-all">{asset.storage_path}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            {(asset.asset_kind === 'IMAGE' || asset.asset_kind === 'VIDEO') && (
+                              <Button
+                                size="sm"
+                                intent="neutral"
+                                onClick={() => setNewMediaAssetId(asset.id)}
+                              >
+                                상품 미디어 선택
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              intent="neutral"
+                              onClick={() => setNewAssetMediaAssetId(asset.id)}
+                            >
+                              디지털 에셋 선택
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-3 text-xs text-gray-500">
+              현재 선택: 상품 미디어 {newMediaAssetId || '-'} / 디지털 에셋 {newAssetMediaAssetId || '-'}
+            </div>
           </section>
 
           <section className="rounded-xl border border-gray-200 bg-white p-5">
@@ -817,37 +1033,8 @@ export default function V2CatalogAssetsPage() {
                 />
                 Primary 지정
               </label>
-              <div className="lg:col-span-4">
-                <ImageUpload
-                  imageType={newMediaRole === 'PRIMARY' ? 'product_main' : 'product_gallery'}
-                  label="이미지 업로드 (R2)"
-                  currentImageUrl={
-                    productMediaAssetCandidates.find((asset) => asset.id === newMediaAssetId)
-                      ?.public_url || undefined
-                  }
-                  altText={newMediaAltText || activeProduct.title}
-                  onUploadSuccess={async (_imageId, publicUrl) => {
-                    const storagePath = deriveStoragePathFromPublicUrl(publicUrl);
-                    if (!storagePath) {
-                      setErrorMessage('업로드 결과에서 storage_path를 확인하지 못했습니다.');
-                      return;
-                    }
-                    const parsed = parseAssetFromSourceUrl(publicUrl);
-                    await runAction(async () => {
-                      const response = await createMediaAsset.mutateAsync({
-                        asset_kind: 'IMAGE',
-                        status: 'ACTIVE',
-                        storage_provider: 'R2',
-                        storage_path: storagePath,
-                        public_url: publicUrl,
-                        file_name: storagePath.split('/').pop() || storagePath,
-                        mime_type: parsed?.mimeType || 'image/webp',
-                      });
-                      setNewMediaAssetId(response.data.id);
-                      setMessage('업로드 파일을 media asset으로 등록했습니다.');
-                    });
-                  }}
-                />
+              <div className="lg:col-span-4 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                상품 미디어 파일은 상단 <strong>미디어 에셋 레지스트리</strong>에서 업로드/등록 후 선택합니다.
               </div>
               <div className="lg:col-span-4">
                 <Button type="submit" loading={createMedia.isPending}>

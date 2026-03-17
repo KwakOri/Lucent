@@ -65,6 +65,7 @@ import {
   type UpdateV2VariantData,
   type ValidateV2CouponData,
   type ValidateV2BundleDefinitionData,
+  type UploadV2MediaAssetFileData,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import { queryKeys } from './query-keys';
 
@@ -377,6 +378,17 @@ export function useUpdateV2MediaAsset() {
       mediaAssetId: string;
       data: UpdateV2MediaAssetData;
     }) => V2CatalogAdminAPI.updateMediaAsset(mediaAssetId, data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useUploadV2MediaAssetFile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: UploadV2MediaAssetFileData) =>
+      V2CatalogAdminAPI.uploadMediaAssetFile(data),
     onSuccess: async () => {
       await invalidateV2CatalogAdmin(queryClient);
     },

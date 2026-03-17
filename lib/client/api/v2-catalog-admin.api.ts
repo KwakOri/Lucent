@@ -1039,6 +1039,13 @@ export interface UpdateV2MediaAssetData {
   metadata?: Record<string, unknown>;
 }
 
+export interface UploadV2MediaAssetFileData {
+  file: File;
+  asset_kind?: V2MediaAssetKind;
+  status?: V2MediaAssetStatus;
+  metadata?: Record<string, unknown>;
+}
+
 export interface CreateV2BundleDefinitionData {
   bundle_product_id: string;
   anchor_product_id?: string;
@@ -1564,6 +1571,23 @@ export const V2CatalogAdminAPI = {
     data: UpdateV2MediaAssetData,
   ): Promise<ApiResponse<V2MediaAsset>> {
     return apiClient.patch(`/api/v2/catalog/admin/media-assets/${mediaAssetId}`, data);
+  },
+
+  async uploadMediaAssetFile(
+    data: UploadV2MediaAssetFileData,
+  ): Promise<ApiResponse<V2MediaAsset>> {
+    const formData = new FormData();
+    formData.append('file', data.file);
+    if (data.asset_kind) {
+      formData.append('asset_kind', data.asset_kind);
+    }
+    if (data.status) {
+      formData.append('status', data.status);
+    }
+    if (data.metadata && Object.keys(data.metadata).length > 0) {
+      formData.append('metadata', JSON.stringify(data.metadata));
+    }
+    return apiClient.post('/api/v2/catalog/admin/media-assets/upload', formData);
   },
 
   async getProductMedia(productId: string): Promise<ApiResponse<V2ProductMedia[]>> {

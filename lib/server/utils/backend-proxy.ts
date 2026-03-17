@@ -94,10 +94,10 @@ export async function proxyBackendRequest(
       headers.set('accept', accept);
     }
 
-    let body: string | undefined;
+    let body: ArrayBuffer | undefined;
     if (request.method !== 'GET' && request.method !== 'HEAD') {
-      const rawBody = await request.text();
-      body = rawBody.length > 0 ? rawBody : undefined;
+      const rawBody = await request.arrayBuffer();
+      body = rawBody.byteLength > 0 ? rawBody : undefined;
     }
 
     const backendResponse = await fetch(backendUrl, {
