@@ -17,6 +17,9 @@ SELECT
   COUNT(DISTINCT sh.id) FILTER (
     WHERE sh.status IN ('READY_TO_PACK', 'PACKING', 'SHIPPED', 'IN_TRANSIT')
   ) AS active_shipment_count,
+  COUNT(DISTINCT de.id) FILTER (
+    WHERE de.status IN ('PENDING', 'GRANTED')
+  ) AS active_entitlement_count,
   COUNT(DISTINCT sh.id) FILTER (
     WHERE sh.status IN ('READY_TO_PACK', 'PACKING')
   ) AS waiting_shipment_count,
@@ -25,10 +28,7 @@ SELECT
   ) AS in_transit_shipment_count,
   COUNT(DISTINCT sh.id) FILTER (
     WHERE sh.status = 'DELIVERED'
-  ) AS delivered_shipment_count,
-  COUNT(DISTINCT de.id) FILTER (
-    WHERE de.status IN ('PENDING', 'GRANTED')
-  ) AS active_entitlement_count
+  ) AS delivered_shipment_count
 FROM public.v2_orders o
 LEFT JOIN public.v2_fulfillment_groups fg
   ON fg.order_id = o.id
