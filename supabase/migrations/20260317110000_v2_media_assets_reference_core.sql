@@ -140,8 +140,8 @@ SELECT DISTINCT
     WHEN pm.media_type = 'VIDEO' THEN 'video/mp4'
     ELSE 'application/octet-stream'
   END AS mime_type,
-  NULL AS file_size,
-  NULL AS checksum,
+  NULL::BIGINT AS file_size,
+  NULL::VARCHAR AS checksum,
   CASE
     WHEN pm.status = 'ACTIVE' THEN 'ACTIVE'::v2_media_asset_status_enum
     WHEN pm.status = 'ARCHIVED' THEN 'ARCHIVED'::v2_media_asset_status_enum
