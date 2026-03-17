@@ -964,8 +964,6 @@ export interface CreateV2MediaData {
   media_type?: V2MediaType;
   media_role?: V2MediaRole;
   media_asset_id?: string;
-  storage_path?: string;
-  public_url?: string | null;
   alt_text?: string | null;
   sort_order?: number;
   is_primary?: boolean;
@@ -977,8 +975,6 @@ export interface UpdateV2MediaData {
   media_type?: V2MediaType;
   media_role?: V2MediaRole;
   media_asset_id?: string;
-  storage_path?: string;
-  public_url?: string | null;
   alt_text?: string | null;
   sort_order?: number;
   is_primary?: boolean;
@@ -990,8 +986,6 @@ export interface CreateV2DigitalAssetData {
   asset_role?: V2AssetRole;
   media_asset_id?: string;
   file_name?: string;
-  storage_path?: string;
-  public_url?: string | null;
   mime_type?: string;
   file_size?: number;
   version_no?: number;
@@ -1003,8 +997,6 @@ export interface CreateV2DigitalAssetData {
 export interface UpdateV2DigitalAssetData {
   media_asset_id?: string;
   file_name?: string;
-  storage_path?: string;
-  public_url?: string | null;
   mime_type?: string;
   file_size?: number;
   checksum?: string | null;
@@ -1012,25 +1004,9 @@ export interface UpdateV2DigitalAssetData {
   metadata?: Record<string, unknown>;
 }
 
-export interface CreateV2MediaAssetData {
-  asset_kind?: V2MediaAssetKind;
-  storage_provider?: string;
-  storage_bucket?: string | null;
-  storage_path: string;
-  public_url?: string | null;
-  file_name?: string;
-  mime_type?: string | null;
-  file_size?: number | null;
-  checksum?: string | null;
-  status?: V2MediaAssetStatus;
-  metadata?: Record<string, unknown>;
-}
-
 export interface UpdateV2MediaAssetData {
   asset_kind?: V2MediaAssetKind;
   storage_bucket?: string | null;
-  storage_path?: string;
-  public_url?: string | null;
   file_name?: string;
   mime_type?: string | null;
   file_size?: number | null;
@@ -1558,12 +1534,6 @@ export const V2CatalogAdminAPI = {
         search: params.search,
       })}`,
     );
-  },
-
-  async createMediaAsset(
-    data: CreateV2MediaAssetData,
-  ): Promise<ApiResponse<V2MediaAsset>> {
-    return apiClient.post('/api/v2/catalog/admin/media-assets', data);
   },
 
   async updateMediaAsset(
