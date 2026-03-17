@@ -12,10 +12,12 @@ import type {
   V2VariantStatus,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
+  useCreateV2DigitalAsset,
   useCreateV2Product,
   useCreateV2Variant,
   useDeleteV2Product,
   useDeleteV2Variant,
+  useUploadV2MediaAssetFile,
   useUpdateV2Product,
   useUpdateV2Variant,
   useV2AdminProducts,
@@ -72,6 +74,14 @@ function parseNullableNonNegativeInteger(
     return null;
   }
   return parseNonNegativeInteger(trimmed, fieldName);
+}
+
+function isAudioFile(file: File): boolean {
+  const mime = file.type.toLowerCase();
+  if (mime.startsWith('audio/')) {
+    return true;
+  }
+  return /\.(mp3|wav|flac|m4a)$/i.test(file.name);
 }
 
 function formatDateTime(value: string): string {
@@ -178,6 +188,7 @@ export default function V2CatalogProductsPage() {
   const [newVariantRequiresShipping, setNewVariantRequiresShipping] = useState(false);
   const [newVariantTrackInventory, setNewVariantTrackInventory] = useState(false);
   const [newVariantWeightGrams, setNewVariantWeightGrams] = useState('');
+  const [newVariantAudioFile, setNewVariantAudioFile] = useState<File | null>(null);
 
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
   const [editingVariantSku, setEditingVariantSku] = useState('');
@@ -268,6 +279,8 @@ export default function V2CatalogProductsPage() {
     error: variantsError,
   } = useV2AdminVariants(activeProductId);
   const createVariant = useCreateV2Variant();
+  const createDigitalAsset = useCreateV2DigitalAsset();
+  const uploadMediaAssetFile = useUploadV2MediaAssetFile();
   const updateVariant = useUpdateV2Variant();
   const deleteVariant = useDeleteV2Variant();
 
@@ -391,7 +404,7 @@ export default function V2CatalogProductsPage() {
       return;
     }
     await runAction(async () => {
-      await createVariant.mutateAsync({
+      const response = await createVariant.mutateAsync({
         productId: activeProductId,
         data: {
           sku: newVariantSku.trim(),
@@ -407,7 +420,36 @@ export default function V2CatalogProductsPage() {
               : null,
         },
       });
-      setMessage('variant를 생성했습니다.');
+      let extraMessage = '';
+      if (newVariantFulfillmentType === 'DIGITAL' && newVariantAudioFile) {
+        if (!isAudioFile(newVariantAudioFile)) {
+          throw new Error('오디오 파일 형식(mp3/wav/flac/m4a 또는 audio/*)만 업로드할 수 있습니다.');
+        }
+
+        const uploaded = await uploadMediaAssetFile.mutateAsync({
+          file: newVariantAudioFile,
+          asset_kind: 'AUDIO',
+          status: 'ACTIVE',
+          metadata: {
+            source: 'v2-products-inline-audio',
+          },
+        });
+
+        await createDigitalAsset.mutateAsync({
+          variantId: response.data.id,
+          data: {
+            asset_role: 'PRIMARY',
+            media_asset_id: uploaded.data.id,
+            status: newVariantStatus === 'ACTIVE' ? 'READY' : 'DRAFT',
+            metadata: {
+              source: 'v2-products-inline-audio',
+            },
+          },
+        });
+        extraMessage = ' 오디오 파일을 PRIMARY 디지털 에셋으로 연결했습니다.';
+      }
+
+      setMessage(`variant를 생성했습니다.${extraMessage}`);
       setNewVariantSku('');
       setNewVariantTitle('');
       setNewVariantStatus('DRAFT');
@@ -415,6 +457,7 @@ export default function V2CatalogProductsPage() {
       setNewVariantRequiresShipping(false);
       setNewVariantTrackInventory(false);
       setNewVariantWeightGrams('');
+      setNewVariantAudioFile(null);
     });
   };
 
@@ -884,7 +927,9 @@ export default function V2CatalogProductsPage() {
                   if (value === 'DIGITAL') {
                     setNewVariantRequiresShipping(false);
                     setNewVariantWeightGrams('');
+                    return;
                   }
+                  setNewVariantAudioFile(null);
                 }}
                 className={SELECT_CLASS}
               >
@@ -928,8 +973,31 @@ export default function V2CatalogProductsPage() {
                 />
                 재고 추적
               </label>
+              {newVariantFulfillmentType === 'DIGITAL' && (
+                <div className="lg:col-span-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
+                  <p className="text-xs text-blue-700">
+                    오디오 파일을 선택하면 variant 생성과 함께 R2 업로드 후 PRIMARY 디지털 에셋으로 자동 연결됩니다.
+                  </p>
+                  <input
+                    type="file"
+                    accept="audio/*,.mp3,.wav,.flac,.m4a"
+                    onChange={(event) => setNewVariantAudioFile(event.target.files?.[0] || null)}
+                    className="mt-2 h-11 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-xs file:font-medium file:text-gray-700 hover:file:bg-gray-200"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    선택 파일: {newVariantAudioFile ? newVariantAudioFile.name : '없음'}
+                  </p>
+                </div>
+              )}
               <div className="lg:col-span-4">
-                <Button type="submit" loading={createVariant.isPending}>
+                <Button
+                  type="submit"
+                  loading={
+                    createVariant.isPending ||
+                    uploadMediaAssetFile.isPending ||
+                    createDigitalAsset.isPending
+                  }
+                >
                   variant 생성
                 </Button>
               </div>
