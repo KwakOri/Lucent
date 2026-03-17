@@ -192,6 +192,11 @@ export const queryKeys = {
       list: (variantId: string) =>
         [...queryKeys.v2CatalogAdmin.assets.all, 'list', variantId] as const,
     },
+    mediaAssets: {
+      all: ['v2-catalog-admin', 'media-assets'] as const,
+      list: (params: { kind?: string; status?: string; search?: string } = {}) =>
+        [...queryKeys.v2CatalogAdmin.mediaAssets.all, 'list', params] as const,
+    },
     bundles: {
       all: ['v2-catalog-admin', 'bundles'] as const,
       preview: () => [...queryKeys.v2CatalogAdmin.bundles.all, 'preview'] as const,

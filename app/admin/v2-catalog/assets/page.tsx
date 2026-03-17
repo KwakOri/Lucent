@@ -9,16 +9,20 @@ import { ImageUpload } from '@/src/components/admin/ImageUpload';
 import type {
   V2AssetRole,
   V2DigitalAssetStatus,
+  V2MediaAssetKind,
+  V2MediaAssetStatus,
   V2MediaRole,
   V2MediaStatus,
   V2MediaType,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useActivateV2DigitalAsset,
+  useCreateV2MediaAsset,
   useCreateV2DigitalAsset,
   useCreateV2ProductMedia,
   useDeactivateV2DigitalAsset,
   useDeactivateV2ProductMedia,
+  useV2AdminMediaAssets,
   useUpdateV2DigitalAsset,
   useUpdateV2ProductMedia,
   useV2AdminProductMedia,
@@ -32,6 +36,19 @@ const MEDIA_ROLE_VALUES: V2MediaRole[] = ['PRIMARY', 'GALLERY', 'DETAIL'];
 const MEDIA_STATUS_VALUES: V2MediaStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE', 'ARCHIVED'];
 const ASSET_ROLE_VALUES: V2AssetRole[] = ['PRIMARY', 'BONUS'];
 const ASSET_STATUS_VALUES: V2DigitalAssetStatus[] = ['DRAFT', 'READY', 'RETIRED'];
+const MEDIA_ASSET_KIND_VALUES: V2MediaAssetKind[] = [
+  'IMAGE',
+  'VIDEO',
+  'AUDIO',
+  'DOCUMENT',
+  'ARCHIVE',
+  'FILE',
+];
+const MEDIA_ASSET_STATUS_VALUES: V2MediaAssetStatus[] = [
+  'ACTIVE',
+  'INACTIVE',
+  'ARCHIVED',
+];
 const SELECT_CLASS =
   'h-11 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20';
 
@@ -75,6 +92,18 @@ function parseOptionalPositiveInteger(value: string, fieldName: string): number 
   return parsePositiveInteger(trimmed, fieldName);
 }
 
+function parseNullablePositiveInteger(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error('file_size는 1 이상의 정수여야 합니다.');
+  }
+  return parsed;
+}
+
 function deriveStoragePathFromPublicUrl(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -100,7 +129,17 @@ function parseAssetFromSourceUrl(sourceUrl: string): {
   const fileName = storagePath.split('/').pop() || storagePath;
   const extension = fileName.split('.').pop()?.toLowerCase() || '';
   let mimeType = 'application/octet-stream';
-  if (extension === 'zip') {
+  if (extension === 'png') {
+    mimeType = 'image/png';
+  } else if (extension === 'jpg' || extension === 'jpeg') {
+    mimeType = 'image/jpeg';
+  } else if (extension === 'webp') {
+    mimeType = 'image/webp';
+  } else if (extension === 'gif') {
+    mimeType = 'image/gif';
+  } else if (extension === 'mp4') {
+    mimeType = 'video/mp4';
+  } else if (extension === 'zip') {
     mimeType = 'application/zip';
   } else if (extension === 'mp3') {
     mimeType = 'audio/mpeg';
@@ -166,8 +205,7 @@ export default function V2CatalogAssetsPage() {
   const [newMediaStatus, setNewMediaStatus] = useState<V2MediaStatus>('DRAFT');
   const [newMediaSortOrder, setNewMediaSortOrder] = useState('0');
   const [newMediaAltText, setNewMediaAltText] = useState('');
-  const [newMediaPublicUrl, setNewMediaPublicUrl] = useState('');
-  const [newMediaStoragePath, setNewMediaStoragePath] = useState('');
+  const [newMediaAssetId, setNewMediaAssetId] = useState('');
   const [newMediaIsPrimary, setNewMediaIsPrimary] = useState(false);
 
   const [editingMediaId, setEditingMediaId] = useState<string | null>(null);
@@ -176,36 +214,41 @@ export default function V2CatalogAssetsPage() {
   const [editingMediaStatus, setEditingMediaStatus] = useState<V2MediaStatus>('DRAFT');
   const [editingMediaSortOrder, setEditingMediaSortOrder] = useState('0');
   const [editingMediaAltText, setEditingMediaAltText] = useState('');
-  const [editingMediaPublicUrl, setEditingMediaPublicUrl] = useState('');
-  const [editingMediaStoragePath, setEditingMediaStoragePath] = useState('');
+  const [editingMediaAssetId, setEditingMediaAssetId] = useState('');
   const [editingMediaIsPrimary, setEditingMediaIsPrimary] = useState(false);
 
-  const [newAssetSourceUrl, setNewAssetSourceUrl] = useState('');
+  const [newAssetMediaAssetId, setNewAssetMediaAssetId] = useState('');
   const [newAssetRole, setNewAssetRole] = useState<V2AssetRole>('PRIMARY');
   const [newAssetStatus, setNewAssetStatus] = useState<V2DigitalAssetStatus>('DRAFT');
-  const [newAssetFileName, setNewAssetFileName] = useState('');
-  const [newAssetStoragePath, setNewAssetStoragePath] = useState('');
-  const [newAssetMimeType, setNewAssetMimeType] = useState('application/octet-stream');
-  const [newAssetFileSize, setNewAssetFileSize] = useState('');
   const [newAssetVersionNo, setNewAssetVersionNo] = useState('');
-  const [newAssetChecksum, setNewAssetChecksum] = useState('');
   const [newAssetMetadataJson, setNewAssetMetadataJson] = useState('{}');
 
   const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
+  const [editingAssetMediaAssetId, setEditingAssetMediaAssetId] = useState('');
   const [editingAssetStatus, setEditingAssetStatus] = useState<V2DigitalAssetStatus>('DRAFT');
-  const [editingAssetFileName, setEditingAssetFileName] = useState('');
-  const [editingAssetStoragePath, setEditingAssetStoragePath] = useState('');
-  const [editingAssetMimeType, setEditingAssetMimeType] =
-    useState('application/octet-stream');
-  const [editingAssetFileSize, setEditingAssetFileSize] = useState('');
-  const [editingAssetChecksum, setEditingAssetChecksum] = useState('');
   const [editingAssetMetadataJson, setEditingAssetMetadataJson] = useState('{}');
+
+  const [newRegistryKind, setNewRegistryKind] = useState<V2MediaAssetKind>('IMAGE');
+  const [newRegistryStatus, setNewRegistryStatus] = useState<V2MediaAssetStatus>('ACTIVE');
+  const [newRegistrySourceUrl, setNewRegistrySourceUrl] = useState('');
+  const [newRegistryStoragePath, setNewRegistryStoragePath] = useState('');
+  const [newRegistryFileName, setNewRegistryFileName] = useState('');
+  const [newRegistryMimeType, setNewRegistryMimeType] = useState('application/octet-stream');
+  const [newRegistryFileSize, setNewRegistryFileSize] = useState('');
+  const [newRegistryChecksum, setNewRegistryChecksum] = useState('');
 
   const {
     data: products,
     isLoading: productsLoading,
     error: productsError,
   } = useV2AdminProducts();
+  const {
+    data: mediaAssets,
+    isLoading: mediaAssetsLoading,
+    error: mediaAssetsError,
+  } = useV2AdminMediaAssets();
+
+  const createMediaAsset = useCreateV2MediaAsset();
 
   const activeProductId = useMemo(() => {
     if (
@@ -259,6 +302,22 @@ export default function V2CatalogAssetsPage() {
     error: assetsError,
   } = useV2AdminVariantAssets(activeVariantId);
 
+  const productMediaAssetCandidates = useMemo(
+    () =>
+      (mediaAssets || []).filter(
+        (asset) => asset.asset_kind === 'IMAGE' || asset.asset_kind === 'VIDEO',
+      ),
+    [mediaAssets],
+  );
+
+  const digitalAssetCandidates = useMemo(
+    () =>
+      (mediaAssets || []).filter(
+        (asset) => asset.file_size !== null && asset.file_size > 0,
+      ),
+    [mediaAssets],
+  );
+
   const createMedia = useCreateV2ProductMedia();
   const updateMedia = useUpdateV2ProductMedia();
   const deactivateMedia = useDeactivateV2ProductMedia();
@@ -282,10 +341,59 @@ export default function V2CatalogAssetsPage() {
     }
   };
 
+  const handleApplyRegistrySourceUrl = () => {
+    const parsed = parseAssetFromSourceUrl(newRegistrySourceUrl);
+    if (!parsed) {
+      setErrorMessage('유효한 파일 URL을 입력하세요.');
+      return;
+    }
+    setNewRegistryStoragePath(parsed.storagePath);
+    setNewRegistryFileName(parsed.fileName);
+    setNewRegistryMimeType(parsed.mimeType);
+    clearNotice();
+  };
+
+  const handleCreateRegistryAsset = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await runAction(async () => {
+      const response = await createMediaAsset.mutateAsync({
+        asset_kind: newRegistryKind,
+        status: newRegistryStatus,
+        storage_provider: 'R2',
+        storage_path: newRegistryStoragePath.trim(),
+        public_url: newRegistrySourceUrl.trim() || null,
+        file_name: newRegistryFileName.trim() || undefined,
+        mime_type: newRegistryMimeType.trim() || null,
+        file_size: parseNullablePositiveInteger(newRegistryFileSize),
+        checksum: newRegistryChecksum.trim() || null,
+      });
+      const created = response.data;
+      setMessage('미디어 에셋 레지스트리에 등록했습니다.');
+      if (created.asset_kind === 'IMAGE' || created.asset_kind === 'VIDEO') {
+        setNewMediaAssetId(created.id);
+      }
+      if (created.file_size && created.file_size > 0) {
+        setNewAssetMediaAssetId(created.id);
+      }
+      setNewRegistrySourceUrl('');
+      setNewRegistryStoragePath('');
+      setNewRegistryFileName('');
+      setNewRegistryMimeType('application/octet-stream');
+      setNewRegistryFileSize('');
+      setNewRegistryChecksum('');
+      setNewRegistryStatus('ACTIVE');
+      setNewRegistryKind('IMAGE');
+    });
+  };
+
   const handleCreateMedia = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!activeProductId) {
       setErrorMessage('상품을 먼저 선택하세요.');
+      return;
+    }
+    if (!newMediaAssetId) {
+      setErrorMessage('연결할 media asset을 선택하세요.');
       return;
     }
     await runAction(async () => {
@@ -294,21 +402,17 @@ export default function V2CatalogAssetsPage() {
         data: {
           media_type: newMediaType,
           media_role: newMediaRole,
+          media_asset_id: newMediaAssetId,
           status: newMediaStatus,
           sort_order: parseNonNegativeInteger(newMediaSortOrder, 'sort_order'),
           alt_text: newMediaAltText.trim() || null,
-          public_url: newMediaPublicUrl.trim() || null,
-          storage_path:
-            newMediaStoragePath.trim() ||
-            deriveStoragePathFromPublicUrl(newMediaPublicUrl),
           is_primary: newMediaIsPrimary || newMediaRole === 'PRIMARY',
         },
       });
       setMessage('상품 미디어를 등록했습니다.');
       setNewMediaSortOrder('0');
       setNewMediaAltText('');
-      setNewMediaPublicUrl('');
-      setNewMediaStoragePath('');
+      setNewMediaAssetId('');
       setNewMediaIsPrimary(false);
       setNewMediaStatus('DRAFT');
       setNewMediaRole('GALLERY');
@@ -322,8 +426,7 @@ export default function V2CatalogAssetsPage() {
     status: V2MediaStatus;
     sort_order: number;
     alt_text: string | null;
-    public_url: string | null;
-    storage_path: string;
+    media_asset_id: string | null;
     is_primary: boolean;
   }) => {
     clearNotice();
@@ -333,8 +436,7 @@ export default function V2CatalogAssetsPage() {
     setEditingMediaStatus(item.status);
     setEditingMediaSortOrder(String(item.sort_order));
     setEditingMediaAltText(item.alt_text || '');
-    setEditingMediaPublicUrl(item.public_url || '');
-    setEditingMediaStoragePath(item.storage_path);
+    setEditingMediaAssetId(item.media_asset_id || '');
     setEditingMediaIsPrimary(item.is_primary);
   };
 
@@ -345,8 +447,7 @@ export default function V2CatalogAssetsPage() {
     setEditingMediaStatus('DRAFT');
     setEditingMediaSortOrder('0');
     setEditingMediaAltText('');
-    setEditingMediaPublicUrl('');
-    setEditingMediaStoragePath('');
+    setEditingMediaAssetId('');
     setEditingMediaIsPrimary(false);
   };
 
@@ -355,19 +456,20 @@ export default function V2CatalogAssetsPage() {
     if (!editingMediaId) {
       return;
     }
+    if (!editingMediaAssetId) {
+      setErrorMessage('연결할 media asset을 선택하세요.');
+      return;
+    }
     await runAction(async () => {
       await updateMedia.mutateAsync({
         mediaId: editingMediaId,
         data: {
           media_type: editingMediaType,
           media_role: editingMediaRole,
+          media_asset_id: editingMediaAssetId,
           status: editingMediaStatus,
           sort_order: parseNonNegativeInteger(editingMediaSortOrder, 'sort_order'),
           alt_text: editingMediaAltText.trim() || null,
-          public_url: editingMediaPublicUrl.trim() || null,
-          storage_path:
-            editingMediaStoragePath.trim() ||
-            deriveStoragePathFromPublicUrl(editingMediaPublicUrl),
           is_primary: editingMediaIsPrimary || editingMediaRole === 'PRIMARY',
         },
       });
@@ -386,22 +488,14 @@ export default function V2CatalogAssetsPage() {
     });
   };
 
-  const applyAssetSourceUrl = () => {
-    const parsed = parseAssetFromSourceUrl(newAssetSourceUrl);
-    if (!parsed) {
-      setErrorMessage('유효한 파일 URL을 입력하세요.');
-      return;
-    }
-    setNewAssetStoragePath(parsed.storagePath);
-    setNewAssetFileName(parsed.fileName);
-    setNewAssetMimeType(parsed.mimeType);
-    clearNotice();
-  };
-
   const handleCreateAsset = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!activeVariantId) {
       setErrorMessage('디지털 variant를 먼저 선택하세요.');
+      return;
+    }
+    if (!newAssetMediaAssetId) {
+      setErrorMessage('연결할 media asset을 선택하세요.');
       return;
     }
     await runAction(async () => {
@@ -410,65 +504,48 @@ export default function V2CatalogAssetsPage() {
         variantId: activeVariantId,
         data: {
           asset_role: newAssetRole,
+          media_asset_id: newAssetMediaAssetId,
           status: newAssetStatus,
-          file_name: newAssetFileName.trim(),
-          storage_path: newAssetStoragePath.trim(),
-          mime_type: newAssetMimeType.trim(),
-          file_size: parsePositiveInteger(newAssetFileSize, 'file_size'),
           version_no: parseOptionalPositiveInteger(newAssetVersionNo, 'version_no') ?? undefined,
-          checksum: newAssetChecksum.trim() || null,
           metadata,
         },
       });
       setMessage('디지털 에셋을 등록했습니다.');
-      setNewAssetSourceUrl('');
+      setNewAssetMediaAssetId('');
       setNewAssetRole('PRIMARY');
       setNewAssetStatus('DRAFT');
-      setNewAssetFileName('');
-      setNewAssetStoragePath('');
-      setNewAssetMimeType('application/octet-stream');
-      setNewAssetFileSize('');
       setNewAssetVersionNo('');
-      setNewAssetChecksum('');
       setNewAssetMetadataJson('{}');
     });
   };
 
   const handleStartEditAsset = (asset: {
     id: string;
+    media_asset_id: string | null;
     status: V2DigitalAssetStatus;
-    file_name: string;
-    storage_path: string;
-    mime_type: string;
-    file_size: number;
-    checksum: string | null;
     metadata: Record<string, unknown>;
   }) => {
     clearNotice();
     setEditingAssetId(asset.id);
+    setEditingAssetMediaAssetId(asset.media_asset_id || '');
     setEditingAssetStatus(asset.status);
-    setEditingAssetFileName(asset.file_name);
-    setEditingAssetStoragePath(asset.storage_path);
-    setEditingAssetMimeType(asset.mime_type);
-    setEditingAssetFileSize(String(asset.file_size));
-    setEditingAssetChecksum(asset.checksum || '');
     setEditingAssetMetadataJson(JSON.stringify(asset.metadata || {}, null, 2));
   };
 
   const handleCancelEditAsset = () => {
     setEditingAssetId(null);
+    setEditingAssetMediaAssetId('');
     setEditingAssetStatus('DRAFT');
-    setEditingAssetFileName('');
-    setEditingAssetStoragePath('');
-    setEditingAssetMimeType('application/octet-stream');
-    setEditingAssetFileSize('');
-    setEditingAssetChecksum('');
     setEditingAssetMetadataJson('{}');
   };
 
   const handleUpdateAsset = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editingAssetId) {
+      return;
+    }
+    if (!editingAssetMediaAssetId) {
+      setErrorMessage('연결할 media asset을 선택하세요.');
       return;
     }
     await runAction(async () => {
@@ -479,12 +556,8 @@ export default function V2CatalogAssetsPage() {
       await updateAsset.mutateAsync({
         assetId: editingAssetId,
         data: {
+          media_asset_id: editingAssetMediaAssetId || undefined,
           status: editingAssetStatus,
-          file_name: editingAssetFileName.trim(),
-          storage_path: editingAssetStoragePath.trim(),
-          mime_type: editingAssetMimeType.trim(),
-          file_size: parsePositiveInteger(editingAssetFileSize, 'file_size'),
-          checksum: editingAssetChecksum.trim() || null,
           metadata,
         },
       });
@@ -573,6 +646,99 @@ export default function V2CatalogAssetsPage() {
           <section className="rounded-xl border border-gray-200 bg-white p-5">
             <div className="sm:flex sm:items-start sm:justify-between">
               <div>
+                <h2 className="text-lg font-semibold text-gray-900">미디어 에셋 레지스트리</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  R2 파일 메타데이터를 먼저 등록한 뒤 상품/디지털 에셋에서 참조합니다.
+                </p>
+              </div>
+              <Badge intent="info" size="md">
+                {(mediaAssets || []).length}개
+              </Badge>
+            </div>
+
+            <form
+              className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-4"
+              onSubmit={handleCreateRegistryAsset}
+            >
+              <select
+                value={newRegistryKind}
+                onChange={(event) =>
+                  setNewRegistryKind(event.target.value as V2MediaAssetKind)
+                }
+                className={SELECT_CLASS}
+              >
+                {MEDIA_ASSET_KIND_VALUES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={newRegistryStatus}
+                onChange={(event) =>
+                  setNewRegistryStatus(event.target.value as V2MediaAssetStatus)
+                }
+                className={SELECT_CLASS}
+              >
+                {MEDIA_ASSET_STATUS_VALUES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+              <Input
+                placeholder="파일 URL (선택)"
+                value={newRegistrySourceUrl}
+                onChange={(event) => setNewRegistrySourceUrl(event.target.value)}
+              />
+              <Button type="button" intent="neutral" onClick={handleApplyRegistrySourceUrl}>
+                URL 파싱
+              </Button>
+              <Input
+                placeholder="storage_path"
+                value={newRegistryStoragePath}
+                onChange={(event) => setNewRegistryStoragePath(event.target.value)}
+                required
+              />
+              <Input
+                placeholder="file_name"
+                value={newRegistryFileName}
+                onChange={(event) => setNewRegistryFileName(event.target.value)}
+              />
+              <Input
+                placeholder="mime_type"
+                value={newRegistryMimeType}
+                onChange={(event) => setNewRegistryMimeType(event.target.value)}
+              />
+              <Input
+                placeholder="file_size (bytes, 선택)"
+                value={newRegistryFileSize}
+                onChange={(event) => setNewRegistryFileSize(event.target.value)}
+              />
+              <Input
+                placeholder="checksum (선택)"
+                value={newRegistryChecksum}
+                onChange={(event) => setNewRegistryChecksum(event.target.value)}
+                className="lg:col-span-3"
+              />
+              <div>
+                <Button type="submit" loading={createMediaAsset.isPending}>
+                  에셋 등록
+                </Button>
+              </div>
+            </form>
+
+            {mediaAssetsLoading && (
+              <p className="mt-3 text-sm text-gray-500">레지스트리를 불러오는 중입니다.</p>
+            )}
+            {!mediaAssetsLoading && mediaAssetsError && (
+              <p className="mt-3 text-sm text-red-600">레지스트리를 불러오지 못했습니다.</p>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-gray-200 bg-white p-5">
+            <div className="sm:flex sm:items-start sm:justify-between">
+              <div>
                 <h2 className="text-lg font-semibold text-gray-900">상품 미디어</h2>
                 <p className="mt-1 text-sm text-gray-500">
                   선택된 상품의 대표/갤러리/상세 미디어를 운영합니다.
@@ -625,23 +791,19 @@ export default function V2CatalogAssetsPage() {
                 value={newMediaSortOrder}
                 onChange={(event) => setNewMediaSortOrder(event.target.value)}
               />
-              <Input
-                placeholder="public_url (업로드 시 자동 입력)"
-                value={newMediaPublicUrl}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setNewMediaPublicUrl(value);
-                  if (!newMediaStoragePath) {
-                    setNewMediaStoragePath(deriveStoragePathFromPublicUrl(value));
-                  }
-                }}
-              />
-              <Input
-                placeholder="storage_path (예: images/product_main/...)"
-                value={newMediaStoragePath}
-                onChange={(event) => setNewMediaStoragePath(event.target.value)}
+              <select
+                value={newMediaAssetId}
+                onChange={(event) => setNewMediaAssetId(event.target.value)}
+                className={SELECT_CLASS}
                 required
-              />
+              >
+                <option value="">media asset 선택</option>
+                {productMediaAssetCandidates.map((asset) => (
+                  <option key={asset.id} value={asset.id}>
+                    {asset.file_name} ({asset.asset_kind})
+                  </option>
+                ))}
+              </select>
               <Input
                 placeholder="alt_text"
                 value={newMediaAltText}
@@ -659,11 +821,31 @@ export default function V2CatalogAssetsPage() {
                 <ImageUpload
                   imageType={newMediaRole === 'PRIMARY' ? 'product_main' : 'product_gallery'}
                   label="이미지 업로드 (R2)"
-                  currentImageUrl={newMediaPublicUrl || undefined}
+                  currentImageUrl={
+                    productMediaAssetCandidates.find((asset) => asset.id === newMediaAssetId)
+                      ?.public_url || undefined
+                  }
                   altText={newMediaAltText || activeProduct.title}
-                  onUploadSuccess={(_imageId, publicUrl) => {
-                    setNewMediaPublicUrl(publicUrl);
-                    setNewMediaStoragePath(deriveStoragePathFromPublicUrl(publicUrl));
+                  onUploadSuccess={async (_imageId, publicUrl) => {
+                    const storagePath = deriveStoragePathFromPublicUrl(publicUrl);
+                    if (!storagePath) {
+                      setErrorMessage('업로드 결과에서 storage_path를 확인하지 못했습니다.');
+                      return;
+                    }
+                    const parsed = parseAssetFromSourceUrl(publicUrl);
+                    await runAction(async () => {
+                      const response = await createMediaAsset.mutateAsync({
+                        asset_kind: 'IMAGE',
+                        status: 'ACTIVE',
+                        storage_provider: 'R2',
+                        storage_path: storagePath,
+                        public_url: publicUrl,
+                        file_name: storagePath.split('/').pop() || storagePath,
+                        mime_type: parsed?.mimeType || 'image/webp',
+                      });
+                      setNewMediaAssetId(response.data.id);
+                      setMessage('업로드 파일을 media asset으로 등록했습니다.');
+                    });
                   }}
                 />
               </div>
@@ -824,23 +1006,19 @@ export default function V2CatalogAssetsPage() {
                   value={editingMediaSortOrder}
                   onChange={(event) => setEditingMediaSortOrder(event.target.value)}
                 />
-                <Input
-                  placeholder="public_url"
-                  value={editingMediaPublicUrl}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setEditingMediaPublicUrl(value);
-                    if (!editingMediaStoragePath) {
-                      setEditingMediaStoragePath(deriveStoragePathFromPublicUrl(value));
-                    }
-                  }}
-                />
-                <Input
-                  placeholder="storage_path"
-                  value={editingMediaStoragePath}
-                  onChange={(event) => setEditingMediaStoragePath(event.target.value)}
+                <select
+                  value={editingMediaAssetId}
+                  onChange={(event) => setEditingMediaAssetId(event.target.value)}
+                  className={SELECT_CLASS}
                   required
-                />
+                >
+                  <option value="">media asset 선택</option>
+                  {productMediaAssetCandidates.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.file_name} ({asset.asset_kind})
+                    </option>
+                  ))}
+                </select>
                 <Input
                   placeholder="alt_text"
                   value={editingMediaAltText}
@@ -906,15 +1084,19 @@ export default function V2CatalogAssetsPage() {
                 </div>
 
                 <form className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-4" onSubmit={handleCreateAsset}>
-                  <Input
-                    placeholder="파일 URL (R2 공개 URL)"
-                    value={newAssetSourceUrl}
-                    onChange={(event) => setNewAssetSourceUrl(event.target.value)}
-                    className="lg:col-span-3"
-                  />
-                  <Button type="button" intent="neutral" onClick={applyAssetSourceUrl}>
-                    URL 파싱
-                  </Button>
+                  <select
+                    value={newAssetMediaAssetId}
+                    onChange={(event) => setNewAssetMediaAssetId(event.target.value)}
+                    className={`${SELECT_CLASS} lg:col-span-2`}
+                    required
+                  >
+                    <option value="">media asset 선택</option>
+                    {digitalAssetCandidates.map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.file_name} ({asset.file_size?.toLocaleString() || 0} bytes)
+                      </option>
+                    ))}
+                  </select>
                   <select
                     value={newAssetRole}
                     onChange={(event) => setNewAssetRole(event.target.value as V2AssetRole)}
@@ -940,38 +1122,9 @@ export default function V2CatalogAssetsPage() {
                     ))}
                   </select>
                   <Input
-                    placeholder="file_name"
-                    value={newAssetFileName}
-                    onChange={(event) => setNewAssetFileName(event.target.value)}
-                    required
-                  />
-                  <Input
-                    placeholder="storage_path"
-                    value={newAssetStoragePath}
-                    onChange={(event) => setNewAssetStoragePath(event.target.value)}
-                    required
-                  />
-                  <Input
-                    placeholder="mime_type"
-                    value={newAssetMimeType}
-                    onChange={(event) => setNewAssetMimeType(event.target.value)}
-                    required
-                  />
-                  <Input
-                    placeholder="file_size (bytes)"
-                    value={newAssetFileSize}
-                    onChange={(event) => setNewAssetFileSize(event.target.value)}
-                    required
-                  />
-                  <Input
                     placeholder="version_no (비우면 자동)"
                     value={newAssetVersionNo}
                     onChange={(event) => setNewAssetVersionNo(event.target.value)}
-                  />
-                  <Input
-                    placeholder="checksum (선택)"
-                    value={newAssetChecksum}
-                    onChange={(event) => setNewAssetChecksum(event.target.value)}
                   />
                   <div className="lg:col-span-4">
                     <Textarea
@@ -1098,6 +1251,19 @@ export default function V2CatalogAssetsPage() {
           <h2 className="text-lg font-semibold text-gray-900">디지털 에셋 수정</h2>
           <form className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-4" onSubmit={handleUpdateAsset}>
             <select
+              value={editingAssetMediaAssetId}
+              onChange={(event) => setEditingAssetMediaAssetId(event.target.value)}
+              className={`${SELECT_CLASS} lg:col-span-2`}
+              required
+            >
+              <option value="">media asset 선택</option>
+              {digitalAssetCandidates.map((asset) => (
+                <option key={asset.id} value={asset.id}>
+                  {asset.file_name} ({asset.file_size?.toLocaleString() || 0} bytes)
+                </option>
+              ))}
+            </select>
+            <select
               value={editingAssetStatus}
               onChange={(event) =>
                 setEditingAssetStatus(event.target.value as V2DigitalAssetStatus)
@@ -1110,35 +1276,6 @@ export default function V2CatalogAssetsPage() {
                 </option>
               ))}
             </select>
-            <Input
-              placeholder="file_name"
-              value={editingAssetFileName}
-              onChange={(event) => setEditingAssetFileName(event.target.value)}
-              required
-            />
-            <Input
-              placeholder="storage_path"
-              value={editingAssetStoragePath}
-              onChange={(event) => setEditingAssetStoragePath(event.target.value)}
-              required
-            />
-            <Input
-              placeholder="mime_type"
-              value={editingAssetMimeType}
-              onChange={(event) => setEditingAssetMimeType(event.target.value)}
-              required
-            />
-            <Input
-              placeholder="file_size (bytes)"
-              value={editingAssetFileSize}
-              onChange={(event) => setEditingAssetFileSize(event.target.value)}
-              required
-            />
-            <Input
-              placeholder="checksum (선택)"
-              value={editingAssetChecksum}
-              onChange={(event) => setEditingAssetChecksum(event.target.value)}
-            />
             <div className="lg:col-span-4">
               <Textarea
                 placeholder='metadata JSON (예: {"source":"admin"})'

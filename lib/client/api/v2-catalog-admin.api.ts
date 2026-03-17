@@ -18,6 +18,8 @@ export type V2MediaRole = 'PRIMARY' | 'GALLERY' | 'DETAIL';
 export type V2MediaStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
 export type V2AssetRole = 'PRIMARY' | 'BONUS';
 export type V2DigitalAssetStatus = 'DRAFT' | 'READY' | 'RETIRED';
+export type V2MediaAssetKind = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'ARCHIVE' | 'FILE';
+export type V2MediaAssetStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
 export type V2BundleMode = 'FIXED' | 'CUSTOMIZABLE';
 export type V2BundleStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
 export type V2BundlePricingStrategy = 'WEIGHTED' | 'FIXED_AMOUNT';
@@ -151,6 +153,7 @@ export interface V2ProductMedia {
   product_id: string;
   media_type: V2MediaType;
   media_role: V2MediaRole;
+  media_asset_id: string | null;
   storage_path: string;
   public_url: string | null;
   alt_text: string | null;
@@ -161,12 +164,14 @@ export interface V2ProductMedia {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  media_asset?: V2MediaAsset | null;
 }
 
 export interface V2DigitalAsset {
   id: string;
   variant_id: string;
   asset_role: V2AssetRole;
+  media_asset_id: string | null;
   file_name: string;
   storage_path: string;
   mime_type: string;
@@ -174,6 +179,25 @@ export interface V2DigitalAsset {
   version_no: number;
   checksum: string | null;
   status: V2DigitalAssetStatus;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  media_asset?: V2MediaAsset | null;
+}
+
+export interface V2MediaAsset {
+  id: string;
+  asset_kind: V2MediaAssetKind;
+  storage_provider: string;
+  storage_bucket: string | null;
+  storage_path: string;
+  public_url: string | null;
+  file_name: string;
+  mime_type: string | null;
+  file_size: number | null;
+  checksum: string | null;
+  status: V2MediaAssetStatus;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -800,6 +824,12 @@ export interface GetV2ProductsParams {
   status?: V2ProductStatus;
 }
 
+export interface GetV2MediaAssetsParams {
+  kind?: V2MediaAssetKind;
+  status?: V2MediaAssetStatus;
+  search?: string;
+}
+
 export interface GetV2BundleDefinitionsParams {
   bundleProductId?: string;
   status?: V2BundleStatus;
@@ -933,7 +963,8 @@ export interface UpdateV2VariantData {
 export interface CreateV2MediaData {
   media_type?: V2MediaType;
   media_role?: V2MediaRole;
-  storage_path: string;
+  media_asset_id?: string;
+  storage_path?: string;
   public_url?: string | null;
   alt_text?: string | null;
   sort_order?: number;
@@ -945,6 +976,7 @@ export interface CreateV2MediaData {
 export interface UpdateV2MediaData {
   media_type?: V2MediaType;
   media_role?: V2MediaRole;
+  media_asset_id?: string;
   storage_path?: string;
   public_url?: string | null;
   alt_text?: string | null;
@@ -956,10 +988,12 @@ export interface UpdateV2MediaData {
 
 export interface CreateV2DigitalAssetData {
   asset_role?: V2AssetRole;
-  file_name: string;
-  storage_path: string;
-  mime_type: string;
-  file_size: number;
+  media_asset_id?: string;
+  file_name?: string;
+  storage_path?: string;
+  public_url?: string | null;
+  mime_type?: string;
+  file_size?: number;
   version_no?: number;
   checksum?: string | null;
   status?: V2DigitalAssetStatus;
@@ -967,12 +1001,41 @@ export interface CreateV2DigitalAssetData {
 }
 
 export interface UpdateV2DigitalAssetData {
+  media_asset_id?: string;
   file_name?: string;
   storage_path?: string;
+  public_url?: string | null;
   mime_type?: string;
   file_size?: number;
   checksum?: string | null;
   status?: V2DigitalAssetStatus;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateV2MediaAssetData {
+  asset_kind?: V2MediaAssetKind;
+  storage_provider?: string;
+  storage_bucket?: string | null;
+  storage_path: string;
+  public_url?: string | null;
+  file_name?: string;
+  mime_type?: string | null;
+  file_size?: number | null;
+  checksum?: string | null;
+  status?: V2MediaAssetStatus;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateV2MediaAssetData {
+  asset_kind?: V2MediaAssetKind;
+  storage_bucket?: string | null;
+  storage_path?: string;
+  public_url?: string | null;
+  file_name?: string;
+  mime_type?: string | null;
+  file_size?: number | null;
+  checksum?: string | null;
+  status?: V2MediaAssetStatus;
   metadata?: Record<string, unknown>;
 }
 
@@ -1476,6 +1539,31 @@ export const V2CatalogAdminAPI = {
     variantId: string,
   ): Promise<ApiResponse<{ message: string }>> {
     return apiClient.delete(`/api/v2/catalog/admin/variants/${variantId}`);
+  },
+
+  async getMediaAssets(
+    params: GetV2MediaAssetsParams = {},
+  ): Promise<ApiResponse<V2MediaAsset[]>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/media-assets${buildSearchParams({
+        kind: params.kind,
+        status: params.status,
+        search: params.search,
+      })}`,
+    );
+  },
+
+  async createMediaAsset(
+    data: CreateV2MediaAssetData,
+  ): Promise<ApiResponse<V2MediaAsset>> {
+    return apiClient.post('/api/v2/catalog/admin/media-assets', data);
+  },
+
+  async updateMediaAsset(
+    mediaAssetId: string,
+    data: UpdateV2MediaAssetData,
+  ): Promise<ApiResponse<V2MediaAsset>> {
+    return apiClient.patch(`/api/v2/catalog/admin/media-assets/${mediaAssetId}`, data);
   },
 
   async getProductMedia(productId: string): Promise<ApiResponse<V2ProductMedia[]>> {

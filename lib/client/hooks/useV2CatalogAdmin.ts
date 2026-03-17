@@ -19,6 +19,7 @@ import {
   type CreateV2BundleDefinitionData,
   type CreateV2CouponData,
   type CreateV2DigitalAssetData,
+  type CreateV2MediaAssetData,
   type CreateV2MediaData,
   type CreateV2PriceListData,
   type CreateV2PriceListItemData,
@@ -32,6 +33,7 @@ import {
   type GetV2CouponsParams,
   type GetV2BundleDefinitionsParams,
   type GetV2ArtistsParams,
+  type GetV2MediaAssetsParams,
   type GetV2PriceListsParams,
   type GetV2ProductsParams,
   type GetV2PromotionsParams,
@@ -52,6 +54,7 @@ import {
   type UpdateV2ArtistData,
   type UpdateV2CouponData,
   type UpdateV2DigitalAssetData,
+  type UpdateV2MediaAssetData,
   type UpdateV2MediaData,
   type UpdateV2PriceListData,
   type UpdateV2PriceListItemData,
@@ -337,6 +340,43 @@ export function useDeleteV2Variant() {
   return useMutation({
     mutationFn: async (variantId: string) =>
       V2CatalogAdminAPI.deleteVariant(variantId),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useV2AdminMediaAssets(params: GetV2MediaAssetsParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.mediaAssets.list(params),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getMediaAssets(params);
+      return response.data;
+    },
+  });
+}
+
+export function useCreateV2MediaAsset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateV2MediaAssetData) =>
+      V2CatalogAdminAPI.createMediaAsset(data),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useUpdateV2MediaAsset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      mediaAssetId,
+      data,
+    }: {
+      mediaAssetId: string;
+      data: UpdateV2MediaAssetData;
+    }) => V2CatalogAdminAPI.updateMediaAsset(mediaAssetId, data),
     onSuccess: async () => {
       await invalidateV2CatalogAdmin(queryClient);
     },
