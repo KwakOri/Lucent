@@ -3,11 +3,13 @@
 import type { ComponentType } from 'react';
 import Link from 'next/link';
 import {
+  UserGroupIcon,
   FolderIcon,
   ShoppingBagIcon,
   MegaphoneIcon,
   BanknotesIcon,
   CubeIcon,
+  PhotoIcon,
   ArrowsRightLeftIcon,
 } from '@heroicons/react/24/outline';
 
@@ -28,11 +30,25 @@ const entries: V2Entry[] = [
     tone: 'bg-blue-100 text-blue-700',
   },
   {
+    title: 'v2 아티스트 관리',
+    description: '아티스트 등록과 프로젝트 연결(Primary/정렬)을 운영합니다.',
+    href: '/admin/v2-catalog/artists',
+    icon: UserGroupIcon,
+    tone: 'bg-cyan-100 text-cyan-700',
+  },
+  {
     title: 'v2 상품 관리',
     description: '상품과 variant를 등록하고 판매 가능 상태를 관리합니다.',
     href: '/admin/v2-catalog/products',
     icon: ShoppingBagIcon,
     tone: 'bg-indigo-100 text-indigo-700',
+  },
+  {
+    title: 'v2 미디어·에셋',
+    description: '상품 이미지와 디지털 파일 메타데이터를 관리합니다.',
+    href: '/admin/v2-catalog/assets',
+    icon: PhotoIcon,
+    tone: 'bg-fuchsia-100 text-fuchsia-700',
   },
   {
     title: 'v2 캠페인 관리',

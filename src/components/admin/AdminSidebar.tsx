@@ -15,6 +15,7 @@ import {
   BanknotesIcon,
   ShieldCheckIcon,
   MegaphoneIcon,
+  PhotoIcon,
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -52,7 +53,9 @@ const navigationSections: NavigationSection[] = [
     items: [
       { name: 'v2 운영 홈', href: '/admin/v2-catalog', icon: HomeIcon },
       { name: 'v2 프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderIcon },
+      { name: 'v2 아티스트 관리', href: '/admin/v2-catalog/artists', icon: UserGroupIcon },
       { name: 'v2 상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBagIcon },
+      { name: 'v2 미디어·에셋', href: '/admin/v2-catalog/assets', icon: PhotoIcon },
       { name: 'v2 캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: MegaphoneIcon },
       { name: 'v2 가격·프로모션', href: '/admin/v2-catalog/pricing', icon: BanknotesIcon },
       { name: 'v2 번들 관리', href: '/admin/v2-catalog/bundles', icon: CubeIcon },
