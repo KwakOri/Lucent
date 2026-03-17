@@ -81,7 +81,7 @@ export function AdminSidebar() {
           onClick={() => setMobileMenuOpen(true)}
         >
           <span className="sr-only">메뉴 열기</span>
-          <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+          <Bars3Icon className="h-6 w-6" aria-hidden />
         </button>
         <div className="flex-1 text-sm font-semibold leading-6 text-gray-900">
           Lucent Admin
@@ -115,7 +115,7 @@ export function AdminSidebar() {
                 onClick={closeMobileMenu}
               >
                 <span className="sr-only">메뉴 닫기</span>
-                <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+                <XMarkIcon className="h-6 w-6" aria-hidden />
               </button>
             </div>
             <nav className="mt-6">
@@ -147,7 +147,7 @@ export function AdminSidebar() {
                                 className={`h-6 w-6 shrink-0 ${
                                   isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600'
                                 }`}
-                                aria-hidden="true"
+                                aria-hidden
                               />
                               {item.name}
                             </Link>
@@ -214,7 +214,7 @@ export function AdminSidebar() {
                                   className={`h-6 w-6 shrink-0 ${
                                     isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600'
                                   }`}
-                                  aria-hidden="true"
+                                  aria-hidden
                                 />
                                 {item.name}
                               </Link>
