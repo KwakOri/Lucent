@@ -16,7 +16,6 @@ import type {
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useActivateV2DigitalAsset,
-  useCreateV2MediaAsset,
   useCreateV2DigitalAsset,
   useCreateV2ProductMedia,
   useDeactivateV2DigitalAsset,
@@ -90,74 +89,6 @@ function parseOptionalPositiveInteger(value: string, fieldName: string): number 
     return null;
   }
   return parsePositiveInteger(trimmed, fieldName);
-}
-
-function parseNullablePositiveInteger(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const parsed = Number.parseInt(trimmed, 10);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error('file_size는 1 이상의 정수여야 합니다.');
-  }
-  return parsed;
-}
-
-function deriveStoragePathFromPublicUrl(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return '';
-  }
-  try {
-    const parsed = new URL(trimmed);
-    return parsed.pathname.replace(/^\/+/, '');
-  } catch {
-    return '';
-  }
-}
-
-function parseAssetFromSourceUrl(sourceUrl: string): {
-  storagePath: string;
-  fileName: string;
-  mimeType: string;
-} | null {
-  const storagePath = deriveStoragePathFromPublicUrl(sourceUrl);
-  if (!storagePath) {
-    return null;
-  }
-  const fileName = storagePath.split('/').pop() || storagePath;
-  const extension = fileName.split('.').pop()?.toLowerCase() || '';
-  let mimeType = 'application/octet-stream';
-  if (extension === 'png') {
-    mimeType = 'image/png';
-  } else if (extension === 'jpg' || extension === 'jpeg') {
-    mimeType = 'image/jpeg';
-  } else if (extension === 'webp') {
-    mimeType = 'image/webp';
-  } else if (extension === 'gif') {
-    mimeType = 'image/gif';
-  } else if (extension === 'mp4') {
-    mimeType = 'video/mp4';
-  } else if (extension === 'zip') {
-    mimeType = 'application/zip';
-  } else if (extension === 'mp3') {
-    mimeType = 'audio/mpeg';
-  } else if (extension === 'wav') {
-    mimeType = 'audio/wav';
-  } else if (extension === 'flac') {
-    mimeType = 'audio/flac';
-  } else if (extension === 'm4a') {
-    mimeType = 'audio/mp4';
-  } else if (extension === 'pdf') {
-    mimeType = 'application/pdf';
-  }
-
-  return {
-    storagePath,
-    fileName,
-    mimeType,
-  };
 }
 
 function inferMediaAssetKindFromFile(file: File): V2MediaAssetKind {
@@ -269,12 +200,6 @@ export default function V2CatalogAssetsPage() {
 
   const [newRegistryKind, setNewRegistryKind] = useState<V2MediaAssetKind>('IMAGE');
   const [newRegistryStatus, setNewRegistryStatus] = useState<V2MediaAssetStatus>('ACTIVE');
-  const [newRegistrySourceUrl, setNewRegistrySourceUrl] = useState('');
-  const [newRegistryStoragePath, setNewRegistryStoragePath] = useState('');
-  const [newRegistryFileName, setNewRegistryFileName] = useState('');
-  const [newRegistryMimeType, setNewRegistryMimeType] = useState('application/octet-stream');
-  const [newRegistryFileSize, setNewRegistryFileSize] = useState('');
-  const [newRegistryChecksum, setNewRegistryChecksum] = useState('');
   const [newRegistryUploadFile, setNewRegistryUploadFile] = useState<File | null>(null);
   const [newRegistryUploadMetadataJson, setNewRegistryUploadMetadataJson] = useState('{}');
 
@@ -289,7 +214,6 @@ export default function V2CatalogAssetsPage() {
     error: mediaAssetsError,
   } = useV2AdminMediaAssets();
 
-  const createMediaAsset = useCreateV2MediaAsset();
   const uploadMediaAssetFile = useUploadV2MediaAssetFile();
 
   const activeProductId = useMemo(() => {
@@ -381,51 +305,6 @@ export default function V2CatalogAssetsPage() {
     } catch (actionError) {
       setErrorMessage(getErrorMessage(actionError));
     }
-  };
-
-  const handleApplyRegistrySourceUrl = () => {
-    const parsed = parseAssetFromSourceUrl(newRegistrySourceUrl);
-    if (!parsed) {
-      setErrorMessage('유효한 파일 URL을 입력하세요.');
-      return;
-    }
-    setNewRegistryStoragePath(parsed.storagePath);
-    setNewRegistryFileName(parsed.fileName);
-    setNewRegistryMimeType(parsed.mimeType);
-    clearNotice();
-  };
-
-  const handleCreateRegistryAsset = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await runAction(async () => {
-      const response = await createMediaAsset.mutateAsync({
-        asset_kind: newRegistryKind,
-        status: newRegistryStatus,
-        storage_provider: 'R2',
-        storage_path: newRegistryStoragePath.trim(),
-        public_url: newRegistrySourceUrl.trim() || null,
-        file_name: newRegistryFileName.trim() || undefined,
-        mime_type: newRegistryMimeType.trim() || null,
-        file_size: parseNullablePositiveInteger(newRegistryFileSize),
-        checksum: newRegistryChecksum.trim() || null,
-      });
-      const created = response.data;
-      setMessage('미디어 에셋 레지스트리에 등록했습니다.');
-      if (created.asset_kind === 'IMAGE' || created.asset_kind === 'VIDEO') {
-        setNewMediaAssetId(created.id);
-      }
-      if (created.file_size && created.file_size > 0) {
-        setNewAssetMediaAssetId(created.id);
-      }
-      setNewRegistrySourceUrl('');
-      setNewRegistryStoragePath('');
-      setNewRegistryFileName('');
-      setNewRegistryMimeType('application/octet-stream');
-      setNewRegistryFileSize('');
-      setNewRegistryChecksum('');
-      setNewRegistryStatus('ACTIVE');
-      setNewRegistryKind('IMAGE');
-    });
   };
 
   const handleUploadRegistryAsset = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -792,57 +671,6 @@ export default function V2CatalogAssetsPage() {
                 </Button>
               </div>
             </form>
-
-            <details className="mt-4 rounded-lg border border-gray-200 bg-white p-3">
-              <summary className="cursor-pointer text-sm font-semibold text-gray-700">
-                수동 등록 (URL/경로 기반)
-              </summary>
-              <form
-                className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-4"
-                onSubmit={handleCreateRegistryAsset}
-              >
-                <Input
-                  placeholder="파일 URL (선택)"
-                  value={newRegistrySourceUrl}
-                  onChange={(event) => setNewRegistrySourceUrl(event.target.value)}
-                />
-                <Button type="button" intent="neutral" onClick={handleApplyRegistrySourceUrl}>
-                  URL 파싱
-                </Button>
-                <Input
-                  placeholder="storage_path"
-                  value={newRegistryStoragePath}
-                  onChange={(event) => setNewRegistryStoragePath(event.target.value)}
-                  required
-                />
-                <Input
-                  placeholder="file_name"
-                  value={newRegistryFileName}
-                  onChange={(event) => setNewRegistryFileName(event.target.value)}
-                />
-                <Input
-                  placeholder="mime_type"
-                  value={newRegistryMimeType}
-                  onChange={(event) => setNewRegistryMimeType(event.target.value)}
-                />
-                <Input
-                  placeholder="file_size (bytes, 선택)"
-                  value={newRegistryFileSize}
-                  onChange={(event) => setNewRegistryFileSize(event.target.value)}
-                />
-                <Input
-                  placeholder="checksum (선택)"
-                  value={newRegistryChecksum}
-                  onChange={(event) => setNewRegistryChecksum(event.target.value)}
-                  className="lg:col-span-3"
-                />
-                <div>
-                  <Button type="submit" loading={createMediaAsset.isPending}>
-                    에셋 등록
-                  </Button>
-                </div>
-              </form>
-            </details>
 
             <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
               <table className="min-w-full divide-y divide-gray-200">

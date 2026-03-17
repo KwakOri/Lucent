@@ -19,7 +19,6 @@ import {
   type CreateV2BundleDefinitionData,
   type CreateV2CouponData,
   type CreateV2DigitalAssetData,
-  type CreateV2MediaAssetData,
   type CreateV2MediaData,
   type CreateV2PriceListData,
   type CreateV2PriceListItemData,
@@ -353,17 +352,6 @@ export function useV2AdminMediaAssets(params: GetV2MediaAssetsParams = {}) {
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getMediaAssets(params);
       return response.data;
-    },
-  });
-}
-
-export function useCreateV2MediaAsset() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (data: CreateV2MediaAssetData) =>
-      V2CatalogAdminAPI.createMediaAsset(data),
-    onSuccess: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
     },
   });
 }
