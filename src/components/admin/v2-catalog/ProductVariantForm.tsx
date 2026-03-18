@@ -155,6 +155,7 @@ export function ProductVariantForm({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadState, setUploadState] = useState<VariantUploadState | null>(null);
   const [persistedVariantId, setPersistedVariantId] = useState<string | null>(null);
+  const [abortUpload, setAbortUpload] = useState<(() => void) | null>(null);
 
   useEffect(() => {
     if (mode === 'edit' && variant) {
@@ -167,6 +168,7 @@ export function ProductVariantForm({
       setErrorMessage(null);
       setUploadState(null);
       setPersistedVariantId(null);
+      setAbortUpload(null);
       return;
     }
 
@@ -179,6 +181,7 @@ export function ProductVariantForm({
     setErrorMessage(null);
     setUploadState(null);
     setPersistedVariantId(null);
+    setAbortUpload(null);
   }, [mode, variant]);
 
   const skuPreview = useMemo(() => {
@@ -220,12 +223,13 @@ export function ProductVariantForm({
     setTrackInventory(true);
     setAudioFile(null);
     setUploadState(null);
+    setAbortUpload(null);
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submitVariantForm = async () => {
     setErrorMessage(null);
     setUploadState(null);
+    setAbortUpload(null);
     let savedVariantId = variant?.id || persistedVariantId || null;
 
     try {
@@ -295,8 +299,12 @@ export function ProductVariantForm({
             onProgress: (progress) => {
               setUploadState(toUploadState(progress, audioFile.name));
             },
+            onAbortReady: (nextAbortUpload) => {
+              setAbortUpload(() => nextAbortUpload);
+            },
           },
         });
+        setAbortUpload(null);
 
         setUploadState({
           stage: 'linking',
@@ -341,8 +349,23 @@ export function ProductVariantForm({
         });
       }
 
+      setAbortUpload(null);
       await onSuccess();
     } catch (submitError) {
+      setAbortUpload(null);
+      const maybeUploadError = submitError as { code?: string; message?: string };
+      if (maybeUploadError.code === 'UPLOAD_ABORTED') {
+        if (mode === 'create' && savedVariantId) {
+          setPersistedVariantId(savedVariantId);
+          setErrorMessage(
+            '오디오 업로드를 취소했습니다. 옵션은 이미 저장되어 있으니 같은 옵션에 다시 업로드할 수 있습니다.',
+          );
+          return;
+        }
+        setErrorMessage('오디오 업로드를 취소했습니다. 다시 시도하거나 파일을 바꿀 수 있습니다.');
+        return;
+      }
+
       const nextErrorMessage = getErrorMessage(submitError);
       if (mode === 'create' && savedVariantId) {
         setPersistedVariantId(savedVariantId);
@@ -353,6 +376,25 @@ export function ProductVariantForm({
       }
       setErrorMessage(nextErrorMessage);
     }
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await submitVariantForm();
+  };
+
+  const handleRetryUpload = async () => {
+    if (!audioFile || isSubmitting) {
+      return;
+    }
+    await submitVariantForm();
+  };
+
+  const handleCancelUpload = () => {
+    if (!abortUpload) {
+      return;
+    }
+    abortUpload();
   };
 
   return (
@@ -549,7 +591,31 @@ export function ProductVariantForm({
             </p>
           </div>
 
-          {uploadState && <div className="mt-4"><UploadProgressCard state={uploadState} /></div>}
+          {uploadState && (
+            <div className="mt-4 space-y-3">
+              <UploadProgressCard state={uploadState} />
+              <div className="flex flex-wrap gap-2">
+                {abortUpload && (
+                  <Button type="button" intent="neutral" size="sm" onClick={handleCancelUpload}>
+                    업로드 취소
+                  </Button>
+                )}
+                {!abortUpload && audioFile && errorMessage && (
+                  <Button type="button" intent="neutral" size="sm" onClick={handleRetryUpload}>
+                    업로드 다시 시도
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!uploadState && audioFile && errorMessage && (
+            <div className="mt-4">
+              <Button type="button" intent="neutral" size="sm" onClick={handleRetryUpload}>
+                업로드 다시 시도
+              </Button>
+            </div>
+          )}
         </section>
       )}
 

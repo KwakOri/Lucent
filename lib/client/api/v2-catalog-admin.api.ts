@@ -1036,6 +1036,7 @@ export interface V2MediaAssetUploadProgress {
 
 export interface UploadV2MediaAssetFileOptions {
   onProgress?: (progress: V2MediaAssetUploadProgress) => void;
+  onAbortReady?: (abortUpload: (() => void) | null) => void;
 }
 
 export interface V2MediaAssetUploadSession {
@@ -1442,6 +1443,9 @@ async function uploadFileToPresignedUrl(
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open(session.upload_method || 'PUT', session.upload_url, true);
+    options?.onAbortReady?.(() => {
+      xhr.abort();
+    });
 
     const headers = new Headers(session.upload_headers || {});
     if (!headers.has('Content-Type') && file.type) {
@@ -1467,6 +1471,7 @@ async function uploadFileToPresignedUrl(
     };
 
     xhr.onload = () => {
+      options?.onAbortReady?.(null);
       if (xhr.status >= 200 && xhr.status < 300) {
         options?.onProgress?.({
           stage: 'finalizing',
@@ -1488,11 +1493,15 @@ async function uploadFileToPresignedUrl(
     };
 
     xhr.onerror = () => {
+      options?.onAbortReady?.(null);
       reject(new Error('R2 업로드 중 네트워크 오류가 발생했습니다.'));
     };
 
     xhr.onabort = () => {
-      reject(new Error('R2 업로드가 중단되었습니다.'));
+      options?.onAbortReady?.(null);
+      const abortError = new Error('오디오 업로드를 취소했습니다.');
+      Object.assign(abortError, { code: 'UPLOAD_ABORTED' });
+      reject(abortError);
     };
 
     xhr.send(file);
