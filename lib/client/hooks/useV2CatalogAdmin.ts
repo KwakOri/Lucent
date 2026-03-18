@@ -62,6 +62,7 @@ import {
   type UpdateV2PromotionRuleData,
   type UpdateV2ProjectData,
   type UpdateV2VariantData,
+  type UploadV2MediaAssetFileOptions,
   type ValidateV2CouponData,
   type ValidateV2BundleDefinitionData,
   type UploadV2MediaAssetFileData,
@@ -375,8 +376,13 @@ export function useUpdateV2MediaAsset() {
 export function useUploadV2MediaAssetFile() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: UploadV2MediaAssetFileData) =>
-      V2CatalogAdminAPI.uploadMediaAssetFile(data),
+    mutationFn: async ({
+      data,
+      options,
+    }: {
+      data: UploadV2MediaAssetFileData;
+      options?: UploadV2MediaAssetFileOptions;
+    }) => V2CatalogAdminAPI.uploadMediaAssetFile(data, options),
     onSuccess: async () => {
       await invalidateV2CatalogAdmin(queryClient);
     },

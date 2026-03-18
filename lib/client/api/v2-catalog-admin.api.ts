@@ -1022,6 +1022,22 @@ export interface UploadV2MediaAssetFileData {
   metadata?: Record<string, unknown>;
 }
 
+export type V2MediaAssetUploadProgressStage =
+  | 'preparing'
+  | 'uploading'
+  | 'finalizing';
+
+export interface V2MediaAssetUploadProgress {
+  stage: V2MediaAssetUploadProgressStage;
+  loaded: number;
+  total: number;
+  percent: number;
+}
+
+export interface UploadV2MediaAssetFileOptions {
+  onProgress?: (progress: V2MediaAssetUploadProgress) => void;
+}
+
 export interface V2MediaAssetUploadSession {
   asset_kind: V2MediaAssetKind;
   status: V2MediaAssetStatus;
@@ -1413,27 +1429,74 @@ function ensureDirectBackendUploadConfigured(): void {
 async function uploadFileToPresignedUrl(
   session: V2MediaAssetUploadSession,
   file: File,
+  options?: UploadV2MediaAssetFileOptions,
 ): Promise<void> {
-  const headers = new Headers(session.upload_headers || {});
-
-  if (!headers.has('Content-Type') && file.type) {
-    headers.set('Content-Type', file.type);
-  }
-
-  const response = await fetch(session.upload_url, {
-    method: session.upload_method || 'PUT',
-    headers,
-    body: file,
+  const total = file.size || session.file_size || 0;
+  options?.onProgress?.({
+    stage: 'preparing',
+    loaded: 0,
+    total,
+    percent: 0,
   });
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '');
-    throw new Error(
-      errorText
-        ? `R2 업로드에 실패했습니다: ${errorText}`
-        : 'R2 업로드에 실패했습니다.',
-    );
-  }
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(session.upload_method || 'PUT', session.upload_url, true);
+
+    const headers = new Headers(session.upload_headers || {});
+    if (!headers.has('Content-Type') && file.type) {
+      headers.set('Content-Type', file.type);
+    }
+    headers.forEach((value, key) => {
+      xhr.setRequestHeader(key, value);
+    });
+
+    xhr.upload.onprogress = (event) => {
+      const nextTotal =
+        event.lengthComputable && event.total > 0 ? event.total : total;
+      const loaded = event.loaded;
+      const percent =
+        nextTotal > 0 ? Math.min(100, Math.round((loaded / nextTotal) * 100)) : 0;
+
+      options?.onProgress?.({
+        stage: 'uploading',
+        loaded,
+        total: nextTotal,
+        percent,
+      });
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        options?.onProgress?.({
+          stage: 'finalizing',
+          loaded: total,
+          total,
+          percent: 100,
+        });
+        resolve();
+        return;
+      }
+
+      reject(
+        new Error(
+          xhr.responseText
+            ? `R2 업로드에 실패했습니다: ${xhr.responseText}`
+            : 'R2 업로드에 실패했습니다.',
+        ),
+      );
+    };
+
+    xhr.onerror = () => {
+      reject(new Error('R2 업로드 중 네트워크 오류가 발생했습니다.'));
+    };
+
+    xhr.onabort = () => {
+      reject(new Error('R2 업로드가 중단되었습니다.'));
+    };
+
+    xhr.send(file);
+  });
 }
 
 export const V2CatalogAdminAPI = {
@@ -1596,6 +1659,7 @@ export const V2CatalogAdminAPI = {
 
   async uploadMediaAssetFile(
     data: UploadV2MediaAssetFileData,
+    options?: UploadV2MediaAssetFileOptions,
   ): Promise<ApiResponse<V2MediaAsset>> {
     ensureDirectBackendUploadConfigured();
 
@@ -1612,7 +1676,7 @@ export const V2CatalogAdminAPI = {
       },
     );
 
-    await uploadFileToPresignedUrl(presigned.data, data.file);
+    await uploadFileToPresignedUrl(presigned.data, data.file, options);
 
     return apiClient.post('/api/v2/catalog/admin/media-assets/complete-upload', {
       storage_path: presigned.data.storage_path,
