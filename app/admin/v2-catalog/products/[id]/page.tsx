@@ -5,12 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
-import { ProductBasicsForm } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
 import { ProductVariantManager } from '@/src/components/admin/v2-catalog/ProductVariantManager';
-import type { ProductBasicsFormValues } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
 import {
   useDeleteV2Product,
-  useUpdateV2Product,
   useV2AdminProduct,
   useV2AdminProjects,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
@@ -79,12 +76,8 @@ function formatDateTime(value: string): string {
 export default function V2CatalogProductDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const updateProduct = useUpdateV2Product();
   const deleteProduct = useDeleteV2Product();
-
-  const [message, setMessage] = useState<string | null>(null);
   const [pageErrorMessage, setPageErrorMessage] = useState<string | null>(null);
-  const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
 
   const productId = useMemo(() => {
     const raw = params?.id;
@@ -110,35 +103,6 @@ export default function V2CatalogProductDetailPage() {
     );
   }, [product, projects]);
 
-  const handleUpdateProduct = async (values: ProductBasicsFormValues) => {
-    if (!productId) {
-      return;
-    }
-
-    setMessage(null);
-    setPageErrorMessage(null);
-    setFormErrorMessage(null);
-
-    try {
-      await updateProduct.mutateAsync({
-        id: productId,
-        data: {
-          project_id: values.project_id,
-          title: values.title,
-          slug: values.slug,
-          product_kind: values.product_kind,
-          short_description: values.short_description,
-          description: values.description,
-          status: values.status,
-        },
-      });
-
-      setMessage('상품 정보를 저장했습니다.');
-    } catch (updateError) {
-      setFormErrorMessage(getErrorMessage(updateError));
-    }
-  };
-
   const handleDeleteProduct = async () => {
     if (!product) {
       return;
@@ -147,7 +111,6 @@ export default function V2CatalogProductDetailPage() {
       return;
     }
 
-    setMessage(null);
     setPageErrorMessage(null);
 
     try {
@@ -198,84 +161,90 @@ export default function V2CatalogProductDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button
-            intent="neutral"
-            onClick={() => router.push('/admin/v2-catalog/products')}
-          >
+          <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/products')}>
             목록으로
           </Button>
+          <Button
+            intent="neutral"
+            onClick={() => router.push(`/admin/v2-catalog/products/${product.id}/edit`)}
+          >
+            상품 정보 수정
+          </Button>
+          <Button
+            onClick={() => router.push(`/admin/v2-catalog/products/${product.id}/variants/new`)}
+          >
+            옵션 추가
+          </Button>
           {product.product_kind === 'BUNDLE' && (
-            <Button
-              intent="neutral"
-              onClick={() => router.push('/admin/v2-catalog/bundles')}
-            >
+            <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/bundles')}>
               번들 구성 관리
             </Button>
           )}
-          <Button
-            intent="danger"
-            onClick={handleDeleteProduct}
-            loading={deleteProduct.isPending}
-          >
+          <Button intent="danger" onClick={handleDeleteProduct} loading={deleteProduct.isPending}>
             상품 삭제
           </Button>
         </div>
       </div>
 
-      {message && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {message}
-        </div>
-      )}
       {pageErrorMessage && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {pageErrorMessage}
         </div>
       )}
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            프로젝트
-          </p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">프로젝트</p>
           <p className="mt-2 text-sm font-medium text-gray-900">{projectName}</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            최근 수정
-          </p>
-          <p className="mt-2 text-sm font-medium text-gray-900">
-            {formatDateTime(product.updated_at)}
-          </p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">상품 주소</p>
+          <p className="mt-2 text-sm font-medium text-gray-900 break-all">/shop/{product.slug}</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            한 줄 설명
-          </p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">최근 수정</p>
+          <p className="mt-2 text-sm font-medium text-gray-900">{formatDateTime(product.updated_at)}</p>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">한 줄 설명</p>
           <p className="mt-2 text-sm font-medium text-gray-900">
             {product.short_description || '등록된 설명이 없습니다.'}
           </p>
         </div>
       </section>
 
-      <ProductBasicsForm
-        mode="edit"
-        projects={projects}
-        initialValues={{
-          project_id: product.project_id,
-          product_kind: product.product_kind,
-          title: product.title,
-          slug: product.slug,
-          short_description: product.short_description,
-          description: product.description,
-          status: product.status,
-        }}
-        isSubmitting={updateProduct.isPending}
-        submitLabel="상품 정보 저장"
-        errorMessage={formErrorMessage}
-        onCancel={() => router.push('/admin/v2-catalog/products')}
-        onSubmit={handleUpdateProduct}
-      />
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">상품 기본 정보</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              현재 상품의 안내 문구와 노출 상태를 한눈에 확인합니다.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            intent="neutral"
+            onClick={() => router.push(`/admin/v2-catalog/products/${product.id}/edit`)}
+          >
+            수정
+          </Button>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div>
+            <p className="text-sm font-medium text-gray-900">짧은 설명</p>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              {product.short_description || '등록된 한 줄 설명이 없습니다.'}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">상세 설명</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600">
+              {product.description || '등록된 상세 설명이 없습니다.'}
+            </p>
+          </div>
+        </div>
+      </section>
 
       <ProductVariantManager product={product} />
     </div>

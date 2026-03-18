@@ -321,10 +321,12 @@ export default function V2CatalogAssetsPage() {
       >;
       const inferredKind = inferMediaAssetKindFromFile(newRegistryUploadFile);
       const response = await uploadMediaAssetFile.mutateAsync({
-        file: newRegistryUploadFile,
-        asset_kind: newRegistryKind || inferredKind,
-        status: newRegistryStatus,
-        metadata,
+        data: {
+          file: newRegistryUploadFile,
+          asset_kind: newRegistryKind || inferredKind,
+          status: newRegistryStatus,
+          metadata,
+        },
       });
       const created = response.data;
       if (created.asset_kind === 'IMAGE' || created.asset_kind === 'VIDEO') {
