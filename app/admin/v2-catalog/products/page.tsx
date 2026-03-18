@@ -1,9 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input, Textarea } from '@/components/ui/input';
+import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import type {
   V2FulfillmentType,
@@ -13,12 +14,10 @@ import type {
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useCreateV2DigitalAsset,
-  useCreateV2Product,
   useCreateV2Variant,
   useDeleteV2Product,
   useDeleteV2Variant,
   useUploadV2MediaAssetFile,
-  useUpdateV2Product,
   useUpdateV2Variant,
   useV2AdminProducts,
   useV2AdminProjects,
@@ -35,7 +34,6 @@ const PRODUCT_STATUS_VALUES: V2ProductStatus[] = [
   'INACTIVE',
   'ARCHIVED',
 ];
-const PRODUCT_KIND_VALUES: V2ProductKind[] = ['STANDARD', 'BUNDLE'];
 const VARIANT_STATUS_VALUES: V2VariantStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE'];
 const FULFILLMENT_TYPE_VALUES: V2FulfillmentType[] = ['DIGITAL', 'PHYSICAL'];
 const SELECT_CLASS =
@@ -150,6 +148,7 @@ function resolveFulfillmentIntent(
 }
 
 export default function V2CatalogProductsPage() {
+  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -158,27 +157,6 @@ export default function V2CatalogProductsPage() {
   const [projectFilter, setProjectFilter] = useState<ProductFilterProject>('ALL');
   const [sortKey, setSortKey] = useState<ProductSortKey>('SORT_ASC');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-
-  const [newProductProjectId, setNewProductProjectId] = useState('');
-  const [newProductTitle, setNewProductTitle] = useState('');
-  const [newProductSlug, setNewProductSlug] = useState('');
-  const [newProductKind, setNewProductKind] = useState<V2ProductKind>('STANDARD');
-  const [newProductStatus, setNewProductStatus] = useState<V2ProductStatus>('DRAFT');
-  const [newProductSortOrder, setNewProductSortOrder] = useState('0');
-  const [newProductShortDescription, setNewProductShortDescription] = useState('');
-  const [newProductDescription, setNewProductDescription] = useState('');
-
-  const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [editingProductProjectId, setEditingProductProjectId] = useState('');
-  const [editingProductTitle, setEditingProductTitle] = useState('');
-  const [editingProductSlug, setEditingProductSlug] = useState('');
-  const [editingProductKind, setEditingProductKind] = useState<V2ProductKind>('STANDARD');
-  const [editingProductStatus, setEditingProductStatus] =
-    useState<V2ProductStatus>('DRAFT');
-  const [editingProductSortOrder, setEditingProductSortOrder] = useState('0');
-  const [editingProductShortDescription, setEditingProductShortDescription] =
-    useState('');
-  const [editingProductDescription, setEditingProductDescription] = useState('');
 
   const [newVariantSku, setNewVariantSku] = useState('');
   const [newVariantTitle, setNewVariantTitle] = useState('');
@@ -213,14 +191,7 @@ export default function V2CatalogProductsPage() {
     isLoading: productsLoading,
     error: productsError,
   } = useV2AdminProducts();
-  const createProduct = useCreateV2Product();
-  const updateProduct = useUpdateV2Product();
   const deleteProduct = useDeleteV2Product();
-
-  const activeProjects = useMemo(
-    () => (projects || []).filter((project) => project.status !== 'ARCHIVED'),
-    [projects],
-  );
   const projectNameMap = useMemo(() => {
     const map = new Map<string, string>();
     (projects || []).forEach((project) => {
@@ -298,90 +269,6 @@ export default function V2CatalogProductsPage() {
     }
   };
 
-  const handleCreateProduct = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await runAction(async () => {
-      const response = await createProduct.mutateAsync({
-        project_id: newProductProjectId.trim(),
-        title: newProductTitle.trim(),
-        slug: newProductSlug.trim(),
-        product_kind: newProductKind,
-        status: newProductStatus,
-        sort_order: parseNonNegativeInteger(newProductSortOrder, 'sort_order'),
-        short_description: newProductShortDescription.trim() || null,
-        description: newProductDescription.trim() || null,
-      });
-      setSelectedProductId(response.data.id);
-      setMessage('v2 상품을 생성했습니다.');
-      setNewProductTitle('');
-      setNewProductSlug('');
-      setNewProductSortOrder('0');
-      setNewProductShortDescription('');
-      setNewProductDescription('');
-      setNewProductStatus('DRAFT');
-      setNewProductKind('STANDARD');
-    });
-  };
-
-  const handleStartEditProduct = (product: {
-    id: string;
-    project_id: string;
-    title: string;
-    slug: string;
-    product_kind: V2ProductKind;
-    status: V2ProductStatus;
-    sort_order: number;
-    short_description: string | null;
-    description: string | null;
-  }) => {
-    clearNotice();
-    setEditingProductId(product.id);
-    setEditingProductProjectId(product.project_id);
-    setEditingProductTitle(product.title);
-    setEditingProductSlug(product.slug);
-    setEditingProductKind(product.product_kind);
-    setEditingProductStatus(product.status);
-    setEditingProductSortOrder(String(product.sort_order));
-    setEditingProductShortDescription(product.short_description || '');
-    setEditingProductDescription(product.description || '');
-  };
-
-  const handleCancelEditProduct = () => {
-    setEditingProductId(null);
-    setEditingProductProjectId('');
-    setEditingProductTitle('');
-    setEditingProductSlug('');
-    setEditingProductKind('STANDARD');
-    setEditingProductStatus('DRAFT');
-    setEditingProductSortOrder('0');
-    setEditingProductShortDescription('');
-    setEditingProductDescription('');
-  };
-
-  const handleUpdateProduct = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!editingProductId) {
-      return;
-    }
-    await runAction(async () => {
-      await updateProduct.mutateAsync({
-        id: editingProductId,
-        data: {
-          project_id: editingProductProjectId.trim(),
-          title: editingProductTitle.trim(),
-          slug: editingProductSlug.trim(),
-          product_kind: editingProductKind,
-          status: editingProductStatus,
-          sort_order: parseNonNegativeInteger(editingProductSortOrder, 'sort_order'),
-          short_description: editingProductShortDescription.trim() || null,
-          description: editingProductDescription.trim() || null,
-        },
-      });
-      setMessage('상품 정보를 수정했습니다.');
-      handleCancelEditProduct();
-    });
-  };
-
   const handleDeleteProduct = async (productId: string, title: string) => {
     if (!window.confirm(`"${title}" 상품을 삭제하시겠습니까?`)) {
       return;
@@ -390,9 +277,6 @@ export default function V2CatalogProductsPage() {
       await deleteProduct.mutateAsync(productId);
       if (selectedProductId === productId) {
         setSelectedProductId(null);
-      }
-      if (editingProductId === productId) {
-        handleCancelEditProduct();
       }
       setMessage('상품을 삭제했습니다.');
     });
@@ -561,13 +445,16 @@ export default function V2CatalogProductsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">v2 상품 관리</h1>
           <p className="mt-1 text-sm text-gray-500">
-            상품/variant 등록과 판매 상태를 운영합니다.
+            상품 목록과 variant 판매 상태를 운영합니다.
           </p>
         </div>
-        <div className="mt-3 sm:mt-0">
+        <div className="mt-3 flex items-center gap-2 sm:mt-0">
           <Badge intent="info" size="md">
             총 {products.length}개
           </Badge>
+          <Button onClick={() => router.push('/admin/v2-catalog/products/new')}>
+            새 상품
+          </Button>
         </div>
       </div>
 
@@ -581,84 +468,6 @@ export default function V2CatalogProductsPage() {
           {errorMessage}
         </div>
       )}
-
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
-        <h2 className="text-lg font-semibold text-gray-900">새 상품 등록</h2>
-        <form className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3" onSubmit={handleCreateProduct}>
-          <select
-            value={newProductProjectId}
-            onChange={(event) => setNewProductProjectId(event.target.value)}
-            className={SELECT_CLASS}
-            required
-          >
-            <option value="">프로젝트 선택</option>
-            {activeProjects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name} ({project.slug})
-              </option>
-            ))}
-          </select>
-          <Input
-            placeholder="상품명"
-            value={newProductTitle}
-            onChange={(event) => setNewProductTitle(event.target.value)}
-            required
-          />
-          <Input
-            placeholder="slug"
-            value={newProductSlug}
-            onChange={(event) => setNewProductSlug(event.target.value)}
-            required
-          />
-          <select
-            value={newProductKind}
-            onChange={(event) => setNewProductKind(event.target.value as V2ProductKind)}
-            className={SELECT_CLASS}
-          >
-            {PRODUCT_KIND_VALUES.map((kind) => (
-              <option key={kind} value={kind}>
-                {kind}
-              </option>
-            ))}
-          </select>
-          <select
-            value={newProductStatus}
-            onChange={(event) => setNewProductStatus(event.target.value as V2ProductStatus)}
-            className={SELECT_CLASS}
-          >
-            {PRODUCT_STATUS_VALUES.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-          <Input
-            placeholder="sort_order"
-            value={newProductSortOrder}
-            onChange={(event) => setNewProductSortOrder(event.target.value)}
-          />
-          <div className="lg:col-span-3">
-            <Input
-              placeholder="짧은 설명 (선택)"
-              value={newProductShortDescription}
-              onChange={(event) => setNewProductShortDescription(event.target.value)}
-            />
-          </div>
-          <div className="lg:col-span-3">
-            <Textarea
-              placeholder="상세 설명 (선택)"
-              value={newProductDescription}
-              onChange={(event) => setNewProductDescription(event.target.value)}
-              rows={3}
-            />
-          </div>
-          <div className="lg:col-span-3">
-            <Button type="submit" loading={createProduct.isPending}>
-              상품 생성
-            </Button>
-          </div>
-        </form>
-      </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <div className="flex flex-wrap gap-3">
@@ -777,7 +586,9 @@ export default function V2CatalogProductsPage() {
                         <Button
                           intent="neutral"
                           size="sm"
-                          onClick={() => handleStartEditProduct(product)}
+                          onClick={() =>
+                            router.push(`/admin/v2-catalog/products/${product.id}/edit`)
+                          }
                         >
                           수정
                         </Button>
@@ -798,91 +609,6 @@ export default function V2CatalogProductsPage() {
           </table>
         </div>
       </section>
-
-      {editingProductId && (
-        <section className="rounded-xl border border-gray-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-gray-900">상품 수정</h2>
-          <form className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3" onSubmit={handleUpdateProduct}>
-            <select
-              value={editingProductProjectId}
-              onChange={(event) => setEditingProductProjectId(event.target.value)}
-              className={SELECT_CLASS}
-              required
-            >
-              <option value="">프로젝트 선택</option>
-              {activeProjects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name} ({project.slug})
-                </option>
-              ))}
-            </select>
-            <Input
-              placeholder="상품명"
-              value={editingProductTitle}
-              onChange={(event) => setEditingProductTitle(event.target.value)}
-              required
-            />
-            <Input
-              placeholder="slug"
-              value={editingProductSlug}
-              onChange={(event) => setEditingProductSlug(event.target.value)}
-              required
-            />
-            <select
-              value={editingProductKind}
-              onChange={(event) => setEditingProductKind(event.target.value as V2ProductKind)}
-              className={SELECT_CLASS}
-            >
-              {PRODUCT_KIND_VALUES.map((kind) => (
-                <option key={kind} value={kind}>
-                  {kind}
-                </option>
-              ))}
-            </select>
-            <select
-              value={editingProductStatus}
-              onChange={(event) =>
-                setEditingProductStatus(event.target.value as V2ProductStatus)
-              }
-              className={SELECT_CLASS}
-            >
-              {PRODUCT_STATUS_VALUES.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-            <Input
-              placeholder="sort_order"
-              value={editingProductSortOrder}
-              onChange={(event) => setEditingProductSortOrder(event.target.value)}
-            />
-            <div className="lg:col-span-3">
-              <Input
-                placeholder="짧은 설명 (선택)"
-                value={editingProductShortDescription}
-                onChange={(event) => setEditingProductShortDescription(event.target.value)}
-              />
-            </div>
-            <div className="lg:col-span-3">
-              <Textarea
-                placeholder="상세 설명 (선택)"
-                value={editingProductDescription}
-                onChange={(event) => setEditingProductDescription(event.target.value)}
-                rows={3}
-              />
-            </div>
-            <div className="lg:col-span-3 flex gap-2">
-              <Button type="submit" loading={updateProduct.isPending}>
-                저장
-              </Button>
-              <Button type="button" intent="neutral" onClick={handleCancelEditProduct}>
-                취소
-              </Button>
-            </div>
-          </form>
-        </section>
-      )}
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <div className="sm:flex sm:items-start sm:justify-between">

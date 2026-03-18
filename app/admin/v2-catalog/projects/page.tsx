@@ -1,17 +1,16 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input, Textarea } from '@/components/ui/input';
+import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import type { V2ProjectStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
-  useCreateV2Project,
   useDeleteV2Project,
   usePublishV2Project,
   useUnpublishV2Project,
-  useUpdateV2Project,
   useV2AdminProjects,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 
@@ -37,14 +36,6 @@ function getErrorMessage(error: unknown): string {
   return '요청 처리 중 오류가 발생했습니다.';
 }
 
-function parseNonNegativeInteger(value: string, fieldName: string): number {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    throw new Error(`${fieldName}는 0 이상의 정수여야 합니다.`);
-  }
-  return parsed;
-}
-
 function resolveStatusIntent(status: V2ProjectStatus) {
   if (status === 'ACTIVE') {
     return 'success' as const;
@@ -56,29 +47,13 @@ function resolveStatusIntent(status: V2ProjectStatus) {
 }
 
 export default function V2CatalogProjectsPage() {
+  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const [newName, setNewName] = useState('');
-  const [newSlug, setNewSlug] = useState('');
-  const [newDescription, setNewDescription] = useState('');
-  const [newCoverImageUrl, setNewCoverImageUrl] = useState('');
-  const [newSortOrder, setNewSortOrder] = useState('0');
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
-  const [editingSlug, setEditingSlug] = useState('');
-  const [editingDescription, setEditingDescription] = useState('');
-  const [editingCoverImageUrl, setEditingCoverImageUrl] = useState('');
-  const [editingSortOrder, setEditingSortOrder] = useState('0');
-  const [editingStatus, setEditingStatus] = useState<V2ProjectStatus>('DRAFT');
-
   const [statusFilter, setStatusFilter] = useState<ProjectFilterStatus>('ALL');
   const [keyword, setKeyword] = useState('');
 
   const { data: projects, isLoading, error } = useV2AdminProjects();
-  const createProject = useCreateV2Project();
-  const updateProject = useUpdateV2Project();
   const publishProject = usePublishV2Project();
   const unpublishProject = useUnpublishV2Project();
   const deleteProject = useDeleteV2Project();
@@ -113,79 +88,6 @@ export default function V2CatalogProjectsPage() {
       .sort((left, right) => left.sort_order - right.sort_order);
   }, [keyword, projects, statusFilter]);
 
-  const handleCreateProject = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    await runAction(async () => {
-      await createProject.mutateAsync({
-        name: newName.trim(),
-        slug: newSlug.trim(),
-        description: newDescription.trim() || null,
-        cover_image_url: newCoverImageUrl.trim() || null,
-        sort_order: parseNonNegativeInteger(newSortOrder, 'sort_order'),
-      });
-      setMessage('v2 프로젝트를 생성했습니다.');
-      setNewName('');
-      setNewSlug('');
-      setNewDescription('');
-      setNewCoverImageUrl('');
-      setNewSortOrder('0');
-    });
-  };
-
-  const handleStartEdit = (project: {
-    id: string;
-    name: string;
-    slug: string;
-    description: string | null;
-    cover_image_url: string | null;
-    sort_order: number;
-    status: V2ProjectStatus;
-  }) => {
-    clearNotice();
-    setEditingId(project.id);
-    setEditingName(project.name);
-    setEditingSlug(project.slug);
-    setEditingDescription(project.description || '');
-    setEditingCoverImageUrl(project.cover_image_url || '');
-    setEditingSortOrder(String(project.sort_order));
-    setEditingStatus(project.status);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditingName('');
-    setEditingSlug('');
-    setEditingDescription('');
-    setEditingCoverImageUrl('');
-    setEditingSortOrder('0');
-    setEditingStatus('DRAFT');
-  };
-
-  const handleUpdateProject = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!editingId) {
-      return;
-    }
-
-    await runAction(async () => {
-      await updateProject.mutateAsync({
-        id: editingId,
-        data: {
-          name: editingName.trim(),
-          slug: editingSlug.trim(),
-          description: editingDescription.trim() || null,
-          cover_image_url: editingCoverImageUrl.trim() || null,
-          sort_order: parseNonNegativeInteger(editingSortOrder, 'sort_order'),
-          status: editingStatus,
-          is_active: editingStatus === 'ACTIVE',
-        },
-      });
-      setMessage('v2 프로젝트를 수정했습니다.');
-      handleCancelEdit();
-    });
-  };
-
   const handlePublish = async (projectId: string) => {
     await runAction(async () => {
       await publishProject.mutateAsync(projectId);
@@ -206,9 +108,6 @@ export default function V2CatalogProjectsPage() {
     }
     await runAction(async () => {
       await deleteProject.mutateAsync(projectId);
-      if (editingId === projectId) {
-        handleCancelEdit();
-      }
       setMessage('프로젝트를 삭제했습니다.');
     });
   };
@@ -235,13 +134,16 @@ export default function V2CatalogProjectsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">v2 프로젝트 관리</h1>
           <p className="mt-1 text-sm text-gray-500">
-            프로젝트 등록/수정과 공개 상태를 운영합니다.
+            프로젝트 목록과 공개 상태를 운영합니다.
           </p>
         </div>
-        <div className="mt-3 sm:mt-0">
+        <div className="mt-3 flex items-center gap-2 sm:mt-0">
           <Badge intent="info" size="md">
             총 {projects?.length || 0}개
           </Badge>
+          <Button onClick={() => router.push('/admin/v2-catalog/projects/new')}>
+            새 프로젝트
+          </Button>
         </div>
       </div>
 
@@ -255,47 +157,6 @@ export default function V2CatalogProjectsPage() {
           {errorMessage}
         </div>
       )}
-
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
-        <h2 className="text-lg font-semibold text-gray-900">새 프로젝트 등록</h2>
-        <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2" onSubmit={handleCreateProject}>
-          <Input
-            placeholder="프로젝트명"
-            value={newName}
-            onChange={(event) => setNewName(event.target.value)}
-            required
-          />
-          <Input
-            placeholder="slug (예: jennie-solo)"
-            value={newSlug}
-            onChange={(event) => setNewSlug(event.target.value)}
-            required
-          />
-          <Input
-            placeholder="cover_image_url (선택)"
-            value={newCoverImageUrl}
-            onChange={(event) => setNewCoverImageUrl(event.target.value)}
-          />
-          <Input
-            placeholder="sort_order"
-            value={newSortOrder}
-            onChange={(event) => setNewSortOrder(event.target.value)}
-          />
-          <div className="md:col-span-2">
-            <Textarea
-              placeholder="설명 (선택)"
-              value={newDescription}
-              onChange={(event) => setNewDescription(event.target.value)}
-              rows={3}
-            />
-          </div>
-          <div className="md:col-span-2">
-            <Button type="submit" loading={createProject.isPending}>
-              v2 프로젝트 생성
-            </Button>
-          </div>
-        </form>
-      </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <div className="flex flex-wrap gap-3">
@@ -361,15 +222,28 @@ export default function V2CatalogProjectsPage() {
                   <td className="px-4 py-3 text-sm text-gray-700">{project.sort_order}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
-                      <Button intent="neutral" size="sm" onClick={() => handleStartEdit(project)}>
+                      <Button
+                        intent="neutral"
+                        size="sm"
+                        onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}/edit`)}
+                      >
                         수정
                       </Button>
                       {project.status !== 'ACTIVE' ? (
-                        <Button size="sm" onClick={() => handlePublish(project.id)} loading={publishProject.isPending}>
+                        <Button
+                          size="sm"
+                          onClick={() => handlePublish(project.id)}
+                          loading={publishProject.isPending}
+                        >
                           활성화
                         </Button>
                       ) : (
-                        <Button intent="secondary" size="sm" onClick={() => handleUnpublish(project.id)} loading={unpublishProject.isPending}>
+                        <Button
+                          intent="secondary"
+                          size="sm"
+                          onClick={() => handleUnpublish(project.id)}
+                          loading={unpublishProject.isPending}
+                        >
                           비활성화
                         </Button>
                       )}
@@ -389,65 +263,6 @@ export default function V2CatalogProjectsPage() {
           </table>
         </div>
       </section>
-
-      {editingId && (
-        <section className="rounded-xl border border-gray-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-gray-900">프로젝트 수정</h2>
-          <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2" onSubmit={handleUpdateProject}>
-            <Input
-              placeholder="프로젝트명"
-              value={editingName}
-              onChange={(event) => setEditingName(event.target.value)}
-              required
-            />
-            <Input
-              placeholder="slug"
-              value={editingSlug}
-              onChange={(event) => setEditingSlug(event.target.value)}
-              required
-            />
-            <Input
-              placeholder="cover_image_url"
-              value={editingCoverImageUrl}
-              onChange={(event) => setEditingCoverImageUrl(event.target.value)}
-            />
-            <Input
-              placeholder="sort_order"
-              value={editingSortOrder}
-              onChange={(event) => setEditingSortOrder(event.target.value)}
-            />
-            <select
-              value={editingStatus}
-              onChange={(event) => setEditingStatus(event.target.value as V2ProjectStatus)}
-              className={SELECT_CLASS}
-            >
-              {STATUS_VALUES.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-            <div />
-            <div className="md:col-span-2">
-              <Textarea
-                placeholder="설명"
-                value={editingDescription}
-                onChange={(event) => setEditingDescription(event.target.value)}
-                rows={3}
-              />
-            </div>
-            <div className="md:col-span-2 flex gap-2">
-              <Button type="submit" loading={updateProject.isPending}>
-                저장
-              </Button>
-              <Button type="button" intent="neutral" onClick={handleCancelEdit}>
-                취소
-              </Button>
-            </div>
-          </form>
-        </section>
-      )}
     </div>
   );
 }
-
