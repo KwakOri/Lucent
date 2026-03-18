@@ -54,7 +54,7 @@ export default function V2CatalogProductCreatePage() {
         description: values.description,
       });
 
-      router.push(`/admin/v2-catalog/products?product=${response.data.id}`);
+      router.push(`/admin/v2-catalog/products/${response.data.id}`);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     }
