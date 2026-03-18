@@ -14,6 +14,7 @@ KEEP_BACKEND=0
 
 BACKEND_PID=""
 BACKEND_LOG="${FE_DIR}/.tmp/dev-v2-local-backend.log"
+BACKEND_LOG_TAIL_PID=""
 
 print_usage() {
   cat <<'EOF'
@@ -57,6 +58,11 @@ wait_port_free() {
 }
 
 cleanup() {
+  if [[ -n "${BACKEND_LOG_TAIL_PID}" ]] && kill -0 "${BACKEND_LOG_TAIL_PID}" >/dev/null 2>&1; then
+    kill "${BACKEND_LOG_TAIL_PID}" >/dev/null 2>&1 || true
+    wait "${BACKEND_LOG_TAIL_PID}" >/dev/null 2>&1 || true
+  fi
+
   if [[ "${KEEP_BACKEND}" -eq 1 ]]; then
     return 0
   fi
@@ -105,6 +111,7 @@ done
 trap cleanup EXIT INT TERM
 
 mkdir -p "${FE_DIR}/.tmp"
+: > "${BACKEND_LOG}"
 
 log "starting local supabase"
 cd "${FE_DIR}"
@@ -134,6 +141,11 @@ BACKEND_BASE_URL="http://127.0.0.1:${BACKEND_PORT}"
 
 log "starting backend on ${BACKEND_BASE_URL} (LOCAL_ADMIN_BYPASS=${LOCAL_ADMIN_BYPASS_VALUE})"
 cd "${BE_DIR}"
+(
+  tail -n 0 -f "${BACKEND_LOG}" 2>/dev/null | sed -u 's/^/[backend] /'
+) &
+BACKEND_LOG_TAIL_PID=$!
+
 SUPABASE_URL="${API_URL}" \
 SUPABASE_ANON_KEY="${ANON_KEY}" \
 SUPABASE_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY}" \
@@ -164,4 +176,3 @@ SUPABASE_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY}" \
 BACKEND_API_URL="${BACKEND_BASE_URL}" \
 NEXT_PUBLIC_BACKEND_API_URL="${BACKEND_BASE_URL}" \
 npm run dev -- --port "${FRONTEND_PORT}"
-
