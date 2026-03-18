@@ -1022,6 +1022,23 @@ export interface UploadV2MediaAssetFileData {
   metadata?: Record<string, unknown>;
 }
 
+export interface V2MediaAssetUploadSession {
+  asset_kind: V2MediaAssetKind;
+  status: V2MediaAssetStatus;
+  storage_provider: string;
+  storage_bucket: string | null;
+  storage_path: string;
+  public_url: string | null;
+  file_name: string;
+  mime_type: string;
+  file_size: number;
+  upload_url: string;
+  upload_method: 'PUT';
+  upload_headers: Record<string, string>;
+  expires_in_seconds: number;
+  expires_at: string;
+}
+
 export interface CreateV2BundleDefinitionData {
   bundle_product_id: string;
   anchor_product_id?: string;
@@ -1385,6 +1402,40 @@ function buildSearchParams(
   return queryString ? `?${queryString}` : '';
 }
 
+function ensureDirectBackendUploadConfigured(): void {
+  if (!process.env.NEXT_PUBLIC_BACKEND_API_URL) {
+    throw new Error(
+      'NEXT_PUBLIC_BACKEND_API_URL is required for direct R2 uploads.',
+    );
+  }
+}
+
+async function uploadFileToPresignedUrl(
+  session: V2MediaAssetUploadSession,
+  file: File,
+): Promise<void> {
+  const headers = new Headers(session.upload_headers || {});
+
+  if (!headers.has('Content-Type') && file.type) {
+    headers.set('Content-Type', file.type);
+  }
+
+  const response = await fetch(session.upload_url, {
+    method: session.upload_method || 'PUT',
+    headers,
+    body: file,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(
+      errorText
+        ? `R2 업로드에 실패했습니다: ${errorText}`
+        : 'R2 업로드에 실패했습니다.',
+    );
+  }
+}
+
 export const V2CatalogAdminAPI = {
   async getProjects(
     params: GetV2ProjectsParams = {},
@@ -1546,18 +1597,32 @@ export const V2CatalogAdminAPI = {
   async uploadMediaAssetFile(
     data: UploadV2MediaAssetFileData,
   ): Promise<ApiResponse<V2MediaAsset>> {
-    const formData = new FormData();
-    formData.append('file', data.file);
-    if (data.asset_kind) {
-      formData.append('asset_kind', data.asset_kind);
-    }
-    if (data.status) {
-      formData.append('status', data.status);
-    }
-    if (data.metadata && Object.keys(data.metadata).length > 0) {
-      formData.append('metadata', JSON.stringify(data.metadata));
-    }
-    return apiClient.post('/api/v2/catalog/admin/media-assets/upload', formData);
+    ensureDirectBackendUploadConfigured();
+
+    const mimeType = data.file.type || 'application/octet-stream';
+    const presigned = await apiClient.post<ApiResponse<V2MediaAssetUploadSession>>(
+      '/api/v2/catalog/admin/media-assets/presign-upload',
+      {
+        file_name: data.file.name,
+        mime_type: mimeType,
+        file_size: data.file.size,
+        asset_kind: data.asset_kind,
+        status: data.status,
+        metadata: data.metadata,
+      },
+    );
+
+    await uploadFileToPresignedUrl(presigned.data, data.file);
+
+    return apiClient.post('/api/v2/catalog/admin/media-assets/complete-upload', {
+      storage_path: presigned.data.storage_path,
+      file_name: data.file.name,
+      mime_type: mimeType,
+      file_size: data.file.size,
+      asset_kind: presigned.data.asset_kind,
+      status: data.status,
+      metadata: data.metadata,
+    });
   },
 
   async getProductMedia(productId: string): Promise<ApiResponse<V2ProductMedia[]>> {
