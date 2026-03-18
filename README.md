@@ -27,6 +27,9 @@ BACKEND_API_URL=http://localhost:3001
 
 Both values should use backend server origin (include protocol, no trailing `/api`).
 
+Direct browser-to-R2 uploads also require bucket CORS to allow your frontend origin.
+Allow `PUT` and `HEAD` requests from the app origin and permit the `Content-Type` header.
+
 ## Docker (local)
 
 Frontend is deployed by Vercel in production, so Docker is used for local integration only.
