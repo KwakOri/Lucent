@@ -1,21 +1,19 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input, Textarea } from '@/components/ui/input';
+import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
-import { ImageUpload } from '@/src/components/admin/ImageUpload';
 import type {
   V2Artist,
   V2ArtistStatus,
   V2ProjectArtist,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
-  useCreateV2Artist,
   useLinkV2ArtistToProject,
   useUnlinkV2ArtistFromProject,
-  useUpdateV2Artist,
   useV2AdminArtists,
   useV2AdminProjects,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
@@ -89,25 +87,13 @@ function isProjectArtist(item: unknown): item is V2ProjectArtist {
 }
 
 export default function V2CatalogArtistsPage() {
+  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [keyword, setKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<ArtistFilterStatus>('ALL');
   const [sortKey, setSortKey] = useState<ArtistSortKey>('UPDATED_DESC');
-
-  const [newName, setNewName] = useState('');
-  const [newSlug, setNewSlug] = useState('');
-  const [newBio, setNewBio] = useState('');
-  const [newProfileImageUrl, setNewProfileImageUrl] = useState('');
-  const [newStatus, setNewStatus] = useState<V2ArtistStatus>('DRAFT');
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
-  const [editingSlug, setEditingSlug] = useState('');
-  const [editingBio, setEditingBio] = useState('');
-  const [editingProfileImageUrl, setEditingProfileImageUrl] = useState('');
-  const [editingStatus, setEditingStatus] = useState<V2ArtistStatus>('DRAFT');
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
@@ -146,8 +132,6 @@ export default function V2CatalogArtistsPage() {
     projectId: activeProjectId || undefined,
   });
 
-  const createArtist = useCreateV2Artist();
-  const updateArtist = useUpdateV2Artist();
   const linkArtist = useLinkV2ArtistToProject();
   const unlinkArtist = useUnlinkV2ArtistFromProject();
 
@@ -201,65 +185,6 @@ export default function V2CatalogArtistsPage() {
     } catch (actionError) {
       setErrorMessage(getErrorMessage(actionError));
     }
-  };
-
-  const handleCreateArtist = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await runAction(async () => {
-      await createArtist.mutateAsync({
-        name: newName.trim(),
-        slug: newSlug.trim(),
-        bio: newBio.trim() || null,
-        profile_image_url: newProfileImageUrl.trim() || null,
-        status: newStatus,
-      });
-      setMessage('v2 아티스트를 생성했습니다.');
-      setNewName('');
-      setNewSlug('');
-      setNewBio('');
-      setNewProfileImageUrl('');
-      setNewStatus('DRAFT');
-    });
-  };
-
-  const handleStartEdit = (artist: V2Artist) => {
-    clearNotice();
-    setEditingId(artist.id);
-    setEditingName(artist.name);
-    setEditingSlug(artist.slug);
-    setEditingBio(artist.bio || '');
-    setEditingProfileImageUrl(artist.profile_image_url || '');
-    setEditingStatus(artist.status);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditingName('');
-    setEditingSlug('');
-    setEditingBio('');
-    setEditingProfileImageUrl('');
-    setEditingStatus('DRAFT');
-  };
-
-  const handleUpdateArtist = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!editingId) {
-      return;
-    }
-    await runAction(async () => {
-      await updateArtist.mutateAsync({
-        id: editingId,
-        data: {
-          name: editingName.trim(),
-          slug: editingSlug.trim(),
-          bio: editingBio.trim() || null,
-          profile_image_url: editingProfileImageUrl.trim() || null,
-          status: editingStatus,
-        },
-      });
-      setMessage('아티스트를 수정했습니다.');
-      handleCancelEdit();
-    });
   };
 
   const resetLinkForm = () => {
@@ -352,13 +277,16 @@ export default function V2CatalogArtistsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">v2 아티스트 관리</h1>
           <p className="mt-1 text-sm text-gray-500">
-            아티스트 등록/수정과 프로젝트 연결 상태를 운영합니다.
+            아티스트 목록과 프로젝트 연결 상태를 운영합니다.
           </p>
         </div>
-        <div className="mt-3 sm:mt-0">
+        <div className="mt-3 flex items-center gap-2 sm:mt-0">
           <Badge intent="info" size="md">
             총 {artists.length}명
           </Badge>
+          <Button onClick={() => router.push('/admin/v2-catalog/artists/new')}>
+            새 아티스트
+          </Button>
         </div>
       </div>
 
@@ -372,64 +300,6 @@ export default function V2CatalogArtistsPage() {
           {errorMessage}
         </div>
       )}
-
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
-        <h2 className="text-lg font-semibold text-gray-900">새 아티스트 등록</h2>
-        <form className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2" onSubmit={handleCreateArtist}>
-          <Input
-            placeholder="이름"
-            value={newName}
-            onChange={(event) => setNewName(event.target.value)}
-            required
-          />
-          <Input
-            placeholder="slug (예: rosie)"
-            value={newSlug}
-            onChange={(event) => setNewSlug(event.target.value)}
-            required
-          />
-          <select
-            value={newStatus}
-            onChange={(event) => setNewStatus(event.target.value as V2ArtistStatus)}
-            className={SELECT_CLASS}
-          >
-            {ARTIST_STATUS_VALUES.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-          <Input
-            placeholder="profile_image_url (직접 입력 가능)"
-            value={newProfileImageUrl}
-            onChange={(event) => setNewProfileImageUrl(event.target.value)}
-          />
-          <div className="lg:col-span-2">
-            <ImageUpload
-              imageType="artist_profile"
-              label="프로필 이미지 업로드"
-              currentImageUrl={newProfileImageUrl || undefined}
-              altText={newName || undefined}
-              onUploadSuccess={(_imageId, publicUrl) => {
-                setNewProfileImageUrl(publicUrl);
-              }}
-            />
-          </div>
-          <div className="lg:col-span-2">
-            <Textarea
-              placeholder="소개 (선택)"
-              value={newBio}
-              onChange={(event) => setNewBio(event.target.value)}
-              rows={3}
-            />
-          </div>
-          <div className="lg:col-span-2">
-            <Button type="submit" loading={createArtist.isPending}>
-              아티스트 생성
-            </Button>
-          </div>
-        </form>
-      </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <div className="flex flex-wrap gap-3">
@@ -514,7 +384,11 @@ export default function V2CatalogArtistsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
-                      <Button intent="neutral" size="sm" onClick={() => handleStartEdit(artist)}>
+                      <Button
+                        intent="neutral"
+                        size="sm"
+                        onClick={() => router.push(`/admin/v2-catalog/artists/${artist.id}/edit`)}
+                      >
                         수정
                       </Button>
                     </div>
@@ -525,69 +399,6 @@ export default function V2CatalogArtistsPage() {
           </table>
         </div>
       </section>
-
-      {editingId && (
-        <section className="rounded-xl border border-gray-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-gray-900">아티스트 수정</h2>
-          <form className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2" onSubmit={handleUpdateArtist}>
-            <Input
-              placeholder="이름"
-              value={editingName}
-              onChange={(event) => setEditingName(event.target.value)}
-              required
-            />
-            <Input
-              placeholder="slug"
-              value={editingSlug}
-              onChange={(event) => setEditingSlug(event.target.value)}
-              required
-            />
-            <select
-              value={editingStatus}
-              onChange={(event) => setEditingStatus(event.target.value as V2ArtistStatus)}
-              className={SELECT_CLASS}
-            >
-              {ARTIST_STATUS_VALUES.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-            <Input
-              placeholder="profile_image_url"
-              value={editingProfileImageUrl}
-              onChange={(event) => setEditingProfileImageUrl(event.target.value)}
-            />
-            <div className="lg:col-span-2">
-              <ImageUpload
-                imageType="artist_profile"
-                label="프로필 이미지 업로드"
-                currentImageUrl={editingProfileImageUrl || undefined}
-                altText={editingName || undefined}
-                onUploadSuccess={(_imageId, publicUrl) => {
-                  setEditingProfileImageUrl(publicUrl);
-                }}
-              />
-            </div>
-            <div className="lg:col-span-2">
-              <Textarea
-                placeholder="소개"
-                value={editingBio}
-                onChange={(event) => setEditingBio(event.target.value)}
-                rows={3}
-              />
-            </div>
-            <div className="lg:col-span-2 flex gap-2">
-              <Button type="submit" loading={updateArtist.isPending}>
-                저장
-              </Button>
-              <Button type="button" intent="neutral" onClick={handleCancelEdit}>
-                취소
-              </Button>
-            </div>
-          </form>
-        </section>
-      )}
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <div className="sm:flex sm:items-start sm:justify-between">
@@ -711,15 +522,13 @@ export default function V2CatalogArtistsPage() {
                       </td>
                     </tr>
                   )}
-                  {!projectArtistsLoading &&
-                    !projectArtistsError &&
-                    linkedArtists.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
-                          연결된 아티스트가 없습니다.
-                        </td>
-                      </tr>
-                    )}
+                  {!projectArtistsLoading && !projectArtistsError && linkedArtists.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                        연결된 아티스트가 없습니다.
+                      </td>
+                    </tr>
+                  )}
                   {!projectArtistsLoading &&
                     !projectArtistsError &&
                     linkedArtists.map((relation) => (
