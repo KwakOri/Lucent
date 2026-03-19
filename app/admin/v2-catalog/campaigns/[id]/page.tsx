@@ -157,8 +157,8 @@ export default function V2CatalogCampaignDetailPage() {
           <Button onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/targets/new`)}>
             대상 추가
           </Button>
-          <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/pricing')}>
-            pricing으로 이동
+          <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/pricing`)}>
+            할인 가격 설정
           </Button>
         </div>
       </div>
@@ -175,7 +175,7 @@ export default function V2CatalogCampaignDetailPage() {
           <p className="mt-2 text-sm font-semibold text-gray-900">{linkedTargetSummary}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">가격표 연결</p>
+          <p className="text-sm font-medium text-gray-500">할인 설정</p>
           <p className="mt-2 text-2xl font-bold text-gray-900">{priceLists.length}</p>
           <p className="mt-1 text-xs text-gray-500">프로모션 {promotions.length}개</p>
         </div>
@@ -201,7 +201,7 @@ export default function V2CatalogCampaignDetailPage() {
 
       {!priceLists.length && !promotions.length && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          아직 가격표나 프로모션이 연결되지 않았습니다. 캠페인은 범위와 기간만 정의하며, 실제 판매 변화는 pricing 탭에서 연결해야 합니다.
+          아직 가격표나 프로모션이 연결되지 않았습니다. 대상을 고른 뒤 &quot;할인 가격 설정&quot;에서 옵션별 캠페인 가격을 연결해 주세요.
         </div>
       )}
 
@@ -286,7 +286,21 @@ export default function V2CatalogCampaignDetailPage() {
 
       <section className="grid gap-4 xl:grid-cols-2">
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">연결된 가격표</h2>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">연결된 가격표</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                BASE는 상품 옵션에서 관리하고, 이 영역은 캠페인 기간의 OVERRIDE 가격표를 보여줍니다.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              intent="neutral"
+              onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/pricing`)}
+            >
+              할인 가격 설정
+            </Button>
+          </div>
           <div className="mt-4 space-y-2">
             {priceLists.length === 0 ? (
               <p className="text-sm text-gray-500">연결된 가격표가 없습니다.</p>

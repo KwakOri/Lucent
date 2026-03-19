@@ -54,7 +54,7 @@ export default function V2CatalogCampaignCreatePage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">새 캠페인 만들기</h1>
           <p className="mt-1 text-sm text-gray-500">
-            대상과 기간을 먼저 정해서 판매 운영의 뼈대를 만들고, 가격은 다음 단계에서 연결합니다.
+            대상과 기간을 먼저 정해서 판매 운영의 뼈대를 만들고, 저장 후 상세에서 할인 가격을 설정합니다.
           </p>
         </div>
         <div className="mt-3 sm:mt-0">

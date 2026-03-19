@@ -10,15 +10,23 @@ import type {
   V2DigitalAsset,
   V2FulfillmentType,
   V2MediaAssetUploadProgress,
+  V2PriceList,
+  V2PriceListItem,
   V2Product,
   V2Variant,
   V2VariantStatus,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
+  useCreateV2PriceList,
+  useCreateV2PriceListItem,
   useCreateV2DigitalAsset,
   useCreateV2Variant,
+  usePublishV2PriceList,
+  useUpdateV2PriceListItem,
   useUpdateV2DigitalAsset,
   useUpdateV2Variant,
+  useV2PriceListItems,
+  useV2PriceLists,
   useUploadV2MediaAssetFile,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import {
@@ -118,6 +126,42 @@ function createIdleUploadState(fileName = ''): VariantUploadState {
   };
 }
 
+function pickLatestPriceList(lists: V2PriceList[]): V2PriceList | null {
+  if (lists.length === 0) {
+    return null;
+  }
+  const sorted = [...lists].sort((left, right) =>
+    right.updated_at.localeCompare(left.updated_at),
+  );
+  return sorted[0] || null;
+}
+
+function findCurrentBasePriceItem(params: {
+  items: V2PriceListItem[];
+  productId: string;
+  variantId: string | null;
+}): V2PriceListItem | null {
+  if (!params.variantId) {
+    return null;
+  }
+
+  const matched = params.items.filter(
+    (item) =>
+      item.status === 'ACTIVE' &&
+      item.product_id === params.productId &&
+      (item.variant_id === params.variantId || item.variant_id === null),
+  );
+  if (matched.length === 0) {
+    return null;
+  }
+
+  const exact = matched.find((item) => item.variant_id === params.variantId);
+  if (exact) {
+    return exact;
+  }
+  return matched[0];
+}
+
 function toUploadState(
   progress: V2MediaAssetUploadProgress,
   fileName: string,
@@ -142,6 +186,22 @@ export function ProductVariantForm({
 }: ProductVariantFormProps) {
   const createVariant = useCreateV2Variant();
   const updateVariant = useUpdateV2Variant();
+  const createPriceList = useCreateV2PriceList();
+  const publishPriceList = usePublishV2PriceList();
+  const createPriceListItem = useCreateV2PriceListItem();
+  const updatePriceListItem = useUpdateV2PriceListItem();
+  const { data: basePriceLists = [] } = useV2PriceLists({
+    scopeType: 'BASE',
+    status: 'PUBLISHED',
+    campaignId: '',
+  });
+  const activeBasePriceList = useMemo(
+    () => pickLatestPriceList(basePriceLists),
+    [basePriceLists],
+  );
+  const { data: activeBasePriceItems = [] } = useV2PriceListItems(
+    activeBasePriceList?.id || null,
+  );
   const uploadMediaAssetFile = useUploadV2MediaAssetFile();
   const createDigitalAsset = useCreateV2DigitalAsset();
   const updateDigitalAsset = useUpdateV2DigitalAsset();
@@ -151,11 +211,23 @@ export function ProductVariantForm({
   const [status, setStatus] = useState<V2VariantStatus>('DRAFT');
   const [trackInventory, setTrackInventory] = useState(false);
   const [weightGrams, setWeightGrams] = useState('');
+  const [basePrice, setBasePrice] = useState('');
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadState, setUploadState] = useState<VariantUploadState | null>(null);
   const [persistedVariantId, setPersistedVariantId] = useState<string | null>(null);
+  const [persistedBasePriceItemId, setPersistedBasePriceItemId] = useState<string | null>(null);
   const [abortUpload, setAbortUpload] = useState<(() => void) | null>(null);
+
+  const currentBasePriceItem = useMemo(
+    () =>
+      findCurrentBasePriceItem({
+        items: activeBasePriceItems,
+        productId: product.id,
+        variantId: variant?.id || persistedVariantId,
+      }),
+    [activeBasePriceItems, persistedVariantId, product.id, variant?.id],
+  );
 
   useEffect(() => {
     if (mode === 'edit' && variant) {
@@ -168,6 +240,7 @@ export function ProductVariantForm({
       setErrorMessage(null);
       setUploadState(null);
       setPersistedVariantId(null);
+      setPersistedBasePriceItemId(null);
       setAbortUpload(null);
       return;
     }
@@ -177,12 +250,26 @@ export function ProductVariantForm({
     setStatus('DRAFT');
     setTrackInventory(false);
     setWeightGrams('');
+    setBasePrice('');
     setAudioFile(null);
     setErrorMessage(null);
     setUploadState(null);
     setPersistedVariantId(null);
+    setPersistedBasePriceItemId(null);
     setAbortUpload(null);
   }, [mode, variant]);
+
+  useEffect(() => {
+    if (mode !== 'edit' || !variant) {
+      return;
+    }
+    setBasePrice(
+      currentBasePriceItem?.unit_amount == null
+        ? ''
+        : String(currentBasePriceItem.unit_amount),
+    );
+    setPersistedBasePriceItemId(currentBasePriceItem?.id || null);
+  }, [currentBasePriceItem, mode, variant]);
 
   const skuPreview = useMemo(() => {
     if (mode === 'edit') {
@@ -209,6 +296,10 @@ export function ProductVariantForm({
   const isSubmitting =
     createVariant.isPending ||
     updateVariant.isPending ||
+    createPriceList.isPending ||
+    publishPriceList.isPending ||
+    createPriceListItem.isPending ||
+    updatePriceListItem.isPending ||
     uploadMediaAssetFile.isPending ||
     createDigitalAsset.isPending ||
     updateDigitalAsset.isPending;
@@ -275,6 +366,63 @@ export function ProductVariantForm({
           variantId: variant.id,
           data: nextVariantPayload,
         });
+      }
+
+      const parsedBasePrice = parseNonNegativeInteger(basePrice, 'BASE 가격');
+      if (!savedVariantId) {
+        throw new Error('옵션 저장 후 BASE 가격을 연결할 수 없습니다.');
+      }
+
+      let targetBasePriceList = activeBasePriceList;
+      if (!targetBasePriceList) {
+        const createdBasePriceList = await createPriceList.mutateAsync({
+          name: '기본 판매가 (KRW)',
+          scope_type: 'BASE',
+          status: 'DRAFT',
+          currency_code: 'KRW',
+        });
+        const publishedBasePriceList = await publishPriceList.mutateAsync(
+          createdBasePriceList.data.id,
+        );
+        targetBasePriceList = publishedBasePriceList.data;
+      }
+
+      if (!targetBasePriceList) {
+        throw new Error('BASE 가격표를 준비하지 못했습니다.');
+      }
+
+      const existingBasePriceItem = persistedBasePriceItemId
+        ? { id: persistedBasePriceItemId }
+        : findCurrentBasePriceItem({
+            items: activeBasePriceItems,
+            productId: product.id,
+            variantId: savedVariantId,
+          });
+
+      if (existingBasePriceItem) {
+        const updatedBasePriceItem = await updatePriceListItem.mutateAsync({
+          itemId: existingBasePriceItem.id,
+          data: {
+            product_id: product.id,
+            variant_id: savedVariantId,
+            status: 'ACTIVE',
+            unit_amount: parsedBasePrice,
+            compare_at_amount: null,
+          },
+        });
+        setPersistedBasePriceItemId(updatedBasePriceItem.data.id);
+      } else {
+        const createdBasePriceItem = await createPriceListItem.mutateAsync({
+          priceListId: targetBasePriceList.id,
+          data: {
+            product_id: product.id,
+            variant_id: savedVariantId,
+            status: 'ACTIVE',
+            unit_amount: parsedBasePrice,
+            compare_at_amount: null,
+          },
+        });
+        setPersistedBasePriceItemId(createdBasePriceItem.data.id);
       }
 
       if (fulfillmentType === 'DIGITAL' && audioFile) {
@@ -499,6 +647,50 @@ export function ProductVariantForm({
                 </Button>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">BASE 가격</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              이 옵션의 상시 판매 가격입니다. 캠페인이 없을 때 기본으로 노출됩니다.
+            </p>
+          </div>
+          <Badge intent="info">필수</Badge>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <FormField
+            label="기본 판매가 (원)"
+            htmlFor="variant-base-price"
+            required
+            help="정수 금액으로 입력해 주세요. 캠페인 할인은 별도 캠페인 화면에서 설정합니다."
+          >
+            <Input
+              id="variant-base-price"
+              type="number"
+              min="0"
+              step="1"
+              value={basePrice}
+              onChange={(event) => setBasePrice(event.target.value)}
+              placeholder="예: 30000"
+              required
+            />
+          </FormField>
+
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+            <p className="text-sm font-medium text-gray-900">현재 저장값</p>
+            <p className="mt-1 text-sm text-gray-500">
+              {currentBasePriceItem
+                ? `${currentBasePriceItem.unit_amount.toLocaleString('ko-KR')}원`
+                : '아직 저장된 BASE 가격이 없습니다.'}
+            </p>
+            <p className="mt-3 text-xs text-gray-500">
+              옵션 저장 시 BASE price list/item이 자동으로 생성 또는 갱신됩니다.
+            </p>
           </div>
         </div>
       </section>

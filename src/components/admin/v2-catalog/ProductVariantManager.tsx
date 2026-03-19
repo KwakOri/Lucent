@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import type {
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useDeleteV2Variant,
+  useV2PriceListItems,
+  useV2PriceLists,
   useV2AdminVariantAssets,
   useV2AdminVariants,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
@@ -119,6 +121,10 @@ function formatVariantDetails(variant: V2Variant): string[] {
   return ['배송 없이 제공되는 디지털 옵션입니다.'];
 }
 
+function formatCurrency(amount: number): string {
+  return `${amount.toLocaleString('ko-KR')}원`;
+}
+
 function getPrimaryDigitalAsset(assets: V2DigitalAsset[] | undefined): V2DigitalAsset | null {
   if (!assets || assets.length === 0) {
     return null;
@@ -172,7 +178,37 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
     isLoading: variantsLoading,
     error: variantsError,
   } = useV2AdminVariants(product.id);
+  const { data: basePriceLists = [] } = useV2PriceLists({
+    scopeType: 'BASE',
+    status: 'PUBLISHED',
+    campaignId: '',
+  });
+  const activeBasePriceList = useMemo(
+    () =>
+      [...basePriceLists].sort((left, right) =>
+        right.updated_at.localeCompare(left.updated_at),
+      )[0] || null,
+    [basePriceLists],
+  );
+  const { data: basePriceItems = [], isLoading: basePriceItemsLoading } = useV2PriceListItems(
+    activeBasePriceList?.id || null,
+  );
   const deleteVariant = useDeleteV2Variant();
+
+  const basePriceByVariantId = useMemo(() => {
+    const map = new Map<string, number>();
+    basePriceItems.forEach((item) => {
+      if (
+        item.status === 'ACTIVE' &&
+        item.product_id === product.id &&
+        item.variant_id &&
+        !map.has(item.variant_id)
+      ) {
+        map.set(item.variant_id, item.unit_amount);
+      }
+    });
+    return map;
+  }, [basePriceItems, product.id]);
 
   const handleDeleteVariant = async (variantId: string, variantTitle: string) => {
     if (!window.confirm(`"${variantTitle}" 옵션을 삭제하시겠습니까?`)) {
@@ -282,6 +318,14 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
                     )}
 
                     <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600">
+                        BASE 가격:{' '}
+                        {basePriceItemsLoading
+                          ? '조회 중'
+                          : basePriceByVariantId.has(variant.id)
+                            ? formatCurrency(basePriceByVariantId.get(variant.id) || 0)
+                            : '미설정'}
+                      </span>
                       {variantDetails.map((detail) => (
                         <span
                           key={detail}

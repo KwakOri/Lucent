@@ -7,7 +7,6 @@ import {
   FolderIcon,
   ShoppingBagIcon,
   MegaphoneIcon,
-  BanknotesIcon,
   CubeIcon,
   PhotoIcon,
   ArrowsRightLeftIcon,
@@ -52,17 +51,10 @@ const entries: V2Entry[] = [
   },
   {
     title: 'v2 캠페인 관리',
-    description: '기간 판매/이벤트 캠페인과 대상 타겟을 운영합니다.',
+    description: '기간, 대상, 옵션별 할인 가격까지 캠페인 단위로 운영합니다.',
     href: '/admin/v2-catalog/campaigns',
     icon: MegaphoneIcon,
     tone: 'bg-emerald-100 text-emerald-700',
-  },
-  {
-    title: 'v2 가격·프로모션',
-    description: '가격표, 프로모션, 쿠폰 정책을 운영합니다.',
-    href: '/admin/v2-catalog/pricing',
-    icon: BanknotesIcon,
-    tone: 'bg-amber-100 text-amber-700',
   },
   {
     title: 'v2 번들 관리',
