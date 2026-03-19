@@ -6,7 +6,8 @@
 
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   V2CatalogAdminAPI,
   type BuildV2PriceQuoteData,
@@ -855,6 +856,70 @@ export function useV2CampaignTargets(campaignId: string | null | undefined) {
     },
     enabled: !!campaignId,
   });
+}
+
+export function useV2CampaignOverview(campaignIds: string[]) {
+  const targetQueries = useQueries({
+    queries: campaignIds.map((campaignId) => ({
+      queryKey: queryKeys.v2CatalogAdmin.campaigns.targets(campaignId),
+      queryFn: async () => {
+        const response = await V2CatalogAdminAPI.getCampaignTargets(campaignId);
+        return response.data;
+      },
+      enabled: campaignId.length > 0,
+    })),
+  });
+
+  const priceListQueries = useQueries({
+    queries: campaignIds.map((campaignId) => ({
+      queryKey: queryKeys.v2CatalogAdmin.pricing.priceLists.list({ campaignId }),
+      queryFn: async () => {
+        const response = await V2CatalogAdminAPI.getPriceLists({ campaignId });
+        return response.data;
+      },
+      enabled: campaignId.length > 0,
+    })),
+  });
+
+  const promotionQueries = useQueries({
+    queries: campaignIds.map((campaignId) => ({
+      queryKey: queryKeys.v2CatalogAdmin.pricing.promotions.list({ campaignId }),
+      queryFn: async () => {
+        const response = await V2CatalogAdminAPI.getPromotions({ campaignId });
+        return response.data;
+      },
+      enabled: campaignId.length > 0,
+    })),
+  });
+
+  return useMemo(() => {
+    return campaignIds.reduce<Record<string, {
+      targetCount: number;
+      excludedTargetCount: number;
+      priceListCount: number;
+      promotionCount: number;
+      hasLinkedPricing: boolean;
+      isLoading: boolean;
+    }>>((accumulator, campaignId, index) => {
+      const targets = targetQueries[index]?.data || [];
+      const priceLists = priceListQueries[index]?.data || [];
+      const promotions = promotionQueries[index]?.data || [];
+
+      accumulator[campaignId] = {
+        targetCount: targets.filter((target) => !target.is_excluded).length,
+        excludedTargetCount: targets.filter((target) => target.is_excluded).length,
+        priceListCount: priceLists.length,
+        promotionCount: promotions.length,
+        hasLinkedPricing: priceLists.length > 0 || promotions.length > 0,
+        isLoading:
+          Boolean(targetQueries[index]?.isLoading) ||
+          Boolean(priceListQueries[index]?.isLoading) ||
+          Boolean(promotionQueries[index]?.isLoading),
+      };
+
+      return accumulator;
+    }, {});
+  }, [campaignIds, priceListQueries, promotionQueries, targetQueries]);
 }
 
 export function useCreateV2CampaignTarget() {
