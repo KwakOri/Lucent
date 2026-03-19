@@ -202,6 +202,12 @@ export interface V2MediaAsset {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  reference_summary?: {
+    product_media_count: number;
+    digital_asset_count: number;
+    total_reference_count: number;
+    is_orphan: boolean;
+  };
 }
 
 export interface V2BundleComponentOption {
@@ -1941,6 +1947,12 @@ export const V2CatalogAdminAPI = {
     data: UpdateV2MediaAssetData,
   ): Promise<ApiResponse<V2MediaAsset>> {
     return apiClient.patch(`/api/v2/catalog/admin/media-assets/${mediaAssetId}`, data);
+  },
+
+  async deleteMediaAsset(
+    mediaAssetId: string,
+  ): Promise<ApiResponse<V2MediaAsset>> {
+    return apiClient.delete(`/api/v2/catalog/admin/media-assets/${mediaAssetId}`);
   },
 
   async uploadMediaAssetFile(
