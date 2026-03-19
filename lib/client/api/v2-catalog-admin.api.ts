@@ -1056,6 +1056,36 @@ export interface V2MediaAssetUploadSession {
   expires_at: string;
 }
 
+export interface V2MediaAssetMultipartUploadSession {
+  session_id: string;
+  asset_kind: V2MediaAssetKind;
+  status: V2MediaAssetStatus;
+  storage_provider: string;
+  storage_bucket: string | null;
+  storage_path: string;
+  public_url: string | null;
+  file_name: string;
+  mime_type: string;
+  file_size: number;
+  part_size: number;
+  total_parts: number;
+  expires_at: string | null;
+}
+
+export interface V2MediaAssetMultipartUploadPart {
+  part_number: number;
+  upload_url: string;
+  expires_in_seconds: number;
+  expires_at: string;
+}
+
+export interface V2MediaAssetMultipartUploadPartBatch {
+  session_id: string;
+  part_size: number;
+  total_parts: number;
+  parts: V2MediaAssetMultipartUploadPart[];
+}
+
 export interface CreateV2BundleDefinitionData {
   bundle_product_id: string;
   anchor_product_id?: string;
@@ -1427,18 +1457,54 @@ function ensureDirectBackendUploadConfigured(): void {
   }
 }
 
-async function uploadFileToPresignedUrl(
+const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
+const MULTIPART_UPLOAD_CONCURRENCY = 4;
+const MULTIPART_UPLOAD_MAX_ATTEMPTS = 3;
+
+function createUploadAbortedError(): Error & { code: 'UPLOAD_ABORTED' } {
+  const abortError = new Error('오디오 업로드를 취소했습니다.');
+  return Object.assign(abortError, { code: 'UPLOAD_ABORTED' as const });
+}
+
+function isUploadAbortedError(error: unknown): boolean {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: string }).code === 'UPLOAD_ABORTED'
+  );
+}
+
+function emitUploadProgress(
+  options: UploadV2MediaAssetFileOptions | undefined,
+  progress: V2MediaAssetUploadProgress,
+): void {
+  options?.onProgress?.(progress);
+}
+
+function buildProgress(
+  stage: V2MediaAssetUploadProgress['stage'],
+  loaded: number,
+  total: number,
+): V2MediaAssetUploadProgress {
+  const safeTotal = total > 0 ? total : 0;
+  const safeLoaded = Math.max(0, Math.min(loaded, safeTotal || loaded));
+  return {
+    stage,
+    loaded: safeLoaded,
+    total: safeTotal,
+    percent:
+      safeTotal > 0 ? Math.min(100, Math.round((safeLoaded / safeTotal) * 100)) : 0,
+  };
+}
+
+async function uploadFileToSinglePresignedUrl(
   session: V2MediaAssetUploadSession,
   file: File,
   options?: UploadV2MediaAssetFileOptions,
 ): Promise<void> {
   const total = file.size || session.file_size || 0;
-  options?.onProgress?.({
-    stage: 'preparing',
-    loaded: 0,
-    total,
-    percent: 0,
-  });
+  emitUploadProgress(options, buildProgress('preparing', 0, total));
 
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -1458,27 +1524,16 @@ async function uploadFileToPresignedUrl(
     xhr.upload.onprogress = (event) => {
       const nextTotal =
         event.lengthComputable && event.total > 0 ? event.total : total;
-      const loaded = event.loaded;
-      const percent =
-        nextTotal > 0 ? Math.min(100, Math.round((loaded / nextTotal) * 100)) : 0;
-
-      options?.onProgress?.({
-        stage: 'uploading',
-        loaded,
-        total: nextTotal,
-        percent,
-      });
+      emitUploadProgress(
+        options,
+        buildProgress('uploading', event.loaded, nextTotal),
+      );
     };
 
     xhr.onload = () => {
       options?.onAbortReady?.(null);
       if (xhr.status >= 200 && xhr.status < 300) {
-        options?.onProgress?.({
-          stage: 'finalizing',
-          loaded: total,
-          total,
-          percent: 100,
-        });
+        emitUploadProgress(options, buildProgress('finalizing', total, total));
         resolve();
         return;
       }
@@ -1499,13 +1554,235 @@ async function uploadFileToPresignedUrl(
 
     xhr.onabort = () => {
       options?.onAbortReady?.(null);
-      const abortError = new Error('오디오 업로드를 취소했습니다.');
-      Object.assign(abortError, { code: 'UPLOAD_ABORTED' });
-      reject(abortError);
+      reject(createUploadAbortedError());
     };
 
     xhr.send(file);
   });
+}
+
+type MultipartLocalPart = {
+  partNumber: number;
+  start: number;
+  end: number;
+  size: number;
+  uploadUrl: string;
+};
+
+async function signMultipartUploadParts(
+  sessionId: string,
+  partNumbers: number[],
+): Promise<V2MediaAssetMultipartUploadPart[]> {
+  const response = await apiClient.post<ApiResponse<V2MediaAssetMultipartUploadPartBatch>>(
+    '/api/v2/catalog/admin/media-assets/multipart/sign-parts',
+    {
+      session_id: sessionId,
+      part_numbers: partNumbers,
+    },
+  );
+
+  return response.data.parts;
+}
+
+async function uploadMultipartPart(
+  part: MultipartLocalPart,
+  file: File,
+  activeRequests: Map<number, XMLHttpRequest>,
+  inFlightLoaded: Map<number, number>,
+  onLoadedChange: () => void,
+): Promise<{ part_number: number; etag: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    activeRequests.set(part.partNumber, xhr);
+    xhr.open('PUT', part.uploadUrl, true);
+
+    xhr.upload.onprogress = (event) => {
+      inFlightLoaded.set(part.partNumber, event.loaded);
+      onLoadedChange();
+    };
+
+    xhr.onload = () => {
+      activeRequests.delete(part.partNumber);
+      inFlightLoaded.delete(part.partNumber);
+      onLoadedChange();
+
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(
+          new Error(
+            xhr.responseText
+              ? `R2 multipart 업로드에 실패했습니다: ${xhr.responseText}`
+              : 'R2 multipart 업로드에 실패했습니다.',
+          ),
+        );
+        return;
+      }
+
+      const etag = xhr.getResponseHeader('ETag') || xhr.getResponseHeader('etag');
+      if (!etag) {
+        reject(
+          new Error(
+            'R2 업로드 응답에서 ETag를 찾지 못했습니다. 버킷 CORS의 ExposeHeaders에 ETag가 포함되어 있는지 확인해 주세요.',
+          ),
+        );
+        return;
+      }
+
+      resolve({
+        part_number: part.partNumber,
+        etag,
+      });
+    };
+
+    xhr.onerror = () => {
+      activeRequests.delete(part.partNumber);
+      inFlightLoaded.delete(part.partNumber);
+      onLoadedChange();
+      reject(new Error('R2 multipart 업로드 중 네트워크 오류가 발생했습니다.'));
+    };
+
+    xhr.onabort = () => {
+      activeRequests.delete(part.partNumber);
+      inFlightLoaded.delete(part.partNumber);
+      onLoadedChange();
+      reject(createUploadAbortedError());
+    };
+
+    xhr.send(file.slice(part.start, part.end));
+  });
+}
+
+async function uploadFileToMultipartPresignedUrls(
+  session: V2MediaAssetMultipartUploadSession,
+  file: File,
+  options?: UploadV2MediaAssetFileOptions,
+): Promise<Array<{ part_number: number; etag: string }>> {
+  const total = file.size || session.file_size || 0;
+  emitUploadProgress(options, buildProgress('preparing', 0, total));
+
+  const partNumbers = Array.from({ length: session.total_parts }, (_, index) => index + 1);
+  const signedParts = await signMultipartUploadParts(session.session_id, partNumbers);
+  const uploadUrlByPartNumber = new Map(
+    signedParts.map((part) => [part.part_number, part.upload_url]),
+  );
+  const localParts: MultipartLocalPart[] = partNumbers.map((partNumber, index) => {
+    const start = index * session.part_size;
+    const end = Math.min(start + session.part_size, total);
+    const uploadUrl = uploadUrlByPartNumber.get(partNumber);
+    if (!uploadUrl) {
+      throw new Error(`multipart 업로드 URL을 찾지 못했습니다. part ${partNumber}`);
+    }
+    return {
+      partNumber,
+      start,
+      end,
+      size: end - start,
+      uploadUrl,
+    };
+  });
+
+  const activeRequests = new Map<number, XMLHttpRequest>();
+  const inFlightLoaded = new Map<number, number>();
+  const completedParts = new Map<number, { part_number: number; etag: string }>();
+  let abortRequested = false;
+
+  const emitOverallProgress = () => {
+    const completedBytes = localParts.reduce(
+      (sum, part) => sum + (completedParts.has(part.partNumber) ? part.size : 0),
+      0,
+    );
+    const inflightBytes = Array.from(inFlightLoaded.values()).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    emitUploadProgress(
+      options,
+      buildProgress('uploading', completedBytes + inflightBytes, total),
+    );
+  };
+
+  options?.onAbortReady?.(() => {
+    abortRequested = true;
+    activeRequests.forEach((xhr) => xhr.abort());
+  });
+
+  const queue = [...localParts];
+
+  const uploadPartWithRetry = async (
+    part: MultipartLocalPart,
+  ): Promise<{ part_number: number; etag: string }> => {
+    let lastError: unknown = null;
+    for (
+      let attempt = 1;
+      attempt <= MULTIPART_UPLOAD_MAX_ATTEMPTS;
+      attempt += 1
+    ) {
+      if (abortRequested) {
+        throw createUploadAbortedError();
+      }
+
+      if (attempt > 1) {
+        const [refreshedPart] = await signMultipartUploadParts(session.session_id, [
+          part.partNumber,
+        ]);
+        part.uploadUrl = refreshedPart.upload_url;
+      }
+
+      try {
+        return await uploadMultipartPart(
+          part,
+          file,
+          activeRequests,
+          inFlightLoaded,
+          emitOverallProgress,
+        );
+      } catch (error) {
+        if (isUploadAbortedError(error)) {
+          throw error;
+        }
+        lastError = error;
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error('R2 multipart 업로드에 실패했습니다.');
+  };
+
+  let fatalError: unknown = null;
+
+  const worker = async () => {
+    while (!abortRequested && !fatalError) {
+      const nextPart = queue.shift();
+      if (!nextPart) {
+        return;
+      }
+
+      try {
+        const completed = await uploadPartWithRetry(nextPart);
+        completedParts.set(nextPart.partNumber, completed);
+        emitOverallProgress();
+      } catch (error) {
+        fatalError = error;
+        abortRequested = abortRequested || isUploadAbortedError(error);
+        activeRequests.forEach((xhr) => xhr.abort());
+        return;
+      }
+    }
+  };
+
+  const workerCount = Math.min(MULTIPART_UPLOAD_CONCURRENCY, localParts.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  options?.onAbortReady?.(null);
+
+  if (fatalError) {
+    throw fatalError;
+  }
+
+  emitUploadProgress(options, buildProgress('finalizing', total, total));
+
+  return [...completedParts.values()].sort(
+    (left, right) => left.part_number - right.part_number,
+  );
 }
 
 export const V2CatalogAdminAPI = {
@@ -1673,6 +1950,48 @@ export const V2CatalogAdminAPI = {
     ensureDirectBackendUploadConfigured();
 
     const mimeType = data.file.type || 'application/octet-stream';
+    if (data.file.size >= MULTIPART_UPLOAD_THRESHOLD_BYTES) {
+      const session = await apiClient.post<ApiResponse<V2MediaAssetMultipartUploadSession>>(
+        '/api/v2/catalog/admin/media-assets/multipart/init',
+        {
+          file_name: data.file.name,
+          mime_type: mimeType,
+          file_size: data.file.size,
+          asset_kind: data.asset_kind,
+          status: data.status,
+          metadata: data.metadata,
+        },
+      );
+      let finishedUploadingParts = false;
+
+      try {
+        const parts = await uploadFileToMultipartPresignedUrls(
+          session.data,
+          data.file,
+          options,
+        );
+        finishedUploadingParts = true;
+
+        return apiClient.post('/api/v2/catalog/admin/media-assets/multipart/complete', {
+          session_id: session.data.session_id,
+          parts,
+        });
+      } catch (error) {
+        if (!finishedUploadingParts) {
+          try {
+            await apiClient.post('/api/v2/catalog/admin/media-assets/multipart/abort', {
+              session_id: session.data.session_id,
+            });
+          } catch {
+            // Cleanup failure should not hide the original upload error.
+          }
+        }
+        throw error;
+      } finally {
+        options?.onAbortReady?.(null);
+      }
+    }
+
     const presigned = await apiClient.post<ApiResponse<V2MediaAssetUploadSession>>(
       '/api/v2/catalog/admin/media-assets/presign-upload',
       {
@@ -1685,7 +2004,7 @@ export const V2CatalogAdminAPI = {
       },
     );
 
-    await uploadFileToPresignedUrl(presigned.data, data.file, options);
+    await uploadFileToSinglePresignedUrl(presigned.data, data.file, options);
 
     return apiClient.post('/api/v2/catalog/admin/media-assets/complete-upload', {
       storage_path: presigned.data.storage_path,

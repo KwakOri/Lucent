@@ -55,10 +55,10 @@ function getStageDescription(state: VariantUploadState): string {
     return '파일 전송을 시작하고 있습니다.';
   }
   if (state.stage === 'uploading') {
-    return `${formatBytes(state.loaded)} / ${formatBytes(state.total)} 전송됨`;
+    return `${formatBytes(state.loaded)} / ${formatBytes(state.total)} 전송됨 · 대용량 파일은 여러 조각으로 나누어 업로드됩니다.`;
   }
   if (state.stage === 'finalizing') {
-    return 'R2 업로드 완료 후 파일 상태를 확인하고 있습니다.';
+    return '모든 조각 업로드가 끝났습니다. R2 파일 상태를 확인하고 있습니다.';
   }
   if (state.stage === 'linking') {
     return '업로드한 파일을 옵션의 기본 오디오로 연결하고 있습니다.';
