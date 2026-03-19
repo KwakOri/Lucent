@@ -222,7 +222,7 @@ export default function V2CatalogProductsPage() {
           <Badge intent="info">{filteredProducts.length}개 표시</Badge>
         </div>
 
-        <div className="mt-5 space-y-3">
+        <div className="mt-5">
           {filteredProducts.length === 0 ? (
             <EmptyState
               title="조건에 맞는 상품이 없어요"
@@ -234,44 +234,63 @@ export default function V2CatalogProductsPage() {
               }
             />
           ) : (
-            filteredProducts.map((product) => (
-              <button
-                key={product.id}
-                type="button"
-                onClick={() => router.push(`/admin/v2-catalog/products/${product.id}`)}
-                className="w-full rounded-2xl border border-gray-200 bg-white p-4 text-left transition hover:border-gray-300 hover:shadow-sm"
-              >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap gap-2">
-                      <Badge intent={resolveKindIntent(product.product_kind)}>
-                        {PRODUCT_KIND_LABELS[product.product_kind]}
-                      </Badge>
-                      <Badge intent={resolveProductStatusIntent(product.status)}>
-                        {PRODUCT_STATUS_LABELS[product.status]}
-                      </Badge>
-                    </div>
-
-                    <h3 className="mt-3 text-base font-semibold text-gray-900">
-                      {product.title}
-                    </h3>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {projectNameMap.get(product.project_id) || product.project_id}
-                    </p>
-                    <p className="mt-3 text-sm leading-6 text-gray-600">
-                      {product.short_description || '등록된 한 줄 설명이 없습니다.'}
-                    </p>
-                    <p className="mt-3 text-xs text-gray-500">
-                      /shop/{product.slug} · {formatDateTime(product.updated_at)} 수정
-                    </p>
-                  </div>
-
-                  <div className="flex shrink-0 items-center">
-                    <span className="text-sm font-medium text-primary-700">상세 관리</span>
-                  </div>
-                </div>
-              </button>
-            ))
+            <div className="overflow-hidden rounded-xl border border-gray-200">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-3">상품</th>
+                      <th className="px-4 py-3">프로젝트</th>
+                      <th className="px-4 py-3">상태</th>
+                      <th className="px-4 py-3">정렬</th>
+                      <th className="px-4 py-3">최근 수정</th>
+                      <th className="px-4 py-3 text-right">작업</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {filteredProducts.map((product) => (
+                      <tr
+                        key={product.id}
+                        className="transition hover:bg-blue-50/40"
+                      >
+                        <td className="px-4 py-3 align-top">
+                          <p className="font-medium text-gray-900">{product.title}</p>
+                          <p className="mt-1 max-w-[360px] truncate text-xs text-gray-500">
+                            {product.short_description || '한 줄 설명 없음'}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 align-top text-gray-700">
+                          {projectNameMap.get(product.project_id) || product.project_id}
+                        </td>
+                        <td className="px-4 py-3 align-top">
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge intent={resolveKindIntent(product.product_kind)}>
+                              {PRODUCT_KIND_LABELS[product.product_kind]}
+                            </Badge>
+                            <Badge intent={resolveProductStatusIntent(product.status)}>
+                              {PRODUCT_STATUS_LABELS[product.status]}
+                            </Badge>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 align-top text-gray-700">{product.sort_order}</td>
+                        <td className="px-4 py-3 align-top text-xs text-gray-500">
+                          {formatDateTime(product.updated_at)}
+                        </td>
+                        <td className="px-4 py-3 text-right align-top">
+                          <Button
+                            size="sm"
+                            intent="neutral"
+                            onClick={() => router.push(`/admin/v2-catalog/products/${product.id}`)}
+                          >
+                            상세
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
       </section>

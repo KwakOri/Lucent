@@ -302,7 +302,6 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
                     </div>
 
                     <h3 className="mt-3 text-base font-semibold text-gray-900">{variant.title}</h3>
-                    <p className="mt-1 text-sm text-gray-500">{variant.sku}</p>
 
                     {optionSummary.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -317,15 +316,18 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
                       </div>
                     )}
 
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <span className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600">
-                        BASE 가격:{' '}
+                    <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">BASE 가격</p>
+                      <p className="mt-1 text-lg font-bold text-emerald-900">
                         {basePriceItemsLoading
                           ? '조회 중'
                           : basePriceByVariantId.has(variant.id)
                             ? formatCurrency(basePriceByVariantId.get(variant.id) || 0)
                             : '미설정'}
-                      </span>
+                      </p>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
                       {variantDetails.map((detail) => (
                         <span
                           key={detail}
