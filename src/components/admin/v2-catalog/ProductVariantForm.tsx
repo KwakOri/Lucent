@@ -271,23 +271,6 @@ export function ProductVariantForm({
     setPersistedBasePriceItemId(currentBasePriceItem?.id || null);
   }, [currentBasePriceItem, mode, variant]);
 
-  const skuPreview = useMemo(() => {
-    if (mode === 'edit') {
-      return variant?.sku || '';
-    }
-
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
-      return '';
-    }
-
-    return buildVariantSku({
-      productSlug: product.slug,
-      variantTitle: trimmedTitle,
-      fulfillmentType,
-    });
-  }, [fulfillmentType, mode, product.slug, title, variant?.sku]);
-
   const existingAudioName =
     primaryAsset?.file_name || primaryAsset?.media_asset?.file_name || '연결된 오디오 없음';
   const existingAudioSize =
@@ -556,54 +539,47 @@ export function ProductVariantForm({
       <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">기본 옵션 정보</h2>
+            <h2 className="text-lg font-semibold text-gray-900">옵션 기본 설정</h2>
             <p className="mt-1 text-sm text-gray-500">
-              옵션 이름과 판매 방식을 정하고, 고객에게 보일 상태를 정리합니다.
+              이름, 판매 방식, 노출 상태만 먼저 정리하면 나머지 설정은 아래에서 이어서 처리할 수 있습니다.
             </p>
           </div>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:w-[280px]">
-            <p className="text-sm font-medium text-gray-900">
-              {mode === 'create' ? '생성될 코드' : '현재 코드'}
-            </p>
-            <p className="mt-1 text-sm text-gray-500">
-              {mode === 'create'
-                ? '옵션 이름을 기준으로 자동 생성됩니다.'
-                : '이미 저장된 코드는 그대로 유지됩니다.'}
-            </p>
-            <div className="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
-              <p className="text-sm font-medium text-gray-900">{skuPreview || '자동 생성 예정'}</p>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge intent={mode === 'create' ? 'info' : 'default'}>
+              {mode === 'create' ? '새 옵션' : '옵션 수정'}
+            </Badge>
+            <Badge intent="default">{product.title}</Badge>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <FormField
-            label="옵션 이름"
-            htmlFor="variant-title"
-            required
-            help="구매자가 이해하기 쉬운 이름으로 유지해 주세요."
-          >
-            <Input
-              id="variant-title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="예: 디지털 음원 세트"
+        <div className="mt-6 grid gap-4 lg:grid-cols-12">
+          <div className="lg:col-span-7">
+            <FormField
+              label="옵션 이름"
+              htmlFor="variant-title"
               required
-            />
-          </FormField>
-
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
-            <p className="text-sm font-medium text-gray-900">상품 연결 정보</p>
-            <p className="mt-1 text-sm text-gray-500">현재 작업 중인 상품에 아래 옵션이 연결됩니다.</p>
-            <div className="mt-3 space-y-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
-              <p>{product.title}</p>
-              <p className="text-xs text-gray-500">/shop/{product.slug}</p>
-            </div>
+              help="구매자가 이해하기 쉬운 이름으로 유지해 주세요."
+            >
+              <Input
+                id="variant-title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="예: 디지털 음원 세트"
+                required
+              />
+            </FormField>
           </div>
-        </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <div className="space-y-3">
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:col-span-5">
+            <p className="text-sm font-medium text-gray-900">연결 상품</p>
+            <p className="mt-1 text-sm text-gray-500">선택한 상품에 이 옵션이 추가됩니다.</p>
+            <p className="mt-3 text-sm font-medium text-gray-900">{product.title}</p>
+            <p className="mt-1 text-xs text-gray-500">
+              상품 상세 페이지에서 언제든 옵션을 추가/수정할 수 있습니다.
+            </p>
+          </div>
+
+          <div className="space-y-3 lg:col-span-7">
             <div>
               <p className="text-sm font-medium text-gray-900">판매 방식</p>
               <p className="mt-1 text-sm text-gray-500">
@@ -629,7 +605,7 @@ export function ProductVariantForm({
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:col-span-5">
             <div>
               <p className="text-sm font-medium text-gray-900">노출 상태</p>
               <p className="mt-1 text-sm text-gray-500">고객에게 지금 보여줄지 정합니다.</p>
