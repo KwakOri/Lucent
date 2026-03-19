@@ -373,6 +373,17 @@ export function useUpdateV2MediaAsset() {
   });
 }
 
+export function useDeleteV2MediaAsset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (mediaAssetId: string) =>
+      V2CatalogAdminAPI.deleteMediaAsset(mediaAssetId),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
 export function useUploadV2MediaAssetFile() {
   const queryClient = useQueryClient();
   return useMutation({
