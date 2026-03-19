@@ -114,7 +114,7 @@ export default function V2CatalogCampaignsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">v2 캠페인 관리</h1>
           <p className="mt-1 text-sm text-gray-500">
-            판매 기간과 적용 대상을 먼저 정하고, 실제 가격 변화는 pricing 탭에서 연결합니다.
+            판매 기간과 적용 대상을 정한 뒤, 캠페인 상세에서 옵션별 할인 가격을 설정합니다.
           </p>
         </div>
         <div className="mt-3 sm:mt-0">

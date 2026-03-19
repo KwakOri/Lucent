@@ -85,7 +85,7 @@ export default function V2CatalogProductVariantEditPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">옵션 수정</h1>
           <p className="mt-1 text-sm text-gray-500">
-            옵션 정보와 연결된 오디오 파일을 별도 페이지에서 안전하게 수정합니다.
+            옵션 정보, BASE 가격, 연결된 오디오 파일을 별도 페이지에서 안전하게 수정합니다.
           </p>
         </div>
         <div className="mt-3 sm:mt-0">
