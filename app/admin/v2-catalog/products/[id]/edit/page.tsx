@@ -64,6 +64,7 @@ export default function V2CatalogProductEditPage() {
           title: values.title,
           slug: values.slug,
           product_kind: values.product_kind,
+          fulfillment_type: values.fulfillment_type,
           short_description: values.short_description,
           description: values.description,
           status: values.status,
@@ -119,6 +120,7 @@ export default function V2CatalogProductEditPage() {
         initialValues={{
           project_id: product.project_id,
           product_kind: product.product_kind,
+          fulfillment_type: product.fulfillment_type,
           title: product.title,
           slug: product.slug,
           short_description: product.short_description,

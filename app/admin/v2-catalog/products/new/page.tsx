@@ -49,6 +49,7 @@ export default function V2CatalogProductCreatePage() {
         title: values.title,
         slug: values.slug,
         product_kind: values.product_kind,
+        fulfillment_type: values.fulfillment_type,
         status: 'DRAFT',
         short_description: values.short_description,
         description: values.description,
@@ -103,6 +104,7 @@ export default function V2CatalogProductCreatePage() {
         initialValues={{
           project_id: '',
           product_kind: 'STANDARD',
+          fulfillment_type: 'DIGITAL',
           title: '',
           slug: '',
           short_description: null,

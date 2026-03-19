@@ -6,11 +6,13 @@ import { FormField } from '@/components/ui/form-field';
 import { Input, Textarea } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import type {
+  V2FulfillmentType,
   V2ProductKind,
   V2ProductStatus,
   V2Project,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
+  FULFILLMENT_TYPE_LABELS,
   PRODUCT_KIND_LABELS,
   PRODUCT_STATUS_LABELS,
   buildProductSlug,
@@ -19,6 +21,7 @@ import {
 export type ProductBasicsFormValues = {
   project_id: string;
   product_kind: V2ProductKind;
+  fulfillment_type: V2FulfillmentType | null;
   title: string;
   slug: string;
   short_description: string | null;
@@ -55,6 +58,7 @@ const PRODUCT_KIND_OPTIONS: Array<{
 ];
 
 const EDIT_STATUS_OPTIONS: V2ProductStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE'];
+const FULFILLMENT_TYPE_OPTIONS: V2FulfillmentType[] = ['DIGITAL', 'PHYSICAL'];
 
 export function ProductBasicsForm({
   mode,
@@ -68,6 +72,9 @@ export function ProductBasicsForm({
 }: ProductBasicsFormProps) {
   const [projectId, setProjectId] = useState(initialValues.project_id);
   const [productKind, setProductKind] = useState<V2ProductKind>(initialValues.product_kind);
+  const [fulfillmentType, setFulfillmentType] = useState<V2FulfillmentType>(
+    initialValues.fulfillment_type || 'DIGITAL',
+  );
   const [title, setTitle] = useState(initialValues.title);
   const [slug, setSlug] = useState(initialValues.slug);
   const [shortDescription, setShortDescription] = useState(
@@ -96,6 +103,7 @@ export function ProductBasicsForm({
     await onSubmit({
       project_id: projectId.trim(),
       product_kind: productKind,
+      fulfillment_type: productKind === 'STANDARD' ? fulfillmentType : null,
       title: title.trim(),
       slug: effectiveSlug.trim(),
       short_description: shortDescription.trim() || null,
@@ -187,6 +195,48 @@ export function ProductBasicsForm({
                 );
               })}
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-text-primary">상품 제공 방식</p>
+              <p className="mt-1 text-sm text-gray-500">
+                STANDARD 상품은 여기서 디지털/실물 유형을 고정합니다.
+              </p>
+            </div>
+
+            {productKind === 'STANDARD' ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                {FULFILLMENT_TYPE_OPTIONS.map((option) => {
+                  const active = fulfillmentType === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setFulfillmentType(option)}
+                      className={`rounded-2xl border px-4 py-4 text-left transition ${
+                        active
+                          ? 'border-primary-500 bg-primary-50 shadow-sm'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-gray-900">
+                        {FULFILLMENT_TYPE_LABELS[option]}
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-gray-600">
+                        {option === 'DIGITAL'
+                          ? '옵션은 디지털 형식으로 고정되며 배송이 필요하지 않습니다.'
+                          : '옵션은 실물 형식으로 고정되며 배송/재고 관리를 사용할 수 있습니다.'}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+                번들 상품은 하위 구성에 따라 디지털/실물이 섞일 수 있어 상품 수준 제공 방식은 고정하지 않습니다.
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">

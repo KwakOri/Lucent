@@ -118,6 +118,7 @@ export interface V2Product {
   id: string;
   project_id: string;
   product_kind: V2ProductKind;
+  fulfillment_type: V2FulfillmentType | null;
   title: string;
   slug: string;
   short_description: string | null;
@@ -919,6 +920,7 @@ export interface LinkV2ArtistToProjectData {
 export interface CreateV2ProductData {
   project_id: string;
   product_kind?: V2ProductKind;
+  fulfillment_type?: V2FulfillmentType | null;
   title: string;
   slug: string;
   short_description?: string | null;
@@ -931,6 +933,7 @@ export interface CreateV2ProductData {
 export interface UpdateV2ProductData {
   project_id?: string;
   product_kind?: V2ProductKind;
+  fulfillment_type?: V2FulfillmentType | null;
   title?: string;
   slug?: string;
   short_description?: string | null;

@@ -218,6 +218,9 @@ export function ProductVariantForm({
   const [persistedVariantId, setPersistedVariantId] = useState<string | null>(null);
   const [persistedBasePriceItemId, setPersistedBasePriceItemId] = useState<string | null>(null);
   const [abortUpload, setAbortUpload] = useState<(() => void) | null>(null);
+  const lockedFulfillmentType =
+    product.product_kind === 'STANDARD' ? product.fulfillment_type : null;
+  const isFulfillmentLocked = Boolean(lockedFulfillmentType);
 
   const currentBasePriceItem = useMemo(
     () =>
@@ -232,7 +235,7 @@ export function ProductVariantForm({
   useEffect(() => {
     if (mode === 'edit' && variant) {
       setTitle(variant.title);
-      setFulfillmentType(variant.fulfillment_type);
+      setFulfillmentType(lockedFulfillmentType || variant.fulfillment_type);
       setStatus(variant.status);
       setTrackInventory(variant.track_inventory);
       setWeightGrams(variant.weight_grams == null ? '' : String(variant.weight_grams));
@@ -246,7 +249,7 @@ export function ProductVariantForm({
     }
 
     setTitle('');
-    setFulfillmentType('DIGITAL');
+    setFulfillmentType(lockedFulfillmentType || 'DIGITAL');
     setStatus('DRAFT');
     setTrackInventory(false);
     setWeightGrams('');
@@ -257,7 +260,7 @@ export function ProductVariantForm({
     setPersistedVariantId(null);
     setPersistedBasePriceItemId(null);
     setAbortUpload(null);
-  }, [mode, variant]);
+  }, [lockedFulfillmentType, mode, variant]);
 
   useEffect(() => {
     if (mode !== 'edit' || !variant) {
@@ -288,6 +291,9 @@ export function ProductVariantForm({
     updateDigitalAsset.isPending;
 
   const handleFulfillmentTypeChange = (value: V2FulfillmentType) => {
+    if (isFulfillmentLocked) {
+      return;
+    }
     setFulfillmentType(value);
     if (value === 'DIGITAL') {
       setTrackInventory(false);
@@ -311,15 +317,19 @@ export function ProductVariantForm({
       if (!trimmedTitle) {
         throw new Error('옵션 이름을 입력해 주세요.');
       }
+      const resolvedFulfillmentType = lockedFulfillmentType || fulfillmentType;
+      if (!resolvedFulfillmentType) {
+        throw new Error('상품 제공 방식이 설정되어 있지 않습니다. 상품 정보를 먼저 확인해 주세요.');
+      }
 
       const nextVariantPayload = {
         title: trimmedTitle,
-        fulfillment_type: fulfillmentType,
+        fulfillment_type: resolvedFulfillmentType,
         status,
-        requires_shipping: fulfillmentType === 'PHYSICAL',
-        track_inventory: fulfillmentType === 'PHYSICAL' ? trackInventory : false,
+        requires_shipping: resolvedFulfillmentType === 'PHYSICAL',
+        track_inventory: resolvedFulfillmentType === 'PHYSICAL' ? trackInventory : false,
         weight_grams:
-          fulfillmentType === 'PHYSICAL'
+          resolvedFulfillmentType === 'PHYSICAL'
             ? parseNullableNonNegativeInteger(weightGrams, '무게')
             : null,
       };
@@ -338,7 +348,7 @@ export function ProductVariantForm({
             sku: buildVariantSku({
               productSlug: product.slug,
               variantTitle: trimmedTitle,
-              fulfillmentType,
+              fulfillmentType: resolvedFulfillmentType,
             }),
           },
         });
@@ -408,7 +418,7 @@ export function ProductVariantForm({
         setPersistedBasePriceItemId(createdBasePriceItem.data.id);
       }
 
-      if (fulfillmentType === 'DIGITAL' && audioFile) {
+      if (resolvedFulfillmentType === 'DIGITAL' && audioFile) {
         if (!isAudioFile(audioFile)) {
           throw new Error('오디오 파일 형식(mp3/wav/flac/m4a 또는 audio/*)만 업로드할 수 있습니다.');
         }
@@ -586,23 +596,34 @@ export function ProductVariantForm({
                 디지털 제공인지, 실물 배송인지 선택합니다.
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {FULFILLMENT_TYPE_VALUES.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => handleFulfillmentTypeChange(type)}
-                  className={getChoiceButtonClass(fulfillmentType === type)}
-                >
-                  <p>{FULFILLMENT_TYPE_LABELS[type]}</p>
-                  <p className="mt-1 text-xs font-normal text-gray-500">
-                    {type === 'DIGITAL'
-                      ? '배송 없이 제공되는 옵션이에요.'
-                      : '배송과 재고 관리가 필요한 옵션이에요.'}
-                  </p>
-                </button>
-              ))}
-            </div>
+            {isFulfillmentLocked && lockedFulfillmentType ? (
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4">
+                <p className="text-sm font-semibold text-blue-900">
+                  {FULFILLMENT_TYPE_LABELS[lockedFulfillmentType]}
+                </p>
+                <p className="mt-1 text-sm text-blue-800/80">
+                  STANDARD 상품은 상품 정보에서 정한 제공 방식으로 모든 옵션이 고정됩니다.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {FULFILLMENT_TYPE_VALUES.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => handleFulfillmentTypeChange(type)}
+                    className={getChoiceButtonClass(fulfillmentType === type)}
+                  >
+                    <p>{FULFILLMENT_TYPE_LABELS[type]}</p>
+                    <p className="mt-1 text-xs font-normal text-gray-500">
+                      {type === 'DIGITAL'
+                        ? '배송 없이 제공되는 옵션이에요.'
+                        : '배송과 재고 관리가 필요한 옵션이에요.'}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:col-span-5">
