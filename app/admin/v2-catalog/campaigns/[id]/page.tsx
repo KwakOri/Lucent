@@ -290,7 +290,7 @@ export default function V2CatalogCampaignDetailPage() {
             <div>
               <h2 className="text-lg font-semibold text-gray-900">연결된 가격표</h2>
               <p className="mt-1 text-sm text-gray-500">
-                BASE는 상품 옵션에서 관리하고, 이 영역은 캠페인 기간의 OVERRIDE 가격표를 보여줍니다.
+                이 캠페인에서 사용하는 가격표를 관리합니다. 가격 미설정 옵션은 가격 설정 화면에서 바로 입력할 수 있습니다.
               </p>
             </div>
             <Button

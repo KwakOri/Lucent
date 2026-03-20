@@ -82,6 +82,14 @@ function parsePercentDiscount(raw: string): number {
   return value;
 }
 
+function parseDirectPrice(raw: string): number {
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error('판매가는 0 이상의 정수여야 합니다.');
+  }
+  return value;
+}
+
 function computeFinalPrice(basePrice: number, mode: DiscountMode, rawValue: string): number {
   if (mode === 'FIXED') {
     const amount = parseFixedDiscount(rawValue);
@@ -300,10 +308,38 @@ export default function V2CatalogCampaignPricingPage() {
     });
   }, [overrideItems, selectedProductId, selectedVariantId]);
 
+  const selectedProductVariantPriceStatus = useMemo(() => {
+    const map = new Map<string, { hasBase: boolean; hasOverride: boolean; configured: boolean }>();
+    (variants || []).forEach((variant) => {
+      const base = findPriceItem({
+        items: baseItems || [],
+        productId: selectedProductId,
+        variantId: variant.id,
+        priceListsById: basePriceListById,
+      });
+      const override = findPriceItem({
+        items: overrideItems || [],
+        productId: selectedProductId,
+        variantId: variant.id,
+      });
+      map.set(variant.id, {
+        hasBase: Boolean(base),
+        hasOverride: Boolean(override),
+        configured: Boolean(base || override),
+      });
+    });
+    return map;
+  }, [baseItems, basePriceListById, overrideItems, selectedProductId, variants]);
+
   useEffect(() => {
-    if (!basePriceItem) {
+    if (!basePriceItem && !overridePriceItem) {
       setDiscountMode('FIXED');
       setDiscountValue('');
+      return;
+    }
+    if (!basePriceItem && overridePriceItem) {
+      setDiscountMode('FIXED');
+      setDiscountValue(String(overridePriceItem.unit_amount));
       return;
     }
     if (!overridePriceItem) {
@@ -311,6 +347,10 @@ export default function V2CatalogCampaignPricingPage() {
       setDiscountValue('');
       return;
     }
+    if (!basePriceItem) {
+      return;
+    }
+
     const basePrice = basePriceItem.unit_amount;
     const overridePrice = overridePriceItem.unit_amount;
     const fixedDiscount = Math.max(0, basePrice - overridePrice);
@@ -319,18 +359,21 @@ export default function V2CatalogCampaignPricingPage() {
   }, [basePriceItem, overridePriceItem]);
 
   const previewFinalPrice = useMemo(() => {
-    if (!basePriceItem) {
-      return null;
-    }
     if (!discountValue.trim()) {
-      return basePriceItem.unit_amount;
+      if (overridePriceItem) {
+        return overridePriceItem.unit_amount;
+      }
+      return basePriceItem ? basePriceItem.unit_amount : null;
     }
     try {
+      if (!basePriceItem) {
+        return parseDirectPrice(discountValue);
+      }
       return computeFinalPrice(basePriceItem.unit_amount, discountMode, discountValue);
     } catch {
       return null;
     }
-  }, [basePriceItem, discountMode, discountValue]);
+  }, [basePriceItem, discountMode, discountValue, overridePriceItem]);
 
   const isSaving =
     createPriceList.isPending ||
@@ -349,14 +392,13 @@ export default function V2CatalogCampaignPricingPage() {
       if (!selectedProduct || !selectedVariant) {
         throw new Error('대상 상품과 옵션을 먼저 선택해 주세요.');
       }
-      if (!basePriceItem) {
-        throw new Error('선택한 옵션에 BASE 가격이 없습니다. 옵션 화면에서 BASE 가격을 먼저 입력해 주세요.');
-      }
       if (!discountValue.trim()) {
-        throw new Error('할인 수치를 입력해 주세요.');
+        throw new Error(basePriceItem ? '할인 수치를 입력해 주세요.' : '판매가를 입력해 주세요.');
       }
 
-      const finalPrice = computeFinalPrice(basePriceItem.unit_amount, discountMode, discountValue);
+      const finalPrice = basePriceItem
+        ? computeFinalPrice(basePriceItem.unit_amount, discountMode, discountValue)
+        : parseDirectPrice(discountValue);
 
       let priceList = activeOverrideList;
       if (!priceList) {
@@ -381,7 +423,7 @@ export default function V2CatalogCampaignPricingPage() {
           itemId: overridePriceItem.id,
           data: {
             unit_amount: finalPrice,
-            compare_at_amount: basePriceItem.unit_amount,
+            compare_at_amount: basePriceItem?.unit_amount ?? null,
             status: 'ACTIVE',
             product_id: selectedProduct.id,
             variant_id: selectedVariant.id,
@@ -394,7 +436,7 @@ export default function V2CatalogCampaignPricingPage() {
             product_id: selectedProduct.id,
             variant_id: selectedVariant.id,
             unit_amount: finalPrice,
-            compare_at_amount: basePriceItem.unit_amount,
+            compare_at_amount: basePriceItem?.unit_amount ?? null,
             status: 'ACTIVE',
           },
         });
@@ -491,7 +533,13 @@ export default function V2CatalogCampaignPricingPage() {
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">대상 옵션</label>
+            <div className="mb-2 flex items-center gap-2">
+              <label className="block text-sm font-medium text-gray-700">대상 옵션</label>
+              {!selectedProductVariantPriceStatus.get(selectedVariantId || '')?.configured &&
+                selectedVariantId && (
+                <Badge intent="error" size="sm">가격 미설정</Badge>
+              )}
+            </div>
             <select
               value={selectedVariantId}
               onChange={(event) => setSelectedVariantId(event.target.value)}
@@ -500,6 +548,7 @@ export default function V2CatalogCampaignPricingPage() {
               {(variants || []).map((variant) => (
                 <option key={variant.id} value={variant.id}>
                   {variant.title}
+                  {selectedProductVariantPriceStatus.get(variant.id)?.configured ? '' : ' (가격 미설정)'}
                 </option>
               ))}
             </select>
@@ -512,47 +561,63 @@ export default function V2CatalogCampaignPricingPage() {
             <p className="mt-2 text-sm font-semibold text-gray-900">
               {basePriceItem ? formatCurrency(basePriceItem.unit_amount) : '미설정'}
             </p>
+            {!basePriceItem && (
+              <Badge intent="error" size="sm" className="mt-2">캠페인에서 직접 입력 필요</Badge>
+            )}
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">할인 방식</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
-                  discountMode === 'FIXED'
-                    ? 'border-primary-500 bg-primary-50 text-primary-700'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                }`}
-                onClick={() => setDiscountMode('FIXED')}
-              >
-                고정 금액 할인
-              </button>
-              <button
-                type="button"
-                className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
-                  discountMode === 'PERCENT'
-                    ? 'border-primary-500 bg-primary-50 text-primary-700'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                }`}
-                onClick={() => setDiscountMode('PERCENT')}
-              >
-                퍼센트 할인
-              </button>
+          {basePriceItem ? (
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">할인 방식</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                    discountMode === 'FIXED'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                  onClick={() => setDiscountMode('FIXED')}
+                >
+                  고정 금액 할인
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                    discountMode === 'PERCENT'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                  onClick={() => setDiscountMode('PERCENT')}
+                >
+                  퍼센트 할인
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-sm font-medium text-red-800">BASE 가격이 없는 옵션입니다.</p>
+              <p className="mt-1 text-xs text-red-700">
+                이 화면에서 캠페인 판매가를 직접 입력해 첫 가격을 설정할 수 있습니다.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">
-              {discountMode === 'FIXED' ? '할인 금액(원)' : '할인율(%)'}
+              {basePriceItem
+                ? discountMode === 'FIXED'
+                  ? '할인 금액(원)'
+                  : '할인율(%)'
+                : '캠페인 판매가(원)'}
             </label>
             <Input
               value={discountValue}
               onChange={(event) => setDiscountValue(event.target.value)}
               type="number"
               min="0"
-              step={discountMode === 'FIXED' ? '1' : '0.1'}
-              placeholder={discountMode === 'FIXED' ? '예: 5000' : '예: 20'}
+              step={basePriceItem ? (discountMode === 'FIXED' ? '1' : '0.1') : '1'}
+              placeholder={basePriceItem ? (discountMode === 'FIXED' ? '예: 5000' : '예: 20') : '예: 25000'}
             />
           </div>
         </div>
@@ -563,7 +628,9 @@ export default function V2CatalogCampaignPricingPage() {
             {previewFinalPrice === null ? '계산 불가' : formatCurrency(previewFinalPrice)}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            캠페인 기간에는 OVERRIDE 가격이 BASE보다 우선 적용됩니다.
+            {basePriceItem
+              ? '캠페인 기간에는 OVERRIDE 가격이 BASE보다 우선 적용됩니다.'
+              : 'BASE 미설정 상태에서는 입력값이 캠페인 판매가로 바로 저장됩니다.'}
           </p>
         </div>
 
