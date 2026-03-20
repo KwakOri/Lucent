@@ -48,20 +48,38 @@ const navigationSections: NavigationSection[] = [
     ],
   },
   {
-    title: 'v2 운영',
+    title: 'v2 주요 관리',
     items: [
       { name: 'v2 운영 홈', href: '/admin/v2-catalog', icon: HomeIcon },
       { name: 'v2 프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderIcon },
       { name: 'v2 아티스트 관리', href: '/admin/v2-catalog/artists', icon: UserGroupIcon },
       { name: 'v2 상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBagIcon },
-      { name: 'v2 미디어·에셋', href: '/admin/v2-catalog/assets', icon: PhotoIcon },
       { name: 'v2 캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: MegaphoneIcon },
+      { name: 'v2 미디어·에셋', href: '/admin/v2-catalog/assets', icon: PhotoIcon },
+    ],
+  },
+  {
+    title: 'v2 기타',
+    items: [
       { name: 'v2 번들 관리', href: '/admin/v2-catalog/bundles', icon: CubeIcon },
       { name: 'v2 전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowsRightLeftIcon },
       { name: 'v2 Admin Ops', href: '/admin/v2-ops', icon: ShieldCheckIcon },
     ],
   },
 ];
+
+function isNavItemActive(pathname: string, href: string): boolean {
+  if (pathname === href) {
+    return true;
+  }
+
+  // 대시보드/운영 홈은 해당 경로에서만 활성화합니다.
+  if (href === '/admin' || href === '/admin/v2-catalog') {
+    return false;
+  }
+
+  return pathname.startsWith(href);
+}
 
 export function AdminSidebar() {
   const pathname = usePathname();
@@ -125,8 +143,7 @@ export function AdminSidebar() {
                     </p>
                     <ul role="list" className="-mx-2 mt-2 space-y-1">
                       {section.items.map((item) => {
-                        const isActive = pathname === item.href ||
-                          (item.href !== '/admin' && pathname.startsWith(item.href));
+                        const isActive = isNavItemActive(pathname, item.href);
 
                         return (
                           <li key={item.name}>
@@ -193,8 +210,7 @@ export function AdminSidebar() {
                       </p>
                       <ul role="list" className="-mx-2 mt-2 space-y-1">
                         {section.items.map((item) => {
-                          const isActive = pathname === item.href ||
-                            (item.href !== '/admin' && pathname.startsWith(item.href));
+                          const isActive = isNavItemActive(pathname, item.href);
 
                           return (
                             <li key={item.name}>

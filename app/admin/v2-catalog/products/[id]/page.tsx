@@ -12,6 +12,7 @@ import {
   useV2AdminProjects,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import {
+  FULFILLMENT_TYPE_LABELS,
   PRODUCT_KIND_LABELS,
   PRODUCT_STATUS_LABELS,
 } from '@/lib/client/utils/v2-product-admin-form';
@@ -73,6 +74,30 @@ function formatDateTime(value: string): string {
   });
 }
 
+function resolveFulfillmentSummary(product: {
+  product_kind: 'STANDARD' | 'BUNDLE';
+  fulfillment_type: 'DIGITAL' | 'PHYSICAL' | null;
+}): { title: string; description: string } {
+  if (product.product_kind === 'BUNDLE') {
+    return {
+      title: '번들(구성별 상이)',
+      description: '하위 구성에 따라 디지털/실물 제공 방식이 달라질 수 있습니다.',
+    };
+  }
+
+  if (!product.fulfillment_type) {
+    return {
+      title: '미설정',
+      description: '제공 방식이 설정되지 않았습니다. 상품 정보 수정에서 먼저 선택해 주세요.',
+    };
+  }
+
+  return {
+    title: FULFILLMENT_TYPE_LABELS[product.fulfillment_type],
+    description: `이 상품의 옵션은 ${FULFILLMENT_TYPE_LABELS[product.fulfillment_type]} 방식으로 고정됩니다.`,
+  };
+}
+
 export default function V2CatalogProductDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -102,6 +127,13 @@ export default function V2CatalogProductDetailPage() {
       projects.find((project) => project.id === product.project_id)?.name || product.project_id
     );
   }, [product, projects]);
+
+  const fulfillmentSummary = product
+    ? resolveFulfillmentSummary({
+        product_kind: product.product_kind,
+        fulfillment_type: product.fulfillment_type,
+      })
+    : { title: '', description: '' };
 
   const handleDeleteProduct = async () => {
     if (!product) {
@@ -206,10 +238,9 @@ export default function V2CatalogProductDetailPage() {
           <p className="mt-2 text-sm font-medium text-gray-900">{formatDateTime(product.updated_at)}</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">한 줄 설명</p>
-          <p className="mt-2 text-sm font-medium text-gray-900">
-            {product.short_description || '등록된 설명이 없습니다.'}
-          </p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">상품 제공 방식</p>
+          <p className="mt-2 text-sm font-semibold text-gray-900">{fulfillmentSummary.title}</p>
+          <p className="mt-1 text-xs leading-5 text-gray-500">{fulfillmentSummary.description}</p>
         </div>
       </section>
 

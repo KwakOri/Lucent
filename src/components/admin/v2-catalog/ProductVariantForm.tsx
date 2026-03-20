@@ -551,7 +551,7 @@ export function ProductVariantForm({
           <div>
             <h2 className="text-lg font-semibold text-gray-900">옵션 기본 설정</h2>
             <p className="mt-1 text-sm text-gray-500">
-              이름, 판매 방식, 노출 상태만 먼저 정리하면 나머지 설정은 아래에서 이어서 처리할 수 있습니다.
+              이름과 노출 상태만 먼저 정리하면 나머지 설정은 아래에서 이어서 처리할 수 있습니다.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -584,28 +584,24 @@ export function ProductVariantForm({
             <p className="text-sm font-medium text-gray-900">연결 상품</p>
             <p className="mt-1 text-sm text-gray-500">선택한 상품에 이 옵션이 추가됩니다.</p>
             <p className="mt-3 text-sm font-medium text-gray-900">{product.title}</p>
+            {isFulfillmentLocked && lockedFulfillmentType && (
+              <p className="mt-2 text-xs font-medium text-gray-600">
+                제공 방식: {FULFILLMENT_TYPE_LABELS[lockedFulfillmentType]} (상품 기준 고정)
+              </p>
+            )}
             <p className="mt-1 text-xs text-gray-500">
               상품 상세 페이지에서 언제든 옵션을 추가/수정할 수 있습니다.
             </p>
           </div>
 
-          <div className="space-y-3 lg:col-span-7">
-            <div>
-              <p className="text-sm font-medium text-gray-900">판매 방식</p>
-              <p className="mt-1 text-sm text-gray-500">
-                디지털 제공인지, 실물 배송인지 선택합니다.
-              </p>
-            </div>
-            {isFulfillmentLocked && lockedFulfillmentType ? (
-              <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4">
-                <p className="text-sm font-semibold text-blue-900">
-                  {FULFILLMENT_TYPE_LABELS[lockedFulfillmentType]}
-                </p>
-                <p className="mt-1 text-sm text-blue-800/80">
-                  STANDARD 상품은 상품 정보에서 정한 제공 방식으로 모든 옵션이 고정됩니다.
+          {!isFulfillmentLocked && (
+            <div className="space-y-3 lg:col-span-7">
+              <div>
+                <p className="text-sm font-medium text-gray-900">판매 방식</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  디지털 제공인지, 실물 배송인지 선택합니다.
                 </p>
               </div>
-            ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {FULFILLMENT_TYPE_VALUES.map((type) => (
                   <button
@@ -623,10 +619,14 @@ export function ProductVariantForm({
                   </button>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="space-y-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:col-span-5">
+          <div
+            className={`space-y-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 ${
+              isFulfillmentLocked ? 'lg:col-span-12' : 'lg:col-span-5'
+            }`}
+          >
             <div>
               <p className="text-sm font-medium text-gray-900">노출 상태</p>
               <p className="mt-1 text-sm text-gray-500">고객에게 지금 보여줄지 정합니다.</p>
