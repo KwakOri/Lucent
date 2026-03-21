@@ -587,6 +587,93 @@ export interface ListV2AdminInventoryHealthParams {
   only_low_stock?: boolean;
 }
 
+export type V2AdminSalesStatsPreset =
+  | 'LAST_7_DAYS'
+  | 'LAST_30_DAYS'
+  | 'CUSTOM';
+
+export interface ListV2AdminSalesStatsParams {
+  from?: string;
+  to?: string;
+  preset?: V2AdminSalesStatsPreset;
+  project_id?: string;
+  campaign_id?: string;
+  sales_channel_id?: string;
+  campaign_type?: string;
+}
+
+export interface V2AdminSalesStatsSummary {
+  orders_count: number;
+  units_sold: number;
+  order_gross_amount: number;
+  captured_amount: number;
+  refund_amount: number;
+  net_settlement_amount: number;
+  currency_code: string;
+}
+
+export interface V2AdminSalesStatsDailyRow {
+  date: string;
+  orders_count: number;
+  units_sold: number;
+  order_gross_amount: number;
+  captured_amount: number;
+  refund_amount: number;
+  net_settlement_amount: number;
+}
+
+export interface V2AdminSalesStatsByProjectRow {
+  project_id: string | null;
+  project_name: string;
+  currency_code: string;
+  order_count: number;
+  units_sold: number;
+  order_gross_amount: number;
+  captured_amount: number;
+  refund_amount: number;
+  net_settlement_amount: number;
+}
+
+export interface V2AdminSalesStatsByCampaignRow {
+  campaign_id: string | null;
+  campaign_name: string;
+  campaign_type: string | null;
+  currency_code: string;
+  order_count: number;
+  units_sold: number;
+  order_gross_amount: number;
+  captured_amount: number;
+  refund_amount: number;
+  net_settlement_amount: number;
+}
+
+export interface V2AdminSalesStats {
+  range: {
+    from: string;
+    to: string;
+    from_iso: string;
+    to_exclusive_iso: string;
+    preset: V2AdminSalesStatsPreset;
+  };
+  filters: {
+    project_id: string | null;
+    campaign_id: string | null;
+    sales_channel_id: string | null;
+    campaign_type: string | null;
+  };
+  summary: V2AdminSalesStatsSummary;
+  daily: V2AdminSalesStatsDailyRow[];
+  by_project: V2AdminSalesStatsByProjectRow[];
+  by_campaign: V2AdminSalesStatsByCampaignRow[];
+  metadata: {
+    sales_basis: string;
+    settlement_basis: string;
+    allocation_policy_versions: string[];
+    capture_policy_version: string;
+    refund_policy_version: string;
+  };
+}
+
 export interface ListV2AdminCutoverDomainsParams {
   limit?: number;
   status?: V2CutoverStatus;
@@ -775,6 +862,13 @@ export const V2AdminOpsAPI = {
   ): Promise<ApiResponse<V2AdminListResponse<V2AdminOrderQueueRow>>> {
     const query = toQueryString(params);
     return apiClient.get(`/api/v2/admin/ops/order-queue${query}`);
+  },
+
+  async listSalesStats(
+    params: ListV2AdminSalesStatsParams = {},
+  ): Promise<ApiResponse<V2AdminSalesStats>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/ops/sales-stats${query}`);
   },
 
   async getOrderDetail(orderId: string): Promise<ApiResponse<V2AdminOrderDetail>> {

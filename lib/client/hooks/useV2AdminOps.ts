@@ -23,6 +23,7 @@ import {
   type ListV2AdminFulfillmentQueueParams,
   type ListV2AdminInventoryHealthParams,
   type ListV2AdminOrderQueueParams,
+  type ListV2AdminSalesStatsParams,
   type SaveV2AdminCutoverBatchInput,
   type SaveV2AdminCutoverGateReportInput,
   type SaveV2AdminCutoverRoutingFlagInput,
@@ -203,6 +204,16 @@ export function useV2AdminOrderQueue(params: ListV2AdminOrderQueueParams = {}) {
     queryKey: queryKeys.v2AdminOps.ops.orderQueue(params),
     queryFn: async () => {
       const response = await V2AdminOpsAPI.listOrderQueue(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminSalesStats(params: ListV2AdminSalesStatsParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.ops.salesStats(params),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.listSalesStats(params);
       return response.data;
     },
   });

@@ -38,6 +38,7 @@ import type {
   ListV2AdminFulfillmentQueueParams,
   ListV2AdminInventoryHealthParams,
   ListV2AdminOrderQueueParams,
+  ListV2AdminSalesStatsParams,
 } from '@/lib/client/api/v2-admin-ops.api';
 
 export const queryKeys = {
@@ -342,6 +343,8 @@ export const queryKeys = {
       all: ['v2-admin-ops', 'ops'] as const,
       orderQueue: (params: ListV2AdminOrderQueueParams = {}) =>
         [...queryKeys.v2AdminOps.ops.all, 'order-queue', params] as const,
+      salesStats: (params: ListV2AdminSalesStatsParams = {}) =>
+        [...queryKeys.v2AdminOps.ops.all, 'sales-stats', params] as const,
       fulfillmentQueue: (params: ListV2AdminFulfillmentQueueParams = {}) =>
         [...queryKeys.v2AdminOps.ops.all, 'fulfillment-queue', params] as const,
       inventoryHealth: (params: ListV2AdminInventoryHealthParams = {}) =>
