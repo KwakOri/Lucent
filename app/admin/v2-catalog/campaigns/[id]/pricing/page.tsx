@@ -667,12 +667,6 @@ export default function V2CatalogCampaignPricingPage() {
           <Badge intent="info">{quickEditorProducts.length}개</Badge>
         </div>
 
-        {!defaultStockLocationId && (
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            활성 재고 위치가 없어 재고 수량 저장은 동작하지 않습니다. 가격 저장은 계속 가능합니다.
-          </div>
-        )}
-
         <div className="mt-4">
           {quickEditorProducts.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center text-sm text-gray-500">

@@ -273,6 +273,8 @@ export function ProductVariantForm({
 
   const selectedInventoryLevel =
     (inventoryLevels || []).find((level) => level.location_id === inventoryLocationId) || null;
+  const hasMultipleStockLocations = (stockLocations || []).length > 1;
+  const singleStockLocation = stockLocations?.[0] || null;
 
   const handleFulfillmentTypeChange = (value: V2FulfillmentType) => {
     if (isFulfillmentLocked) {
@@ -670,27 +672,43 @@ export function ProductVariantForm({
               </p>
 
               <div className="mt-4 grid gap-4 lg:grid-cols-3">
-                <FormField
-                  label="재고 위치"
-                  htmlFor="variant-inventory-location"
-                  help="기본값은 우선순위가 가장 높은 활성 위치입니다."
-                >
-                  <Select
-                    id="variant-inventory-location"
-                    value={inventoryLocationId}
-                    onChange={(event) => handleInventoryLocationChange(event.target.value)}
-                    disabled={!trackInventory || stockLocationsLoading}
-                    options={(stockLocations || []).map((location) => ({
-                      value: location.id,
-                      label: `${location.name} (${location.code})`,
-                    }))}
-                    placeholder={
-                      stockLocationsLoading
-                        ? '재고 위치 불러오는 중'
-                        : '재고 위치를 선택하세요'
-                    }
-                  />
-                </FormField>
+                {hasMultipleStockLocations ? (
+                  <FormField
+                    label="재고 위치"
+                    htmlFor="variant-inventory-location"
+                    help="기본값은 우선순위가 가장 높은 활성 위치입니다."
+                  >
+                    <Select
+                      id="variant-inventory-location"
+                      value={inventoryLocationId}
+                      onChange={(event) => handleInventoryLocationChange(event.target.value)}
+                      disabled={!trackInventory || stockLocationsLoading}
+                      options={(stockLocations || []).map((location) => ({
+                        value: location.id,
+                        label: `${location.name} (${location.code})`,
+                      }))}
+                      placeholder={
+                        stockLocationsLoading
+                          ? '재고 위치 불러오는 중'
+                          : '재고 위치를 선택하세요'
+                      }
+                    />
+                  </FormField>
+                ) : (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                      재고 위치
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-gray-900">
+                      {singleStockLocation
+                        ? `${singleStockLocation.name} (${singleStockLocation.code})`
+                        : '기본 위치 자동 사용'}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      단일 위치 운영 기준으로 자동 적용됩니다.
+                    </p>
+                  </div>
+                )}
 
                 <FormField
                   label="재고 수량 (on hand)"
@@ -736,10 +754,9 @@ export function ProductVariantForm({
                   {selectedInventoryLevel.reserved_quantity}개)
                 </p>
               )}
-              {!stockLocationsLoading && (stockLocations || []).length === 0 && (
-                <p className="mt-3 text-xs text-amber-700">
-                  활성 재고 위치가 없어 저장에 실패할 수 있습니다. 운영 설정에서 stock location을
-                  먼저 등록해 주세요.
+              {!stockLocationsLoading && (stockLocations || []).length <= 1 && (
+                <p className="mt-3 text-xs text-gray-500">
+                  재고 위치는 단일 기본 위치로 자동 처리됩니다.
                 </p>
               )}
             </div>

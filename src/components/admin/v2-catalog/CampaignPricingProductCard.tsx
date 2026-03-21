@@ -270,13 +270,10 @@ export function CampaignPricingProductCard({
       });
 
       if (requiresStockUpdate && stockRaw) {
-        if (!defaultStockLocationId) {
-          throw new Error('활성 재고 위치를 찾지 못했습니다. 재고 위치를 먼저 설정해 주세요.');
-        }
         const onHandQuantity = parseNonNegativeInteger(stockRaw, '재고 수량');
         await upsertInventoryLevel.mutateAsync({
           variant_id: row.variant.id,
-          location_id: defaultStockLocationId,
+          location_id: defaultStockLocationId || null,
           on_hand_quantity: onHandQuantity,
           metadata: {
             source: 'v2-campaign-pricing-quick-list',
