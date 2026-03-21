@@ -183,5 +183,6 @@ class APIClient {
   }
 }
 
-const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || '';
-export const apiClient = new APIClient(backendBaseUrl);
+// Keep browser requests same-origin and route through Next API routes (BFF).
+const apiBaseUrl = '';
+export const apiClient = new APIClient(apiBaseUrl);
