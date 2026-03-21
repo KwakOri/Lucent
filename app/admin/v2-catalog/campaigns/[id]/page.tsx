@@ -297,6 +297,18 @@ export default function V2CatalogCampaignDetailPage() {
   }
 
   const hasPricingData = configuredProductRows.length > 0;
+  const canActivate =
+    campaign.status === 'DRAFT' ||
+    campaign.status === 'SUSPENDED' ||
+    campaign.status === 'CLOSED';
+  const canSuspend = campaign.status === 'ACTIVE';
+  const canClose = campaign.status === 'ACTIVE' || campaign.status === 'SUSPENDED';
+  const activateButtonLabel =
+    campaign.status === 'CLOSED'
+      ? '재활성화'
+      : campaign.status === 'SUSPENDED'
+      ? '다시 활성화'
+      : '활성화';
 
   return (
     <div className="space-y-6">
@@ -311,6 +323,10 @@ export default function V2CatalogCampaignDetailPage() {
           </div>
           <h1 className="mt-3 text-2xl font-bold text-gray-900">{campaign.name}</h1>
           <p className="mt-1 text-sm text-gray-500">{formatDateRange(campaign.starts_at, campaign.ends_at)}</p>
+          <p className="mt-1 text-sm font-medium text-gray-700">
+            현재 상태: {CAMPAIGN_STATUS_LABELS[campaign.status]}
+            {campaign.status === 'CLOSED' ? ' (필요 시 재활성화 가능)' : ''}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -354,16 +370,56 @@ export default function V2CatalogCampaignDetailPage() {
           <p className="mt-1 text-xs text-gray-500">우선 등록이 필요한 상품</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">채널 범위</p>
-          <p className="mt-2 text-sm font-semibold text-gray-900">{formatChannelScope(campaign.channel_scope_json)}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => handleRunAction(() => activateCampaign.mutateAsync(campaign.id))}>
-              활성화
+          <p className="text-sm font-medium text-gray-500">운영 상태</p>
+          <p className="mt-2 text-2xl font-bold text-gray-900">{CAMPAIGN_STATUS_LABELS[campaign.status]}</p>
+          <p className="mt-1 text-xs text-gray-500">
+            {campaign.status === 'ACTIVE'
+              ? '현재 상점 노출 판단에 포함됩니다.'
+              : campaign.status === 'SUSPENDED'
+              ? '일시 중지 상태이며, 다시 활성화할 수 있습니다.'
+              : campaign.status === 'CLOSED'
+              ? '종료 상태입니다. 재활성화 버튼으로 다시 운영할 수 있습니다.'
+              : '운영 준비 단계입니다.'}
+          </p>
+          <p className="mt-2 text-xs text-gray-500">채널 범위: {formatChannelScope(campaign.channel_scope_json)}</p>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">캠페인 상태 제어</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              종료(CLOSED) 이후에도 재활성화할 수 있습니다.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              onClick={() => handleRunAction(() => activateCampaign.mutateAsync(campaign.id))}
+              disabled={!canActivate}
+            >
+              {activateButtonLabel}
             </Button>
-            <Button size="sm" intent="neutral" onClick={() => handleRunAction(() => suspendCampaign.mutateAsync(campaign.id))}>
+            <Button
+              size="sm"
+              intent="neutral"
+              onClick={() => handleRunAction(() => suspendCampaign.mutateAsync(campaign.id))}
+              disabled={!canSuspend}
+            >
               일시 중지
             </Button>
-            <Button size="sm" intent="neutral" onClick={() => handleRunAction(() => closeCampaign.mutateAsync(campaign.id))}>
+            <Button
+              size="sm"
+              intent="neutral"
+              onClick={() => {
+                if (!window.confirm('캠페인을 종료 상태로 전환하시겠습니까? 종료 후에도 재활성화할 수 있습니다.')) {
+                  return;
+                }
+                void handleRunAction(() => closeCampaign.mutateAsync(campaign.id));
+              }}
+              disabled={!canClose}
+            >
               종료
             </Button>
           </div>
