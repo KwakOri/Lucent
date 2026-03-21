@@ -35,7 +35,6 @@ const navigationSections: NavigationSection[] = [
     title: '공통',
     items: [
       { name: '대시보드', href: '/admin', icon: HomeIcon },
-      { name: 'v1 주문 관리', href: '/admin/orders', icon: ShoppingCartIcon },
       { name: '로그 조회', href: '/admin/logs', icon: DocumentTextIcon },
     ],
   },
@@ -51,6 +50,7 @@ const navigationSections: NavigationSection[] = [
     title: 'v2 주요 관리',
     items: [
       { name: 'v2 운영 홈', href: '/admin/v2-catalog', icon: HomeIcon },
+      { name: 'v2 주문 관리', href: '/admin/orders', icon: ShoppingCartIcon },
       { name: 'v2 프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderIcon },
       { name: 'v2 아티스트 관리', href: '/admin/v2-catalog/artists', icon: UserGroupIcon },
       { name: 'v2 상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBagIcon },
