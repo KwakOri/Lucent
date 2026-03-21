@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
@@ -210,10 +210,11 @@ export default function AdminOrdersPage() {
     );
   }, [data?.items, search, stageTab]);
 
-  useEffect(() => {
-    const rowIdSet = new Set(rows.map((row) => row.order_id));
-    setSelectedOrderIds((prev) => prev.filter((id) => rowIdSet.has(id)));
-  }, [rows]);
+  const visibleOrderIdSet = useMemo(() => new Set(rows.map((row) => row.order_id)), [rows]);
+  const effectiveSelectedOrderIds = useMemo(
+    () => selectedOrderIds.filter((id) => visibleOrderIdSet.has(id)),
+    [selectedOrderIds, visibleOrderIdSet],
+  );
 
   const recommendedNextStage = useMemo(() => {
     if (stageTab === 'ALL') {
@@ -222,31 +223,37 @@ export default function AdminOrdersPage() {
     return getNextLinearStage(stageTab);
   }, [stageTab]);
 
-  useEffect(() => {
-    if (!recommendedNextStage) {
-      return;
+  function handleStageTabChange(nextTab: V2OrderStageTab) {
+    setStageTab(nextTab);
+    const nextStage = nextTab === 'ALL' ? null : getNextLinearStage(nextTab);
+    if (nextStage) {
+      setTargetStage(nextStage);
     }
-    setTargetStage(recommendedNextStage);
-  }, [recommendedNextStage]);
+  }
 
-  const selectedIdSet = useMemo(() => new Set(selectedOrderIds), [selectedOrderIds]);
+  const selectedIdSet = useMemo(
+    () => new Set(effectiveSelectedOrderIds),
+    [effectiveSelectedOrderIds],
+  );
   const allVisibleSelected =
     rows.length > 0 && rows.every((row) => selectedIdSet.has(row.order_id));
 
   const canSubmitTransition =
-    selectedOrderIds.length > 0 && !previewTransition.isPending && !executeTransition.isPending;
+    effectiveSelectedOrderIds.length > 0 &&
+    !previewTransition.isPending &&
+    !executeTransition.isPending;
   const canRunNextStage = canSubmitTransition && recommendedNextStage !== null;
 
   function buildTransitionPayload(stage: V2AdminOrderLinearStage) {
     return {
-      order_ids: selectedOrderIds,
+      order_ids: effectiveSelectedOrderIds,
       target_stage: stage,
       reason: transitionReason.trim() || null,
     };
   }
 
   async function handlePreviewTransition(stage: V2AdminOrderLinearStage = targetStage) {
-    if (selectedOrderIds.length === 0) {
+    if (effectiveSelectedOrderIds.length === 0) {
       setTransitionMessage('주문을 1건 이상 선택해 주세요.');
       return;
     }
@@ -267,13 +274,13 @@ export default function AdminOrdersPage() {
   }
 
   async function handleExecuteTransition(stage: V2AdminOrderLinearStage = targetStage) {
-    if (selectedOrderIds.length === 0) {
+    if (effectiveSelectedOrderIds.length === 0) {
       setTransitionMessage('주문을 1건 이상 선택해 주세요.');
       return;
     }
 
     const confirmed = window.confirm(
-      `선택한 ${selectedOrderIds.length}건 주문을 "${linearStageLabel(stage)}" 단계로 전환할까요?`,
+      `선택한 ${effectiveSelectedOrderIds.length}건 주문을 "${linearStageLabel(stage)}" 단계로 전환할까요?`,
     );
     if (!confirmed) {
       return;
@@ -296,19 +303,22 @@ export default function AdminOrdersPage() {
   }
 
   function toggleOrderSelection(orderId: string) {
-    setSelectedOrderIds((prev) =>
-      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId],
-    );
+    setSelectedOrderIds((prev) => {
+      const visibleSelected = prev.filter((id) => visibleOrderIdSet.has(id));
+      return visibleSelected.includes(orderId)
+        ? visibleSelected.filter((id) => id !== orderId)
+        : [...visibleSelected, orderId];
+    });
   }
 
   function toggleAllVisible() {
     if (allVisibleSelected) {
-      setSelectedOrderIds((prev) => prev.filter((id) => !rows.some((row) => row.order_id === id)));
+      setSelectedOrderIds((prev) => prev.filter((id) => !visibleOrderIdSet.has(id)));
       return;
     }
 
     setSelectedOrderIds((prev) => {
-      const merged = new Set(prev);
+      const merged = new Set(prev.filter((id) => visibleOrderIdSet.has(id)));
       for (const row of rows) {
         merged.add(row.order_id);
       }
@@ -363,7 +373,7 @@ export default function AdminOrdersPage() {
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setStageTab(tab.key)}
+                onClick={() => handleStageTabChange(tab.key)}
                 className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
                   isActive
                     ? 'border-blue-600 bg-blue-50 text-blue-700'
@@ -452,7 +462,8 @@ export default function AdminOrdersPage() {
             </Button>
           </div>
           <p className="mt-2 text-xs text-gray-500">
-            선택 주문: {selectedOrderIds.length}건 · 목표 단계: {linearStageLabel(targetStage)}
+            선택 주문: {effectiveSelectedOrderIds.length}건 · 목표 단계:{' '}
+            {linearStageLabel(targetStage)}
           </p>
           {transitionMessage ? (
             <p className="mt-2 text-xs font-medium text-gray-700">{transitionMessage}</p>
