@@ -28,6 +28,7 @@ type CampaignOverviewListProps = {
   >;
   onOpen: (campaignId: string) => void;
   onEdit: (campaignId: string) => void;
+  onCopyLink: (campaign: V2Campaign) => void;
 };
 
 export function CampaignOverviewList({
@@ -35,6 +36,7 @@ export function CampaignOverviewList({
   overviewByCampaignId,
   onOpen,
   onEdit,
+  onCopyLink,
 }: CampaignOverviewListProps) {
   if (campaigns.length === 0) {
     return (
@@ -74,6 +76,9 @@ export function CampaignOverviewList({
               </div>
 
               <div className="flex flex-wrap gap-2">
+                <Button intent="neutral" size="sm" onClick={() => onCopyLink(campaign)}>
+                  링크 복사
+                </Button>
                 <Button intent="neutral" size="sm" onClick={() => onEdit(campaign.id)}>
                   수정
                 </Button>
