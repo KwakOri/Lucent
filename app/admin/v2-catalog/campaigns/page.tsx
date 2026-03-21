@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,6 @@ import { CampaignOverviewList } from '@/src/components/admin/v2-catalog/Campaign
 import { useV2CampaignOverview, useV2Campaigns } from '@/lib/client/hooks/useV2CatalogAdmin';
 import {
   type CampaignFilterStatus,
-  type CampaignFilterType,
   type CampaignPeriodFilter,
   type CampaignSortKey,
   CAMPAIGN_STATUS_LABELS,
@@ -23,15 +22,22 @@ import {
 const SELECT_CLASS =
   'h-11 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20';
 
+type CampaignManagementTab = 'BASE' | 'TARGETED';
+
 export default function V2CatalogCampaignsPage() {
   const router = useRouter();
   const { data: campaigns, isLoading, error } = useV2Campaigns();
 
+  const [managementTab, setManagementTab] = useState<CampaignManagementTab>('BASE');
   const [keyword, setKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<CampaignFilterStatus>('ALL');
-  const [typeFilter, setTypeFilter] = useState<CampaignFilterType>('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
   const [periodFilter, setPeriodFilter] = useState<CampaignPeriodFilter>('ALL');
   const [sortKey, setSortKey] = useState<CampaignSortKey>('UPDATED_DESC');
+
+  useEffect(() => {
+    setTypeFilter('ALL');
+  }, [managementTab]);
 
   const filteredCampaigns = useMemo(() => {
     const items = campaigns || [];
@@ -39,10 +45,16 @@ export default function V2CatalogCampaignsPage() {
 
     return items
       .filter((campaign) => {
+        if (managementTab === 'BASE' && campaign.campaign_type !== 'ALWAYS_ON') {
+          return false;
+        }
+        if (managementTab === 'TARGETED' && campaign.campaign_type === 'ALWAYS_ON') {
+          return false;
+        }
         if (statusFilter !== 'ALL' && campaign.status !== statusFilter) {
           return false;
         }
-        if (typeFilter !== 'ALL' && campaign.campaign_type !== typeFilter) {
+        if (managementTab === 'TARGETED' && typeFilter !== 'ALL' && campaign.campaign_type !== typeFilter) {
           return false;
         }
         const period = getCampaignPeriod(campaign.starts_at, campaign.ends_at);
@@ -72,7 +84,7 @@ export default function V2CatalogCampaignsPage() {
         }
         return right.updated_at.localeCompare(left.updated_at);
       });
-  }, [campaigns, keyword, periodFilter, sortKey, statusFilter, typeFilter]);
+  }, [campaigns, keyword, managementTab, periodFilter, sortKey, statusFilter, typeFilter]);
 
   const overviewByCampaignId = useV2CampaignOverview(filteredCampaigns.map((campaign) => campaign.id));
 
@@ -122,6 +134,33 @@ export default function V2CatalogCampaignsPage() {
         </div>
       </div>
 
+      <section className="rounded-xl border border-gray-200 bg-white p-3">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setManagementTab('BASE')}
+            className={`rounded-lg border px-4 py-3 text-left text-sm font-medium transition ${
+              managementTab === 'BASE'
+                ? 'border-primary-500 bg-primary-50 text-primary-700'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            기본 캠페인
+          </button>
+          <button
+            type="button"
+            onClick={() => setManagementTab('TARGETED')}
+            className={`rounded-lg border px-4 py-3 text-left text-sm font-medium transition ${
+              managementTab === 'TARGETED'
+                ? 'border-primary-500 bg-primary-50 text-primary-700'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            지정 캠페인
+          </button>
+        </div>
+      </section>
+
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-sm font-medium text-gray-500">캠페인 수</p>
@@ -160,14 +199,18 @@ export default function V2CatalogCampaignsPage() {
               </option>
             ))}
           </select>
-          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as CampaignFilterType)} className={SELECT_CLASS}>
-            <option value="ALL">모든 유형</option>
-            {CAMPAIGN_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {CAMPAIGN_TYPE_LABELS[type]}
-              </option>
-            ))}
-          </select>
+          {managementTab === 'TARGETED' ? (
+            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className={SELECT_CLASS}>
+              <option value="ALL">모든 유형</option>
+              {CAMPAIGN_TYPES.filter((type) => type !== 'ALWAYS_ON').map((type) => (
+                <option key={type} value={type}>
+                  {CAMPAIGN_TYPE_LABELS[type]}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className={`${SELECT_CLASS} flex items-center text-gray-500`}>유형: 상시 운영 고정</div>
+          )}
           <select value={periodFilter} onChange={(event) => setPeriodFilter(event.target.value as CampaignPeriodFilter)} className={SELECT_CLASS}>
             <option value="ALL">모든 기간</option>
             <option value="LIVE">진행 중</option>
@@ -187,7 +230,9 @@ export default function V2CatalogCampaignsPage() {
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">캠페인 개요</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {managementTab === 'BASE' ? '기본 캠페인 개요' : '지정 캠페인 개요'}
+            </h2>
             <p className="mt-1 text-sm text-gray-500">
               상태, 기간, 대상 수, 가격 연결 여부처럼 운영자가 바로 판단해야 하는 정보만 먼저 보여줍니다.
             </p>
