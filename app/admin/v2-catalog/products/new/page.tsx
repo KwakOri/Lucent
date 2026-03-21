@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
 import { ProductBasicsForm } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
@@ -26,6 +26,7 @@ function getErrorMessage(error: unknown): string {
 
 export default function V2CatalogProductCreatePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const createProduct = useCreateV2Product();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -39,6 +40,21 @@ export default function V2CatalogProductCreatePage() {
     () => (projects || []).filter((project) => project.status !== 'ARCHIVED'),
     [projects],
   );
+  const prefilledProjectId = useMemo(
+    () => searchParams.get('projectId') || '',
+    [searchParams],
+  );
+  const listPath = prefilledProjectId
+    ? `/admin/v2-catalog/products/projects/${prefilledProjectId}`
+    : '/admin/v2-catalog/products';
+  const initialProjectId = useMemo(() => {
+    if (!prefilledProjectId) {
+      return '';
+    }
+    return activeProjects.some((project) => project.id === prefilledProjectId)
+      ? prefilledProjectId
+      : '';
+  }, [activeProjects, prefilledProjectId]);
 
   const handleCreateProduct = async (values: ProductBasicsFormValues) => {
     setErrorMessage(null);
@@ -75,7 +91,7 @@ export default function V2CatalogProductCreatePage() {
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
           프로젝트 목록을 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/products')}>
+        <Button intent="neutral" onClick={() => router.push(listPath)}>
           목록으로
         </Button>
       </div>
@@ -92,7 +108,7 @@ export default function V2CatalogProductCreatePage() {
           </p>
         </div>
         <div className="mt-3 sm:mt-0">
-          <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/products')}>
+          <Button intent="neutral" onClick={() => router.push(listPath)}>
             목록으로
           </Button>
         </div>
@@ -102,7 +118,7 @@ export default function V2CatalogProductCreatePage() {
         mode="create"
         projects={activeProjects}
         initialValues={{
-          project_id: '',
+          project_id: initialProjectId,
           product_kind: 'STANDARD',
           fulfillment_type: 'DIGITAL',
           title: '',
@@ -113,7 +129,7 @@ export default function V2CatalogProductCreatePage() {
         isSubmitting={createProduct.isPending}
         submitLabel="기본 정보 저장"
         errorMessage={errorMessage}
-        onCancel={() => router.push('/admin/v2-catalog/products')}
+        onCancel={() => router.push(listPath)}
         onSubmit={handleCreateProduct}
       />
     </div>

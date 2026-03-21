@@ -135,6 +135,9 @@ export default function V2CatalogProductDetailPage() {
         fulfillment_type: product.fulfillment_type,
       })
     : { title: '', description: '' };
+  const listPath = product
+    ? `/admin/v2-catalog/products/projects/${product.project_id}`
+    : '/admin/v2-catalog/products';
 
   const handleDeleteProduct = async () => {
     if (!product) {
@@ -148,7 +151,7 @@ export default function V2CatalogProductDetailPage() {
 
     try {
       await deleteProduct.mutateAsync(product.id);
-      router.push('/admin/v2-catalog/products');
+      router.push(listPath);
     } catch (deleteError) {
       setPageErrorMessage(getErrorMessage(deleteError));
     }
@@ -194,7 +197,7 @@ export default function V2CatalogProductDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/products')}>
+          <Button intent="neutral" onClick={() => router.push(listPath)}>
             목록으로
           </Button>
           <Button
