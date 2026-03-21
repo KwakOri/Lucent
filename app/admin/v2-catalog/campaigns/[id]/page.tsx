@@ -30,7 +30,6 @@ import {
   getCampaignPeriodIntent,
   getCampaignStatusIntent,
   getErrorMessage,
-  getPeriodLabel,
   resolveTargetLabel,
   summarizeTargetGroups,
 } from '@/lib/client/utils/v2-campaign-admin';
@@ -309,6 +308,14 @@ export default function V2CatalogCampaignDetailPage() {
       : campaign.status === 'SUSPENDED'
       ? '다시 활성화'
       : '활성화';
+  const periodChipLabel =
+    period === 'LIVE'
+      ? '진행 중'
+      : period === 'UPCOMING'
+      ? '시작 전'
+      : period === 'ENDED'
+      ? '기간 종료'
+      : '기간 제한 없음';
 
   return (
     <div className="space-y-6">
@@ -316,10 +323,10 @@ export default function V2CatalogCampaignDetailPage() {
         <div>
           <div className="flex flex-wrap gap-2">
             <Badge intent={getCampaignStatusIntent(campaign.status)}>
-              {CAMPAIGN_STATUS_LABELS[campaign.status]}
+              운영: {CAMPAIGN_STATUS_LABELS[campaign.status]}
             </Badge>
-            <Badge intent={getCampaignPeriodIntent(period)}>{getPeriodLabel(period)}</Badge>
-            <Badge intent="default">{CAMPAIGN_TYPE_LABELS[campaign.campaign_type]}</Badge>
+            <Badge intent={getCampaignPeriodIntent(period)}>기간: {periodChipLabel}</Badge>
+            <Badge intent="default">유형: {CAMPAIGN_TYPE_LABELS[campaign.campaign_type]}</Badge>
           </div>
           <h1 className="mt-3 text-2xl font-bold text-gray-900">{campaign.name}</h1>
           <p className="mt-1 text-sm text-gray-500">{formatDateRange(campaign.starts_at, campaign.ends_at)}</p>
@@ -372,28 +379,8 @@ export default function V2CatalogCampaignDetailPage() {
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-sm font-medium text-gray-500">운영 상태</p>
           <p className="mt-2 text-2xl font-bold text-gray-900">{CAMPAIGN_STATUS_LABELS[campaign.status]}</p>
-          <p className="mt-1 text-xs text-gray-500">
-            {campaign.status === 'ACTIVE'
-              ? '현재 상점 노출 판단에 포함됩니다.'
-              : campaign.status === 'SUSPENDED'
-              ? '일시 중지 상태이며, 다시 활성화할 수 있습니다.'
-              : campaign.status === 'CLOSED'
-              ? '종료 상태입니다. 재활성화 버튼으로 다시 운영할 수 있습니다.'
-              : '운영 준비 단계입니다.'}
-          </p>
           <p className="mt-2 text-xs text-gray-500">채널 범위: {formatChannelScope(campaign.channel_scope_json)}</p>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900">캠페인 상태 제어</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              종료(CLOSED) 이후에도 재활성화할 수 있습니다.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             <Button
               size="sm"
               onClick={() => handleRunAction(() => activateCampaign.mutateAsync(campaign.id))}
