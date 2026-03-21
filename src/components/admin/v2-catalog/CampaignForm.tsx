@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { FileInput } from '@/components/ui/file-input';
 import { Input, Textarea } from '@/components/ui/input';
 import type {
   V2BundleDefinition,
@@ -15,6 +16,7 @@ import type {
 import {
   useCreateV2Campaign,
   useCreateV2CampaignTarget,
+  useUploadV2MediaAssetFile,
   useUpdateV2Campaign,
   useV2AdminVariants,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
@@ -32,15 +34,19 @@ import {
 } from '@/lib/client/utils/v2-campaign-admin';
 import { CampaignTargetPicker } from './CampaignTargetPicker';
 
-const SELECT_CLASS =
-  'h-11 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20';
-
 function getChoiceButtonClass(active: boolean): string {
   return `rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
     active
       ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm'
       : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
   }`;
+}
+
+function isImageFile(file: File): boolean {
+  if (file.type.toLowerCase().startsWith('image/')) {
+    return true;
+  }
+  return /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(file.name);
 }
 
 type CampaignFormProps = {
@@ -81,6 +87,7 @@ export function CampaignForm({
   const createCampaign = useCreateV2Campaign();
   const updateCampaign = useUpdateV2Campaign();
   const createTarget = useCreateV2CampaignTarget();
+  const uploadMediaAssetFile = useUploadV2MediaAssetFile();
 
   const [name, setName] = useState(campaign?.name || '');
   const [campaignType, setCampaignType] = useState<V2CampaignType>(
@@ -97,6 +104,19 @@ export function CampaignForm({
   const [channelScopeInput, setChannelScopeInput] = useState(
     formatChannelScopeInput(campaign?.channel_scope_json),
   );
+  const [shopBannerMediaAssetId, setShopBannerMediaAssetId] = useState(
+    campaign?.shop_banner_media_asset_id || '',
+  );
+  const [shopBannerAltText, setShopBannerAltText] = useState(
+    campaign?.shop_banner_alt_text || '',
+  );
+  const [shopBannerPreviewUrl, setShopBannerPreviewUrl] = useState<string | null>(
+    campaign?.shop_banner_media_asset?.public_url || null,
+  );
+  const [shopBannerFileName, setShopBannerFileName] = useState(
+    campaign?.shop_banner_media_asset?.file_name || '',
+  );
+  const [bannerNotice, setBannerNotice] = useState<string | null>(null);
   const [selectedTargets, setSelectedTargets] = useState<CampaignTargetSelection[]>(initialTargets);
   const [variantProductId, setVariantProductId] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -114,9 +134,51 @@ export function CampaignForm({
       currentCampaignId: campaign?.id,
     });
   }, [campaign?.id, campaigns, endsAtInput, hasEndDate, startsAtInput]);
+  const hasShopBanner = shopBannerMediaAssetId.trim().length > 0;
 
   const isSubmitting =
-    createCampaign.isPending || updateCampaign.isPending || createTarget.isPending;
+    createCampaign.isPending ||
+    updateCampaign.isPending ||
+    createTarget.isPending ||
+    uploadMediaAssetFile.isPending;
+
+  const handleUploadShopBanner = async (file: File) => {
+    if (!isImageFile(file)) {
+      setErrorMessage('배너는 이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    setErrorMessage(null);
+    setBannerNotice(null);
+
+    try {
+      const uploaded = await uploadMediaAssetFile.mutateAsync({
+        data: {
+          file,
+          asset_kind: 'IMAGE',
+          status: 'ACTIVE',
+          metadata: {
+            source: 'v2-campaign-shop-banner-upload',
+            campaign_id: campaign?.id || null,
+          },
+        },
+      });
+      setShopBannerMediaAssetId(uploaded.data.id);
+      setShopBannerPreviewUrl(uploaded.data.public_url || null);
+      setShopBannerFileName(uploaded.data.file_name || file.name);
+      setBannerNotice('배너 이미지를 연결했습니다.');
+    } catch (uploadError) {
+      setErrorMessage(getErrorMessage(uploadError));
+    }
+  };
+
+  const clearShopBanner = () => {
+    setShopBannerMediaAssetId('');
+    setShopBannerAltText('');
+    setShopBannerPreviewUrl(null);
+    setShopBannerFileName('');
+    setBannerNotice('배너 연결을 해제했습니다. 저장하면 반영됩니다.');
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -142,6 +204,10 @@ export function CampaignForm({
 
       const startsAt = parseDateTimeLocalInput(startsAtInput, '시작 시점');
       const endsAt = hasEndDate ? parseDateTimeLocalInput(endsAtInput, '종료 시점') : null;
+      const normalizedShopBannerMediaAssetId = shopBannerMediaAssetId.trim() || null;
+      const normalizedShopBannerAltText = normalizedShopBannerMediaAssetId
+        ? shopBannerAltText.trim() || null
+        : null;
 
       if (startsAt && endsAt && new Date(startsAt).getTime() > new Date(endsAt).getTime()) {
         throw new Error('종료 시점은 시작 시점보다 늦어야 합니다.');
@@ -156,6 +222,8 @@ export function CampaignForm({
           status: 'DRAFT',
           starts_at: startsAt,
           ends_at: endsAt,
+          shop_banner_media_asset_id: normalizedShopBannerMediaAssetId,
+          shop_banner_alt_text: normalizedShopBannerAltText,
           channel_scope_json: parseChannelScopeInput(channelScopeInput),
         });
 
@@ -186,6 +254,8 @@ export function CampaignForm({
           campaign_type: campaignType,
           starts_at: startsAt,
           ends_at: endsAt,
+          shop_banner_media_asset_id: normalizedShopBannerMediaAssetId,
+          shop_banner_alt_text: normalizedShopBannerAltText,
           channel_scope_json: parseChannelScopeInput(channelScopeInput),
         },
       });
@@ -271,7 +341,90 @@ export function CampaignForm({
 
       <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">{mode === 'create' ? '3. 기간 설정' : '2. 기간 설정'}</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {mode === 'create' ? '3. 상점 배너 설정' : '2. 상점 배너 설정'}
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            프로젝트/캠페인별 상점 페이지에 노출할 배너를 선택합니다. 비워두면 상점에서 텍스트만 표시됩니다.
+          </p>
+        </div>
+
+        {bannerNotice && (
+          <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {bannerNotice}
+          </div>
+        )}
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">배너 이미지</label>
+            {shopBannerPreviewUrl ? (
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={shopBannerPreviewUrl}
+                  alt={shopBannerAltText || '캠페인 배너 미리보기'}
+                  className="h-40 w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 text-center text-sm text-gray-500">
+                {hasShopBanner
+                  ? '배너가 연결되어 있습니다. (public URL이 없어 미리보기는 표시되지 않습니다)'
+                  : '배너를 설정하지 않았습니다.'}
+              </div>
+            )}
+            {shopBannerFileName ? (
+              <p className="mt-2 text-xs text-gray-500">최근 업로드 파일: {shopBannerFileName}</p>
+            ) : null}
+            {hasShopBanner && !shopBannerFileName ? (
+              <p className="mt-2 break-all text-xs text-gray-500">연결된 asset ID: {shopBannerMediaAssetId}</p>
+            ) : null}
+          </div>
+
+          <div className="space-y-2">
+            <FileInput
+              triggerLabel={uploadMediaAssetFile.isPending ? '배너 업로드 중...' : '배너 이미지 선택'}
+              accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+              disabled={isSubmitting}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  void handleUploadShopBanner(file);
+                }
+                event.target.value = '';
+              }}
+            />
+            <Button
+              type="button"
+              intent="neutral"
+              onClick={clearShopBanner}
+              disabled={!hasShopBanner || isSubmitting}
+            >
+              배너 해제
+            </Button>
+          </div>
+
+          <div className="lg:col-span-2">
+            <label className="mb-2 block text-sm font-medium text-gray-700">배너 대체 텍스트 (선택)</label>
+            <Input
+              value={shopBannerAltText}
+              onChange={(event) => setShopBannerAltText(event.target.value)}
+              placeholder="예: 봄 시즌 한정 굿즈 캠페인 배너"
+              disabled={!hasShopBanner}
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              배너를 설정한 경우에만 저장됩니다. 배너가 없으면 자동으로 비워집니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {mode === 'create' ? '4. 기간 설정' : '3. 기간 설정'}
+          </h2>
           <p className="mt-1 text-sm text-gray-500">판매 기간을 구성하고 겹칠 수 있는 일정은 미리 경고합니다.</p>
         </div>
 
