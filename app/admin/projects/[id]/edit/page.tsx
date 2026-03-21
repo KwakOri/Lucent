@@ -1,14 +1,12 @@
 'use client';
 
+import { useParams } from 'next/navigation';
 import { useProject } from '@/lib/client/hooks/useProjects';
 import { Loading } from '@/components/ui/loading';
 import { ProjectForm } from '@/src/components/admin/projects/ProjectForm';
 
-export default function EditProjectPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function EditProjectPage() {
+  const params = useParams<{ id: string }>();
   const { data: project, isLoading, error } = useProject(params.id);
 
   if (isLoading) {
