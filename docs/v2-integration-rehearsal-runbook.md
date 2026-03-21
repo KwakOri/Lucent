@@ -25,6 +25,7 @@ npm run ops:v2-verify-all:local
 - `supabase start`
 - `supabase db reset`
 - `supabase db lint`
+- `ops:v2-seed-dummy:local` (ALWAYS_ON campaign + base price list fixture 보정)
 - `ops:v2-verify-04:local -- --skip-migration`
 - `ops:v2-verify-05:local -- --skip-migration`
 - `01/02` 로컬 fixture 자동 보정(누락 primary media, digital asset, bundle definition/component)

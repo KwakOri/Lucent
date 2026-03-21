@@ -54,6 +54,8 @@ docker exec -i "${DB_CONTAINER}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres
 --   bundle parent:       8a8d1000-0000-4000-8000-000000000203
 -- bundle:
 --   definition:          8a8d1000-0000-4000-8000-000000000401
+-- campaign:
+--   always on campaign:  8a8d1000-0000-4000-8000-000000000300
 -- pricing:
 --   base price list:     8a8d1000-0000-4000-8000-000000000301
 
@@ -484,6 +486,58 @@ SET
   metadata = EXCLUDED.metadata,
   deleted_at = NULL;
 
+-- ALWAYS_ON campaign for BASE shop pricing eligibility
+INSERT INTO public.v2_campaigns (
+  id,
+  code,
+  name,
+  description,
+  campaign_type,
+  status,
+  starts_at,
+  ends_at,
+  channel_scope_json,
+  purchase_limit_json,
+  source_type,
+  source_id,
+  source_snapshot_json,
+  metadata,
+  deleted_at
+)
+VALUES (
+  '8a8d1000-0000-4000-8000-000000000300',
+  'V2-DUMMY-ALWAYS-ON',
+  'V2 Dummy Always On Campaign',
+  'Local fixture ALWAYS_ON campaign used for BASE pricing selection.',
+  'ALWAYS_ON',
+  'ACTIVE',
+  NOW() - INTERVAL '30 days',
+  NULL,
+  '[]'::jsonb,
+  '{}'::jsonb,
+  'fixture',
+  'v2-dummy-local',
+  '{}'::jsonb,
+  jsonb_build_object('fixture', 'v2-dummy-local'),
+  NULL
+)
+ON CONFLICT (id) DO UPDATE
+SET
+  code = EXCLUDED.code,
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  campaign_type = EXCLUDED.campaign_type,
+  status = EXCLUDED.status,
+  starts_at = EXCLUDED.starts_at,
+  ends_at = EXCLUDED.ends_at,
+  channel_scope_json = EXCLUDED.channel_scope_json,
+  purchase_limit_json = EXCLUDED.purchase_limit_json,
+  source_type = EXCLUDED.source_type,
+  source_id = EXCLUDED.source_id,
+  source_snapshot_json = EXCLUDED.source_snapshot_json,
+  metadata = EXCLUDED.metadata,
+  deleted_at = NULL;
+
 -- BASE price list (PUBLISHED)
 INSERT INTO public.v2_price_lists (
   id,
@@ -506,7 +560,7 @@ INSERT INTO public.v2_price_lists (
 )
 VALUES (
   '8a8d1000-0000-4000-8000-000000000301',
-  NULL,
+  '8a8d1000-0000-4000-8000-000000000300',
   NULL,
   'V2 Dummy Base Price List',
   'BASE',
