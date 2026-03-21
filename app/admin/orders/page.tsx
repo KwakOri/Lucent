@@ -19,6 +19,8 @@ import {
 
 type V2OrderStageTab = 'ALL' | V2AdminOrderLinearStage;
 
+type TransitionExecuteLog = Record<string, unknown>;
+
 function formatCurrency(amount: number): string {
   return `${Math.max(0, amount).toLocaleString()}원`;
 }
@@ -132,6 +134,21 @@ function getNextLinearStage(stage: V2AdminOrderLinearStage): V2AdminOrderLinearS
     return 'DELIVERED';
   }
   return null;
+}
+
+function readLogString(log: TransitionExecuteLog, key: string): string | null {
+  const value = log[key];
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function summarizeFailedLog(log: TransitionExecuteLog): string {
+  const errorCode = readLogString(log, 'error_code') || 'UNKNOWN_ERROR';
+  const errorMessage = readLogString(log, 'error_message') || '상세 메시지 없음';
+  return `${errorCode}: ${errorMessage}`;
 }
 
 const LINEAR_STAGE_OPTIONS: V2AdminOrderLinearStage[] = [
@@ -287,11 +304,47 @@ export default function AdminOrdersPage() {
     }
 
     try {
-      const result = await executeTransition.mutateAsync(buildTransitionPayload(stage));
+      const payload = buildTransitionPayload(stage);
+      if (process.env.NODE_ENV !== 'production') {
+        console.info('[admin/orders] transition execute payload', payload);
+      }
+
+      const result = await executeTransition.mutateAsync(payload);
       setTransitionResult(result);
-      setTransitionMessage(
-        `실행 완료(${linearStageLabel(stage)}): 성공 ${result.execute?.succeeded_count ?? 0}건 / 실패 ${result.execute?.failed_count ?? 0}건`,
+
+      const executeLogs = result.execute?.logs || [];
+      const failedLogs = executeLogs.filter(
+        (log) => readLogString(log, 'status') === 'FAILED',
       );
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.info('[admin/orders] transition execute result', {
+          target_stage: stage,
+          summary: result.summary,
+          execute: result.execute,
+          failed_logs: failedLogs,
+        });
+      }
+
+      const firstBlockedReason =
+        result.rows.find((row) => row.blocked_reasons.length > 0)?.blocked_reasons[0] || null;
+      const hasBlockedWithoutExecution =
+        (result.execute?.attempted_action_count ?? 0) === 0 &&
+        result.summary.blocked_order_count > 0;
+
+      if (failedLogs.length > 0) {
+        setTransitionMessage(
+          `실행 완료(${linearStageLabel(stage)}): 성공 ${result.execute?.succeeded_count ?? 0}건 / 실패 ${result.execute?.failed_count ?? 0}건 · 첫 실패 ${summarizeFailedLog(failedLogs[0])}`,
+        );
+      } else if (hasBlockedWithoutExecution) {
+        setTransitionMessage(
+          `실행 대상 없음(${linearStageLabel(stage)}): 실행 가능 주문이 없습니다. ${firstBlockedReason ? `차단 사유: ${firstBlockedReason}` : ''}`,
+        );
+      } else {
+        setTransitionMessage(
+          `실행 완료(${linearStageLabel(stage)}): 성공 ${result.execute?.succeeded_count ?? 0}건 / 실패 ${result.execute?.failed_count ?? 0}건`,
+        );
+      }
       await refetch();
     } catch (executeError) {
       setTransitionMessage(
@@ -487,6 +540,41 @@ export default function AdminOrdersPage() {
               {transitionResult.execute.failed_count} · 승인대기{' '}
               {transitionResult.execute.pending_approval_count}
             </p>
+          ) : null}
+          {transitionResult.execute?.logs?.length ? (
+            <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs font-semibold text-gray-700">실행 로그</p>
+              <div className="mt-2 space-y-1">
+                {transitionResult.execute.logs.map((log, index) => {
+                  const status = readLogString(log, 'status') || 'UNKNOWN';
+                  const actionKey = readLogString(log, 'action_key') || '-';
+                  const orderNo =
+                    readLogString(log, 'order_no') ||
+                    readLogString(log, 'order_id') ||
+                    '-';
+                  const errorCode = readLogString(log, 'error_code');
+                  const errorMessage = readLogString(log, 'error_message');
+
+                  return (
+                    <div
+                      key={`${actionKey}-${orderNo}-${index}`}
+                      className={`rounded border px-2 py-1 text-[11px] ${
+                        status === 'FAILED'
+                          ? 'border-red-200 bg-red-50 text-red-700'
+                          : status === 'PENDING_APPROVAL'
+                            ? 'border-amber-200 bg-amber-50 text-amber-700'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      }`}
+                    >
+                      [{status}] {orderNo} · {actionKey}
+                      {errorCode || errorMessage
+                        ? ` · ${errorCode || 'ERROR'}${errorMessage ? `: ${errorMessage}` : ''}`
+                        : ''}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           ) : null}
         </section>
       ) : null}
