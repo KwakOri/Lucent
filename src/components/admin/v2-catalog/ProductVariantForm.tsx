@@ -42,6 +42,7 @@ type ProductVariantFormProps = {
   mode: 'create' | 'edit';
   product: V2Product;
   variant?: V2Variant | null;
+  variantCount?: number;
   primaryAsset?: V2DigitalAsset | null;
   isAssetsLoading?: boolean;
   onCancel: () => void;
@@ -142,6 +143,7 @@ export function ProductVariantForm({
   mode,
   product,
   variant,
+  variantCount = 0,
   primaryAsset,
   isAssetsLoading = false,
   onCancel,
@@ -170,6 +172,10 @@ export function ProductVariantForm({
   const lockedFulfillmentType =
     product.product_kind === 'STANDARD' ? product.fulfillment_type : null;
   const isFulfillmentLocked = Boolean(lockedFulfillmentType);
+  const isSingleDefaultVariant =
+    mode === 'edit' &&
+    variantCount === 1 &&
+    (variant?.title || '').trim().toLowerCase() === 'default';
 
   const { data: stockLocations, isLoading: stockLocationsLoading } = useV2AdminStockLocations();
   const { data: inventoryLevels, isLoading: inventoryLevelsLoading } = useV2AdminInventoryLevels(
@@ -307,7 +313,7 @@ export function ProductVariantForm({
     let savedVariantId = variant?.id || persistedVariantId || null;
 
     try {
-      const trimmedTitle = title.trim();
+      const trimmedTitle = isSingleDefaultVariant ? 'default' : title.trim();
       if (!trimmedTitle) {
         throw new Error('옵션 이름을 입력해 주세요.');
       }
@@ -526,20 +532,32 @@ export function ProductVariantForm({
 
         <div className="mt-6 grid gap-4 lg:grid-cols-12">
           <div className="lg:col-span-7">
-            <FormField
-              label="옵션 이름"
-              htmlFor="variant-title"
-              required
-              help="구매자가 이해하기 쉬운 이름으로 유지해 주세요."
-            >
-              <Input
-                id="variant-title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="예: 디지털 음원 세트"
+            {isSingleDefaultVariant ? (
+              <div>
+                <p className="mb-2 text-sm font-medium text-gray-700">옵션 이름</p>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700">
+                  default
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  옵션이 1개일 때는 기본 옵션명(`default`)을 자동 사용합니다.
+                </p>
+              </div>
+            ) : (
+              <FormField
+                label="옵션 이름"
+                htmlFor="variant-title"
                 required
-              />
-            </FormField>
+                help="구매자가 이해하기 쉬운 이름으로 유지해 주세요."
+              >
+                <Input
+                  id="variant-title"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="예: 디지털 음원 세트"
+                  required
+                />
+              </FormField>
+            )}
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:col-span-5">

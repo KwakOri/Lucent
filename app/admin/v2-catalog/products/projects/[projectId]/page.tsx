@@ -8,88 +8,15 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import { Select } from '@/components/ui/select';
+import { ProjectProductListItem } from '@/src/components/admin/v2-catalog/ProjectProductListItem';
 import type { V2ProductStatus } from '@/lib/client/api/v2-catalog-admin.api';
-import {
-  useV2AdminProducts,
-  useV2AdminProject,
-} from '@/lib/client/hooks/useV2CatalogAdmin';
-import {
-  FULFILLMENT_TYPE_LABELS,
-  PRODUCT_KIND_LABELS,
-  PRODUCT_STATUS_LABELS,
-} from '@/lib/client/utils/v2-product-admin-form';
+import { useV2AdminProducts, useV2AdminProject } from '@/lib/client/hooks/useV2CatalogAdmin';
+import { PRODUCT_STATUS_LABELS } from '@/lib/client/utils/v2-product-admin-form';
 
 type ProductFilterStatus = 'ALL' | V2ProductStatus;
 type ProductSortKey = 'SORT_ASC' | 'UPDATED_DESC' | 'TITLE_ASC';
 
-const PRODUCT_STATUS_VALUES: V2ProductStatus[] = [
-  'DRAFT',
-  'ACTIVE',
-  'INACTIVE',
-  'ARCHIVED',
-];
-
-function formatDateTime(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function resolveProductStatusIntent(
-  status: V2ProductStatus,
-): 'default' | 'success' | 'warning' | 'error' | 'info' {
-  if (status === 'ACTIVE') {
-    return 'success';
-  }
-  if (status === 'DRAFT') {
-    return 'warning';
-  }
-  if (status === 'ARCHIVED') {
-    return 'error';
-  }
-  if (status === 'INACTIVE') {
-    return 'info';
-  }
-  return 'default';
-}
-
-function resolveKindIntent(
-  kind: 'STANDARD' | 'BUNDLE',
-): 'default' | 'success' | 'warning' | 'error' | 'info' {
-  if (kind === 'BUNDLE') {
-    return 'info';
-  }
-  return 'default';
-}
-
-function resolveFulfillmentBadge(product: {
-  product_kind: 'STANDARD' | 'BUNDLE';
-  fulfillment_type: 'DIGITAL' | 'PHYSICAL' | null;
-}): {
-  label: string;
-  intent: 'default' | 'success' | 'warning' | 'error' | 'info';
-} {
-  if (product.product_kind === 'BUNDLE') {
-    return { label: '구성별 상이', intent: 'default' };
-  }
-
-  if (!product.fulfillment_type) {
-    return { label: '미설정', intent: 'warning' };
-  }
-
-  return {
-    label: FULFILLMENT_TYPE_LABELS[product.fulfillment_type],
-    intent: product.fulfillment_type === 'DIGITAL' ? 'success' : 'info',
-  };
-}
+const PRODUCT_STATUS_VALUES: V2ProductStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE', 'ARCHIVED'];
 
 export default function V2CatalogProjectProductsPage() {
   const router = useRouter();
@@ -123,7 +50,6 @@ export default function V2CatalogProjectProductsPage() {
       if (!search) {
         return true;
       }
-
       const haystack = `${product.title} ${product.slug}`.toLowerCase();
       return haystack.includes(search);
     });
@@ -181,7 +107,7 @@ export default function V2CatalogProjectProductsPage() {
           <p className="text-sm text-gray-500">프로젝트 상품 관리</p>
           <h1 className="mt-1 text-2xl font-bold text-gray-900">{project.name}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            /{project.slug} 프로젝트에 연결된 상품 목록과 상태를 관리합니다.
+            /{project.slug} 프로젝트 상품을 리스트에서 바로 미리 보고 빠르게 수정합니다.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -221,7 +147,7 @@ export default function V2CatalogProjectProductsPage() {
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold text-gray-900">상품 찾기</h2>
           <p className="text-sm text-gray-500">
-            필요한 상품을 빠르게 찾고 상세 페이지에서 상품/옵션을 관리하세요.
+            검색/필터로 대상을 줄인 뒤 커버, 상세 이미지, 옵션을 바로 편집할 수 있습니다.
           </p>
         </div>
 
@@ -259,7 +185,7 @@ export default function V2CatalogProjectProductsPage() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">상품 목록</h2>
             <p className="mt-1 text-sm text-gray-500">
-              상품을 누르면 상세 페이지에서 기본 정보, variants, 미디어를 함께 관리할 수 있습니다.
+              리스트에서 대표 이미지와 옵션을 펼쳐 필요한 항목만 빠르게 수정합니다.
             </p>
           </div>
           <Badge intent="info">{filteredProducts.length}개 표시</Badge>
@@ -277,63 +203,14 @@ export default function V2CatalogProjectProductsPage() {
               }
             />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-gray-200">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
-                    <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      <th className="px-4 py-3">상품</th>
-                      <th className="px-4 py-3">상태</th>
-                      <th className="px-4 py-3">정렬</th>
-                      <th className="px-4 py-3">최근 수정</th>
-                      <th className="px-4 py-3 text-right">작업</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {filteredProducts.map((product) => {
-                      const fulfillmentBadge = resolveFulfillmentBadge({
-                        product_kind: product.product_kind,
-                        fulfillment_type: product.fulfillment_type,
-                      });
-
-                      return (
-                        <tr key={product.id} className="transition hover:bg-blue-50/40">
-                          <td className="px-4 py-3 align-top">
-                            <p className="font-medium text-gray-900">{product.title}</p>
-                            <p className="mt-1 max-w-[360px] truncate text-xs text-gray-500">
-                              {product.short_description || '한 줄 설명 없음'}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <div className="flex flex-wrap gap-1.5">
-                              <Badge intent={resolveKindIntent(product.product_kind)}>
-                                {PRODUCT_KIND_LABELS[product.product_kind]}
-                              </Badge>
-                              <Badge intent={fulfillmentBadge.intent}>{fulfillmentBadge.label}</Badge>
-                              <Badge intent={resolveProductStatusIntent(product.status)}>
-                                {PRODUCT_STATUS_LABELS[product.status]}
-                              </Badge>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 align-top text-gray-700">{product.sort_order}</td>
-                          <td className="px-4 py-3 align-top text-xs text-gray-500">
-                            {formatDateTime(product.updated_at)}
-                          </td>
-                          <td className="px-4 py-3 text-right align-top">
-                            <Button
-                              size="sm"
-                              intent="neutral"
-                              onClick={() => router.push(`/admin/v2-catalog/products/${product.id}`)}
-                            >
-                              상세
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+            <div className="space-y-3">
+              {filteredProducts.map((product) => (
+                <ProjectProductListItem
+                  key={product.id}
+                  product={product}
+                  onOpenDetail={() => router.push(`/admin/v2-catalog/products/${product.id}`)}
+                />
+              ))}
             </div>
           )}
         </div>

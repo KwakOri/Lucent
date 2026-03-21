@@ -6,7 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
 import { ProductBasicsForm } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
 import type { ProductBasicsFormValues } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
-import { useCreateV2Product, useV2AdminProjects } from '@/lib/client/hooks/useV2CatalogAdmin';
+import {
+  useCreateV2Product,
+  useCreateV2Variant,
+  useV2AdminProjects,
+} from '@/lib/client/hooks/useV2CatalogAdmin';
+import { buildVariantSku } from '@/lib/client/utils/v2-product-admin-form';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -28,6 +33,7 @@ export default function V2CatalogProductCreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const createProduct = useCreateV2Product();
+  const createVariant = useCreateV2Variant();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
@@ -71,6 +77,36 @@ export default function V2CatalogProductCreatePage() {
         description: values.description,
       });
 
+      const createdProduct = response.data;
+      const defaultFulfillmentType = values.fulfillment_type || 'DIGITAL';
+
+      try {
+        await createVariant.mutateAsync({
+          productId: createdProduct.id,
+          data: {
+            title: 'default',
+            sku: buildVariantSku({
+              productSlug: createdProduct.slug,
+              variantTitle: 'default',
+              fulfillmentType: defaultFulfillmentType,
+            }),
+            fulfillment_type: defaultFulfillmentType,
+            status: 'DRAFT',
+            requires_shipping: defaultFulfillmentType === 'PHYSICAL',
+            track_inventory: false,
+            option_summary_json: {
+              option: 'default',
+            },
+          },
+        });
+      } catch (defaultVariantError) {
+        window.alert(
+          `상품은 생성되었지만 기본 옵션 자동 생성에 실패했습니다. 상세 화면에서 옵션을 추가해 주세요.\n\n${getErrorMessage(defaultVariantError)}`,
+        );
+        router.push(`/admin/v2-catalog/products/${createdProduct.id}`);
+        return;
+      }
+
       router.push(`/admin/v2-catalog/products/${response.data.id}`);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
@@ -104,7 +140,7 @@ export default function V2CatalogProductCreatePage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">새 상품 만들기</h1>
           <p className="mt-1 text-sm text-gray-500">
-            기본 정보만 저장하면 옵션 설정으로 바로 이어갈 수 있습니다.
+            저장 시 기본 옵션(`default`) 1개를 자동 생성하고, 필요하면 옵션을 추가해 확장할 수 있습니다.
           </p>
         </div>
         <div className="mt-3 sm:mt-0">
@@ -126,7 +162,7 @@ export default function V2CatalogProductCreatePage() {
           short_description: null,
           description: null,
         }}
-        isSubmitting={createProduct.isPending}
+        isSubmitting={createProduct.isPending || createVariant.isPending}
         submitLabel="기본 정보 저장"
         errorMessage={errorMessage}
         onCancel={() => router.push(listPath)}

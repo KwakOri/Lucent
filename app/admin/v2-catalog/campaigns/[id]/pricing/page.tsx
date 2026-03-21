@@ -6,6 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import {
+  CampaignPricingProductCard,
+  type SaveCampaignVariantPriceParams,
+} from '@/src/components/admin/v2-catalog/CampaignPricingProductCard';
 import type { V2PriceList, V2PriceListItem } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useCreateV2PriceList,
@@ -19,6 +23,7 @@ import {
   useV2PriceListItems,
   useV2PriceLists,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
+import { useV2AdminStockLocations } from '@/lib/client/hooks/useV2AdminOps';
 import { formatDateRange, getErrorMessage } from '@/lib/client/utils/v2-campaign-admin';
 import { resolveEligibleCampaignProducts } from '@/lib/client/utils/v2-campaign-targeting';
 
@@ -155,6 +160,7 @@ export default function V2CatalogCampaignPricingPage() {
   const { data: campaign, isLoading: campaignLoading, error: campaignError } = useV2Campaign(campaignId);
   const { data: targets, isLoading: targetsLoading, error: targetsError } = useV2CampaignTargets(campaignId);
   const { data: products, isLoading: productsLoading, error: productsError } = useV2AdminProducts();
+  const { data: stockLocations, isLoading: stockLocationsLoading } = useV2AdminStockLocations();
   const isAlwaysOnCampaign = campaign?.campaign_type === 'ALWAYS_ON';
   const campaignPriceScopeType = isAlwaysOnCampaign ? 'BASE' : 'OVERRIDE';
   const { data: campaignPriceLists, isLoading: campaignPriceListsLoading } = useV2PriceLists({
@@ -202,6 +208,7 @@ export default function V2CatalogCampaignPricingPage() {
     campaignLoading ||
     targetsLoading ||
     productsLoading ||
+    stockLocationsLoading ||
     campaignPriceListsLoading ||
     basePriceListsLoading ||
     campaignPriceItemsLoading ||
@@ -427,6 +434,81 @@ export default function V2CatalogCampaignPricingPage() {
     }
   }, [basePriceItem, campaignPriceItem, discountMode, discountValue, isAlwaysOnCampaign]);
 
+  const campaignPriceListRef = useRef<V2PriceList | null>(null);
+
+  useEffect(() => {
+    campaignPriceListRef.current = activeCampaignPriceList || null;
+  }, [activeCampaignPriceList]);
+
+  const ensureCampaignPriceList = async (): Promise<V2PriceList> => {
+    if (!campaign) {
+      throw new Error('캠페인을 찾을 수 없습니다.');
+    }
+
+    let priceList = activeCampaignPriceList || campaignPriceListRef.current;
+    if (!priceList) {
+      const created = await createPriceList.mutateAsync({
+        campaign_id: campaign.id,
+        name: isAlwaysOnCampaign ? `${campaign.name} 기본 가격` : `${campaign.name} 캠페인 가격`,
+        scope_type: campaignPriceScopeType,
+        status: 'DRAFT',
+        currency_code: 'KRW',
+        starts_at: campaign.starts_at,
+        ends_at: campaign.ends_at,
+      });
+      priceList = created.data;
+    }
+
+    if (!priceList) {
+      throw new Error('캠페인 가격표를 준비하지 못했습니다.');
+    }
+
+    campaignPriceListRef.current = priceList;
+    return priceList;
+  };
+
+  const upsertCampaignVariantPrice = async ({
+    product,
+    variant,
+    unitAmount,
+    baseItem,
+    campaignItem,
+  }: SaveCampaignVariantPriceParams) => {
+    const priceList = await ensureCampaignPriceList();
+
+    if (campaignItem) {
+      await updatePriceListItem.mutateAsync({
+        itemId: campaignItem.id,
+        data: {
+          unit_amount: unitAmount,
+          compare_at_amount: isAlwaysOnCampaign ? null : (baseItem?.unit_amount ?? null),
+          status: 'ACTIVE',
+          product_id: product.id,
+          variant_id: variant.id,
+        },
+      });
+    } else {
+      await createPriceListItem.mutateAsync({
+        priceListId: priceList.id,
+        data: {
+          product_id: product.id,
+          variant_id: variant.id,
+          unit_amount: unitAmount,
+          compare_at_amount: isAlwaysOnCampaign ? null : (baseItem?.unit_amount ?? null),
+          status: 'ACTIVE',
+        },
+      });
+    }
+
+    if (priceList.status !== 'PUBLISHED') {
+      await publishPriceList.mutateAsync(priceList.id);
+      campaignPriceListRef.current = {
+        ...priceList,
+        status: 'PUBLISHED',
+      };
+    }
+  };
+
   const isSaving =
     createPriceList.isPending ||
     publishPriceList.isPending ||
@@ -460,53 +542,13 @@ export default function V2CatalogCampaignPricingPage() {
           ? computeFinalPrice(basePriceItem.unit_amount, discountMode, discountValue)
           : parseDirectPrice(discountValue);
 
-      let priceList = activeCampaignPriceList;
-      if (!priceList) {
-        const created = await createPriceList.mutateAsync({
-          campaign_id: campaign.id,
-          name: isAlwaysOnCampaign
-            ? `${campaign.name} 기본 가격`
-            : `${campaign.name} 캠페인 가격`,
-          scope_type: campaignPriceScopeType,
-          status: 'DRAFT',
-          currency_code: 'KRW',
-          starts_at: campaign.starts_at,
-          ends_at: campaign.ends_at,
-        });
-        priceList = created.data;
-      }
-
-      if (!priceList) {
-        throw new Error('캠페인 가격표를 준비하지 못했습니다.');
-      }
-
-      if (campaignPriceItem) {
-        await updatePriceListItem.mutateAsync({
-          itemId: campaignPriceItem.id,
-          data: {
-            unit_amount: finalPrice,
-            compare_at_amount: isAlwaysOnCampaign ? null : (basePriceItem?.unit_amount ?? null),
-            status: 'ACTIVE',
-            product_id: selectedProduct.id,
-            variant_id: selectedVariant.id,
-          },
-        });
-      } else {
-        await createPriceListItem.mutateAsync({
-          priceListId: priceList.id,
-          data: {
-            product_id: selectedProduct.id,
-            variant_id: selectedVariant.id,
-            unit_amount: finalPrice,
-            compare_at_amount: isAlwaysOnCampaign ? null : (basePriceItem?.unit_amount ?? null),
-            status: 'ACTIVE',
-          },
-        });
-      }
-
-      if (priceList.status !== 'PUBLISHED') {
-        await publishPriceList.mutateAsync(priceList.id);
-      }
+      await upsertCampaignVariantPrice({
+        product: selectedProduct,
+        variant: selectedVariant,
+        unitAmount: finalPrice,
+        baseItem: basePriceItem,
+        campaignItem: campaignPriceItem,
+      });
 
       setMessage(
         isAlwaysOnCampaign
@@ -562,6 +604,25 @@ export default function V2CatalogCampaignPricingPage() {
     );
   }
 
+  const defaultStockLocationId = stockLocations?.[0]?.id || null;
+  const quickEditorProducts = pendingOnly
+    ? eligibleProducts.filter((product) => {
+        const productVariants = (campaignPriceItems || []).filter(
+          (item) => item.status === 'ACTIVE' && item.product_id === product.id,
+        );
+        if (isAlwaysOnCampaign) {
+          return productVariants.length === 0;
+        }
+        if (productVariants.length > 0) {
+          return false;
+        }
+        const baseConfigured = (baseItems || []).some(
+          (item) => item.status === 'ACTIVE' && item.product_id === product.id,
+        );
+        return !baseConfigured;
+      })
+    : eligibleProducts;
+
   const configuredItems = (campaignPriceItems || []).filter((item) => item.status === 'ACTIVE');
 
   return (
@@ -594,6 +655,49 @@ export default function V2CatalogCampaignPricingPage() {
           {errorMessage}
         </div>
       )}
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">상품 리스트 빠른 편집</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              상품을 펼쳐 옵션별로 가격과 재고를 바로 입력할 수 있습니다.
+            </p>
+          </div>
+          <Badge intent="info">{quickEditorProducts.length}개</Badge>
+        </div>
+
+        {!defaultStockLocationId && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            활성 재고 위치가 없어 재고 수량 저장은 동작하지 않습니다. 가격 저장은 계속 가능합니다.
+          </div>
+        )}
+
+        <div className="mt-4">
+          {quickEditorProducts.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center text-sm text-gray-500">
+              {pendingOnly
+                ? '미설정 옵션이 있는 상품이 없습니다.'
+                : '편집할 대상 상품이 없습니다.'}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {quickEditorProducts.map((product) => (
+                <CampaignPricingProductCard
+                  key={product.id}
+                  product={product}
+                  isAlwaysOnCampaign={isAlwaysOnCampaign}
+                  baseItems={baseItems || []}
+                  campaignItems={campaignPriceItems || []}
+                  basePriceListsById={basePriceListById}
+                  defaultStockLocationId={defaultStockLocationId}
+                  onSavePrice={upsertCampaignVariantPrice}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         <div>
