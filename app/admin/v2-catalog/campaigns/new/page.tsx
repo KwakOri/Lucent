@@ -1,9 +1,11 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
 import { CampaignForm } from '@/src/components/admin/v2-catalog/CampaignForm';
+import type { V2CampaignType } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useV2BundleDefinitions,
   useV2Campaigns,
@@ -11,12 +13,47 @@ import {
   useV2AdminProjects,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 
+const CAMPAIGN_TYPES: V2CampaignType[] = ['POPUP', 'EVENT', 'SALE', 'DROP', 'ALWAYS_ON'];
+
 export default function V2CatalogCampaignCreatePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: campaigns, isLoading: campaignsLoading, error: campaignsError } = useV2Campaigns();
   const { data: projects, isLoading: projectsLoading, error: projectsError } = useV2AdminProjects();
   const { data: products, isLoading: productsLoading, error: productsError } = useV2AdminProducts();
   const { data: bundleDefinitions, isLoading: bundlesLoading, error: bundlesError } = useV2BundleDefinitions();
+
+  const prefilledCampaignType = useMemo<V2CampaignType | undefined>(() => {
+    const type = searchParams.get('type');
+    if (!type || !CAMPAIGN_TYPES.includes(type as V2CampaignType)) {
+      return undefined;
+    }
+    return type as V2CampaignType;
+  }, [searchParams]);
+
+  const prefilledProjectId = useMemo(() => searchParams.get('projectId') || '', [searchParams]);
+  const prefilledProject = useMemo(() => {
+    if (!projects || !prefilledProjectId) {
+      return null;
+    }
+    return projects.find((project) => project.id === prefilledProjectId) || null;
+  }, [prefilledProjectId, projects]);
+
+  const prefilledTargets = useMemo(
+    () =>
+      prefilledProject
+        ? [
+            {
+              targetType: 'PROJECT' as const,
+              targetId: prefilledProject.id,
+              label: prefilledProject.name,
+            },
+          ]
+        : [],
+    [prefilledProject],
+  );
+
+  const shouldLockAlwaysOnPreset = prefilledCampaignType === 'ALWAYS_ON' && prefilledTargets.length === 1;
 
   if (campaignsLoading || projectsLoading || productsLoading || bundlesLoading) {
     return (
@@ -70,6 +107,13 @@ export default function V2CatalogCampaignCreatePage() {
         projects={projects}
         products={products}
         bundleDefinitions={bundleDefinitions}
+        initialCampaignType={prefilledCampaignType}
+        initialTargets={prefilledTargets}
+        initialTargetType={prefilledTargets.length > 0 ? 'PROJECT' : undefined}
+        targetPickerMode={shouldLockAlwaysOnPreset ? 'single' : 'multiple'}
+        lockCampaignType={shouldLockAlwaysOnPreset}
+        lockTargetType={shouldLockAlwaysOnPreset}
+        allowAdvancedTargets={!shouldLockAlwaysOnPreset}
         onCancel={() => router.push('/admin/v2-catalog/campaigns')}
         onSuccess={(campaignId) => router.push(`/admin/v2-catalog/campaigns/${campaignId}`)}
       />

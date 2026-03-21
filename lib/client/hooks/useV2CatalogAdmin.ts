@@ -12,6 +12,7 @@ import {
   V2CatalogAdminAPI,
   type BuildV2PriceQuoteData,
   type CreateV2CampaignData,
+  type V2CampaignTarget,
   type CreateV2CampaignTargetData,
   type CreateV2ArtistData,
   type CloneV2BundleDefinitionVersionData,
@@ -920,6 +921,39 @@ export function useV2CampaignOverview(campaignIds: string[]) {
       return accumulator;
     }, {});
   }, [campaignIds, priceListQueries, promotionQueries, targetQueries]);
+}
+
+export function useV2CampaignTargetsMap(campaignIds: string[]) {
+  const targetQueries = useQueries({
+    queries: campaignIds.map((campaignId) => ({
+      queryKey: queryKeys.v2CatalogAdmin.campaigns.targets(campaignId),
+      queryFn: async () => {
+        const response = await V2CatalogAdminAPI.getCampaignTargets(campaignId);
+        return response.data;
+      },
+      enabled: campaignId.length > 0,
+    })),
+  });
+
+  return useMemo(
+    () =>
+      campaignIds.reduce<
+        Record<
+          string,
+          {
+            targets: V2CampaignTarget[];
+            isLoading: boolean;
+          }
+        >
+      >((accumulator, campaignId, index) => {
+        accumulator[campaignId] = {
+          targets: (targetQueries[index]?.data || []) as V2CampaignTarget[],
+          isLoading: Boolean(targetQueries[index]?.isLoading),
+        };
+        return accumulator;
+      }, {}),
+    [campaignIds, targetQueries],
+  );
 }
 
 export function useCreateV2CampaignTarget() {
