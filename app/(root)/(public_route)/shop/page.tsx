@@ -95,6 +95,8 @@ function ShopPageContent() {
     () => campaigns.find((campaign) => campaign.id === selectedCampaignId) || null,
     [campaigns, selectedCampaignId],
   );
+  const showCampaignHeroBanner =
+    !!selectedCampaignId && !!selectedCampaign?.shop_banner_public_url;
 
   const products = data?.items || [];
   const exposedProducts = useMemo(
@@ -206,38 +208,50 @@ function ShopPageContent() {
   return (
     <div className="min-h-screen bg-neutral-50">
       <section className="relative overflow-hidden bg-[#f9f9ed] px-4 py-20">
-        <div className="relative mx-auto max-w-6xl">
-          {selectedCampaign?.shop_banner_public_url ? (
-            <div className="mb-8 overflow-hidden rounded-2xl border border-white/70 bg-white/60 shadow-sm">
+        {showCampaignHeroBanner ? (
+          <div className="w-full">
+            <div className="mx-auto w-full max-w-[1152px] overflow-hidden rounded-2xl border border-white/70 bg-white/60 shadow-sm">
               <img
-                src={selectedCampaign.shop_banner_public_url}
+                src={selectedCampaign?.shop_banner_public_url || ""}
                 alt={
-                  selectedCampaign.shop_banner_alt_text ||
-                  `${selectedCampaign.name} 캠페인 배너`
+                  selectedCampaign?.shop_banner_alt_text ||
+                  `${selectedCampaign?.name || "캠페인"} 배너`
                 }
-                className="h-44 w-full object-cover sm:h-56 lg:h-64"
+                className="aspect-[12/5] w-full object-cover"
               />
             </div>
-          ) : null}
-          <h1 className="mb-6 text-4xl font-bold leading-tight sm:text-5xl">
-            <span className="text-[#1a1a2e]">루센트의 프로젝트에서,</span>
-            <br />
-            <span className="text-[#66B5F3]">이야기가 깃든 굿즈를</span>
-            <br />
-            <span className="text-[#1a1a2e]">만나보세요.</span>
-          </h1>
-          <p className="max-w-xl text-base leading-relaxed text-[#1a1a2e]/60">
-            루센트는 라이버의 굿즈 판매와 유통을 전담해 준비의 부담은 줄이고,
-            팬에게는 더 가까운 가격으로 굿즈를 전달합니다.
-          </p>
-          {selectedCampaignId ? (
-            <div className="mt-5 inline-flex rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-[#1a1a2e]/80">
+          </div>
+        ) : (
+          <div className="relative mx-auto max-w-6xl">
+            <h1 className="mb-6 text-4xl font-bold leading-tight sm:text-5xl">
+              <span className="text-[#1a1a2e]">루센트의 프로젝트에서,</span>
+              <br />
+              <span className="text-[#66B5F3]">이야기가 깃든 굿즈를</span>
+              <br />
+              <span className="text-[#1a1a2e]">만나보세요.</span>
+            </h1>
+            <p className="max-w-xl text-base leading-relaxed text-[#1a1a2e]/60">
+              루센트는 라이버의 굿즈 판매와 유통을 전담해 준비의 부담은 줄이고,
+              팬에게는 더 가까운 가격으로 굿즈를 전달합니다.
+            </p>
+            {selectedCampaignId ? (
+              <div className="mt-5 inline-flex rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-[#1a1a2e]/80">
+                {selectedCampaign
+                  ? `${selectedCampaign.name} 캠페인 기준 상품을 보고 있습니다.`
+                  : "캠페인 기준 상품을 보고 있습니다."}
+              </div>
+            ) : null}
+          </div>
+        )}
+        {showCampaignHeroBanner && selectedCampaignId ? (
+          <div className="mx-auto mt-5 max-w-6xl">
+            <div className="inline-flex rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-[#1a1a2e]/80">
               {selectedCampaign
                 ? `${selectedCampaign.name} 캠페인 기준 상품을 보고 있습니다.`
                 : "캠페인 기준 상품을 보고 있습니다."}
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="px-4 py-16">
