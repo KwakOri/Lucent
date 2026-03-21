@@ -19,4 +19,5 @@ export {
   ITEM_STATUS_LABELS,
   ITEM_STATUS_COLORS,
   PRODUCT_TYPE_LABELS,
+  normalizeItemStatus,
 } from './order-status';

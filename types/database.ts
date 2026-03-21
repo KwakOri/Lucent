@@ -302,7 +302,7 @@ export type Database = {
           download_count: number
           download_url: string | null
           id: string
-          item_status: Database["public"]["Enums"]["order_item_status"]
+          item_status: Database["public"]["Enums"]["order_status"]
           last_downloaded_at: string | null
           order_id: string
           price_snapshot: number
@@ -316,7 +316,7 @@ export type Database = {
           download_count?: number
           download_url?: string | null
           id?: string
-          item_status?: Database["public"]["Enums"]["order_item_status"]
+          item_status?: Database["public"]["Enums"]["order_status"]
           last_downloaded_at?: string | null
           order_id: string
           price_snapshot: number
@@ -330,7 +330,7 @@ export type Database = {
           download_count?: number
           download_url?: string | null
           id?: string
-          item_status?: Database["public"]["Enums"]["order_item_status"]
+          item_status?: Database["public"]["Enums"]["order_status"]
           last_downloaded_at?: string | null
           order_id?: string
           price_snapshot?: number
@@ -710,13 +710,6 @@ export type Database = {
       }
     }
     Enums: {
-      order_item_status:
-        | "PENDING"
-        | "PROCESSING"
-        | "READY"
-        | "SHIPPED"
-        | "DELIVERED"
-        | "COMPLETED"
       order_status:
         | "PENDING"
         | "PAID"
@@ -856,14 +849,6 @@ export const Constants = {
   },
   public: {
     Enums: {
-      order_item_status: [
-        "PENDING",
-        "PROCESSING",
-        "READY",
-        "SHIPPED",
-        "DELIVERED",
-        "COMPLETED",
-      ],
       order_status: [
         "PENDING",
         "PAID",
