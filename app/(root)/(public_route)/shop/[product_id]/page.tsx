@@ -351,7 +351,6 @@ export default function ProductDetailPage() {
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="font-semibold text-text-primary">{variant.title}</p>
-                          <p className="text-xs text-text-secondary">{variant.sku}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-text-primary">
