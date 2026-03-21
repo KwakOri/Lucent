@@ -3,10 +3,12 @@
 import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { FileInput } from '@/components/ui/file-input';
 import { Input, Textarea } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import type { V2Project, V2ProjectStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
+  useUploadV2MediaAssetFile,
   useUpdateV2Project,
   useV2AdminProject,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
@@ -39,6 +41,13 @@ function parseNonNegativeInteger(value: string, fieldName: string): number {
   return parsed;
 }
 
+function isImageFile(file: File): boolean {
+  if (file.type.toLowerCase().startsWith('image/')) {
+    return true;
+  }
+  return /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(file.name);
+}
+
 type ProjectEditFormProps = {
   project: V2Project;
   onCancel: () => void;
@@ -46,17 +55,63 @@ type ProjectEditFormProps = {
 
 function ProjectEditForm({ project, onCancel }: ProjectEditFormProps) {
   const updateProject = useUpdateV2Project();
+  const uploadMediaAssetFile = useUploadV2MediaAssetFile();
 
   const [name, setName] = useState(project.name);
   const [slug, setSlug] = useState(project.slug);
   const [description, setDescription] = useState(project.description || '');
-  const [coverImageUrl, setCoverImageUrl] = useState(project.cover_image_url || '');
+  const [coverMediaAssetId, setCoverMediaAssetId] = useState(project.cover_media_asset_id || '');
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(
+    project.cover_media_asset?.public_url || null,
+  );
+  const [coverFileName, setCoverFileName] = useState(project.cover_media_asset?.file_name || '');
   const [sortOrder, setSortOrder] = useState(String(project.sort_order));
   const [status, setStatus] = useState<V2ProjectStatus>(project.status);
+  const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const hasCover = coverMediaAssetId.trim().length > 0;
+  const isSubmitting = updateProject.isPending || uploadMediaAssetFile.isPending;
+
+  const handleUploadProjectCover = async (file: File) => {
+    if (!isImageFile(file)) {
+      setErrorMessage('커버 이미지는 이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    setErrorMessage(null);
+    setMessage(null);
+
+    try {
+      const uploaded = await uploadMediaAssetFile.mutateAsync({
+        data: {
+          file,
+          asset_kind: 'IMAGE',
+          status: 'ACTIVE',
+          metadata: {
+            source: 'v2-project-cover-upload',
+            project_id: project.id,
+          },
+        },
+      });
+      setCoverMediaAssetId(uploaded.data.id);
+      setCoverPreviewUrl(uploaded.data.public_url || null);
+      setCoverFileName(uploaded.data.file_name || file.name);
+      setMessage('프로젝트 커버 이미지를 연결했습니다.');
+    } catch (uploadError) {
+      setErrorMessage(getErrorMessage(uploadError));
+    }
+  };
+
+  const clearProjectCover = () => {
+    setCoverMediaAssetId('');
+    setCoverPreviewUrl(null);
+    setCoverFileName('');
+    setMessage('프로젝트 커버 연결을 해제했습니다. 저장하면 반영됩니다.');
+  };
 
   const handleUpdateProject = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setMessage(null);
     setErrorMessage(null);
 
     try {
@@ -66,7 +121,7 @@ function ProjectEditForm({ project, onCancel }: ProjectEditFormProps) {
           name: name.trim(),
           slug: slug.trim(),
           description: description.trim() || null,
-          cover_image_url: coverImageUrl.trim() || null,
+          cover_media_asset_id: coverMediaAssetId.trim() || null,
           sort_order: parseNonNegativeInteger(sortOrder, 'sort_order'),
           status,
           is_active: status === 'ACTIVE',
@@ -85,6 +140,11 @@ function ProjectEditForm({ project, onCancel }: ProjectEditFormProps) {
           {errorMessage}
         </div>
       )}
+      {message && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {message}
+        </div>
+      )}
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <form className="grid grid-cols-1 gap-3 md:grid-cols-2" onSubmit={handleUpdateProject}>
@@ -99,11 +159,6 @@ function ProjectEditForm({ project, onCancel }: ProjectEditFormProps) {
             value={slug}
             onChange={(event) => setSlug(event.target.value)}
             required
-          />
-          <Input
-            placeholder="cover_image_url"
-            value={coverImageUrl}
-            onChange={(event) => setCoverImageUrl(event.target.value)}
           />
           <Input
             placeholder="sort_order"
@@ -121,7 +176,53 @@ function ProjectEditForm({ project, onCancel }: ProjectEditFormProps) {
               </option>
             ))}
           </select>
-          <div />
+          <div className="space-y-2">
+            <FileInput
+              triggerLabel={uploadMediaAssetFile.isPending ? '업로드 중...' : '커버 이미지 선택'}
+              accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+              disabled={isSubmitting}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  void handleUploadProjectCover(file);
+                }
+                event.target.value = '';
+              }}
+            />
+            <Button
+              type="button"
+              intent="neutral"
+              onClick={clearProjectCover}
+              disabled={!hasCover || isSubmitting}
+            >
+              커버 해제
+            </Button>
+          </div>
+          <div className="md:col-span-2">
+            <label className="mb-2 block text-sm font-medium text-gray-700">커버 이미지 (선택)</label>
+            {coverPreviewUrl ? (
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={coverPreviewUrl}
+                  alt="프로젝트 커버 미리보기"
+                  className="h-40 w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 text-center text-sm text-gray-500">
+                {hasCover
+                  ? '커버가 연결되어 있습니다. (public URL이 없어 미리보기는 표시되지 않습니다)'
+                  : '커버 이미지를 설정하지 않았습니다.'}
+              </div>
+            )}
+            {coverFileName ? (
+              <p className="mt-2 text-xs text-gray-500">최근 업로드 파일: {coverFileName}</p>
+            ) : null}
+            {hasCover && !coverFileName ? (
+              <p className="mt-2 break-all text-xs text-gray-500">연결된 asset ID: {coverMediaAssetId}</p>
+            ) : null}
+          </div>
           <div className="md:col-span-2">
             <Textarea
               placeholder="설명"
@@ -131,7 +232,7 @@ function ProjectEditForm({ project, onCancel }: ProjectEditFormProps) {
             />
           </div>
           <div className="md:col-span-2 flex gap-2">
-            <Button type="submit" loading={updateProject.isPending}>
+            <Button type="submit" loading={isSubmitting}>
               저장
             </Button>
             <Button type="button" intent="neutral" onClick={onCancel}>

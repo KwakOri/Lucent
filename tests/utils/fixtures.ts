@@ -122,13 +122,19 @@ export const mockOrder: Tables<'orders'> = {
  * Mock Order Item
  */
 export const mockOrderItem: Tables<'order_items'> = {
+  allocated_discount_amount: 0,
+  allocated_unit_amount: null,
+  bundle_component_id_snapshot: null,
+  bundle_definition_id_snapshot: null,
   id: 'order-item-123',
   order_id: 'order-123',
+  parent_order_item_id: null,
   product_id: 'product-digital-123',
   product_name: 'Test Voice Pack',
   product_type: 'VOICE_PACK',
   quantity: 1,
   price_snapshot: 5000,
+  line_type: 'STANDARD',
   download_url: null,
   download_count: 0,
   item_status: 'PENDING',

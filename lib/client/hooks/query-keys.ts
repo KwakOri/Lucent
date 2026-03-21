@@ -4,7 +4,6 @@
  * 일관된 QueryKey 구조 관리
  */
 
-import type { GetOrdersParams } from '@/lib/client/api/orders.api';
 import type { GetArtistsParams } from '@/lib/client/api/artists.api';
 import type { GetProductsParams } from '@/lib/client/api/products.api';
 import type { GetProjectsParams } from '@/lib/client/api/projects.api';
@@ -62,18 +61,6 @@ export const queryKeys = {
     details: () => [...queryKeys.products.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.products.details(), id] as const,
     bySlug: (slug: string) => [...queryKeys.products.all, 'slug', slug] as const,
-  },
-
-  /**
-   * Orders Query Keys
-   */
-  orders: {
-    all: ['orders'] as const,
-    lists: () => [...queryKeys.orders.all, 'list'] as const,
-    list: (params: GetOrdersParams = {}) =>
-      [...queryKeys.orders.lists(), params] as const,
-    details: () => [...queryKeys.orders.all, 'detail'] as const,
-    detail: (id: string) => [...queryKeys.orders.details(), id] as const,
   },
 
   /**

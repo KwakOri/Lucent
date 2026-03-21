@@ -76,7 +76,8 @@ export interface V2Project {
   name: string;
   slug: string;
   description: string | null;
-  cover_image_url: string | null;
+  cover_media_asset_id: string | null;
+  cover_media_asset?: V2MediaAsset | null;
   sort_order: number;
   status: V2ProjectStatus;
   is_active: boolean;
@@ -207,6 +208,7 @@ export interface V2MediaAsset {
     product_media_count: number;
     digital_asset_count: number;
     campaign_banner_count?: number;
+    project_cover_count?: number;
     total_reference_count: number;
     is_orphan: boolean;
   };
@@ -882,7 +884,7 @@ export interface CreateV2ProjectData {
   name: string;
   slug: string;
   description?: string | null;
-  cover_image_url?: string | null;
+  cover_media_asset_id?: string | null;
   sort_order?: number;
   metadata?: Record<string, unknown>;
 }
@@ -891,7 +893,7 @@ export interface UpdateV2ProjectData {
   name?: string;
   slug?: string;
   description?: string | null;
-  cover_image_url?: string | null;
+  cover_media_asset_id?: string | null;
   sort_order?: number;
   metadata?: Record<string, unknown>;
   status?: V2ProjectStatus;

@@ -85,7 +85,9 @@ function linearStageLabel(stage: V2AdminOrderLinearStage): string {
 }
 
 function resolveLinearStageFromRow(row: V2AdminOrderQueueRow): V2AdminOrderLinearStage {
+  const orderStatus = String(row.order_status || '').toUpperCase();
   const paymentStatus = String(row.payment_status || '').toUpperCase();
+  const fulfillmentStatus = String(row.fulfillment_status || '').toUpperCase();
   if (paymentStatus === 'AUTHORIZED') {
     return 'PAYMENT_CONFIRMED';
   }
@@ -106,14 +108,30 @@ function resolveLinearStageFromRow(row: V2AdminOrderQueueRow): V2AdminOrderLinea
       return 'READY_TO_SHIP';
     }
     if (delivered > 0 && waiting === 0 && inTransit === 0) {
+      const isOrderOrFulfillmentCompleted =
+        orderStatus === 'COMPLETED' || fulfillmentStatus === 'FULFILLED';
+      if (row.has_digital && !isOrderOrFulfillmentCompleted) {
+        return 'IN_TRANSIT';
+      }
+      return 'DELIVERED';
+    }
+    if (orderStatus === 'COMPLETED' || fulfillmentStatus === 'FULFILLED') {
       return 'DELIVERED';
     }
     return 'PRODUCTION';
   }
 
-  if (row.has_digital && Number(row.active_entitlement_count || 0) === 0) {
+  if (row.has_digital) {
+    if (orderStatus === 'COMPLETED' || fulfillmentStatus === 'FULFILLED') {
+      return 'DELIVERED';
+    }
+    return 'PRODUCTION';
+  }
+
+  if (orderStatus === 'COMPLETED') {
     return 'DELIVERED';
   }
+
   return 'PRODUCTION';
 }
 
@@ -177,9 +195,12 @@ const LINEAR_STAGE_TABS: Array<{
   { key: 'DELIVERED', label: linearStageLabel('DELIVERED') },
 ];
 
+const ORDER_PAGE_SIZE = 10;
+
 export default function AdminOrdersPage() {
   const [stageTab, setStageTab] = useState<V2OrderStageTab>('ALL');
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [targetStage, setTargetStage] = useState<V2AdminOrderLinearStage>('PRODUCTION');
   const [transitionReason, setTransitionReason] = useState('');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
@@ -188,7 +209,7 @@ export default function AdminOrdersPage() {
   const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch } = useV2AdminOrderQueue({
-    limit: 200,
+    limit: 1000,
   });
   const previewTransition = useV2AdminOrderLinearTransitionPreview();
   const executeTransition = useV2AdminOrderLinearTransitionExecute();
@@ -213,7 +234,7 @@ export default function AdminOrdersPage() {
     return counts;
   }, [data?.items]);
 
-  const rows = useMemo(() => {
+  const filteredRows = useMemo(() => {
     const items = data?.items || [];
     const stageFiltered =
       stageTab === 'ALL'
@@ -231,7 +252,19 @@ export default function AdminOrdersPage() {
     );
   }, [data?.items, search, stageTab]);
 
-  const visibleOrderIdSet = useMemo(() => new Set(rows.map((row) => row.order_id)), [rows]);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredRows.length / ORDER_PAGE_SIZE)),
+    [filteredRows.length],
+  );
+
+  const currentPageClamped = Math.min(currentPage, totalPages);
+
+  const pagedRows = useMemo(() => {
+    const start = (currentPageClamped - 1) * ORDER_PAGE_SIZE;
+    return filteredRows.slice(start, start + ORDER_PAGE_SIZE);
+  }, [currentPageClamped, filteredRows]);
+
+  const visibleOrderIdSet = useMemo(() => new Set(pagedRows.map((row) => row.order_id)), [pagedRows]);
   const effectiveSelectedOrderIds = useMemo(
     () => selectedOrderIds.filter((id) => visibleOrderIdSet.has(id)),
     [selectedOrderIds, visibleOrderIdSet],
@@ -246,6 +279,7 @@ export default function AdminOrdersPage() {
 
   function handleStageTabChange(nextTab: V2OrderStageTab) {
     setStageTab(nextTab);
+    setCurrentPage(1);
     const nextStage = nextTab === 'ALL' ? null : getNextLinearStage(nextTab);
     if (nextStage) {
       setTargetStage(nextStage);
@@ -257,7 +291,7 @@ export default function AdminOrdersPage() {
     [effectiveSelectedOrderIds],
   );
   const allVisibleSelected =
-    rows.length > 0 && rows.every((row) => selectedIdSet.has(row.order_id));
+    pagedRows.length > 0 && pagedRows.every((row) => selectedIdSet.has(row.order_id));
 
   const canSubmitTransition =
     effectiveSelectedOrderIds.length > 0 &&
@@ -302,7 +336,7 @@ export default function AdminOrdersPage() {
 
     try {
       const payload = buildTransitionPayload(stage);
-      const hasBackwardSelection = rows.some((row) => {
+      const hasBackwardSelection = pagedRows.some((row) => {
         if (!effectiveSelectedOrderIds.includes(row.order_id)) {
           return false;
         }
@@ -403,7 +437,7 @@ export default function AdminOrdersPage() {
 
     setSelectedOrderIds((prev) => {
       const merged = new Set(prev.filter((id) => visibleOrderIdSet.has(id)));
-      for (const row of rows) {
+      for (const row of pagedRows) {
         merged.add(row.order_id);
       }
       return Array.from(merged);
@@ -479,7 +513,10 @@ export default function AdminOrdersPage() {
         <div className="mt-3">
           <Input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="주문번호 또는 주문 ID 검색"
           />
         </div>
@@ -611,12 +648,13 @@ export default function AdminOrdersPage() {
       ) : null}
 
       <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        {rows.length === 0 ? (
+        {filteredRows.length === 0 ? (
           <EmptyState
             title="조회된 주문이 없습니다"
             description="필터 조건을 변경해 다시 조회해 보세요."
           />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
@@ -638,7 +676,7 @@ export default function AdminOrdersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {rows.map((row) => {
+                {pagedRows.map((row) => {
                   const waitingShipmentCount = Number.isFinite(row.waiting_shipment_count)
                     ? row.waiting_shipment_count
                     : null;
@@ -759,6 +797,32 @@ export default function AdminOrdersPage() {
               </tbody>
             </table>
           </div>
+          <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-sm">
+            <p className="text-gray-600">
+              총 {filteredRows.length}건 · {currentPageClamped}/{totalPages} 페이지
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                intent="secondary"
+                size="sm"
+                disabled={currentPageClamped <= 1}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              >
+                이전
+              </Button>
+              <Button
+                intent="secondary"
+                size="sm"
+                disabled={currentPageClamped >= totalPages}
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                }
+              >
+                다음
+              </Button>
+            </div>
+          </div>
+          </>
         )}
       </section>
 

@@ -6,7 +6,6 @@
 
 // API Clients
 export { AuthAPI } from './auth.api';
-export { OrdersAPI } from './orders.api';
 export { ArtistsAPI } from './artists.api';
 export { ProjectsAPI } from './projects.api';
 export { ProductsAPI } from './products.api';
@@ -18,16 +17,6 @@ export { V2CheckoutAPI } from './v2-checkout.api';
 
 // Types
 export type { SendVerificationData } from './auth.api';
-export type {
-  CreateOrderData,
-  OrderWithItems,
-  GetOrdersParams,
-  DownloadInfo,
-  VoicePackSummary,
-  BulkUpdateOrderStatusData,
-  BulkUpdateOrderStatusResult,
-  UpdateOrderItemsStatusData,
-} from './orders.api';
 export type {
   ArtistWithDetails,
   GetArtistsParams,
