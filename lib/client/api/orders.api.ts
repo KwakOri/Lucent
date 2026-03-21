@@ -16,7 +16,7 @@ import type {
 type Order = Tables<'orders'>;
 type OrderItem = Tables<'order_items'>;
 type OrderStatus = Enums<'order_status'>;
-type OrderItemStatus = Enums<'order_item_status'>;
+type OrderItemStatus = Enums<'order_status'>;
 type ProductType = Enums<'product_type'>;
 
 export type CreateOrderData = CreateOrderRequest;

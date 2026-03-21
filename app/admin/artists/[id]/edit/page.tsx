@@ -1,15 +1,13 @@
 'use client';
 
+import { useParams } from 'next/navigation';
 import { Loading } from '@/components/ui/loading';
 import { useArtistById } from '@/lib/client/hooks/useArtists';
 import { useProjects } from '@/lib/client/hooks/useProjects';
 import { ArtistForm } from '@/src/components/admin/artists/ArtistForm';
 
-export default function EditArtistPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function EditArtistPage() {
+  const params = useParams<{ id: string }>();
   const { data: artist, isLoading: isArtistLoading, error: artistError } =
     useArtistById(params.id);
   const { data: projects, isLoading: isProjectsLoading, error: projectsError } =

@@ -1,16 +1,14 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useParams } from 'next/navigation';
 import { Loading } from '@/components/ui/loading';
 import { ProductsAPI } from '@/lib/client/api/products.api';
 import { useProjects } from '@/lib/client/hooks/useProjects';
 import { ProductForm } from '@/src/components/admin/products/ProductForm';
 
-export default function EditProductPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function EditProductPage() {
+  const params = useParams<{ id: string }>();
   const {
     data: product,
     isLoading: isProductLoading,
