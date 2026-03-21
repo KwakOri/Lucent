@@ -77,15 +77,7 @@ export type UpdateProductData = {
 };
 
 function resolveApiUrl(path: string): string {
-  const baseUrl = (process.env.NEXT_PUBLIC_BACKEND_API_URL || '').replace(
-    /\/$/,
-    '',
-  );
-  if (!baseUrl) {
-    return path;
-  }
-
-  return `${baseUrl}${path}`;
+  return path;
 }
 
 /**

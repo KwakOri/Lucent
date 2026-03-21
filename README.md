@@ -18,14 +18,24 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Environment Variables
 
-Set backend API origin for browser and server-side proxy requests:
+Set backend API origin for server-side proxy requests:
 
 ```bash
-NEXT_PUBLIC_BACKEND_API_URL=http://localhost:3001
 BACKEND_API_URL=http://localhost:3001
 ```
 
-Both values should use backend server origin (include protocol, no trailing `/api`).
+`BACKEND_API_URL` should use backend server origin (include protocol, no trailing `/api`).
+
+Recommended production topology:
+
+- Browser -> Next API Route (`/api/*`, same-origin)
+- Next API Route (BFF/proxy) -> Backend API
+
+If you intentionally need direct browser-to-backend calls, you can additionally set:
+
+```bash
+NEXT_PUBLIC_BACKEND_API_URL=http://localhost:3001
+```
 
 Direct browser-to-R2 uploads also require bucket CORS to allow your frontend origin.
 Allow `PUT` and `HEAD` requests from the app origin and permit the `Content-Type` header.

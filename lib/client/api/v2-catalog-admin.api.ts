@@ -1469,14 +1469,6 @@ function buildSearchParams(
   return queryString ? `?${queryString}` : '';
 }
 
-function ensureDirectBackendUploadConfigured(): void {
-  if (!process.env.NEXT_PUBLIC_BACKEND_API_URL) {
-    throw new Error(
-      'NEXT_PUBLIC_BACKEND_API_URL is required for direct R2 uploads.',
-    );
-  }
-}
-
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MULTIPART_UPLOAD_MAX_ATTEMPTS = 3;
@@ -1973,8 +1965,6 @@ export const V2CatalogAdminAPI = {
     data: UploadV2MediaAssetFileData,
     options?: UploadV2MediaAssetFileOptions,
   ): Promise<ApiResponse<V2MediaAsset>> {
-    ensureDirectBackendUploadConfigured();
-
     const mimeType = data.file.type || 'application/octet-stream';
     if (data.file.size >= MULTIPART_UPLOAD_THRESHOLD_BYTES) {
       const session = await apiClient.post<ApiResponse<V2MediaAssetMultipartUploadSession>>(
