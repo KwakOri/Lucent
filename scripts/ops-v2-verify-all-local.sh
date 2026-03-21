@@ -571,26 +571,27 @@ EOF
 
 cd "${FE_DIR}"
 
-run_step "01_supabase_start" "step 1/11: local supabase start" supabase start
+run_step "01_supabase_start" "step 1/12: local supabase start" supabase start
 
 if [[ "${SKIP_RESET}" -eq 0 ]]; then
-  run_step "02_db_reset" "step 2/11: supabase db reset" supabase db reset
+  run_step "02_db_reset" "step 2/12: supabase db reset" supabase db reset
 else
-  append_summary "- SKIP: step 2/11: supabase db reset (--skip-reset)"
+  append_summary "- SKIP: step 2/12: supabase db reset (--skip-reset)"
 fi
 
-run_step "03_db_lint" "step 3/11: supabase db lint" supabase db lint
-run_step "04_verify_04_local" "step 4/11: ops:v2-verify-04:local (--skip-migration)" npm run ops:v2-verify-04:local -- --skip-migration --base-url "${BASE_URL}"
-run_step "05_verify_05_local" "step 5/11: ops:v2-verify-05:local (--skip-migration)" npm run ops:v2-verify-05:local -- --skip-migration --base-url "${BASE_URL}"
+run_step "03_db_lint" "step 3/12: supabase db lint" supabase db lint
+run_step "04_seed_dummy_local" "step 4/12: ops:v2-seed-dummy:local" npm run ops:v2-seed-dummy:local
+run_step "05_verify_04_local" "step 5/12: ops:v2-verify-04:local (--skip-migration)" npm run ops:v2-verify-04:local -- --skip-migration --base-url "${BASE_URL}"
+run_step "06_verify_05_local" "step 6/12: ops:v2-verify-05:local (--skip-migration)" npm run ops:v2-verify-05:local -- --skip-migration --base-url "${BASE_URL}"
 
 DB_CONTAINER="$(docker ps --format '{{.Names}}' | rg '^supabase_db_' | head -n 1 || true)"
 if [[ -z "${DB_CONTAINER}" ]]; then
   echo "supabase db container not found (expected name starting with supabase_db_)" >&2
   exit 1
 fi
-run_step "06_bootstrap_0102_fixture" "step 6/11: bootstrap local fixtures for 01/02" bootstrap_0102_fixture
+run_step "07_bootstrap_0102_fixture" "step 7/12: bootstrap local fixtures for 01/02" bootstrap_0102_fixture
 
-run_step "07_supabase_env" "step 7/11: local supabase env extract" bash -c "
+run_step "08_supabase_env" "step 8/12: local supabase env extract" bash -c "
   SUPABASE_ENV_RAW=\"\$(supabase status -o env | awk -F= '/^[A-Z_]+=/{print}')\"
   API_URL=\"\$(printf '%s\n' \"\$SUPABASE_ENV_RAW\" | awk -F= '\$1==\"API_URL\" {print substr(\$0, index(\$0, \"=\")+1)}' | tr -d '\"' | tail -n 1)\"
   ANON_KEY=\"\$(printf '%s\n' \"\$SUPABASE_ENV_RAW\" | awk -F= '\$1==\"ANON_KEY\" {print substr(\$0, index(\$0, \"=\")+1)}' | tr -d '\"' | tail -n 1)\"
@@ -610,7 +611,7 @@ fi
 
 stop_existing_backend_if_needed
 
-append_summary "- RUN: step 8/11: backend start (LOCAL_ADMIN_BYPASS=true)"
+append_summary "- RUN: step 9/12: backend start (LOCAL_ADMIN_BYPASS=true)"
 cd "${BE_DIR}"
 SUPABASE_URL="${API_URL}" \
 SUPABASE_ANON_KEY="${ANON_KEY}" \
@@ -633,10 +634,10 @@ fi
 append_summary "  - PASS (backend_log: backend-local-bypass.log)"
 
 cd "${FE_DIR}"
-run_step "08_admin_token_prepare" "step 9/11: local admin token prepare" issue_local_admin_token
-run_step "09_verify_0102" "step 10/11: ops:v2-verify-0102 (report)" npm run ops:v2-verify-0102 -- --base-url "${BASE_URL}" --bundle-definition-id "${FIXTURE_BUNDLE_DEFINITION_ID}" --out "${REPORT_DIR}/verify-0102.md"
-run_step "10_verify_06" "step 11/11-A: ops:v2-verify-06 (report)" npm run ops:v2-verify-06 -- --base-url "${BASE_URL}" --admin-token "${ADMIN_TOKEN}" --out "${REPORT_DIR}/verify-06.md"
-run_step "11_verify_07" "step 11/11-B: ops:v2-verify-07 (report)" npm run ops:v2-verify-07 -- --base-url "${BASE_URL}" --admin-token "${ADMIN_TOKEN}" --out "${REPORT_DIR}/verify-07.md"
+run_step "09_admin_token_prepare" "step 10/12: local admin token prepare" issue_local_admin_token
+run_step "10_verify_0102" "step 11/12: ops:v2-verify-0102 (report)" npm run ops:v2-verify-0102 -- --base-url "${BASE_URL}" --bundle-definition-id "${FIXTURE_BUNDLE_DEFINITION_ID}" --out "${REPORT_DIR}/verify-0102.md"
+run_step "11_verify_06" "step 12/12-A: ops:v2-verify-06 (report)" npm run ops:v2-verify-06 -- --base-url "${BASE_URL}" --admin-token "${ADMIN_TOKEN}" --out "${REPORT_DIR}/verify-06.md"
+run_step "12_verify_07" "step 12/12-B: ops:v2-verify-07 (report)" npm run ops:v2-verify-07 -- --base-url "${BASE_URL}" --admin-token "${ADMIN_TOKEN}" --out "${REPORT_DIR}/verify-07.md"
 
 append_summary ""
 append_summary "## Artifacts"
@@ -645,13 +646,15 @@ append_summary "- [verify-06.md](./verify-06.md)"
 append_summary "- [verify-07.md](./verify-07.md)"
 append_summary "- [01_supabase_start.log](./01_supabase_start.log)"
 append_summary "- [03_db_lint.log](./03_db_lint.log)"
-append_summary "- [04_verify_04_local.log](./04_verify_04_local.log)"
-append_summary "- [05_verify_05_local.log](./05_verify_05_local.log)"
-append_summary "- [06_bootstrap_0102_fixture.log](./06_bootstrap_0102_fixture.log)"
-append_summary "- [08_admin_token_prepare.log](./08_admin_token_prepare.log)"
-append_summary "- [09_verify_0102.log](./09_verify_0102.log)"
-append_summary "- [10_verify_06.log](./10_verify_06.log)"
-append_summary "- [11_verify_07.log](./11_verify_07.log)"
+append_summary "- [04_seed_dummy_local.log](./04_seed_dummy_local.log)"
+append_summary "- [05_verify_04_local.log](./05_verify_04_local.log)"
+append_summary "- [06_verify_05_local.log](./06_verify_05_local.log)"
+append_summary "- [07_bootstrap_0102_fixture.log](./07_bootstrap_0102_fixture.log)"
+append_summary "- [08_supabase_env.log](./08_supabase_env.log)"
+append_summary "- [09_admin_token_prepare.log](./09_admin_token_prepare.log)"
+append_summary "- [10_verify_0102.log](./10_verify_0102.log)"
+append_summary "- [11_verify_06.log](./11_verify_06.log)"
+append_summary "- [12_verify_07.log](./12_verify_07.log)"
 append_summary "- [backend-local-bypass.log](./backend-local-bypass.log)"
 
 log "done: ${SUMMARY_FILE}"

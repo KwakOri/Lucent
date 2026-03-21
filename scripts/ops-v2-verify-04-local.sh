@@ -27,7 +27,7 @@ Usage:
 
 Options:
   --migration-mode <reset|push>  DB 반영 방식 (default: reset)
-  --variant-id <uuid>            검증에 사용할 variant_id (없으면 ACTIVE 1건 자동 선택)
+  --variant-id <uuid>            검증에 사용할 variant_id (없으면 가격 적용 가능한 ACTIVE 1건 자동 선택)
   --test-email <email>           테스트 계정 이메일 (default: verify04@example.com)
   --test-password <password>     테스트 계정 비밀번호 (default: test1234)
   --base-url <url>               backend base URL (default: http://127.0.0.1:3001)
@@ -340,17 +340,46 @@ fi
 
 if [[ -z "${VARIANT_ID}" ]]; then
   VARIANT_ID="$(docker exec "$DB_CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -t -A -c "
-select id
-from public.v2_product_variants
-where status = 'ACTIVE'
-order by created_at asc
+select v.id
+from public.v2_product_variants v
+join public.v2_products p
+  on p.id = v.product_id
+ and p.status = 'ACTIVE'
+ and p.deleted_at is null
+where v.status = 'ACTIVE'
+  and v.deleted_at is null
+  and exists (
+    select 1
+    from public.v2_price_list_items pli
+    join public.v2_price_lists pl
+      on pl.id = pli.price_list_id
+    join public.v2_campaigns c
+      on c.id = pl.campaign_id
+    where pli.product_id = v.product_id
+      and (pli.variant_id = v.id or pli.variant_id is null)
+      and pli.status = 'ACTIVE'
+      and pli.deleted_at is null
+      and (pli.starts_at is null or pli.starts_at <= now())
+      and (pli.ends_at is null or pli.ends_at >= now())
+      and pl.scope_type = 'BASE'
+      and pl.status = 'PUBLISHED'
+      and pl.deleted_at is null
+      and (pl.starts_at is null or pl.starts_at <= now())
+      and (pl.ends_at is null or pl.ends_at >= now())
+      and c.campaign_type = 'ALWAYS_ON'
+      and c.status = 'ACTIVE'
+      and c.deleted_at is null
+      and (c.starts_at is null or c.starts_at <= now())
+      and (c.ends_at is null or c.ends_at >= now())
+  )
+order by v.created_at asc
 limit 1;
 ")"
   VARIANT_ID="$(printf "%s" "$VARIANT_ID" | tr -d '[:space:]')"
 fi
 
 if [[ -z "${VARIANT_ID}" ]]; then
-  echo "active variant not found. pass --variant-id explicitly." >&2
+  echo "가격 적용 가능한 active variant를 찾지 못했습니다. 'npm run ops:v2-seed-dummy:local' 실행 후 재시도하거나 --variant-id를 직접 지정하세요." >&2
   exit 1
 fi
 
