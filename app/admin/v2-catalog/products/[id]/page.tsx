@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
+import { ProductMediaManager } from '@/src/components/admin/v2-catalog/ProductMediaManager';
 import { ProductVariantManager } from '@/src/components/admin/v2-catalog/ProductVariantManager';
 import {
   useDeleteV2Product,
@@ -276,6 +277,8 @@ export default function V2CatalogProductDetailPage() {
           </div>
         </div>
       </section>
+
+      <ProductMediaManager product={product} />
 
       <ProductVariantManager product={product} />
     </div>

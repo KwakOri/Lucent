@@ -95,7 +95,6 @@ export default function ProductDetailPage() {
     campaign_id: selectedCampaignId || undefined,
   });
 
-  const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [pendingAction, setPendingAction] = useState<"ADD" | "BUY_NOW" | null>(
@@ -142,8 +141,23 @@ export default function ProductDetailPage() {
     );
   }
 
-  const mediaList = data.media.length > 0 ? data.media : [];
-  const selectedMedia = mediaList[selectedMediaIndex] || null;
+  const activeMedia = data.media.filter((media) => media.status === "ACTIVE");
+  const coverMedia =
+    activeMedia.find((media) => media.is_primary) ||
+    activeMedia.find((media) => media.media_role === "PRIMARY") ||
+    null;
+  const detailMedia = activeMedia
+    .filter(
+      (media) =>
+        (media.media_role === "DETAIL" || media.media_role === "GALLERY") &&
+        media.id !== coverMedia?.id,
+    )
+    .sort((left, right) => {
+      if (left.sort_order !== right.sort_order) {
+        return left.sort_order - right.sort_order;
+      }
+      return left.created_at.localeCompare(right.created_at);
+    });
   const soldOut = data.purchase_constraints.sold_out;
   const minQuantity = Math.max(
     1,
@@ -246,10 +260,10 @@ export default function ProductDetailPage() {
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
           <div className="space-y-4">
             <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
-              {selectedMedia?.public_url ? (
+              {coverMedia?.public_url ? (
                 <img
-                  src={selectedMedia.public_url}
-                  alt={selectedMedia.alt_text || data.product.title}
+                  src={coverMedia.public_url}
+                  alt={coverMedia.alt_text || data.product.title}
                   className="aspect-square h-full w-full object-cover"
                 />
               ) : (
@@ -263,33 +277,6 @@ export default function ProductDetailPage() {
                 </div>
               )}
             </div>
-
-            {mediaList.length > 1 && (
-              <div className="grid grid-cols-4 gap-2">
-                {mediaList.map((media, index) => (
-                  <button
-                    key={media.id}
-                    type="button"
-                    onClick={() => setSelectedMediaIndex(index)}
-                    className={`overflow-hidden rounded-lg border ${
-                      index === selectedMediaIndex
-                        ? "border-primary-500"
-                        : "border-neutral-200"
-                    }`}
-                  >
-                    {media.public_url ? (
-                      <img
-                        src={media.public_url}
-                        alt={media.alt_text || `${data.product.title}-${index + 1}`}
-                        className="aspect-square h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="aspect-square bg-neutral-100" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="space-y-6">
@@ -451,6 +438,35 @@ export default function ProductDetailPage() {
             </div>
           </div>
         </div>
+
+        {detailMedia.length > 0 && (
+          <section className="mt-10 rounded-xl border border-neutral-200 bg-white p-5">
+            <h2 className="text-lg font-bold text-text-primary">상세 이미지</h2>
+            <div className="mt-4 space-y-4">
+              {detailMedia.map((media, index) => (
+                <div
+                  key={media.id}
+                  className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50"
+                >
+                  {media.public_url ? (
+                    <img
+                      src={media.public_url}
+                      alt={
+                        media.alt_text ||
+                        `${data.product.title} 상세 이미지 ${index + 1}`
+                      }
+                      className="w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-40 items-center justify-center text-sm text-neutral-400">
+                      이미지가 준비되지 않았습니다.
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
