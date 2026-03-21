@@ -3,8 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { FileInput } from '@/components/ui/file-input';
 import { Input, Textarea } from '@/components/ui/input';
-import { useCreateV2Project } from '@/lib/client/hooks/useV2CatalogAdmin';
+import {
+  useCreateV2Project,
+  useUploadV2MediaAssetFile,
+} from '@/lib/client/hooks/useV2CatalogAdmin';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -30,19 +34,69 @@ function parseNonNegativeInteger(value: string, fieldName: string): number {
   return parsed;
 }
 
+function isImageFile(file: File): boolean {
+  if (file.type.toLowerCase().startsWith('image/')) {
+    return true;
+  }
+  return /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(file.name);
+}
+
 export default function V2CatalogProjectCreatePage() {
   const router = useRouter();
   const createProject = useCreateV2Project();
+  const uploadMediaAssetFile = useUploadV2MediaAssetFile();
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
-  const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [coverMediaAssetId, setCoverMediaAssetId] = useState('');
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const [coverFileName, setCoverFileName] = useState('');
   const [sortOrder, setSortOrder] = useState('0');
+  const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const hasCover = coverMediaAssetId.trim().length > 0;
+  const isSubmitting = createProject.isPending || uploadMediaAssetFile.isPending;
+
+  const handleUploadProjectCover = async (file: File) => {
+    if (!isImageFile(file)) {
+      setErrorMessage('커버 이미지는 이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    setErrorMessage(null);
+    setMessage(null);
+
+    try {
+      const uploaded = await uploadMediaAssetFile.mutateAsync({
+        data: {
+          file,
+          asset_kind: 'IMAGE',
+          status: 'ACTIVE',
+          metadata: {
+            source: 'v2-project-cover-upload',
+          },
+        },
+      });
+      setCoverMediaAssetId(uploaded.data.id);
+      setCoverPreviewUrl(uploaded.data.public_url || null);
+      setCoverFileName(uploaded.data.file_name || file.name);
+      setMessage('프로젝트 커버 이미지를 연결했습니다.');
+    } catch (uploadError) {
+      setErrorMessage(getErrorMessage(uploadError));
+    }
+  };
+
+  const clearProjectCover = () => {
+    setCoverMediaAssetId('');
+    setCoverPreviewUrl(null);
+    setCoverFileName('');
+    setMessage('프로젝트 커버 연결을 해제했습니다. 저장하면 반영됩니다.');
+  };
 
   const handleCreateProject = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setMessage(null);
     setErrorMessage(null);
 
     try {
@@ -50,7 +104,7 @@ export default function V2CatalogProjectCreatePage() {
         name: name.trim(),
         slug: slug.trim(),
         description: description.trim() || null,
-        cover_image_url: coverImageUrl.trim() || null,
+        cover_media_asset_id: coverMediaAssetId.trim() || null,
         sort_order: parseNonNegativeInteger(sortOrder, 'sort_order'),
       });
       router.push('/admin/v2-catalog/projects');
@@ -78,6 +132,11 @@ export default function V2CatalogProjectCreatePage() {
           {errorMessage}
         </div>
       )}
+      {message && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {message}
+        </div>
+      )}
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <form className="grid grid-cols-1 gap-3 md:grid-cols-2" onSubmit={handleCreateProject}>
@@ -94,15 +153,60 @@ export default function V2CatalogProjectCreatePage() {
             required
           />
           <Input
-            placeholder="cover_image_url (선택)"
-            value={coverImageUrl}
-            onChange={(event) => setCoverImageUrl(event.target.value)}
-          />
-          <Input
             placeholder="sort_order"
             value={sortOrder}
             onChange={(event) => setSortOrder(event.target.value)}
           />
+          <div className="md:col-span-2 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">커버 이미지 (선택)</label>
+              {coverPreviewUrl ? (
+                <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={coverPreviewUrl}
+                    alt="프로젝트 커버 미리보기"
+                    className="h-40 w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 text-center text-sm text-gray-500">
+                  {hasCover
+                    ? '커버가 연결되어 있습니다. (public URL이 없어 미리보기는 표시되지 않습니다)'
+                    : '커버 이미지를 설정하지 않았습니다.'}
+                </div>
+              )}
+              {coverFileName ? (
+                <p className="mt-2 text-xs text-gray-500">최근 업로드 파일: {coverFileName}</p>
+              ) : null}
+              {hasCover && !coverFileName ? (
+                <p className="mt-2 break-all text-xs text-gray-500">연결된 asset ID: {coverMediaAssetId}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <FileInput
+                triggerLabel={uploadMediaAssetFile.isPending ? '업로드 중...' : '커버 이미지 선택'}
+                accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void handleUploadProjectCover(file);
+                  }
+                  event.target.value = '';
+                }}
+              />
+              <Button
+                type="button"
+                intent="neutral"
+                onClick={clearProjectCover}
+                disabled={!hasCover || isSubmitting}
+              >
+                커버 해제
+              </Button>
+            </div>
+          </div>
           <div className="md:col-span-2">
             <Textarea
               placeholder="설명 (선택)"
@@ -112,7 +216,7 @@ export default function V2CatalogProjectCreatePage() {
             />
           </div>
           <div className="md:col-span-2 flex gap-2">
-            <Button type="submit" loading={createProject.isPending}>
+            <Button type="submit" loading={isSubmitting}>
               생성
             </Button>
             <Button
