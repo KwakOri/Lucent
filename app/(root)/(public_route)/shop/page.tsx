@@ -15,8 +15,7 @@ import type {
   V2ShopListItem,
 } from "@/lib/client/api/v2-shop.api";
 import { ApiError } from "@/lib/client/utils/api-error";
-import { Package, ShoppingCart } from "lucide-react";
-import Link from "next/link";
+import { ShoppingCart } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { useToast } from "@/src/components/toast";
@@ -247,25 +246,18 @@ function ShopPageContent() {
         )}
       </section>
 
-      <section className="px-4 py-16">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-12">
-            <h2 className="mb-3 text-3xl font-bold text-text-primary">
-              Voice Packs
-            </h2>
-            <p className="text-lg text-text-secondary">
-              다양한 아티스트의 보이스팩을 만나보세요
-            </p>
-          </div>
-
-          {voicePacks.length === 0 ? (
-            <div className="rounded-xl border border-neutral-200 bg-white p-12">
-              <EmptyState
-                title="준비 중입니다"
-                description="곧 멋진 보이스팩을 만나보실 수 있어요"
-              />
+      {voicePacks.length > 0 ? (
+        <section className="px-4 py-16">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-12">
+              <h2 className="mb-3 text-3xl font-bold text-text-primary">
+                Voice Packs
+              </h2>
+              <p className="text-lg text-text-secondary">
+                아티스트의 다양한 보이스팩을 만나보세요
+              </p>
             </div>
-          ) : (
+
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
               {voicePacks.map((pack, index) => (
                 <div
@@ -318,32 +310,20 @@ function ShopPageContent() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      </section>
-
-      <section className="bg-white px-4 py-16">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-12">
-            <h2 className="mb-3 text-3xl font-bold text-text-primary">Goods</h2>
-            <p className="text-lg text-text-secondary">실물 굿즈 컬렉션</p>
           </div>
+        </section>
+      ) : null}
 
-          {physicalGoods.length === 0 ? (
-            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-12">
-              <EmptyState
-                title="준비 중입니다"
-                description="곧 다양한 굿즈를 만나보실 수 있어요"
-              >
-                <Link href="/projects">
-                  <Button intent="primary" size="md">
-                    <Package className="h-4 w-4" />
-                    프로젝트 보러가기
-                  </Button>
-                </Link>
-              </EmptyState>
+      {physicalGoods.length > 0 ? (
+        <section className="bg-white px-4 py-16">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-12">
+              <h2 className="mb-3 text-3xl font-bold text-text-primary">Goods</h2>
+              <p className="text-lg text-text-secondary">
+                아티스트의 다양한 굿즈를 만나보세요
+              </p>
             </div>
-          ) : (
+
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
               {physicalGoods.map((goods) => {
                 const soldOut = goods.availability.reason === "OUT_OF_STOCK";
@@ -415,9 +395,9 @@ function ShopPageContent() {
                 );
               })}
             </div>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
