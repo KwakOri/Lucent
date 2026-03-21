@@ -35,6 +35,7 @@ yarn-error.log*
 # local ops reports
 /reports/v2-rehearsal/
 /supabase/.temp/
+/supabase/backups/
 
 # env files (can opt-in for committing if needed)
 .env*
