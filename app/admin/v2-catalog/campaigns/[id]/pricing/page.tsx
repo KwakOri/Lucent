@@ -140,7 +140,6 @@ export default function V2CatalogCampaignPricingPage() {
   const [selectedVariantId, setSelectedVariantId] = useState('');
   const [discountMode, setDiscountMode] = useState<DiscountMode>('FIXED');
   const [discountValue, setDiscountValue] = useState('');
-  const hasAppliedPresetProductRef = useRef(false);
   const hasAppliedPendingVariantRef = useRef(false);
 
   const campaignId = useMemo(() => {
@@ -217,33 +216,31 @@ export default function V2CatalogCampaignPricingPage() {
     });
   }, [campaign?.campaign_type, products, targets]);
 
-  useEffect(() => {
-    if (hasAppliedPresetProductRef.current) {
-      return;
-    }
-    if (!presetProductId) {
-      hasAppliedPresetProductRef.current = true;
-      return;
-    }
-    if (eligibleProducts.length === 0) {
-      return;
-    }
-    if (eligibleProducts.some((product) => product.id === presetProductId)) {
-      setSelectedProductId(presetProductId);
-    }
-    hasAppliedPresetProductRef.current = true;
-  }, [eligibleProducts, presetProductId]);
+  const presetProduct = useMemo(
+    () => eligibleProducts.find((product) => product.id === presetProductId) || null,
+    [eligibleProducts, presetProductId],
+  );
 
   useEffect(() => {
     if (eligibleProducts.length === 0) {
       setSelectedProductId('');
       return;
     }
+    if (presetProductId) {
+      if (presetProduct) {
+        if (selectedProductId !== presetProduct.id) {
+          setSelectedProductId(presetProduct.id);
+        }
+      } else {
+        setSelectedProductId('');
+      }
+      return;
+    }
     if (selectedProductId && eligibleProducts.some((product) => product.id === selectedProductId)) {
       return;
     }
     setSelectedProductId(eligibleProducts[0].id);
-  }, [eligibleProducts, selectedProductId]);
+  }, [eligibleProducts, presetProduct, presetProductId, selectedProductId]);
 
   useEffect(() => {
     const nextVariants = variants || [];
@@ -319,6 +316,40 @@ export default function V2CatalogCampaignPricingPage() {
     });
     return map;
   }, [baseItems, basePriceListById, campaignPriceItems, isAlwaysOnCampaign, selectedProductId, variants]);
+
+  const variantRows = useMemo(() => {
+    return (variants || []).map((variant) => {
+      const base = findPriceItem({
+        items: baseItems || [],
+        productId: selectedProductId,
+        variantId: variant.id,
+        priceListsById: basePriceListById,
+      });
+      const campaignPrice = findPriceItem({
+        items: campaignPriceItems || [],
+        productId: selectedProductId,
+        variantId: variant.id,
+      });
+      const status = selectedProductVariantPriceStatus.get(variant.id) || {
+        hasBase: false,
+        hasCampaignPrice: false,
+        configured: false,
+      };
+      return {
+        variant,
+        base,
+        campaignPrice,
+        ...status,
+      };
+    });
+  }, [
+    baseItems,
+    basePriceListById,
+    campaignPriceItems,
+    selectedProductId,
+    selectedProductVariantPriceStatus,
+    variants,
+  ]);
 
   useEffect(() => {
     if (!pendingOnly || hasAppliedPendingVariantRef.current) {
@@ -518,6 +549,19 @@ export default function V2CatalogCampaignPricingPage() {
     );
   }
 
+  if (presetProductId && !selectedProduct) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
+          선택한 상품을 현재 캠페인 대상에서 찾지 못했습니다. 캠페인 대상 목록에서 다시 선택해 주세요.
+        </div>
+        <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaignId}`)}>
+          상세로 돌아가기
+        </Button>
+      </div>
+    );
+  }
+
   const configuredItems = (campaignPriceItems || []).filter((item) => item.status === 'ACTIVE');
 
   return (
@@ -552,41 +596,69 @@ export default function V2CatalogCampaignPricingPage() {
       )}
 
       <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div>
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">대상 상품</label>
-            <select
-              value={selectedProductId}
-              onChange={(event) => setSelectedProductId(event.target.value)}
-              className="h-11 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            >
-              {eligibleProducts.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.title}
-                </option>
-              ))}
-            </select>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-gray-900">{selectedProduct?.title || '-'}</p>
+                <Badge intent="default" size="sm">
+                  {selectedProduct?.product_kind === 'BUNDLE' ? '번들' : '일반'}
+                </Badge>
+                {presetProductId && <Badge intent="info" size="sm">상위 페이지에서 선택됨</Badge>}
+              </div>
+            </div>
           </div>
-          <div>
+
+          <div className="mt-4">
             <div className="mb-2 flex items-center gap-2">
-              <label className="block text-sm font-medium text-gray-700">대상 옵션</label>
-              {!selectedProductVariantPriceStatus.get(selectedVariantId || '')?.configured &&
-                selectedVariantId && (
+              <label className="block text-sm font-medium text-gray-700">옵션 목록</label>
+              {selectedVariantId && !selectedProductVariantPriceStatus.get(selectedVariantId)?.configured && (
                 <Badge intent="error" size="sm">가격 미설정</Badge>
               )}
             </div>
-            <select
-              value={selectedVariantId}
-              onChange={(event) => setSelectedVariantId(event.target.value)}
-              className="h-11 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            >
-              {(variants || []).map((variant) => (
-                <option key={variant.id} value={variant.id}>
-                  {variant.title}
-                  {selectedProductVariantPriceStatus.get(variant.id)?.configured ? '' : ' (가격 미설정)'}
-                </option>
-              ))}
-            </select>
+
+            {variantRows.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-sm text-gray-500">
+                등록된 옵션이 없습니다.
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-gray-200">
+                {variantRows.map((row) => (
+                  <button
+                    key={row.variant.id}
+                    type="button"
+                    onClick={() => setSelectedVariantId(row.variant.id)}
+                    className={`flex w-full items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 text-left transition last:border-b-0 ${
+                      selectedVariantId === row.variant.id
+                        ? 'bg-primary-50'
+                        : 'bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-gray-900">{row.variant.title}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {row.variant.sku}
+                        {row.variant.fulfillment_type ? ` · ${row.variant.fulfillment_type}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge intent={row.configured ? 'success' : 'error'} size="sm">
+                        {row.configured ? '설정됨' : '미설정'}
+                      </Badge>
+                      <p className="text-xs text-gray-500">
+                        BASE {row.base ? formatCurrency(row.base.unit_amount) : '없음'}
+                      </p>
+                      {!isAlwaysOnCampaign && (
+                        <p className="text-xs text-gray-500">
+                          캠페인 {row.campaignPrice ? formatCurrency(row.campaignPrice.unit_amount) : '없음'}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
