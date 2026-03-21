@@ -157,37 +157,55 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
     }
   };
 
-  const uploadDetailImage = async (file: File) => {
-    if (!isImageFile(file)) {
-      setErrorMessage('이미지 파일만 업로드할 수 있습니다.');
+  const uploadDetailImages = async (files: File[]) => {
+    if (files.length === 0) {
       return;
     }
 
     resetNotice();
     try {
-      const uploaded = await uploadMediaAssetFile.mutateAsync({
-        data: {
-          file,
-          asset_kind: 'IMAGE',
-          status: 'ACTIVE',
-          metadata: {
-            source: 'v2-product-detail-upload',
+      const imageFiles = files.filter((file) => isImageFile(file));
+      if (imageFiles.length === 0) {
+        setErrorMessage('이미지 파일만 업로드할 수 있습니다.');
+        return;
+      }
+
+      const invalidCount = files.length - imageFiles.length;
+      const firstSortOrder = getNextDetailSortOrder(detailMedia);
+
+      for (let index = 0; index < imageFiles.length; index += 1) {
+        const file = imageFiles[index];
+        const uploaded = await uploadMediaAssetFile.mutateAsync({
+          data: {
+            file,
+            asset_kind: 'IMAGE',
+            status: 'ACTIVE',
+            metadata: {
+              source: 'v2-product-detail-upload',
+            },
           },
-        },
-      });
+        });
 
-      await createProductMedia.mutateAsync({
-        productId: product.id,
-        data: {
-          media_asset_id: uploaded.data.id,
-          media_role: 'DETAIL',
-          is_primary: false,
-          sort_order: getNextDetailSortOrder(detailMedia),
-          status: 'ACTIVE',
-        },
-      });
+        await createProductMedia.mutateAsync({
+          productId: product.id,
+          data: {
+            media_asset_id: uploaded.data.id,
+            media_role: 'DETAIL',
+            is_primary: false,
+            sort_order: firstSortOrder + index * 10,
+            status: 'ACTIVE',
+          },
+        });
+      }
 
-      setMessage('상세 이미지를 추가했습니다.');
+      if (invalidCount > 0) {
+        setMessage(
+          `상세 이미지 ${imageFiles.length}장을 추가했습니다. 이미지가 아닌 ${invalidCount}개 파일은 제외했습니다.`,
+        );
+        return;
+      }
+
+      setMessage(`상세 이미지 ${imageFiles.length}장을 추가했습니다.`);
     } catch (uploadError) {
       setErrorMessage(getErrorMessage(uploadError));
     }
@@ -346,11 +364,12 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
             <input
               type="file"
               accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+              multiple
               disabled={isMutating}
               onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) {
-                  void uploadDetailImage(file);
+                const fileList = event.target.files;
+                if (fileList && fileList.length > 0) {
+                  void uploadDetailImages(Array.from(fileList));
                 }
                 event.target.value = '';
               }}
