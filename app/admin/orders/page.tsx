@@ -136,6 +136,10 @@ function getNextLinearStage(stage: V2AdminOrderLinearStage): V2AdminOrderLinearS
   return null;
 }
 
+function linearStageIndex(stage: V2AdminOrderLinearStage): number {
+  return LINEAR_STAGE_OPTIONS.indexOf(stage);
+}
+
 function readLogString(log: TransitionExecuteLog, key: string): string | null {
   const value = log[key];
   if (typeof value !== 'string') {
@@ -296,15 +300,42 @@ export default function AdminOrdersPage() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `선택한 ${effectiveSelectedOrderIds.length}건 주문을 "${linearStageLabel(stage)}" 단계로 전환할까요?`,
-    );
-    if (!confirmed) {
-      return;
-    }
-
     try {
       const payload = buildTransitionPayload(stage);
+      const hasBackwardSelection = rows.some((row) => {
+        if (!effectiveSelectedOrderIds.includes(row.order_id)) {
+          return false;
+        }
+        const currentStage = resolveLinearStageFromRow(row);
+        return linearStageIndex(stage) < linearStageIndex(currentStage);
+      });
+
+      if (hasBackwardSelection) {
+        const previewForWarning = await previewTransition.mutateAsync(payload);
+        setTransitionResult(previewForWarning);
+
+        const warningRows = previewForWarning.rows.filter(
+          (row) => row.warning_reasons.length > 0,
+        );
+        if (warningRows.length > 0) {
+          const warningLines = warningRows
+            .slice(0, 5)
+            .map((row) => `${row.order_no || row.order_id}: ${row.warning_reasons.join(' / ')}`)
+            .join('\n');
+
+          window.alert(
+            `강제 롤백 경고\n\n${warningLines}\n\n위 이력이 있어도 강제 롤백이 진행됩니다.`,
+          );
+        }
+      }
+
+      const confirmed = window.confirm(
+        `선택한 ${effectiveSelectedOrderIds.length}건 주문을 "${linearStageLabel(stage)}" 단계로 전환할까요?`,
+      );
+      if (!confirmed) {
+        return;
+      }
+
       if (process.env.NODE_ENV !== 'production') {
         console.info('[admin/orders] transition execute payload', payload);
       }
@@ -751,6 +782,11 @@ export default function AdminOrdersPage() {
                 ) : (
                   <p className="mt-1 text-xs text-emerald-700">실행 가능</p>
                 )}
+                {row.warning_reasons.length > 0 ? (
+                  <p className="mt-1 text-xs text-amber-700">
+                    경고: {row.warning_reasons.join(' / ')}
+                  </p>
+                ) : null}
                 {row.actions.length > 0 ? (
                   <p className="mt-1 text-xs text-gray-600">
                     액션: {row.actions.map((action) => action.action_key).join(', ')}

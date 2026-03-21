@@ -456,6 +456,9 @@ export type V2AdminOrderLinearStage =
 export type V2AdminOrderLinearTransitionActionKey =
   | 'ORDER_PAYMENT_MARK_AUTHORIZED'
   | 'ORDER_PAYMENT_MARK_CAPTURED'
+  | 'ORDER_PAYMENT_MARK_PENDING'
+  | 'FULFILLMENT_SHIPMENT_FORCE_STATUS'
+  | 'FULFILLMENT_ENTITLEMENT_FORCE_STATUS'
   | 'FULFILLMENT_SHIPMENT_DISPATCH'
   | 'FULFILLMENT_SHIPMENT_DELIVER'
   | 'FULFILLMENT_ENTITLEMENT_REISSUE';
@@ -491,6 +494,7 @@ export interface V2AdminOrderLinearTransitionRow {
   action_count: number;
   actions: V2AdminOrderLinearTransitionAction[];
   blocked_reasons: string[];
+  warning_reasons: string[];
 }
 
 export interface V2AdminOrderLinearTransitionResult {
