@@ -6,104 +6,62 @@
 
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type {
-  Tables,
-  GetProductsQuery,
-  PaginatedResponse,
-  ApiResponse,
-} from '@/types';
-import type { ProductWithDetails } from '@/lib/server/services/product.service';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { ProductsAPI } from '@/lib/client/api/products.api';
+import type { GetProductsParams } from '@/lib/client/api/products.api';
+import { queryKeys } from './query-keys';
 
 /**
  * 상품 목록 조회 Hook
- *
- * @example
- * const { data, isLoading } = useProducts({ projectId: 'project-id', type: 'VOICE_PACK' });
  */
-export function useProducts(params?: GetProductsQuery) {
+export function useProducts(params?: GetProductsParams) {
   return useQuery({
-    queryKey: ['products', params],
-    queryFn: async () => {
-      const searchParams = new URLSearchParams(
-        Object.entries(params || {}).filter(([_, v]) => v !== undefined)
-      );
-      const response = await fetch(`/api/products?${searchParams}`);
-      if (!response.ok) {
-        throw new Error('상품 목록 조회 실패');
-      }
-      const data: PaginatedResponse<ProductWithDetails> = await response.json();
-      return data;
-    },
-    staleTime: 1000 * 60 * 5, // 5분 (상품 정보는 자주 변경되지 않음)
+    queryKey: queryKeys.products.list(params),
+    queryFn: async () => ProductsAPI.getProducts(params),
+    staleTime: 1000 * 60 * 5,
   });
 }
 
 /**
  * 상품 상세 조회 Hook
- *
- * @example
- * const { data, isLoading } = useProduct('product-id');
  */
-export function useProduct(productId: string | null) {
+export function useProduct(productId: string | null | undefined) {
   return useQuery({
-    queryKey: ['products', productId],
+    queryKey: queryKeys.products.detail(productId || ''),
     queryFn: async () => {
-      if (!productId) throw new Error('Product ID is required');
-      const response = await fetch(`/api/products/${productId}`);
-      if (!response.ok) {
-        throw new Error('상품 조회 실패');
-      }
-      const data: ApiResponse<ProductWithDetails> = await response.json();
-      return data.data;
+      const response = await ProductsAPI.getProduct(productId!);
+      return response.data;
     },
     enabled: !!productId,
-    staleTime: 1000 * 60 * 10, // 10분 (상세 정보는 더 길게 캐시)
+    staleTime: 1000 * 60 * 10,
   });
 }
 
 /**
  * Slug로 상품 조회 Hook
- *
- * @example
- * const { data, isLoading } = useProductBySlug('miruru-voice-pack-1');
  */
-export function useProductBySlug(slug: string | null) {
+export function useProductBySlug(slug: string | null | undefined) {
   return useQuery({
-    queryKey: ['products', 'slug', slug],
+    queryKey: queryKeys.products.bySlug(slug || ''),
     queryFn: async () => {
-      if (!slug) throw new Error('Slug is required');
-      const response = await fetch(`/api/products/slug/${slug}`);
-      if (!response.ok) {
-        throw new Error('상품 조회 실패');
-      }
-      const data: ApiResponse<ProductWithDetails> = await response.json();
-      return data.data;
+      const response = await ProductsAPI.getProductBySlug(slug!);
+      return response.data;
     },
     enabled: !!slug,
-    staleTime: 1000 * 60 * 10, // 10분
+    staleTime: 1000 * 60 * 10,
   });
 }
 
 /**
  * 샘플 오디오 재생 Hook (Mutation)
- *
- * @example
- * const { mutate: playSample } = usePlaySample();
- * playSample('product-id');
  */
 export function usePlaySample() {
   return useMutation({
     mutationFn: async (productId: string) => {
-      const response = await fetch(`/api/products/${productId}/sample`);
-      if (!response.ok) {
-        throw new Error('샘플 재생 실패');
-      }
-      // Blob으로 받아서 Audio 객체로 재생
-      const blob = await response.blob();
+      const blob = await ProductsAPI.getSampleAudio(productId);
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
-      audio.play();
+      await audio.play();
       return { audio, url };
     },
   });
@@ -111,9 +69,6 @@ export function usePlaySample() {
 
 /**
  * 프로젝트별 상품 목록 조회 Hook (편의 함수)
- *
- * @example
- * const { voicePacks, physicalGoods, isLoading } = useMiruruProducts('project-id');
  */
 export function useMiruruProducts(projectId?: string) {
   const { data, isLoading, error } = useProducts({
@@ -123,7 +78,6 @@ export function useMiruruProducts(projectId?: string) {
 
   const products = data?.data || [];
 
-  // 타입별로 분리
   const voicePacks = products.filter((p) => p.type === 'VOICE_PACK');
   const physicalGoods = products.filter((p) => p.type === 'PHYSICAL_GOODS');
 

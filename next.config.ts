@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  serverExternalPackages: ['ffmpeg-static', 'ffprobe-static'],
+  serverExternalPackages: ['ffmpeg-static', 'ffprobe-static', 'fluent-ffmpeg'],
 
   // API Route body size limit 증가 (보이스팩 업로드용)
   experimental: {

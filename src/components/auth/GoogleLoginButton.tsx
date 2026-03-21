@@ -44,9 +44,9 @@ export function GoogleLoginButton() {
       }
 
       // 리디렉션 시작됨 (페이지가 Google 로그인 페이지로 이동)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Google OAuth error:', err);
-      setError(err.message || 'Google 로그인에 실패했습니다');
+      setError(err instanceof Error ? err.message : 'Google 로그인에 실패했습니다');
       setIsLoading(false);
     }
   };

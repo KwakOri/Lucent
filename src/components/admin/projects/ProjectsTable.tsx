@@ -4,21 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
+import type { ProjectWithDetails } from '@/lib/client/api/projects.api';
+import { ProjectsAPI } from '@/lib/client/api/projects.api';
 
-interface Project {
-  id: string;
-  name: string;
-  slug: string;
-  order_index: number | null;
-  is_active: boolean;
-  created_at: string;
-  cover_image?: {
-    id: string;
-    public_url: string;
-    cdn_url?: string | null;
-    alt_text?: string | null;
-  } | null;
-}
+type Project = ProjectWithDetails;
 
 interface ProjectsTableProps {
   projects: Project[];
@@ -38,15 +27,9 @@ export function ProjectsTable({ projects: initialProjects }: ProjectsTableProps)
     setDeletingId(project.id);
 
     try {
-      const response = await fetch(`/api/projects/${project.id}`, {
-        method: 'DELETE',
-      });
+      await ProjectsAPI.deleteProject(project.id);
 
-      if (!response.ok) {
-        throw new Error('삭제 실패');
-      }
-
-      setProjects(projects.filter((p) => p.id !== project.id));
+      setProjects((prev) => prev.filter((p) => p.id !== project.id));
       router.refresh();
     } catch (error) {
       alert('프로젝트 삭제에 실패했습니다.');
@@ -73,17 +56,7 @@ export function ProjectsTable({ projects: initialProjects }: ProjectsTableProps)
     setProjects(newProjects);
 
     try {
-      const response = await fetch('/api/projects/reorder', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ orders }),
-      });
-
-      if (!response.ok) {
-        throw new Error('순서 변경 실패');
-      }
+      await ProjectsAPI.reorderProjects({ orders });
 
       router.refresh();
     } catch (error) {

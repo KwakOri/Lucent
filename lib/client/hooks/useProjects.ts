@@ -7,77 +7,57 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import type { Tables, ApiResponse } from '@/types';
+import { ProjectsAPI } from '@/lib/client/api/projects.api';
+import type { GetProjectsParams } from '@/lib/client/api/projects.api';
+import { queryKeys } from './query-keys';
 
 /**
  * 프로젝트 목록 조회 Hook
- *
- * @example
- * const { data, isLoading } = useProjects();
  */
-export function useProjects() {
+export function useProjects(params?: GetProjectsParams) {
   return useQuery({
-    queryKey: ['projects'],
+    queryKey: queryKeys.projects.list(params),
     queryFn: async () => {
-      const response = await fetch('/api/projects');
-      if (!response.ok) {
-        throw new Error('프로젝트 목록 조회 실패');
+      console.log('[useProjects] queryFn 시작, params:', params);
+      try {
+        const response = await ProjectsAPI.getProjects(params);
+        console.log('[useProjects] 응답 성공:', response);
+        return response.data;
+      } catch (error) {
+        console.error('[useProjects] 요청 실패:', error);
+        throw error;
       }
-      const data: ApiResponse<Tables<'projects'>[]> = await response.json();
-      return data.data;
     },
-    staleTime: 1000 * 60 * 10, // 10분 (프로젝트 정보는 거의 변경되지 않음)
+    staleTime: 1000 * 60 * 10,
   });
 }
 
 /**
  * 프로젝트 상세 조회 Hook
- *
- * @example
- * const { data, isLoading } = useProject('project-id');
  */
-export function useProject(projectId: string | null) {
+export function useProject(projectId: string | null | undefined) {
   return useQuery({
-    queryKey: ['projects', projectId],
+    queryKey: queryKeys.projects.detail(projectId || ''),
     queryFn: async () => {
-      if (!projectId) throw new Error('Project ID is required');
-      const response = await fetch(`/api/projects/${projectId}`);
-      if (!response.ok) {
-        throw new Error('프로젝트 조회 실패');
-      }
-      const data: ApiResponse<Tables<'projects'>> = await response.json();
-      return data.data;
+      const response = await ProjectsAPI.getProject(projectId!);
+      return response.data;
     },
     enabled: !!projectId,
-    staleTime: 1000 * 60 * 10, // 10분
+    staleTime: 1000 * 60 * 10,
   });
 }
 
 /**
  * Slug로 프로젝트 조회 Hook
- *
- * @example
- * const { data, isLoading } = useProjectBySlug('project-slug');
  */
-export function useProjectBySlug(slug: string | null) {
+export function useProjectBySlug(slug: string | null | undefined) {
   return useQuery({
     queryKey: ['projects', 'slug', slug],
     queryFn: async () => {
-      if (!slug) throw new Error('Slug is required');
-      // Note: Slug로 조회하는 API 엔드포인트가 필요하면 추가해야 함
-      // 현재는 전체 목록에서 찾는 방식으로 구현
-      const response = await fetch('/api/projects');
-      if (!response.ok) {
-        throw new Error('프로젝트 조회 실패');
-      }
-      const data: ApiResponse<Tables<'projects'>[]> = await response.json();
-      const project = data.data.find((p) => p.slug === slug);
-      if (!project) {
-        throw new Error('프로젝트를 찾을 수 없습니다');
-      }
-      return project;
+      const response = await ProjectsAPI.getProjectBySlug(slug!);
+      return response.data;
     },
     enabled: !!slug,
-    staleTime: 1000 * 60 * 10, // 10분
+    staleTime: 1000 * 60 * 10,
   });
 }

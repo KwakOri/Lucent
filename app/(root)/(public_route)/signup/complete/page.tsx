@@ -37,9 +37,11 @@ function SignupCompleteContent() {
             setStatus('success');
             // useSignupWithToken이 자동으로 /welcome으로 리다이렉트
           },
-          onError: (error: any) => {
+          onError: (error: unknown) => {
             setStatus('error');
-            setErrorMessage(error.message || '회원가입에 실패했습니다');
+            setErrorMessage(
+              error instanceof Error ? error.message : '회원가입에 실패했습니다',
+            );
             setTimeout(() => router.push('/signup'), 3000);
           },
         }

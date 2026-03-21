@@ -1,275 +1,341 @@
 /**
  * Auth API Tests
  *
- * 인증 API 엔드포인트 테스트
+ * auth 라우트는 backend 프록시 동작을 검증한다.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { POST as signupPOST } from '@/app/api/auth/signup/route';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST as loginPOST } from '@/app/api/auth/login/route';
 import { POST as logoutPOST } from '@/app/api/auth/logout/route';
+import { GET as sessionGET } from '@/app/api/auth/session/route';
 import { POST as sendVerificationPOST } from '@/app/api/auth/send-verification/route';
+import { POST as verifyCodePOST } from '@/app/api/auth/verify-code/route';
+import { POST as signupPOST } from '@/app/api/auth/signup/route';
 import { POST as resetPasswordPOST } from '@/app/api/auth/reset-password/route';
-import { AuthService } from '@/lib/server/services/auth.service';
+import { POST as updatePasswordPOST } from '@/app/api/auth/update-password/route';
+import { POST as oauthProfileSyncPOST } from '@/app/api/auth/oauth/profile-sync/route';
+import { GET as verifyEmailGET } from '@/app/api/auth/verify-email/route';
 import { createMockRequest, parseResponse } from '../utils';
-import { mockUser, mockSession } from '../utils/fixtures';
 
-// Mock AuthService
-vi.mock('@/lib/server/services/auth.service', () => ({
-  AuthService: {
-    signUp: vi.fn(),
-    login: vi.fn(),
-    logout: vi.fn(),
-    sendVerificationEmail: vi.fn(),
-    verifyEmail: vi.fn(),
-    resetPassword: vi.fn(),
-    updatePassword: vi.fn(),
-    getCurrentSession: vi.fn(),
-  },
-}));
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
 
 describe('Auth API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.BACKEND_API_URL = 'http://backend.test';
+    vi.stubGlobal('fetch', vi.fn());
   });
 
-  describe('POST /api/auth/signup', () => {
-    it('회원가입 성공', async () => {
-      // Mock AuthService.signUp
-      vi.mocked(AuthService.signUp).mockResolvedValue({
-        user: mockUser,
-        session: mockSession,
-      });
-
-      const request = createMockRequest({
-        method: 'POST',
-        url: 'http://localhost:3000/api/auth/signup',
-        body: {
-          email: 'test@example.com',
-          password: 'password123',
-          name: 'Test User',
-        },
-      });
-
-      const response = await signupPOST(request);
-      const data = await parseResponse(response);
-
-      expect(response.status).toBe(201);
-      expect(data.status).toBe('success');
-      expect(data.data.user).toEqual({
-        id: mockUser.id,
-        email: mockUser.email,
-        name: undefined,
-      });
-      expect(data.data.session).toHaveProperty('accessToken');
-    });
-
-    it('이메일 누락 시 400 에러', async () => {
-      const request = createMockRequest({
-        method: 'POST',
-        url: 'http://localhost:3000/api/auth/signup',
-        body: {
-          password: 'password123',
-        },
-      });
-
-      const response = await signupPOST(request);
-      const data = await parseResponse(response);
-
-      expect(response.status).toBe(400);
-      expect(data.status).toBe('error');
-      expect(data.message).toContain('이메일');
-    });
-
-    it('비밀번호 누락 시 400 에러', async () => {
-      const request = createMockRequest({
-        method: 'POST',
-        url: 'http://localhost:3000/api/auth/signup',
-        body: {
-          email: 'test@example.com',
-        },
-      });
-
-      const response = await signupPOST(request);
-      const data = await parseResponse(response);
-
-      expect(response.status).toBe(400);
-      expect(data.status).toBe('error');
-      expect(data.message).toContain('비밀번호');
-    });
-
-    it('이미 존재하는 이메일로 가입 시 에러', async () => {
-      vi.mocked(AuthService.signUp).mockRejectedValue(
-        new Error('이미 사용 중인 이메일입니다')
-      );
-
-      const request = createMockRequest({
-        method: 'POST',
-        url: 'http://localhost:3000/api/auth/signup',
-        body: {
-          email: 'existing@example.com',
-          password: 'password123',
-        },
-      });
-
-      const response = await signupPOST(request);
-      const data = await parseResponse(response);
-
-      expect(response.status).toBeGreaterThanOrEqual(400);
-      expect(data.status).toBe('error');
-    });
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  describe('POST /api/auth/login', () => {
-    it('로그인 성공', async () => {
-      vi.mocked(AuthService.login).mockResolvedValue({
-        user: mockUser,
-        session: mockSession,
-      });
+  it('GET /api/auth/session 요청을 backend로 프록시한다', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: {
+          user: { id: 'user-123', email: 'test@example.com' },
+          isAdmin: false,
+        },
+      }),
+    );
 
-      const request = createMockRequest({
+    const request = createMockRequest({
+      method: 'GET',
+      url: 'http://localhost:3000/api/auth/session',
+    });
+
+    const response = await sessionGET(request);
+    const data = await parseResponse(response);
+
+    expect(response.status).toBe(200);
+    expect(data.status).toBe('success');
+    expect(fetch).toHaveBeenCalledWith(
+      'http://backend.test/api/auth/session',
+      expect.objectContaining({ method: 'GET', redirect: 'manual' }),
+    );
+  });
+
+  it('POST /api/auth/login 요청을 backend로 프록시한다', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: {
+          user: { id: 'user-123', email: 'test@example.com' },
+          session: {
+            accessToken: 'access-token',
+            refreshToken: 'refresh-token',
+            expiresAt: 1234567890,
+          },
+        },
+      }),
+    );
+
+    const request = createMockRequest({
+      method: 'POST',
+      url: 'http://localhost:3000/api/auth/login',
+      body: {
+        email: 'test@example.com',
+        password: 'password123',
+      },
+    });
+
+    const response = await loginPOST(request);
+    const data = await parseResponse(response);
+
+    expect(response.status).toBe(200);
+    expect(data.status).toBe('success');
+    expect(fetch).toHaveBeenCalledWith(
+      'http://backend.test/api/auth/login',
+      expect.objectContaining({
         method: 'POST',
-        url: 'http://localhost:3000/api/auth/login',
-        body: {
+        body: JSON.stringify({
           email: 'test@example.com',
           password: 'password123',
-        },
-      });
-
-      const response = await loginPOST(request);
-      const data = await parseResponse(response);
-
-      expect(response.status).toBe(200);
-      expect(data.status).toBe('success');
-      expect(data.data.user.email).toBe('test@example.com');
-    });
-
-    it('이메일 누락 시 400 에러', async () => {
-      const request = createMockRequest({
-        method: 'POST',
-        url: 'http://localhost:3000/api/auth/login',
-        body: {
-          password: 'password123',
-        },
-      });
-
-      const response = await loginPOST(request);
-      const data = await parseResponse(response);
-
-      expect(response.status).toBe(400);
-      expect(data.status).toBe('error');
-    });
-
-    it('잘못된 비밀번호로 로그인 시 에러', async () => {
-      vi.mocked(AuthService.login).mockRejectedValue(
-        new Error('이메일 또는 비밀번호가 일치하지 않습니다')
-      );
-
-      const request = createMockRequest({
-        method: 'POST',
-        url: 'http://localhost:3000/api/auth/login',
-        body: {
-          email: 'test@example.com',
-          password: 'wrongpassword',
-        },
-      });
-
-      const response = await loginPOST(request);
-      const data = await parseResponse(response);
-
-      expect(response.status).toBeGreaterThanOrEqual(400);
-      expect(data.status).toBe('error');
-    });
+        }),
+      }),
+    );
   });
 
-  describe('POST /api/auth/logout', () => {
-    it('로그아웃 성공', async () => {
-      vi.mocked(AuthService.logout).mockResolvedValue(undefined);
+  it('POST /api/auth/logout 요청의 에러 상태를 그대로 전달한다', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse(
+        {
+          status: 'error',
+          message: '로그인이 필요합니다',
+          errorCode: 'UNAUTHORIZED',
+        },
+        401,
+      ),
+    );
 
-      const request = createMockRequest({
-        method: 'POST',
-        url: 'http://localhost:3000/api/auth/logout',
-      });
-
-      const response = await logoutPOST(request);
-      const data = await parseResponse(response);
-
-      expect(response.status).toBe(200);
-      expect(data.status).toBe('success');
+    const request = createMockRequest({
+      method: 'POST',
+      url: 'http://localhost:3000/api/auth/logout',
     });
+
+    const response = await logoutPOST(request);
+    const data = await parseResponse(response);
+
+    expect(response.status).toBe(401);
+    expect(data.status).toBe('error');
+    expect(fetch).toHaveBeenCalledWith(
+      'http://backend.test/api/auth/logout',
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 
-  describe('POST /api/auth/send-verification', () => {
-    it('인증 이메일 발송 성공', async () => {
-      vi.mocked(AuthService.sendVerificationEmail).mockResolvedValue({
-        success: true,
-        message: '인증 이메일이 발송되었습니다',
-      });
-
-      const request = createMockRequest({
-        method: 'POST',
-        url: 'http://localhost:3000/api/auth/send-verification',
-        body: {
+  it('POST /api/auth/send-verification 요청을 backend로 프록시한다', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: {
           email: 'test@example.com',
+          expiresIn: 600,
         },
-      });
+      }),
+    );
 
-      const response = await sendVerificationPOST(request);
-      const data = await parseResponse(response);
-
-      expect(response.status).toBe(200);
-      expect(data.status).toBe('success');
+    const request = createMockRequest({
+      method: 'POST',
+      url: 'http://localhost:3000/api/auth/send-verification',
+      body: {
+        email: 'test@example.com',
+        password: 'password123',
+      },
     });
 
-    it('이메일 누락 시 400 에러', async () => {
-      const request = createMockRequest({
-        method: 'POST',
-        url: 'http://localhost:3000/api/auth/send-verification',
-        body: {},
-      });
+    const response = await sendVerificationPOST(request);
+    const data = await parseResponse(response);
 
-      const response = await sendVerificationPOST(request);
-      const data = await parseResponse(response);
-
-      expect(response.status).toBe(400);
-      expect(data.status).toBe('error');
-    });
+    expect(response.status).toBe(200);
+    expect(data.status).toBe('success');
+    expect(fetch).toHaveBeenCalledWith(
+      'http://backend.test/api/auth/send-verification',
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 
-  describe('POST /api/auth/reset-password', () => {
-    it('비밀번호 재설정 이메일 발송 성공', async () => {
-      vi.mocked(AuthService.resetPassword).mockResolvedValue({
-        success: true,
-        message: '비밀번호 재설정 이메일이 발송되었습니다',
-      });
+  it('POST /api/auth/verify-code 요청을 backend로 프록시한다', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: { token: 'verified-token-123' },
+      }),
+    );
 
-      const request = createMockRequest({
-        method: 'POST',
-        url: 'http://localhost:3000/api/auth/reset-password',
-        body: {
-          email: 'test@example.com',
+    const request = createMockRequest({
+      method: 'POST',
+      url: 'http://localhost:3000/api/auth/verify-code',
+      body: {
+        email: 'test@example.com',
+        code: '123456',
+      },
+    });
+
+    const response = await verifyCodePOST(request);
+    const data = await parseResponse(response);
+
+    expect(response.status).toBe(200);
+    expect(data.status).toBe('success');
+    expect(fetch).toHaveBeenCalledWith(
+      'http://backend.test/api/auth/verify-code',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('POST /api/auth/signup 요청 시 backend 201을 그대로 전달한다', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse(
+        {
+          status: 'success',
+          data: {
+            user: { id: 'user-123', email: 'test@example.com' },
+            session: {
+              access_token: 'access-token',
+              refresh_token: 'refresh-token',
+            },
+          },
         },
-      });
+        201,
+      ),
+    );
 
-      const response = await resetPasswordPOST(request);
-      const data = await parseResponse(response);
-
-      expect(response.status).toBe(200);
-      expect(data.status).toBe('success');
+    const request = createMockRequest({
+      method: 'POST',
+      url: 'http://localhost:3000/api/auth/signup',
+      body: {
+        email: 'test@example.com',
+        verificationToken: 'verified-token-123',
+      },
     });
 
-    it('이메일 누락 시 400 에러', async () => {
-      const request = createMockRequest({
-        method: 'POST',
-        url: 'http://localhost:3000/api/auth/reset-password',
-        body: {},
-      });
+    const response = await signupPOST(request);
+    const data = await parseResponse(response);
 
-      const response = await resetPasswordPOST(request);
-      const data = await parseResponse(response);
+    expect(response.status).toBe(201);
+    expect(data.status).toBe('success');
+    expect(fetch).toHaveBeenCalledWith(
+      'http://backend.test/api/auth/signup',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
 
-      expect(response.status).toBe(400);
-      expect(data.status).toBe('error');
+  it('POST /api/auth/reset-password 요청을 backend로 프록시한다', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: {
+          message: '비밀번호 재설정 이메일이 발송되었습니다.',
+        },
+      }),
+    );
+
+    const request = createMockRequest({
+      method: 'POST',
+      url: 'http://localhost:3000/api/auth/reset-password',
+      body: {
+        email: 'test@example.com',
+      },
     });
+
+    const response = await resetPasswordPOST(request);
+    const data = await parseResponse(response);
+
+    expect(response.status).toBe(200);
+    expect(data.status).toBe('success');
+    expect(fetch).toHaveBeenCalledWith(
+      'http://backend.test/api/auth/reset-password',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('POST /api/auth/update-password 요청을 backend로 프록시한다', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: {
+          email: 'test@example.com',
+          message: '비밀번호가 성공적으로 변경되었습니다.',
+        },
+      }),
+    );
+
+    const request = createMockRequest({
+      method: 'POST',
+      url: 'http://localhost:3000/api/auth/update-password',
+      body: {
+        token: 'reset-token',
+        newPassword: 'newpassword123',
+      },
+    });
+
+    const response = await updatePasswordPOST(request);
+    const data = await parseResponse(response);
+
+    expect(response.status).toBe(200);
+    expect(data.status).toBe('success');
+    expect(fetch).toHaveBeenCalledWith(
+      'http://backend.test/api/auth/update-password',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('POST /api/auth/oauth/profile-sync 요청을 backend로 프록시한다', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: { isNewUser: true },
+      }),
+    );
+
+    const request = createMockRequest({
+      method: 'POST',
+      url: 'http://localhost:3000/api/auth/oauth/profile-sync',
+    });
+
+    const response = await oauthProfileSyncPOST(request);
+    const data = await parseResponse(response);
+
+    expect(response.status).toBe(200);
+    expect(data.status).toBe('success');
+    expect(fetch).toHaveBeenCalledWith(
+      'http://backend.test/api/auth/oauth/profile-sync',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('GET /api/auth/verify-email 요청에서 redirect 응답을 유지한다', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location:
+            'http://localhost:3000/signup/complete?verified=true&token=verified-token-123',
+        },
+      }),
+    );
+
+    const request = createMockRequest({
+      method: 'GET',
+      url: 'http://localhost:3000/api/auth/verify-email?token=verified-token-123',
+    });
+
+    const response = await verifyEmailGET(request);
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe(
+      'http://localhost:3000/signup/complete?verified=true&token=verified-token-123',
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      'http://backend.test/api/auth/verify-email?token=verified-token-123',
+      expect.objectContaining({ method: 'GET', redirect: 'manual' }),
+    );
   });
 });

@@ -23,12 +23,18 @@
 # misc
 .DS_Store
 *.pem
+/.vscode
+/.tmp/
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+
+# local ops reports
+/reports/v2-rehearsal/
+/supabase/.temp/
 
 # env files (can opt-in for committing if needed)
 .env*

@@ -67,6 +67,10 @@ export interface AddressInputProps {
    * 상세 주소 외부 에러 메시지
    */
   detailAddressError?: string;
+  /**
+   * 상세 주소 input 추가 className
+   */
+  detailAddressInputClassName?: string;
 
   /**
    * 필수 필드 여부
@@ -84,6 +88,10 @@ export interface AddressInputProps {
    * 검색 버튼 텍스트
    */
   searchButtonText?: string;
+  /**
+   * 검색 버튼 추가 className
+   */
+  searchButtonClassName?: string;
 }
 
 export function AddressInput({
@@ -100,11 +108,13 @@ export function AddressInput({
   detailAddressValue,
   onDetailAddressChange,
   detailAddressError,
+  detailAddressInputClassName,
 
   required = false,
   showDetailAlways = false,
   disabled = false,
   searchButtonText = "주소 검색",
+  searchButtonClassName,
 }: AddressInputProps) {
   const { openModal, renderModal } = useModal();
 
@@ -119,7 +129,7 @@ export function AddressInput({
         : selectedAddress;
 
       onMainAddressChange(fullAddress);
-    } catch (error) {
+    } catch {
       // 모달이 취소된 경우 (onAbort 호출)
       // 아무 작업도 하지 않음
     }
@@ -148,7 +158,7 @@ export function AddressInput({
             size="md"
             onClick={handleSearchClick}
             disabled={disabled}
-            className="w-full"
+            className={`w-full ${searchButtonClassName || ""}`}
           >
             <Search size={18} />
             <span className="ml-2">{searchButtonText}</span>
@@ -188,6 +198,7 @@ export function AddressInput({
             placeholder="예: 101동 202호"
             error={!!detailAddressError}
             disabled={disabled}
+            className={detailAddressInputClassName}
           />
         </FormField>
       )}

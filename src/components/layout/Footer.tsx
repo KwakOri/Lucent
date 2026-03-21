@@ -50,6 +50,11 @@ export function Footer() {
                   개인정보처리방침
                 </Link>
               </li>
+              <li>
+                <Link href="/policy" className="text-neutral-400 hover:text-white transition-colors text-sm">
+                  배송/교환/환불 정책
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

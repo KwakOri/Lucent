@@ -1,8 +1,29 @@
-import { ProjectService } from '@/lib/server/services/project.service';
+'use client';
+
+import { Loading } from '@/components/ui/loading';
+import { useProjects } from '@/lib/client/hooks/useProjects';
 import { ArtistForm } from '@/src/components/admin/artists/ArtistForm';
 
-export default async function NewArtistPage() {
-  const projects = await ProjectService.getProjects();
+export default function NewArtistPage() {
+  const { data: projects, isLoading, error } = useProjects({
+    isActive: 'all',
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loading size="lg" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600">프로젝트 목록을 불러오는데 실패했습니다.</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -13,7 +34,7 @@ export default async function NewArtistPage() {
         </p>
       </div>
 
-      <ArtistForm projects={projects} />
+      <ArtistForm projects={projects || []} />
     </div>
   );
 }

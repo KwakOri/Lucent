@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { LogWithRelations } from '@/lib/server/services/log.service';
+import type { LogWithRelations } from '@/lib/client/api/logs.api';
 
 interface LogsTableProps {
   logs: LogWithRelations[];
@@ -27,8 +27,12 @@ export function LogsTable({ logs: initialLogs }: LogsTableProps) {
 
   // Filter logs
   const filteredLogs = logs.filter((log) => {
-    if (categoryFilter !== 'all' && log.event_category !== categoryFilter) return false;
-    if (levelFilter !== 'all' && log.severity !== levelFilter) return false;
+    const normalizedCategory = (log.event_category || '').toUpperCase();
+    const normalizedSeverity = (log.severity || '').toUpperCase();
+
+    if (categoryFilter !== 'all' && normalizedCategory !== categoryFilter) return false;
+    if (levelFilter !== 'all' && normalizedSeverity !== levelFilter) return false;
+
     return true;
   });
 
@@ -98,26 +102,36 @@ export function LogsTable({ logs: initialLogs }: LogsTableProps) {
                   ) : (
                     filteredLogs.map((log) => (
                       <tr key={log.id}>
-                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-500 sm:pl-6">
-                          {new Date(log.created_at).toLocaleString('ko-KR')}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {categoryLabels[log.event_category] || log.event_category}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-gray-900">
-                          {log.event_type}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {log.user?.email || log.admin?.email || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {log.ip_address || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm">
-                          <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${levelColors[log.severity] || 'bg-gray-100 text-gray-800'}`}>
-                            {log.severity}
-                          </span>
-                        </td>
+                        {(() => {
+                          const normalizedCategory = (log.event_category || '').toUpperCase();
+                          const normalizedSeverity = (log.severity || '').toUpperCase();
+                          return (
+                            <>
+                              <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-500 sm:pl-6">
+                                {new Date(log.created_at || '').toLocaleString('ko-KR')}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                {categoryLabels[normalizedCategory] || log.event_category}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-gray-900">
+                                {log.event_type}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                {log.user?.email || log.admin?.email || '-'}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                {log.ip_address || '-'}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-4 text-sm">
+                                <span
+                                  className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${levelColors[normalizedSeverity] || 'bg-gray-100 text-gray-800'}`}
+                                >
+                                  {normalizedSeverity}
+                                </span>
+                              </td>
+                            </>
+                          );
+                        })()}
                       </tr>
                     ))
                   )}

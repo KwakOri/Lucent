@@ -16,6 +16,40 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Environment Variables
+
+Set backend API origin for server-side proxy requests:
+
+```bash
+BACKEND_API_URL=http://localhost:3001
+```
+
+`BACKEND_API_URL` should use backend server origin (include protocol, no trailing `/api`).
+
+Recommended production topology:
+
+- Browser -> Next API Route (`/api/*`, same-origin)
+- Next API Route (BFF/proxy) -> Backend API
+
+If you intentionally need direct browser-to-backend calls, you can additionally set:
+
+```bash
+NEXT_PUBLIC_BACKEND_API_URL=http://localhost:3001
+```
+
+Direct browser-to-R2 uploads also require bucket CORS to allow your frontend origin.
+Allow `PUT` and `HEAD` requests from the app origin and permit the `Content-Type` header.
+
+## Docker (local)
+
+Frontend is deployed by Vercel in production, so Docker is used for local integration only.
+
+Run frontend + backend together from project root (`lucent`):
+
+```bash
+docker compose -f backend/docker-compose.local.yml up --build
+```
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

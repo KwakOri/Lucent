@@ -1,0 +1,112 @@
+'use client';
+
+import type { ComponentType } from 'react';
+import Link from 'next/link';
+import {
+  UserGroupIcon,
+  FolderIcon,
+  ShoppingBagIcon,
+  MegaphoneIcon,
+  CubeIcon,
+  PhotoIcon,
+  ArrowsRightLeftIcon,
+} from '@heroicons/react/24/outline';
+
+type V2Entry = {
+  title: string;
+  description: string;
+  href: string;
+  icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+  tone: string;
+};
+
+const entries: V2Entry[] = [
+  {
+    title: 'v2 프로젝트 관리',
+    description: '프로젝트 생성/수정, 공개 상태, 노출 순서를 운영합니다.',
+    href: '/admin/v2-catalog/projects',
+    icon: FolderIcon,
+    tone: 'bg-blue-100 text-blue-700',
+  },
+  {
+    title: 'v2 아티스트 관리',
+    description: '아티스트 등록과 프로젝트 연결(Primary/정렬)을 운영합니다.',
+    href: '/admin/v2-catalog/artists',
+    icon: UserGroupIcon,
+    tone: 'bg-cyan-100 text-cyan-700',
+  },
+  {
+    title: 'v2 상품 관리',
+    description: '상품과 variant를 등록하고 판매 가능 상태를 관리합니다.',
+    href: '/admin/v2-catalog/products',
+    icon: ShoppingBagIcon,
+    tone: 'bg-indigo-100 text-indigo-700',
+  },
+  {
+    title: 'v2 미디어·에셋',
+    description: '상품 이미지와 디지털 파일 메타데이터를 관리합니다.',
+    href: '/admin/v2-catalog/assets',
+    icon: PhotoIcon,
+    tone: 'bg-fuchsia-100 text-fuchsia-700',
+  },
+  {
+    title: 'v2 캠페인 관리',
+    description: '기간, 대상, 옵션별 할인 가격까지 캠페인 단위로 운영합니다.',
+    href: '/admin/v2-catalog/campaigns',
+    icon: MegaphoneIcon,
+    tone: 'bg-emerald-100 text-emerald-700',
+  },
+  {
+    title: 'v2 번들 관리',
+    description: '번들 정의/컴포넌트 구성과 검증 리포트를 관리합니다.',
+    href: '/admin/v2-catalog/bundles',
+    icon: CubeIcon,
+    tone: 'bg-violet-100 text-violet-700',
+  },
+  {
+    title: 'v2 전환 준비',
+    description: '카탈로그 정합성과 read switch 준비 상태를 점검합니다.',
+    href: '/admin/v2-catalog/readiness',
+    icon: ArrowsRightLeftIcon,
+    tone: 'bg-slate-100 text-slate-700',
+  },
+];
+
+export default function V2CatalogHomePage() {
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">v2 운영 홈</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          프로덕션 운영 기준의 v2 카탈로그 관리 화면입니다.
+        </p>
+      </div>
+
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {entries.map((entry) => (
+          <Link
+            key={entry.href}
+            href={entry.href}
+            className="group rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md"
+          >
+            <div className="flex items-start gap-4">
+              <div
+                className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${entry.tone}`}
+              >
+                <entry.icon className="h-5 w-5" aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-gray-900 group-hover:text-blue-700">
+                  {entry.title}
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-gray-600">
+                  {entry.description}
+                </p>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </section>
+    </div>
+  );
+}

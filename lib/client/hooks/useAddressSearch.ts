@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react';
+import { AddressAPI } from '@/lib/client/api/address.api';
 import type { AddressSearchResult } from '@/types/address';
 
 interface UseAddressSearchReturn {
@@ -28,15 +29,7 @@ export function useAddressSearch(): UseAddressSearchReturn {
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/address/search?query=${encodeURIComponent(query)}`
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error?.message || '주소 검색에 실패했습니다');
-      }
+      const data = await AddressAPI.search(query);
 
       setResults(data.data.results);
 

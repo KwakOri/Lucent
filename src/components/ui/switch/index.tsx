@@ -1,4 +1,4 @@
-import { InputHTMLAttributes, forwardRef } from "react";
+import { InputHTMLAttributes, forwardRef, useId } from "react";
 import { clsx } from "clsx";
 
 export interface SwitchProps
@@ -42,6 +42,7 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
     },
     ref
   ) => {
+    const generatedId = useId();
     const switchSize = {
       sm: {
         track: "w-9 h-5",
@@ -55,7 +56,7 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
       },
     };
 
-    const inputId = id || `switch-${Math.random().toString(36).substr(2, 9)}`;
+    const inputId = id || `switch-${generatedId}`;
     const currentSize = switchSize[size];
 
     return (

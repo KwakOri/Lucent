@@ -69,6 +69,80 @@
 
 ---
 
+### 5. [V2 Read Switch 승인 절차 Runbook](./v2-read-switch-approval-runbook.md)
+**v2 카탈로그 읽기 전환 전 최종 승인/판정 가이드**
+
+- compare/checklist/remediation API 확인 절차
+- BLOCKING/ADVISORY 판정 기준
+- 1인 작업자 승인 운영 규칙
+- 롤백 기준 및 승인 기록 템플릿
+
+**사용 시기:**
+- 프로덕션 read switch 직전 최종 승인 시
+- 전환 보류/진행 결정을 기록할 때
+- 전환 장애 대비 롤백 기준을 점검할 때
+
+---
+
+### 6. [V2 Fulfillment Cutover Runbook](./v2-fulfillment-cutover-runbook.md)
+**v2 fulfillment 운영 정착(P3) + 제한 전환(P4) 실행 가이드**
+
+- fulfillment write 컷오버 환경변수 기준
+- cutover policy / ops 모니터링 API 확인 절차
+- 로컬 자동 리허설(`ops:v2-verify-05:local`) 실행 방법
+- 제한 전환 순서 및 롤백 기준
+
+**사용 시기:**
+- v2 fulfillment write를 제한적으로 시작할 때
+- 채널/SKU allowlist 기반 점진 전환을 수행할 때
+- 운영 큐/재고 불일치 모니터링을 점검할 때
+
+---
+
+### 7. [V2 Admin/Ops Cutover Runbook](./v2-admin-ops-cutover-runbook.md)
+**v2 admin action executor 단계적 강제(P4) 실행 가이드**
+
+- rollout stage(`STAGE_1~3`) 운영 기준
+- approval enforced 플래그/액션 allowlist 적용 순서
+- cutover policy / audit / approval API 점검 절차
+- `ops:v2-verify-06` 자동 검증 명령
+
+**사용 시기:**
+- 환불/디지털 회수 같은 민감 액션을 승인 강제로 전환할 때
+- legacy write를 제한하고 v2 액션 경로로 고정할 때
+- 운영 전환 전 리허설/롤백 기준을 점검할 때
+
+---
+
+### 8. [V2 Migration/Cutover Gate Runbook](./v2-migration-cutover-runbook.md)
+**v2 migration 상태판 + gate/stage/reopen(P1~P4) 운영 가이드**
+
+- cutover domain/gate/batch/routing API 점검 절차
+- READY/REVIEW/BLOCKED 판정 기준
+- `/admin/v2-ops` 상태판 운영 포인트
+- `ops:v2-verify-07` 자동 검증 명령
+
+**사용 시기:**
+- 도메인별 컷오버 상태를 운영하면서 게이트 판정을 수행할 때
+- 단계 전환 승인 전에 BLOCKED 사유를 점검할 때
+- 라우팅/배치 상태를 함께 추적해야 할 때
+
+---
+
+### 9. [V2 Integration Rehearsal Runbook](./v2-integration-rehearsal-runbook.md)
+**01~07 통합 리허설 자동 실행 및 최종 의사결정 정리 가이드**
+
+- 통합 리허설 스크립트(`ops:v2-verify-all:local`) 실행 절차
+- 01/02 로컬 fixture 자동 보정 + 06/07 로컬 admin token 자동 발급 포함
+- 단계별 로그/리포트 산출 위치
+- 운영 전환 전 의사결정 확정안(재고 SoT/정산 축/BI 전환) 정리
+
+**사용 시기:**
+- 01~07 구현 이후 전체 회귀 점검이 필요할 때
+- 프로덕션 전환 직전 마지막 리허설을 수행할 때
+
+---
+
 ## 🚀 빠른 시작
 
 ### 1. 환경 설정
@@ -157,6 +231,8 @@ npx tsx scripts/test-email.ts your-email@example.com
 ```
 /scripts
 └── test-email.ts               # 이메일 설정 테스트 스크립트
+└── v2-read-switch-rehearsal.ts # V2 전환 리허설 점검 스크립트
+└── ops-v2-verify-all-local.sh  # 01~07 통합 리허설 자동 실행 스크립트
 ```
 
 ---
@@ -171,6 +247,11 @@ npx tsx scripts/test-email.ts your-email@example.com
 | 로그인/로그아웃을 구현하고 싶어요 | [Supabase 인증 가이드](./supabase-auth-guide.md) |
 | R2 환경변수를 찾고 싶어요 | [R2 설정 가이드](./r2-setup.md) |
 | 이미지/파일 스토리지를 설정하고 싶어요 | [R2 설정 가이드](./r2-setup.md) |
+| V2 read switch 전환을 승인하고 싶어요 | [V2 Read Switch 승인 Runbook](./v2-read-switch-approval-runbook.md) |
+| V2 fulfillment write를 전환하고 싶어요 | [V2 Fulfillment Cutover Runbook](./v2-fulfillment-cutover-runbook.md) |
+| V2 admin 액션 승인 강제를 전환하고 싶어요 | [V2 Admin/Ops Cutover Runbook](./v2-admin-ops-cutover-runbook.md) |
+| V2 migration gate 판정을 운영하고 싶어요 | [V2 Migration/Cutover Gate Runbook](./v2-migration-cutover-runbook.md) |
+| 01~07 전체 통합 리허설을 실행하고 싶어요 | [V2 Integration Rehearsal Runbook](./v2-integration-rehearsal-runbook.md) |
 | API 스펙을 확인하고 싶어요 | `/specs/api/` 폴더 |
 | UI 스펙을 확인하고 싶어요 | `/specs/ui/` 폴더 |
 | 자동화 테스트를 실행하고 싶어요 | `/tests/README.md` |

@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useCartCount, useLogout, useSession } from "@/lib/client/hooks";
+import { useLogout, useSession, useV2CartCount } from "@/lib/client/hooks";
 import { Menu, ShoppingCart, X } from "lucide-react";
 
 import Link from "next/link";
@@ -9,23 +9,23 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo, memo } from "react";
 
 // Throttle utility
-function throttle<T extends (...args: any[]) => void>(
+function throttle<T extends (...args: unknown[]) => void>(
   func: T,
   delay: number
 ): (...args: Parameters<T>) => void {
   let timeoutId: NodeJS.Timeout | null = null;
   let lastRan = 0;
 
-  return function (this: any, ...args: Parameters<T>) {
+  return (...args: Parameters<T>) => {
     const now = Date.now();
 
     if (now - lastRan >= delay) {
-      func.apply(this, args);
+      func(...args);
       lastRan = now;
     } else {
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        func.apply(this, args);
+        func(...args);
         lastRan = Date.now();
       }, delay - (now - lastRan));
     }
@@ -55,7 +55,7 @@ CartBadge.displayName = "CartBadge";
 export function Header() {
   const { user, isAdmin, isLoading } = useSession();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
-  const { data: cartCount } = useCartCount();
+  const { data: cartCount } = useV2CartCount();
 
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

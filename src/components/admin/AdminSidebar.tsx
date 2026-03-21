@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -10,18 +10,78 @@ import {
   ShoppingBagIcon,
   ShoppingCartIcon,
   DocumentTextIcon,
+  ArrowsRightLeftIcon,
+  CubeIcon,
+  ShieldCheckIcon,
+  MegaphoneIcon,
+  PhotoIcon,
+  ChartBarIcon,
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 
-const navigation = [
-  { name: '대시보드', href: '/admin', icon: HomeIcon },
-  { name: '아티스트 관리', href: '/admin/artists', icon: UserGroupIcon },
-  { name: '프로젝트 관리', href: '/admin/projects', icon: FolderIcon },
-  { name: '상품 관리', href: '/admin/products', icon: ShoppingBagIcon },
-  { name: '주문 관리', href: '/admin/orders', icon: ShoppingCartIcon },
-  { name: '로그 조회', href: '/admin/logs', icon: DocumentTextIcon },
+type NavigationItem = {
+  name: string;
+  href: string;
+  icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+};
+
+type NavigationSection = {
+  title: string;
+  items: NavigationItem[];
+};
+
+const navigationSections: NavigationSection[] = [
+  {
+    title: '공통',
+    items: [
+      { name: '대시보드', href: '/admin', icon: HomeIcon },
+      { name: '로그 조회', href: '/admin/logs', icon: DocumentTextIcon },
+    ],
+  },
+  {
+    title: 'v1 카탈로그',
+    items: [
+      { name: 'v1 아티스트 관리', href: '/admin/artists', icon: UserGroupIcon },
+      { name: 'v1 프로젝트 관리', href: '/admin/projects', icon: FolderIcon },
+      { name: 'v1 상품 관리', href: '/admin/products', icon: ShoppingBagIcon },
+    ],
+  },
+  {
+    title: 'v2 주요 관리',
+    items: [
+      { name: 'v2 운영 홈', href: '/admin/v2-catalog', icon: HomeIcon },
+      { name: 'v2 주문 관리', href: '/admin/orders', icon: ShoppingCartIcon },
+      { name: 'v2 프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderIcon },
+      { name: 'v2 아티스트 관리', href: '/admin/v2-catalog/artists', icon: UserGroupIcon },
+      { name: 'v2 상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBagIcon },
+      { name: 'v2 캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: MegaphoneIcon },
+      { name: 'v2 통계', href: '/admin/v2-ops/stats', icon: ChartBarIcon },
+    ],
+  },
+  {
+    title: 'v2 기타',
+    items: [
+      { name: 'v2 번들 관리', href: '/admin/v2-catalog/bundles', icon: CubeIcon },
+      { name: 'v2 전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowsRightLeftIcon },
+      { name: 'v2 미디어·에셋', href: '/admin/v2-catalog/assets', icon: PhotoIcon },
+      { name: 'v2 Admin Ops', href: '/admin/v2-ops', icon: ShieldCheckIcon },
+    ],
+  },
 ];
+
+function isNavItemActive(pathname: string, href: string): boolean {
+  if (pathname === href) {
+    return true;
+  }
+
+  // 대시보드/운영 홈은 해당 경로에서만 활성화합니다.
+  if (href === '/admin' || href === '/admin/v2-catalog') {
+    return false;
+  }
+
+  return pathname.startsWith(href);
+}
 
 export function AdminSidebar() {
   const pathname = usePathname();
@@ -39,7 +99,7 @@ export function AdminSidebar() {
           onClick={() => setMobileMenuOpen(true)}
         >
           <span className="sr-only">메뉴 열기</span>
-          <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+          <Bars3Icon className="h-6 w-6" aria-hidden />
         </button>
         <div className="flex-1 text-sm font-semibold leading-6 text-gray-900">
           Lucent Admin
@@ -73,40 +133,48 @@ export function AdminSidebar() {
                 onClick={closeMobileMenu}
               >
                 <span className="sr-only">메뉴 닫기</span>
-                <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+                <XMarkIcon className="h-6 w-6" aria-hidden />
               </button>
             </div>
             <nav className="mt-6">
-              <ul role="list" className="-mx-2 space-y-1">
-                {navigation.map((item) => {
-                  const isActive = pathname === item.href ||
-                    (item.href !== '/admin' && pathname.startsWith(item.href));
+              <div className="space-y-6">
+                {navigationSections.map((section) => (
+                  <div key={section.title}>
+                    <p className="px-2 text-xs font-bold uppercase tracking-wide text-gray-400">
+                      {section.title}
+                    </p>
+                    <ul role="list" className="-mx-2 mt-2 space-y-1">
+                      {section.items.map((item) => {
+                        const isActive = isNavItemActive(pathname, item.href);
 
-                  return (
-                    <li key={item.name}>
-                      <Link
-                        href={item.href}
-                        onClick={closeMobileMenu}
-                        className={`
-                          group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6
-                          ${isActive
-                            ? 'bg-blue-50 text-blue-600'
-                            : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'
-                          }
-                        `}
-                      >
-                        <item.icon
-                          className={`h-6 w-6 shrink-0 ${
-                            isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600'
-                          }`}
-                          aria-hidden="true"
-                        />
-                        {item.name}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+                        return (
+                          <li key={item.name}>
+                            <Link
+                              href={item.href}
+                              onClick={closeMobileMenu}
+                              className={`
+                                group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6
+                                ${isActive
+                                  ? 'bg-blue-50 text-blue-600'
+                                  : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'
+                                }
+                              `}
+                            >
+                              <item.icon
+                                className={`h-6 w-6 shrink-0 ${
+                                  isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600'
+                                }`}
+                                aria-hidden
+                              />
+                              {item.name}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
               <div className="mt-8 pt-8 border-t border-gray-200">
                 <Link
                   href="/"
@@ -136,35 +204,43 @@ export function AdminSidebar() {
           <nav className="flex flex-1 flex-col">
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
               <li>
-                <ul role="list" className="-mx-2 space-y-1">
-                  {navigation.map((item) => {
-                    const isActive = pathname === item.href ||
-                      (item.href !== '/admin' && pathname.startsWith(item.href));
+                <div className="space-y-6">
+                  {navigationSections.map((section) => (
+                    <div key={section.title}>
+                      <p className="px-2 text-xs font-bold uppercase tracking-wide text-gray-400">
+                        {section.title}
+                      </p>
+                      <ul role="list" className="-mx-2 mt-2 space-y-1">
+                        {section.items.map((item) => {
+                          const isActive = isNavItemActive(pathname, item.href);
 
-                    return (
-                      <li key={item.name}>
-                        <Link
-                          href={item.href}
-                          className={`
-                            group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6
-                            ${isActive
-                              ? 'bg-blue-50 text-blue-600'
-                              : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'
-                            }
-                          `}
-                        >
-                          <item.icon
-                            className={`h-6 w-6 shrink-0 ${
-                              isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600'
-                            }`}
-                            aria-hidden="true"
-                          />
-                          {item.name}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
+                          return (
+                            <li key={item.name}>
+                              <Link
+                                href={item.href}
+                                className={`
+                                  group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6
+                                  ${isActive
+                                    ? 'bg-blue-50 text-blue-600'
+                                    : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'
+                                  }
+                                `}
+                              >
+                                <item.icon
+                                  className={`h-6 w-6 shrink-0 ${
+                                    isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600'
+                                  }`}
+                                  aria-hidden
+                                />
+                                {item.name}
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
               </li>
 
               {/* Spacer */}

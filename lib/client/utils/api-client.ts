@@ -4,86 +4,185 @@
  * fetch 기반 HTTP 클라이언트
  */
 
+import { createClient } from '@/utils/supabase/client';
 import { ApiError } from './api-error';
+
+interface APIRequestOptions extends RequestInit {
+  requiresAuth?: boolean;
+}
 
 class APIClient {
   private baseURL: string;
+  private supabaseClient: ReturnType<typeof createClient> | null = null;
 
   constructor(baseURL = '') {
-    this.baseURL = baseURL;
+    this.baseURL = baseURL.replace(/\/$/, '');
   }
 
   /**
    * HTTP 요청 공통 처리
    */
-  private async request<T>(url: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(`${this.baseURL}${url}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-      credentials: 'include', // 쿠키 포함
-      ...options,
+  private async request<T>(url: string, options: APIRequestOptions = {}): Promise<T> {
+    const { requiresAuth = true, headers: customHeaders, ...requestInit } = options;
+    const headers = new Headers(customHeaders || {});
+
+    if (!(requestInit.body instanceof FormData) && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    if (requiresAuth) {
+      const accessToken = await this.getAccessToken();
+      if (accessToken) {
+        headers.set('Authorization', `Bearer ${accessToken}`);
+      }
+    }
+
+    const resolvedUrl = this.resolveUrl(url);
+    console.log(`[apiClient] ${requestInit.method ?? 'GET'} ${resolvedUrl}`);
+
+    const response = await fetch(resolvedUrl, {
+      credentials: 'include',
+      ...requestInit,
+      headers,
     });
 
-    // JSON 파싱
-    const data = await response.json();
+    console.log(`[apiClient] 응답 상태: ${response.status} ${response.statusText}`);
+
+    if (response.status === 204) {
+      return {} as T;
+    }
+
+    const rawBody = await response.text();
+    const payload = this.safeParseBody(rawBody);
 
     // 에러 처리
     if (!response.ok) {
+      console.error('[apiClient] 에러 응답 body:', rawBody);
       throw new ApiError(
-        data.message || '요청 실패',
+        this.getErrorMessage(payload),
         response.status,
-        data.errorCode
+        this.getErrorCode(payload)
       );
     }
 
-    return data;
+    return payload as T;
   }
 
   /**
    * GET 요청
    */
-  async get<T>(url: string): Promise<T> {
-    return this.request<T>(url, { method: 'GET' });
+  async get<T>(url: string, options?: APIRequestOptions): Promise<T> {
+    return this.request<T>(url, { ...options, method: 'GET' });
   }
 
   /**
    * POST 요청
    */
-  async post<T>(url: string, body: unknown): Promise<T> {
+  async post<T>(url: string, body: unknown, options?: APIRequestOptions): Promise<T> {
     return this.request<T>(url, {
+      ...options,
       method: 'POST',
-      body: JSON.stringify(body),
+      body: body instanceof FormData ? body : JSON.stringify(body),
     });
   }
 
   /**
    * PATCH 요청
    */
-  async patch<T>(url: string, body: unknown): Promise<T> {
+  async patch<T>(url: string, body: unknown, options?: APIRequestOptions): Promise<T> {
     return this.request<T>(url, {
+      ...options,
       method: 'PATCH',
-      body: JSON.stringify(body),
+      body: body instanceof FormData ? body : JSON.stringify(body),
     });
   }
 
   /**
    * PUT 요청
    */
-  async put<T>(url: string, body: unknown): Promise<T> {
+  async put<T>(url: string, body: unknown, options?: APIRequestOptions): Promise<T> {
     return this.request<T>(url, {
+      ...options,
       method: 'PUT',
-      body: JSON.stringify(body),
+      body: body instanceof FormData ? body : JSON.stringify(body),
     });
   }
 
   /**
    * DELETE 요청
    */
-  async delete<T>(url: string): Promise<T> {
-    return this.request<T>(url, { method: 'DELETE' });
+  async delete<T>(url: string, options?: APIRequestOptions): Promise<T> {
+    return this.request<T>(url, { ...options, method: 'DELETE' });
+  }
+
+  private resolveUrl(url: string): string {
+    if (/^https?:\/\//.test(url) || !this.baseURL) {
+      return url;
+    }
+
+    return `${this.baseURL}${url}`;
+  }
+
+  private safeParseBody(rawBody: string): unknown {
+    if (!rawBody) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(rawBody);
+    } catch {
+      return null;
+    }
+  }
+
+  private getErrorMessage(payload: unknown): string {
+    if (payload && typeof payload === 'object' && 'message' in payload) {
+      const message = (payload as { message?: unknown }).message;
+      if (typeof message === 'string' && message.length > 0) {
+        return message;
+      }
+    }
+
+    return '요청 실패';
+  }
+
+  private getErrorCode(payload: unknown): string | undefined {
+    if (payload && typeof payload === 'object' && 'errorCode' in payload) {
+      const errorCode = (payload as { errorCode?: unknown }).errorCode;
+      if (typeof errorCode === 'string' && errorCode.length > 0) {
+        return errorCode;
+      }
+    }
+
+    return undefined;
+  }
+
+  private getBrowserSupabaseClient() {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    if (!this.supabaseClient) {
+      this.supabaseClient = createClient();
+    }
+
+    return this.supabaseClient;
+  }
+
+  private async getAccessToken(): Promise<string | null> {
+    const supabase = this.getBrowserSupabaseClient();
+    if (!supabase) {
+      return null;
+    }
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    return session?.access_token || null;
   }
 }
 
-export const apiClient = new APIClient();
+// Keep browser requests same-origin and route through Next API routes (BFF).
+const apiBaseUrl = '';
+export const apiClient = new APIClient(apiBaseUrl);

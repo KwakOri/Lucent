@@ -23,7 +23,7 @@ export default function TermsPage() {
               이용약관
             </h1>
             <p className="text-sm text-text-secondary">
-              최종 수정일: 2025년 1월 1일
+              최종 수정일: 2026년 2월 18일
             </p>
           </div>
 
@@ -32,7 +32,7 @@ export default function TermsPage() {
             <section>
               <h2 className="text-2xl font-bold mb-4">제1조 (목적)</h2>
               <p className="leading-relaxed text-text-secondary">
-                본 약관은 Lucent Management(이하 "회사")가 제공하는 서비스의
+                본 약관은 Lucent Management(이하 &quot;회사&quot;)가 제공하는 서비스의
                 이용조건 및 절차에 관한 사항을 규정함을 목적으로 합니다.
               </p>
             </section>
@@ -40,16 +40,16 @@ export default function TermsPage() {
             <section>
               <h2 className="text-2xl font-bold mb-4">제2조 (용어의 정의)</h2>
               <div className="space-y-2 text-text-secondary">
-                <p>1. "서비스"란 회사가 제공하는 모든 서비스를 의미합니다.</p>
+                <p>1. &quot;서비스&quot;란 회사가 제공하는 모든 서비스를 의미합니다.</p>
                 <p>
-                  2. "회원"이란 본 약관에 동의하고 회원가입을 한 자를 말합니다.
+                  2. &quot;회원&quot;이란 본 약관에 동의하고 회원가입을 한 자를 말합니다.
                 </p>
                 <p>
-                  3. "디지털 상품"이란 보이스팩 등 디지털 형태로 제공되는 상품을
+                  3. &quot;디지털 상품&quot;이란 보이스팩 등 디지털 형태로 제공되는 상품을
                   말합니다.
                 </p>
                 <p>
-                  4. "실물 굿즈"란 물리적 형태로 제공되는 상품을 말합니다.
+                  4. &quot;실물 굿즈&quot;이란 물리적 형태로 제공되는 상품을 말합니다.
                 </p>
               </div>
             </section>
@@ -149,19 +149,26 @@ export default function TermsPage() {
               <h2 className="text-2xl font-bold mb-4">제8조 (환불 및 취소)</h2>
               <div className="space-y-2 text-text-secondary">
                 <p>
-                  1. 디지털 상품은 다운로드 전까지만 환불이 가능하며, 다운로드
-                  후에는 환불이 불가능합니다.
+                  1. 디지털 상품은 결제 완료 후 즉시 이용 가능한 콘텐츠로,
+                  전자상거래법 제17조 제2항에 따라 청약철회(환불)가 제한됩니다.
                 </p>
                 <p>
                   2. 실물 굿즈는 제작 시작 전 단계에서만 취소 가능하며, 제작이
                   시작된 이후에는 취소가 불가능합니다.
                 </p>
                 <p>
-                  3. 환불 요청은 이메일을 통해 접수해주세요. 환불은 입금 계좌로
-                  영업일 기준 3-7일 이내에 처리됩니다.
+                  3. 상세한 배송/교환/반품 및 환불 기준은{' '}
+                  <Link
+                    href="/policy"
+                    className="text-primary-500 hover:text-primary-600 underline"
+                  >
+                    배송/교환/환불 정책
+                  </Link>
+                  을 따릅니다.
                 </p>
                 <p>
-                  4. 상품의 하자로 인한 환불은 상품 수령 후 7일 이내 가능합니다.
+                  4. 상품 하자 또는 오배송의 경우 동일 상품 교환을 우선으로
+                  처리하며, 교환이 어려운 경우 환불 처리됩니다.
                 </p>
               </div>
             </section>
@@ -206,6 +213,9 @@ export default function TermsPage() {
             </Link>
             <Link href="/privacy">
               <Button intent="secondary">개인정보처리방침 보기</Button>
+            </Link>
+            <Link href="/policy">
+              <Button intent="secondary">배송/교환/환불 정책 보기</Button>
             </Link>
           </div>
         </div>

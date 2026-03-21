@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useSendVerification } from "@/lib/client/hooks";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FormEvent, Suspense, useMemo, useState } from "react";
 
 function SignupForm() {
   const router = useRouter();
@@ -28,16 +28,15 @@ function SignupForm() {
 
   const { mutate: sendVerification, isPending: isSubmitting } =
     useSendVerification();
-
-  // URL 파라미터에서 에러 메시지 처리
-  useEffect(() => {
+  const oauthErrorMessage = useMemo(() => {
     const error = searchParams.get("error");
     const message = searchParams.get("message");
-
     if (error && message) {
-      setErrors({ general: message });
+      return message;
     }
+    return null;
   }, [searchParams]);
+  const generalErrorMessage = errors.general || oauthErrorMessage;
 
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
@@ -89,9 +88,13 @@ function SignupForm() {
             `/signup/verify-email?email=${encodeURIComponent(email)}`
           );
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "인증 코드 발송에 실패했습니다";
           setErrors({
-            general: error.message || "인증 코드 발송에 실패했습니다",
+            general: message,
           });
         },
       }
@@ -115,12 +118,12 @@ function SignupForm() {
           {/* Signup Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* General Error */}
-            {errors.general && (
+            {generalErrorMessage && (
               <div
                 className="p-4 rounded-lg bg-error-100 text-error-600 text-sm"
                 role="alert"
               >
-                {errors.general}
+                {generalErrorMessage}
               </div>
             )}
 

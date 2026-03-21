@@ -42,10 +42,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, _session) => {
+    } = supabase.auth.onAuthStateChange(() => {
       // 세션 변경 감지 시 React Query 캐시 무효화
       // 모든 useSession 호출이 자동으로 업데이트됨
       queryClient.invalidateQueries({ queryKey: ['auth', 'session'] });
+      queryClient.invalidateQueries({ queryKey: ['v2-checkout', 'cart'] });
     });
 
     return () => {

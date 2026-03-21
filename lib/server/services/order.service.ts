@@ -171,8 +171,7 @@ export class OrderService {
         product_type: product!.type,
         quantity: item.quantity,
         price_snapshot: product!.price,
-        // DB 마이그레이션 전까지 타입 캐스팅 필요
-        item_status: itemStatus as any,
+        item_status: itemStatus,
       };
     });
 
@@ -802,7 +801,7 @@ export class OrderService {
   /**
    * 최근 주문 조회 (관리자용)
    */
-  static async getRecentOrders(limit: number = 5): Promise<any[]> {
+  static async getRecentOrders(limit: number = 5): Promise<unknown[]> {
     const supabase = await createServerClient();
 
     const { data, error } = await supabase
@@ -835,7 +834,7 @@ export class OrderService {
   /**
    * 내 보이스팩 목록 조회 (사용자)
    */
-  static async getMyVoicePacks(userId: string): Promise<any[]> {
+  static async getMyVoicePacks(userId: string): Promise<unknown[]> {
     const supabase = await createServerClient();
 
     const { data, error } = await supabase
@@ -926,8 +925,7 @@ export class OrderService {
     // 상태 업데이트
     const { data, error } = await supabase
       .from("order_items")
-      // DB 마이그레이션 전까지 타입 캐스팅 필요
-      .update({ item_status: newStatus as any })
+      .update({ item_status: newStatus })
       .eq("id", itemId)
       .select()
       .single();
@@ -972,8 +970,7 @@ export class OrderService {
 
     const { error } = await supabase
       .from("order_items")
-      // DB 마이그레이션 전까지 타입 캐스팅 필요
-      .update({ item_status: newStatus as any })
+      .update({ item_status: newStatus })
       .eq("order_id", orderId);
 
     if (error) {
@@ -999,8 +996,7 @@ export class OrderService {
 
     const { error } = await supabase
       .from("order_items")
-      // DB 마이그레이션 전까지 타입 캐스팅 필요
-      .update({ item_status: newStatus as any })
+      .update({ item_status: newStatus })
       .eq("order_id", orderId)
       .in("id", itemIds);
 

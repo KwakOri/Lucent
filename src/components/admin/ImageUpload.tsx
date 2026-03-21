@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, ChangeEvent, DragEvent } from 'react';
+import { apiClient } from '@/lib/client/utils/api-client';
+import type { ApiResponse } from '@/types';
 
 interface ImageUploadProps {
   imageType: 'project_cover' | 'artist_profile' | 'product_main' | 'product_gallery';
@@ -60,18 +62,13 @@ export function ImageUpload({
         formData.append('alt_text', altText);
       }
 
-      const response = await fetch('/api/images/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || '이미지 업로드에 실패했습니다');
-      }
-
-      const { data } = await response.json();
-      onUploadSuccess(data.id, data.public_url);
+      const response = await apiClient.post<
+        ApiResponse<{
+          id: string;
+          public_url: string;
+        }>
+      >('/api/images/upload', formData);
+      onUploadSuccess(response.data.id, response.data.public_url);
     } catch (err) {
       setError(err instanceof Error ? err.message : '이미지 업로드에 실패했습니다');
       setPreviewUrl(currentImageUrl || null);
