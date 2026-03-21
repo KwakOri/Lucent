@@ -84,13 +84,17 @@ function ShopPageContent() {
   });
 
   const products = data?.items || [];
-  const voicePacks = useMemo(
-    () => products.filter((item) => item.fulfillment_type === "DIGITAL"),
+  const exposedProducts = useMemo(
+    () => products.filter((item) => item.display_price !== null),
     [products],
   );
+  const voicePacks = useMemo(
+    () => exposedProducts.filter((item) => item.fulfillment_type === "DIGITAL"),
+    [exposedProducts],
+  );
   const physicalGoods = useMemo(
-    () => products.filter((item) => item.fulfillment_type !== "DIGITAL"),
-    [products],
+    () => exposedProducts.filter((item) => item.fulfillment_type !== "DIGITAL"),
+    [exposedProducts],
   );
 
   const getShopPath = (campaignId: string | null | undefined) =>
