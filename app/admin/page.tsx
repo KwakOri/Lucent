@@ -1,7 +1,10 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { OrdersAPI, type OrderWithItems } from '@/lib/client/api/orders.api';
+import {
+  V2AdminOpsAPI,
+  type V2AdminOrderQueueRow,
+} from '@/lib/client/api/v2-admin-ops.api';
 import { apiClient } from '@/lib/client/utils/api-client';
 import { Loading } from '@/components/ui/loading';
 import { ORDER_STATUS_COLORS, ORDER_STATUS_LABELS } from '@/src/constants';
@@ -14,7 +17,7 @@ interface DashboardData {
     activeProducts: number;
     activeArtists: number;
   };
-  recentOrders: OrderWithItems[];
+  recentOrders: V2AdminOrderQueueRow[];
 }
 
 interface ProductSummary {
@@ -26,10 +29,9 @@ interface ArtistSummary {
 }
 
 async function fetchDashboardData(): Promise<DashboardData> {
-  const [allOrders, pendingOrders, recentOrders, products, artists] = await Promise.all([
-    OrdersAPI.getOrders({ page: 1, limit: 1 }),
-    OrdersAPI.getOrders({ page: 1, limit: 1, status: 'PENDING' }),
-    OrdersAPI.getOrders({ page: 1, limit: 5 }),
+  const [allOrders, pendingOrders, products, artists] = await Promise.all([
+    V2AdminOpsAPI.listOrderQueue({ limit: 100 }),
+    V2AdminOpsAPI.listOrderQueue({ limit: 100, order_status: 'PENDING' }),
     apiClient.get<PaginatedResponse<ProductSummary>>(
       '/api/products?page=1&limit=1&isActive=true',
     ),
@@ -38,12 +40,12 @@ async function fetchDashboardData(): Promise<DashboardData> {
 
   return {
     stats: {
-      totalOrders: allOrders.pagination.total,
-      pendingOrders: pendingOrders.pagination.total,
+      totalOrders: allOrders.data.items.length,
+      pendingOrders: pendingOrders.data.items.length,
       activeProducts: products.pagination.total,
       activeArtists: artists.data.length,
     },
-    recentOrders: recentOrders.data,
+    recentOrders: allOrders.data.items.slice(0, 5),
   };
 }
 
@@ -81,14 +83,18 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <div className="overflow-hidden rounded-lg bg-white px-4 py-5 shadow sm:p-6">
-          <dt className="truncate text-sm font-medium text-gray-500">전체 주문</dt>
+          <dt className="truncate text-sm font-medium text-gray-500">
+            전체 주문(최근 100건)
+          </dt>
           <dd className="mt-1 text-3xl font-semibold tracking-tight text-gray-900">
             {stats.totalOrders}
           </dd>
         </div>
 
         <div className="overflow-hidden rounded-lg bg-white px-4 py-5 shadow sm:p-6">
-          <dt className="truncate text-sm font-medium text-gray-500">입금 대기</dt>
+          <dt className="truncate text-sm font-medium text-gray-500">
+            입금 대기(최근 100건)
+          </dt>
           <dd className="mt-1 text-3xl font-semibold tracking-tight text-yellow-600">
             {stats.pendingOrders}
           </dd>
@@ -165,26 +171,28 @@ export default function AdminDashboard() {
                       </tr>
                     ) : (
                       recentOrders.map((order) => (
-                        <tr key={order.id}>
+                        <tr key={order.order_id}>
                           <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                            {order.order_number}
+                            {order.order_no}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {order.buyer_name || '-'}
+                            -
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {order.total_price.toLocaleString()}원
+                            {order.grand_total.toLocaleString()}원
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm">
                             <span
-                              className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${ORDER_STATUS_COLORS[order.status as keyof typeof ORDER_STATUS_COLORS] || 'bg-gray-100 text-gray-800'}`}
+                              className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${ORDER_STATUS_COLORS[order.order_status as keyof typeof ORDER_STATUS_COLORS] || 'bg-gray-100 text-gray-800'}`}
                             >
-                              {ORDER_STATUS_LABELS[order.status as keyof typeof ORDER_STATUS_LABELS] ||
-                                order.status}
+                              {ORDER_STATUS_LABELS[order.order_status as keyof typeof ORDER_STATUS_LABELS] ||
+                                order.order_status}
                             </span>
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {new Date(order.created_at).toLocaleDateString('ko-KR')}
+                            {new Date(
+                              order.placed_at || order.created_at,
+                            ).toLocaleDateString('ko-KR')}
                           </td>
                         </tr>
                       ))
