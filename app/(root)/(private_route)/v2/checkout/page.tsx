@@ -8,14 +8,12 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
-import { Select } from '@/components/ui/select';
 import { useProfile } from '@/lib/client/hooks';
 import {
   useV2CheckoutCart,
   useV2CreateOrder,
   useV2ValidateCheckout,
 } from '@/lib/client/hooks/useV2Checkout';
-import { useV2ShopCampaigns, useV2ShopCoupons } from '@/lib/client/hooks/useV2Shop';
 import { ApiError } from '@/lib/client/utils/api-error';
 import { useToast } from '@/src/components/toast';
 
@@ -129,9 +127,6 @@ export default function V2CheckoutPage() {
   const createOrder = useV2CreateOrder();
   const campaignIdFromRoute = searchParams.get('campaign_id')?.trim() || '';
 
-  const [campaignId, setCampaignId] = useState(campaignIdFromRoute);
-  const [campaignTouched, setCampaignTouched] = useState(false);
-  const [couponCode, setCouponCode] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -171,10 +166,6 @@ export default function V2CheckoutPage() {
   const hasAuthError = error instanceof ApiError && error.isAuthError();
   const items = cart?.items ?? [];
   const isCartEmpty = items.length === 0;
-  const { data: campaignOptionsData = [] } = useV2ShopCampaigns({
-    channel: 'WEB',
-    include_upcoming: true,
-  });
 
   const cartCampaignIds = useMemo(
     () =>
@@ -188,12 +179,6 @@ export default function V2CheckoutPage() {
     [cart?.items],
   );
   const effectiveCampaignId = useMemo(() => {
-    if (campaignTouched) {
-      return campaignId.trim();
-    }
-    if (campaignId.trim()) {
-      return campaignId.trim();
-    }
     if (campaignIdFromRoute) {
       return campaignIdFromRoute;
     }
@@ -201,63 +186,7 @@ export default function V2CheckoutPage() {
       return cartCampaignIds[0];
     }
     return '';
-  }, [campaignId, campaignIdFromRoute, campaignTouched, cartCampaignIds]);
-
-  const selectedCampaign = useMemo(
-    () =>
-      campaignOptionsData.find((campaign) => campaign.id === effectiveCampaignId) ||
-      null,
-    [campaignOptionsData, effectiveCampaignId],
-  );
-  const campaignSelectOptions = useMemo(() => {
-    const base = [
-      {
-        value: '',
-        label: '상시 판매(기본)',
-      },
-      ...campaignOptionsData.map((campaign) => ({
-        value: campaign.id,
-        label: campaign.name,
-      })),
-    ];
-
-    if (
-      effectiveCampaignId &&
-      !base.some((option) => option.value === effectiveCampaignId)
-    ) {
-      return [
-        ...base,
-        {
-          value: effectiveCampaignId,
-          label: `선택된 캠페인 (${effectiveCampaignId.slice(0, 8)}...)`,
-        },
-      ];
-    }
-    return base;
-  }, [campaignOptionsData, effectiveCampaignId]);
-  const { data: couponOptionsData = [] } = useV2ShopCoupons({
-    channel: 'WEB',
-    campaign_id: effectiveCampaignId || undefined,
-  });
-  const couponSelectOptions = useMemo(
-    () => [
-      { value: '', label: '쿠폰 선택 안 함' },
-      ...couponOptionsData.map((coupon) => ({
-        value: coupon.code,
-        label: `${coupon.code} (${coupon.promotion_name})`,
-      })),
-    ],
-    [couponOptionsData],
-  );
-  const couponCodeForSelect = useMemo(() => {
-    const normalized = couponCode.trim();
-    if (!normalized) {
-      return '';
-    }
-    return couponSelectOptions.some((option) => option.value === normalized)
-      ? normalized
-      : '';
-  }, [couponCode, couponSelectOptions]);
+  }, [campaignIdFromRoute, cartCampaignIds]);
 
   const shippingRequired = items.some(
     (item) => item.variant?.requires_shipping === true,
@@ -385,7 +314,7 @@ export default function V2CheckoutPage() {
     try {
       const result = await validateCheckout.mutateAsync({
         campaign_id: effectiveCampaignId || null,
-        coupon_code: couponCode.trim() || null,
+        coupon_code: null,
         channel: 'WEB',
         shipping_postcode: shippingPostcode,
       });
@@ -440,7 +369,7 @@ export default function V2CheckoutPage() {
       const result = await createOrder.mutateAsync({
         idempotency_key: createIdempotencyKey(),
         campaign_id: effectiveCampaignId || null,
-        coupon_code: couponCode.trim() || null,
+        coupon_code: null,
         channel: 'WEB',
         shipping_postcode: shippingPostcode,
         customer_snapshot: {
@@ -628,62 +557,7 @@ export default function V2CheckoutPage() {
                 placeholder="010-0000-0000"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-text-primary">
-                캠페인 (선택)
-              </label>
-              <Select
-                size="md"
-                className="bg-white"
-                value={effectiveCampaignId}
-                onChange={(event) => {
-                  setCampaignTouched(true);
-                  setCampaignId(event.target.value);
-                  setQuoteSnapshot(null);
-                }}
-                options={campaignSelectOptions}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-text-primary">
-                추천 쿠폰 (선택)
-              </label>
-              <Select
-                size="md"
-                className="bg-white"
-                value={couponCodeForSelect}
-                onChange={(event) => {
-                  setCouponCode(event.target.value);
-                  setQuoteSnapshot(null);
-                }}
-                options={couponSelectOptions}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-text-primary">
-                쿠폰 코드 (직접 입력 가능)
-              </label>
-              <Input
-                value={couponCode}
-                onChange={(event) => {
-                  setCouponCode(event.target.value);
-                  setQuoteSnapshot(null);
-                }}
-                placeholder="쿠폰 코드 입력"
-              />
-              <p className="mt-1 text-xs text-text-secondary">
-                추천 쿠폰을 선택하거나 쿠폰 코드를 직접 입력할 수 있습니다.
-              </p>
-            </div>
           </div>
-
-          {(selectedCampaign || cartCampaignIds.length > 1) && (
-            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-text-secondary">
-              {selectedCampaign
-                ? `현재 "${selectedCampaign.name}" 캠페인 기준으로 결제를 검증합니다.`
-                : `장바구니에 여러 캠페인 상품이 포함되어 있습니다. 결제 기준 캠페인을 선택하세요.`}
-            </div>
-          )}
 
           {shippingRequired && (
             <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
