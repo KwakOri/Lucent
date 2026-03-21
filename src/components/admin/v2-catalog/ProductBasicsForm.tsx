@@ -234,7 +234,13 @@ export function ProductBasicsForm({
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4 text-sm text-gray-600">
-                번들 상품은 하위 구성에 따라 디지털/실물이 섞일 수 있어 상품 수준 제공 방식은 고정하지 않습니다.
+                <p>
+                  번들 상품은 하위 구성에 따라 디지털/실물이 섞일 수 있어 상품 수준 제공 방식은
+                  고정하지 않습니다.
+                </p>
+                <p className="mt-2 text-xs text-gray-500">
+                  저장 후 상품 상세의 `번들 구성 관리` 버튼에서 포함할 옵션(구성품)을 선택합니다.
+                </p>
               </div>
             )}
           </div>

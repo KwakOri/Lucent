@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import type {
   V2DigitalAsset,
@@ -22,6 +23,11 @@ import {
   useUpdateV2Variant,
   useUploadV2MediaAssetFile,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
+import {
+  useV2AdminInventoryLevels,
+  useV2AdminStockLocations,
+  useV2AdminUpsertInventoryLevel,
+} from '@/lib/client/hooks/useV2AdminOps';
 import {
   FULFILLMENT_TYPE_LABELS,
   VARIANT_STATUS_LABELS,
@@ -146,12 +152,16 @@ export function ProductVariantForm({
   const uploadMediaAssetFile = useUploadV2MediaAssetFile();
   const createDigitalAsset = useCreateV2DigitalAsset();
   const updateDigitalAsset = useUpdateV2DigitalAsset();
+  const upsertInventoryLevel = useV2AdminUpsertInventoryLevel();
 
   const [title, setTitle] = useState('');
   const [fulfillmentType, setFulfillmentType] = useState<V2FulfillmentType>('DIGITAL');
   const [status, setStatus] = useState<V2VariantStatus>('DRAFT');
   const [trackInventory, setTrackInventory] = useState(false);
   const [weightGrams, setWeightGrams] = useState('');
+  const [inventoryLocationId, setInventoryLocationId] = useState('');
+  const [inventoryOnHandQuantity, setInventoryOnHandQuantity] = useState('');
+  const [inventorySafetyStockQuantity, setInventorySafetyStockQuantity] = useState('');
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadState, setUploadState] = useState<VariantUploadState | null>(null);
@@ -161,6 +171,15 @@ export function ProductVariantForm({
     product.product_kind === 'STANDARD' ? product.fulfillment_type : null;
   const isFulfillmentLocked = Boolean(lockedFulfillmentType);
 
+  const { data: stockLocations, isLoading: stockLocationsLoading } = useV2AdminStockLocations();
+  const { data: inventoryLevels, isLoading: inventoryLevelsLoading } = useV2AdminInventoryLevels(
+    mode === 'edit' && variant?.id
+      ? { variant_id: variant.id }
+      : mode === 'create' && persistedVariantId
+        ? { variant_id: persistedVariantId }
+        : null,
+  );
+
   useEffect(() => {
     if (mode === 'edit' && variant) {
       setTitle(variant.title);
@@ -168,6 +187,8 @@ export function ProductVariantForm({
       setStatus(variant.status);
       setTrackInventory(variant.track_inventory);
       setWeightGrams(variant.weight_grams == null ? '' : String(variant.weight_grams));
+      setInventoryOnHandQuantity('');
+      setInventorySafetyStockQuantity('');
       setAudioFile(null);
       setErrorMessage(null);
       setUploadState(null);
@@ -181,12 +202,55 @@ export function ProductVariantForm({
     setStatus('DRAFT');
     setTrackInventory(false);
     setWeightGrams('');
+    setInventoryOnHandQuantity('');
+    setInventorySafetyStockQuantity('');
     setAudioFile(null);
     setErrorMessage(null);
     setUploadState(null);
     setPersistedVariantId(null);
     setAbortUpload(null);
   }, [lockedFulfillmentType, mode, variant]);
+
+  useEffect(() => {
+    if (!stockLocations || stockLocations.length === 0) {
+      setInventoryLocationId('');
+      return;
+    }
+
+    setInventoryLocationId((current) => {
+      if (current && stockLocations.some((location) => location.id === current)) {
+        return current;
+      }
+      return stockLocations[0]?.id || '';
+    });
+  }, [stockLocations]);
+
+  useEffect(() => {
+    if (!inventoryLevels || inventoryLevels.length === 0) {
+      return;
+    }
+    if (inventoryOnHandQuantity !== '' || inventorySafetyStockQuantity !== '') {
+      return;
+    }
+
+    const preferredLevel =
+      (inventoryLocationId
+        ? inventoryLevels.find((level) => level.location_id === inventoryLocationId)
+        : null) || inventoryLevels[0];
+
+    if (!preferredLevel) {
+      return;
+    }
+
+    setInventoryLocationId(preferredLevel.location_id);
+    setInventoryOnHandQuantity(String(preferredLevel.on_hand_quantity));
+    setInventorySafetyStockQuantity(String(preferredLevel.safety_stock_quantity));
+  }, [
+    inventoryLevels,
+    inventoryLocationId,
+    inventoryOnHandQuantity,
+    inventorySafetyStockQuantity,
+  ]);
 
   const existingAudioName =
     primaryAsset?.file_name || primaryAsset?.media_asset?.file_name || '연결된 오디오 없음';
@@ -198,7 +262,11 @@ export function ProductVariantForm({
     updateVariant.isPending ||
     uploadMediaAssetFile.isPending ||
     createDigitalAsset.isPending ||
-    updateDigitalAsset.isPending;
+    updateDigitalAsset.isPending ||
+    upsertInventoryLevel.isPending;
+
+  const selectedInventoryLevel =
+    (inventoryLevels || []).find((level) => level.location_id === inventoryLocationId) || null;
 
   const handleFulfillmentTypeChange = (value: V2FulfillmentType) => {
     if (isFulfillmentLocked) {
@@ -208,12 +276,28 @@ export function ProductVariantForm({
     if (value === 'DIGITAL') {
       setTrackInventory(false);
       setWeightGrams('');
+      setInventoryOnHandQuantity('');
+      setInventorySafetyStockQuantity('');
       return;
     }
     setTrackInventory(true);
     setAudioFile(null);
     setUploadState(null);
     setAbortUpload(null);
+  };
+
+  const handleInventoryLocationChange = (nextLocationId: string) => {
+    setInventoryLocationId(nextLocationId);
+    const matchedLevel = (inventoryLevels || []).find(
+      (level) => level.location_id === nextLocationId,
+    );
+    if (!matchedLevel) {
+      setInventoryOnHandQuantity('');
+      setInventorySafetyStockQuantity('');
+      return;
+    }
+    setInventoryOnHandQuantity(String(matchedLevel.on_hand_quantity));
+    setInventorySafetyStockQuantity(String(matchedLevel.safety_stock_quantity));
   };
 
   const submitVariantForm = async () => {
@@ -268,6 +352,31 @@ export function ProductVariantForm({
         await updateVariant.mutateAsync({
           variantId: variant.id,
           data: nextVariantPayload,
+        });
+      }
+
+      if (resolvedFulfillmentType === 'PHYSICAL' && trackInventory) {
+        if (!savedVariantId) {
+          throw new Error('옵션 저장 후 재고를 반영할 수 없습니다.');
+        }
+
+        const onHandQuantity = parseNullableNonNegativeInteger(
+          inventoryOnHandQuantity,
+          '재고 수량',
+        );
+        const safetyStockQuantity = parseNullableNonNegativeInteger(
+          inventorySafetyStockQuantity,
+          '안전 재고',
+        );
+
+        await upsertInventoryLevel.mutateAsync({
+          variant_id: savedVariantId,
+          location_id: inventoryLocationId || null,
+          on_hand_quantity: onHandQuantity ?? 0,
+          safety_stock_quantity: safetyStockQuantity ?? 0,
+          metadata: {
+            source: mode === 'create' ? 'v2-variant-create-form' : 'v2-variant-edit-form',
+          },
         });
       }
 
@@ -503,39 +612,118 @@ export function ProductVariantForm({
 
       {fulfillmentType === 'PHYSICAL' ? (
         <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <FormField
-              label="무게 (g)"
-              htmlFor="variant-weight"
-              help="배송비 계산이나 출고 참고용으로 입력합니다."
-            >
-              <Input
-                id="variant-weight"
-                type="number"
-                min="0"
-                step="1"
-                value={weightGrams}
-                onChange={(event) => setWeightGrams(event.target.value)}
-                placeholder="예: 180"
-              />
-            </FormField>
+          <div className="grid gap-4 lg:grid-cols-12">
+            <div className="lg:col-span-4">
+              <FormField
+                label="무게 (g)"
+                htmlFor="variant-weight"
+                help="배송비 계산이나 출고 참고용으로 입력합니다."
+              >
+                <Input
+                  id="variant-weight"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={weightGrams}
+                  onChange={(event) => setWeightGrams(event.target.value)}
+                  placeholder="예: 180"
+                />
+              </FormField>
+            </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:col-span-8">
               <p className="text-sm font-medium text-gray-900">재고 추적</p>
               <p className="mt-1 text-sm text-gray-500">
-                실물 상품은 기본으로 켜집니다. 수량 관리를 하지 않을 때만 꺼 주세요.
+                재고 추적을 켜면 아래 재고 수량(온핸드/안전재고)이 판매 가능 수량 계산에 반영됩니다.
               </p>
               <div className="mt-4">
                 <Switch
                   checked={trackInventory}
                   onChange={(event) => setTrackInventory(event.target.checked)}
-                  label={
-                    trackInventory
-                      ? '재고를 추적합니다.'
-                      : '재고를 추적하지 않습니다.'
-                  }
+                  label={trackInventory ? '재고를 추적합니다.' : '재고를 추적하지 않습니다.'}
                 />
               </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white px-4 py-4 lg:col-span-12">
+              <p className="text-sm font-medium text-gray-900">재고 수량 설정</p>
+              <p className="mt-1 text-sm text-gray-500">
+                재고 추적이 켜진 경우에만 저장되며, 가용 재고는 on hand - reserved 로 계산됩니다.
+              </p>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                <FormField
+                  label="재고 위치"
+                  htmlFor="variant-inventory-location"
+                  help="기본값은 우선순위가 가장 높은 활성 위치입니다."
+                >
+                  <Select
+                    id="variant-inventory-location"
+                    value={inventoryLocationId}
+                    onChange={(event) => handleInventoryLocationChange(event.target.value)}
+                    disabled={!trackInventory || stockLocationsLoading}
+                    options={(stockLocations || []).map((location) => ({
+                      value: location.id,
+                      label: `${location.name} (${location.code})`,
+                    }))}
+                    placeholder={
+                      stockLocationsLoading
+                        ? '재고 위치 불러오는 중'
+                        : '재고 위치를 선택하세요'
+                    }
+                  />
+                </FormField>
+
+                <FormField
+                  label="재고 수량 (on hand)"
+                  htmlFor="variant-inventory-on-hand"
+                  help="입고된 총 수량입니다."
+                >
+                  <Input
+                    id="variant-inventory-on-hand"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={inventoryOnHandQuantity}
+                    onChange={(event) => setInventoryOnHandQuantity(event.target.value)}
+                    placeholder="예: 100"
+                    disabled={!trackInventory}
+                  />
+                </FormField>
+
+                <FormField
+                  label="안전 재고"
+                  htmlFor="variant-inventory-safety"
+                  help="이 수량 이하일 때 운영 경고 기준으로 사용됩니다."
+                >
+                  <Input
+                    id="variant-inventory-safety"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={inventorySafetyStockQuantity}
+                    onChange={(event) => setInventorySafetyStockQuantity(event.target.value)}
+                    placeholder="예: 5"
+                    disabled={!trackInventory}
+                  />
+                </FormField>
+              </div>
+
+              {inventoryLevelsLoading && (
+                <p className="mt-3 text-xs text-gray-500">기존 재고 수량을 불러오는 중입니다.</p>
+              )}
+              {!inventoryLevelsLoading && selectedInventoryLevel && (
+                <p className="mt-3 text-xs text-gray-600">
+                  현재 가용 재고 {selectedInventoryLevel.available_quantity}개 (reserved{' '}
+                  {selectedInventoryLevel.reserved_quantity}개)
+                </p>
+              )}
+              {!stockLocationsLoading && (stockLocations || []).length === 0 && (
+                <p className="mt-3 text-xs text-amber-700">
+                  활성 재고 위치가 없어 저장에 실패할 수 있습니다. 운영 설정에서 stock location을
+                  먼저 등록해 주세요.
+                </p>
+              )}
             </div>
           </div>
         </section>

@@ -5,8 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input, Textarea } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import { Select } from '@/components/ui/select';
 import {
   useArchiveV2BundleDefinition,
+  useV2AdminProducts,
+  useV2AdminVariants,
   useBuildV2BundleCanaryReport,
   useBuildV2BundleOpsContract,
   useCloneV2BundleDefinitionVersion,
@@ -121,6 +124,7 @@ export default function V2CatalogBundlesPage() {
     'WEIGHTED',
   );
 
+  const [newComponentProductId, setNewComponentProductId] = useState('');
   const [newComponentVariantId, setNewComponentVariantId] = useState('');
   const [newComponentRequired, setNewComponentRequired] = useState(true);
   const [newMinQuantity, setNewMinQuantity] = useState('1');
@@ -168,6 +172,62 @@ export default function V2CatalogBundlesPage() {
   const buildOpsContract = useBuildV2BundleOpsContract();
   const buildCanaryReport = useBuildV2BundleCanaryReport();
 
+  const { data: products, isLoading: productsLoading } = useV2AdminProducts();
+  const activeProducts = useMemo(
+    () => (products || []).filter((product) => product.status !== 'ARCHIVED'),
+    [products],
+  );
+  const componentProductIdForQuery =
+    newComponentProductId &&
+    activeProducts.some((product) => product.id === newComponentProductId)
+      ? newComponentProductId
+      : activeProducts[0]?.id || '';
+  const { data: selectableVariants, isLoading: selectableVariantsLoading } =
+    useV2AdminVariants(componentProductIdForQuery || null);
+
+  const bundleProducts = useMemo(
+    () => activeProducts.filter((product) => product.product_kind === 'BUNDLE'),
+    [activeProducts],
+  );
+  const bundleProductOptions = useMemo(
+    () =>
+      bundleProducts.map((product) => ({
+        value: product.id,
+        label: `${product.title} (${product.slug})`,
+      })),
+    [bundleProducts],
+  );
+  const componentProductOptions = useMemo(
+    () =>
+      activeProducts.map((product) => ({
+        value: product.id,
+        label: `${product.title} · ${product.product_kind}`,
+      })),
+    [activeProducts],
+  );
+  const componentVariantOptions = useMemo(
+    () =>
+      (selectableVariants || []).map((variant) => ({
+        value: variant.id,
+        label: `${variant.title} (${variant.sku}) · ${variant.fulfillment_type}`,
+      })),
+    [selectableVariants],
+  );
+  const productTitleById = useMemo(
+    () => new Map((activeProducts || []).map((product) => [product.id, product.title])),
+    [activeProducts],
+  );
+  const resolvedNewBundleProductId =
+    newBundleProductId && bundleProducts.some((product) => product.id === newBundleProductId)
+      ? newBundleProductId
+      : bundleProducts[0]?.id || '';
+  const resolvedNewComponentProductId = componentProductIdForQuery;
+  const resolvedNewComponentVariantId =
+    newComponentVariantId &&
+    componentVariantOptions.some((variant) => variant.value === newComponentVariantId)
+      ? newComponentVariantId
+      : componentVariantOptions[0]?.value || '';
+
   const activeComponentId = useMemo(() => {
     const list = components || [];
     if (selectedComponentId && list.some((component) => component.id === selectedComponentId)) {
@@ -185,8 +245,11 @@ export default function V2CatalogBundlesPage() {
     if (!selectedDefinition) {
       return '-';
     }
-    return `${selectedDefinition.bundle_product_id.slice(0, 8)}… v${selectedDefinition.version_no}`;
-  }, [selectedDefinition]);
+    const productTitle =
+      productTitleById.get(selectedDefinition.bundle_product_id) ||
+      selectedDefinition.bundle_product_id;
+    return `${productTitle} · v${selectedDefinition.version_no}`;
+  }, [productTitleById, selectedDefinition]);
 
   const clearNotice = () => {
     setMessage(null);
@@ -207,7 +270,7 @@ export default function V2CatalogBundlesPage() {
     event.preventDefault();
     await runWithNotice(async () => {
       const response = await createDefinition.mutateAsync({
-        bundle_product_id: newBundleProductId.trim(),
+        bundle_product_id: resolvedNewBundleProductId,
         mode: newMode,
         pricing_strategy: newPricingStrategy,
       });
@@ -260,7 +323,7 @@ export default function V2CatalogBundlesPage() {
       await createComponent.mutateAsync({
         definitionId: activeDefinitionId,
         data: {
-          component_variant_id: newComponentVariantId.trim(),
+          component_variant_id: resolvedNewComponentVariantId,
           is_required: newComponentRequired,
           min_quantity: parseNonNegativeInteger(newMinQuantity, 'min_quantity'),
           max_quantity: parsePositiveInteger(newMaxQuantity, 'max_quantity'),
@@ -505,7 +568,7 @@ export default function V2CatalogBundlesPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">V2 Bundle Builder</h1>
         <p className="mt-1 text-sm text-gray-500">
-          definition/component를 관리하고 validate/preview/resolve를 운영자가 직접 실행합니다.
+          번들 대표 상품과 포함 옵션을 선택해 definition/component를 구성하고 validate/preview/resolve를 실행합니다.
         </p>
       </div>
 
@@ -526,36 +589,42 @@ export default function V2CatalogBundlesPage() {
           onSubmit={handleCreateDefinition}
         >
           <h2 className="text-base font-semibold text-gray-900">새 Bundle Definition</h2>
-          <Input
-            value={newBundleProductId}
+          <Select
+            value={resolvedNewBundleProductId}
             onChange={(event) => setNewBundleProductId(event.target.value)}
-            placeholder="bundle_product_id (UUID)"
+            options={bundleProductOptions}
+            placeholder={productsLoading ? '번들 상품 불러오는 중' : '번들 대표 상품을 선택하세요'}
           />
+          {!productsLoading && bundleProductOptions.length === 0 && (
+            <p className="text-xs text-amber-700">
+              선택 가능한 BUNDLE 상품이 없습니다. 먼저 상품 관리에서 BUNDLE 상품을 생성해 주세요.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-2">
-            <select
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            <Select
               value={newMode}
               onChange={(event) => setNewMode(event.target.value as 'FIXED' | 'CUSTOMIZABLE')}
-            >
-              <option value="FIXED">FIXED</option>
-              <option value="CUSTOMIZABLE">CUSTOMIZABLE</option>
-            </select>
-            <select
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+              options={[
+                { value: 'FIXED', label: 'FIXED' },
+                { value: 'CUSTOMIZABLE', label: 'CUSTOMIZABLE' },
+              ]}
+            />
+            <Select
               value={newPricingStrategy}
               onChange={(event) =>
                 setNewPricingStrategy(event.target.value as 'WEIGHTED' | 'FIXED_AMOUNT')
               }
-            >
-              <option value="WEIGHTED">WEIGHTED</option>
-              <option value="FIXED_AMOUNT">FIXED_AMOUNT</option>
-            </select>
+              options={[
+                { value: 'WEIGHTED', label: 'WEIGHTED' },
+                { value: 'FIXED_AMOUNT', label: 'FIXED_AMOUNT' },
+              ]}
+            />
           </div>
           <Button
             type="submit"
             size="sm"
             loading={createDefinition.isPending}
-            disabled={!newBundleProductId.trim()}
+            disabled={!resolvedNewBundleProductId}
           >
             Definition 생성
           </Button>
@@ -612,6 +681,9 @@ export default function V2CatalogBundlesPage() {
           <div className="mt-3 space-y-2 max-h-[420px] overflow-y-auto">
             {(definitions || []).map((definition) => {
               const isSelected = activeDefinitionId === definition.id;
+              const bundleProductLabel =
+                productTitleById.get(definition.bundle_product_id) ||
+                definition.bundle_product_id;
               return (
                 <button
                   key={definition.id}
@@ -629,7 +701,8 @@ export default function V2CatalogBundlesPage() {
                       {definition.status}
                     </Badge>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">{definition.bundle_product_id}</p>
+                  <p className="mt-1 text-xs text-gray-600">{bundleProductLabel}</p>
+                  <p className="mt-1 text-[11px] text-gray-400">{definition.bundle_product_id}</p>
                   <p className="mt-1 text-xs text-gray-400">
                     {definition.mode} / {definition.pricing_strategy}
                   </p>
@@ -727,14 +800,31 @@ export default function V2CatalogBundlesPage() {
             </div>
           )}
 
-          <form className="grid grid-cols-1 gap-2 md:grid-cols-6" onSubmit={handleCreateComponent}>
-            <Input
-              className="md:col-span-2"
-              value={newComponentVariantId}
+          <form
+            className="grid grid-cols-1 gap-2 md:grid-cols-12"
+            onSubmit={handleCreateComponent}
+          >
+            <Select
+              className="md:col-span-4"
+              value={resolvedNewComponentProductId}
+              onChange={(event) => setNewComponentProductId(event.target.value)}
+              options={componentProductOptions}
+              placeholder={productsLoading ? '상품 불러오는 중' : '구성 상품 선택'}
+            />
+            <Select
+              className="md:col-span-8"
+              value={resolvedNewComponentVariantId}
               onChange={(event) => setNewComponentVariantId(event.target.value)}
-              placeholder="component_variant_id"
+              options={componentVariantOptions}
+              placeholder={
+                selectableVariantsLoading
+                  ? '옵션 불러오는 중'
+                  : '포함할 옵션(variant) 선택'
+              }
+              disabled={!resolvedNewComponentProductId || selectableVariantsLoading}
             />
             <Input
+              className="md:col-span-2"
               value={newMinQuantity}
               onChange={(event) => setNewMinQuantity(event.target.value)}
               placeholder="min"
@@ -742,6 +832,7 @@ export default function V2CatalogBundlesPage() {
               min={0}
             />
             <Input
+              className="md:col-span-2"
               value={newDefaultQuantity}
               onChange={(event) => setNewDefaultQuantity(event.target.value)}
               placeholder="default"
@@ -749,6 +840,7 @@ export default function V2CatalogBundlesPage() {
               min={0}
             />
             <Input
+              className="md:col-span-2"
               value={newMaxQuantity}
               onChange={(event) => setNewMaxQuantity(event.target.value)}
               placeholder="max"
@@ -756,6 +848,7 @@ export default function V2CatalogBundlesPage() {
               min={1}
             />
             <Input
+              className="md:col-span-2"
               value={newAllocationWeight}
               onChange={(event) => setNewAllocationWeight(event.target.value)}
               placeholder="weight"
@@ -763,7 +856,7 @@ export default function V2CatalogBundlesPage() {
               step="0.1"
               min={0}
             />
-            <label className="md:col-span-2 flex items-center gap-2 text-sm text-gray-600">
+            <label className="md:col-span-3 flex items-center gap-2 text-sm text-gray-600">
               <input
                 type="checkbox"
                 checked={newComponentRequired}
@@ -771,16 +864,23 @@ export default function V2CatalogBundlesPage() {
               />
               required component
             </label>
-            <div className="md:col-span-4">
+            <div className="md:col-span-3">
               <Button
                 size="sm"
                 type="submit"
                 loading={createComponent.isPending}
-                disabled={!activeDefinitionId || !newComponentVariantId.trim()}
+                disabled={!activeDefinitionId || !resolvedNewComponentVariantId}
               >
                 Component 추가
               </Button>
             </div>
+            {!selectableVariantsLoading &&
+              resolvedNewComponentProductId &&
+              componentVariantOptions.length === 0 && (
+                <p className="md:col-span-12 text-xs text-amber-700">
+                  선택한 상품에 등록된 옵션이 없습니다. 먼저 상품 상세에서 옵션을 추가해 주세요.
+                </p>
+              )}
           </form>
 
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">

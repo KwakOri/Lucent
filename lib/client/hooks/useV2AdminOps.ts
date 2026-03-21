@@ -22,6 +22,7 @@ import {
   type ListV2AdminCutoverStageRunsParams,
   type ListV2AdminFulfillmentQueueParams,
   type ListV2AdminInventoryHealthParams,
+  type ListV2AdminInventoryLevelsParams,
   type ListV2AdminOrderQueueParams,
   type ListV2AdminSalesStatsParams,
   type SaveV2AdminCutoverBatchInput,
@@ -30,6 +31,7 @@ import {
   type SaveV2AdminCutoverStageIssueInput,
   type SaveV2AdminCutoverStageRunInput,
   type UpdateV2AdminCutoverDomainInput,
+  type UpsertV2AdminInventoryLevelInput,
   type V2AdminOrderLinearTransitionInput,
 } from '@/lib/client/api/v2-admin-ops.api';
 import { queryKeys } from './query-keys';
@@ -285,6 +287,44 @@ export function useV2AdminInventoryHealth(
     queryFn: async () => {
       const response = await V2AdminOpsAPI.listInventoryHealth(params);
       return response.data;
+    },
+  });
+}
+
+export function useV2AdminStockLocations() {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.ops.stockLocations(),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.listStockLocations();
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminInventoryLevels(
+  params: ListV2AdminInventoryLevelsParams | null,
+) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.ops.inventoryLevels(
+      params || { variant_id: '' },
+    ),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.listInventoryLevels(params!);
+      return response.data;
+    },
+    enabled: Boolean(params?.variant_id),
+  });
+}
+
+export function useV2AdminUpsertInventoryLevel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: UpsertV2AdminInventoryLevelInput) => {
+      const response = await V2AdminOpsAPI.upsertInventoryLevel(data);
+      return response.data;
+    },
+    onSettled: async () => {
+      await invalidateV2AdminOps(queryClient);
     },
   });
 }
