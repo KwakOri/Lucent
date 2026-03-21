@@ -83,6 +83,8 @@ export interface V2ShopCampaign {
   starts_at: string | null;
   ends_at: string | null;
   channel_scope_json: string[] | null;
+  shop_banner_alt_text: string | null;
+  shop_banner_public_url: string | null;
 }
 
 export interface V2ShopCoupon {

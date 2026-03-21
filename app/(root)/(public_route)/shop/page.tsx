@@ -4,7 +4,12 @@ import { VoicePackCover } from "@/components/order/VoicePackCover";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
-import { useSession, useV2AddCartItem, useV2ShopProducts } from "@/lib/client/hooks";
+import {
+  useSession,
+  useV2AddCartItem,
+  useV2ShopCampaigns,
+  useV2ShopProducts,
+} from "@/lib/client/hooks";
 import type {
   V2ShopDisplayPrice,
   V2ShopListItem,
@@ -76,12 +81,20 @@ function ShopPageContent() {
   const addCartItem = useV2AddCartItem();
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
   const selectedCampaignId = searchParams.get("campaign_id")?.trim() || "";
+  const { data: campaigns = [] } = useV2ShopCampaigns({
+    channel: "WEB",
+    include_upcoming: true,
+  });
   const { data, isLoading, error } = useV2ShopProducts({
     limit: 60,
     sort: "SORT_ORDER",
     channel: "WEB",
     campaign_id: selectedCampaignId || undefined,
   });
+  const selectedCampaign = useMemo(
+    () => campaigns.find((campaign) => campaign.id === selectedCampaignId) || null,
+    [campaigns, selectedCampaignId],
+  );
 
   const products = data?.items || [];
   const exposedProducts = useMemo(
@@ -194,6 +207,18 @@ function ShopPageContent() {
     <div className="min-h-screen bg-neutral-50">
       <section className="relative overflow-hidden bg-[#f9f9ed] px-4 py-20">
         <div className="relative mx-auto max-w-6xl">
+          {selectedCampaign?.shop_banner_public_url ? (
+            <div className="mb-8 overflow-hidden rounded-2xl border border-white/70 bg-white/60 shadow-sm">
+              <img
+                src={selectedCampaign.shop_banner_public_url}
+                alt={
+                  selectedCampaign.shop_banner_alt_text ||
+                  `${selectedCampaign.name} 캠페인 배너`
+                }
+                className="h-44 w-full object-cover sm:h-56 lg:h-64"
+              />
+            </div>
+          ) : null}
           <h1 className="mb-6 text-4xl font-bold leading-tight sm:text-5xl">
             <span className="text-[#1a1a2e]">루센트의 프로젝트에서,</span>
             <br />
@@ -207,7 +232,9 @@ function ShopPageContent() {
           </p>
           {selectedCampaignId ? (
             <div className="mt-5 inline-flex rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-[#1a1a2e]/80">
-              캠페인 기준 상품을 보고 있습니다.
+              {selectedCampaign
+                ? `${selectedCampaign.name} 캠페인 기준 상품을 보고 있습니다.`
+                : "캠페인 기준 상품을 보고 있습니다."}
             </div>
           ) : null}
         </div>
