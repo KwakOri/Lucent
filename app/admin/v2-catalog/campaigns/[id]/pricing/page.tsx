@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import {
   useV2PriceLists,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import { formatDateRange, getErrorMessage } from '@/lib/client/utils/v2-campaign-admin';
+import { resolveEligibleCampaignProducts } from '@/lib/client/utils/v2-campaign-targeting';
 
 type DiscountMode = 'FIXED' | 'PERCENT';
 
@@ -132,12 +133,15 @@ function findPriceItem(params: {
 export default function V2CatalogCampaignPricingPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [selectedVariantId, setSelectedVariantId] = useState('');
   const [discountMode, setDiscountMode] = useState<DiscountMode>('FIXED');
   const [discountValue, setDiscountValue] = useState('');
+  const hasAppliedPresetProductRef = useRef(false);
+  const hasAppliedPendingVariantRef = useRef(false);
 
   const campaignId = useMemo(() => {
     const raw = params?.id;
@@ -146,6 +150,8 @@ export default function V2CatalogCampaignPricingPage() {
     }
     return raw || '';
   }, [params]);
+  const presetProductId = (searchParams.get('productId') || '').trim();
+  const pendingOnly = searchParams.get('pendingOnly') === '1';
 
   const { data: campaign, isLoading: campaignLoading, error: campaignError } = useV2Campaign(campaignId);
   const { data: targets, isLoading: targetsLoading, error: targetsError } = useV2CampaignTargets(campaignId);
@@ -204,47 +210,29 @@ export default function V2CatalogCampaignPricingPage() {
     variantsLoading;
 
   const eligibleProducts = useMemo(() => {
-    const activeProducts = (products || []).filter(
-      (product) => product.status === 'ACTIVE' || product.status === 'DRAFT',
-    );
-    if (!targets || targets.length === 0) {
-      return activeProducts;
-    }
-
-    const includeProductIds = new Set<string>();
-    const excludedProductIds = new Set<string>();
-
-    targets.forEach((target) => {
-      const destination = target.is_excluded ? excludedProductIds : includeProductIds;
-
-      if (target.target_type === 'PROJECT') {
-        activeProducts
-          .filter((product) => product.project_id === target.target_id)
-          .forEach((product) => destination.add(product.id));
-        return;
-      }
-
-      if (target.target_type === 'PRODUCT') {
-        destination.add(target.target_id);
-        return;
-      }
-
-      if (target.target_type === 'VARIANT') {
-        const snapshot = target.source_snapshot_json as { product_id?: unknown } | null;
-        if (snapshot && typeof snapshot.product_id === 'string') {
-          destination.add(snapshot.product_id);
-        }
-      }
+    return resolveEligibleCampaignProducts({
+      campaignType: campaign?.campaign_type || 'SALE',
+      targets: targets || [],
+      products: products || [],
     });
+  }, [campaign?.campaign_type, products, targets]);
 
-    if (includeProductIds.size === 0) {
-      return activeProducts.filter((product) => !excludedProductIds.has(product.id));
+  useEffect(() => {
+    if (hasAppliedPresetProductRef.current) {
+      return;
     }
-
-    return activeProducts.filter(
-      (product) => includeProductIds.has(product.id) && !excludedProductIds.has(product.id),
-    );
-  }, [products, targets]);
+    if (!presetProductId) {
+      hasAppliedPresetProductRef.current = true;
+      return;
+    }
+    if (eligibleProducts.length === 0) {
+      return;
+    }
+    if (eligibleProducts.some((product) => product.id === presetProductId)) {
+      setSelectedProductId(presetProductId);
+    }
+    hasAppliedPresetProductRef.current = true;
+  }, [eligibleProducts, presetProductId]);
 
   useEffect(() => {
     if (eligibleProducts.length === 0) {
@@ -331,6 +319,22 @@ export default function V2CatalogCampaignPricingPage() {
     });
     return map;
   }, [baseItems, basePriceListById, campaignPriceItems, isAlwaysOnCampaign, selectedProductId, variants]);
+
+  useEffect(() => {
+    if (!pendingOnly || hasAppliedPendingVariantRef.current) {
+      return;
+    }
+    if (!(variants || []).length) {
+      return;
+    }
+    const pendingVariant = (variants || []).find(
+      (variant) => !selectedProductVariantPriceStatus.get(variant.id)?.configured,
+    );
+    if (pendingVariant) {
+      setSelectedVariantId(pendingVariant.id);
+    }
+    hasAppliedPendingVariantRef.current = true;
+  }, [pendingOnly, selectedProductVariantPriceStatus, variants]);
 
   useEffect(() => {
     if (isAlwaysOnCampaign) {

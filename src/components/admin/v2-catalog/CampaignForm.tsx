@@ -7,6 +7,7 @@ import { Input, Textarea } from '@/components/ui/input';
 import type {
   V2BundleDefinition,
   V2Campaign,
+  V2CampaignTargetType,
   V2CampaignType,
   V2Product,
   V2Project,
@@ -49,6 +50,13 @@ type CampaignFormProps = {
   projects: V2Project[];
   products: V2Product[];
   bundleDefinitions: V2BundleDefinition[];
+  initialCampaignType?: V2CampaignType;
+  initialTargets?: CampaignTargetSelection[];
+  initialTargetType?: V2CampaignTargetType;
+  targetPickerMode?: 'single' | 'multiple';
+  lockCampaignType?: boolean;
+  lockTargetType?: boolean;
+  allowAdvancedTargets?: boolean;
   onCancel: () => void;
   onSuccess: (campaignId: string) => void | Promise<void>;
 };
@@ -60,6 +68,13 @@ export function CampaignForm({
   projects,
   products,
   bundleDefinitions,
+  initialCampaignType,
+  initialTargets = [],
+  initialTargetType = 'PROJECT',
+  targetPickerMode = 'multiple',
+  lockCampaignType = false,
+  lockTargetType = false,
+  allowAdvancedTargets = true,
   onCancel,
   onSuccess,
 }: CampaignFormProps) {
@@ -68,7 +83,9 @@ export function CampaignForm({
   const createTarget = useCreateV2CampaignTarget();
 
   const [name, setName] = useState(campaign?.name || '');
-  const [campaignType, setCampaignType] = useState<V2CampaignType>(campaign?.campaign_type || 'SALE');
+  const [campaignType, setCampaignType] = useState<V2CampaignType>(
+    campaign?.campaign_type || initialCampaignType || 'SALE',
+  );
   const [description, setDescription] = useState(campaign?.description || '');
   const [startsAtInput, setStartsAtInput] = useState(
     campaign?.starts_at ? toDateTimeLocalValue(campaign.starts_at) : toDateTimeLocalValue(new Date().toISOString()),
@@ -80,7 +97,7 @@ export function CampaignForm({
   const [channelScopeInput, setChannelScopeInput] = useState(
     formatChannelScopeInput(campaign?.channel_scope_json),
   );
-  const [selectedTargets, setSelectedTargets] = useState<CampaignTargetSelection[]>([]);
+  const [selectedTargets, setSelectedTargets] = useState<CampaignTargetSelection[]>(initialTargets);
   const [variantProductId, setVariantProductId] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -115,6 +132,12 @@ export function CampaignForm({
       }
       if (mode === 'create' && selectedTargets.length === 0) {
         throw new Error('적용할 프로젝트나 상품을 하나 이상 선택해 주세요.');
+      }
+      if (mode === 'create' && campaignType === 'ALWAYS_ON') {
+        const projectTargets = selectedTargets.filter((target) => target.targetType === 'PROJECT');
+        if (projectTargets.length !== 1 || selectedTargets.length !== 1) {
+          throw new Error('상시 운영 캠페인은 프로젝트 1개만 대상으로 선택해 주세요.');
+        }
       }
 
       const startsAt = parseDateTimeLocalInput(startsAtInput, '시작 시점');
@@ -204,6 +227,7 @@ export function CampaignForm({
                 <button
                   key={type}
                   type="button"
+                  disabled={lockCampaignType}
                   className={getChoiceButtonClass(campaignType === type)}
                   onClick={() => setCampaignType(type)}
                 >
@@ -227,7 +251,7 @@ export function CampaignForm({
 
       {mode === 'create' && (
         <CampaignTargetPicker
-          mode="multiple"
+          mode={targetPickerMode}
           value={selectedTargets}
           onChange={setSelectedTargets}
           projects={projects}
@@ -237,6 +261,9 @@ export function CampaignForm({
           variantOptionsLoading={variantOptionsLoading}
           variantProductId={variantProductId}
           onVariantProductIdChange={setVariantProductId}
+          defaultTargetType={initialTargetType}
+          allowAdvanced={allowAdvancedTargets}
+          lockTargetType={lockTargetType}
           title="2. 적용 대상"
           description="프로젝트 전체나 특정 상품처럼 이해하기 쉬운 범위부터 고르세요. 고급 대상도 필요할 때만 펼쳐서 선택할 수 있습니다."
         />

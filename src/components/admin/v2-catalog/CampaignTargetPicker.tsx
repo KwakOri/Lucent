@@ -42,6 +42,7 @@ type CampaignTargetPickerProps = {
   description?: string;
   defaultTargetType?: V2CampaignTargetType;
   allowAdvanced?: boolean;
+  lockTargetType?: boolean;
 };
 
 export function CampaignTargetPicker({
@@ -59,6 +60,7 @@ export function CampaignTargetPicker({
   description = '프로젝트나 상품처럼 관리자가 이해하기 쉬운 범위부터 선택합니다.',
   defaultTargetType = 'PROJECT',
   allowAdvanced = true,
+  lockTargetType = false,
 }: CampaignTargetPickerProps) {
   const [targetType, setTargetType] = useState<V2CampaignTargetType>(defaultTargetType);
   const [search, setSearch] = useState('');
@@ -122,6 +124,9 @@ export function CampaignTargetPicker({
   }, [candidateOptions, search]);
 
   const handleTargetTypeChange = (nextTargetType: V2CampaignTargetType) => {
+    if (lockTargetType) {
+      return;
+    }
     setTargetType(nextTargetType);
     setSearch('');
     onChange([]);
@@ -162,6 +167,7 @@ export function CampaignTargetPicker({
       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <button
           type="button"
+          disabled={lockTargetType}
           className={getChoiceButtonClass(targetType === 'PROJECT')}
           onClick={() => handleTargetTypeChange('PROJECT')}
         >
@@ -170,6 +176,7 @@ export function CampaignTargetPicker({
         </button>
         <button
           type="button"
+          disabled={lockTargetType}
           className={getChoiceButtonClass(targetType === 'PRODUCT')}
           onClick={() => handleTargetTypeChange('PRODUCT')}
         >
@@ -179,6 +186,7 @@ export function CampaignTargetPicker({
         {allowAdvanced && (
           <button
             type="button"
+            disabled={lockTargetType}
             className={getChoiceButtonClass(targetType === 'VARIANT')}
             onClick={() => handleTargetTypeChange('VARIANT')}
           >
@@ -189,6 +197,7 @@ export function CampaignTargetPicker({
         {allowAdvanced && (
           <button
             type="button"
+            disabled={lockTargetType}
             className={getChoiceButtonClass(targetType === 'BUNDLE_DEFINITION')}
             onClick={() => handleTargetTypeChange('BUNDLE_DEFINITION')}
           >
