@@ -3,25 +3,19 @@
 import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Download, LogOut, Settings, X } from 'lucide-react';
+import { LogOut, Settings, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
-import type { OrderWithItems } from '@/lib/client/api/orders.api';
 import type { V2CheckoutOrder } from '@/lib/client/api/v2-checkout.api';
 import {
-  useCancelOrder,
-  useDownloadDigitalProduct,
   useLogout,
-  useMyOrders,
   useSession,
   useV2CancelOrder,
   useV2CheckoutOrders,
 } from '@/lib/client/hooks';
 import { groupV2OrderItems } from '@/lib/client/utils/v2-order-item-groups';
 import { useToast } from '@/src/components/toast';
-
-type UnifiedSource = 'V1' | 'V2';
 
 interface UnifiedOrderItem {
   id: string;
@@ -41,7 +35,6 @@ interface UnifiedOrderItem {
 }
 
 interface UnifiedOrder {
-  source: UnifiedSource;
   id: string;
   orderNo: string;
   orderedAt: string;
@@ -68,29 +61,6 @@ function formatDate(value: string): string {
   });
 }
 
-function mapV1Order(order: OrderWithItems): UnifiedOrder {
-  const items: UnifiedOrderItem[] = (order.items || []).map((item) => ({
-    id: item.id,
-    title: item.product_name,
-    quantity: item.quantity,
-    lineTotal: item.price_snapshot * item.quantity,
-    isDigital: item.product_type === 'VOICE_PACK',
-    itemStatus: item.item_status || '',
-    lineType: 'STANDARD',
-    components: [],
-  }));
-
-  return {
-    source: 'V1',
-    id: order.id,
-    orderNo: order.order_number,
-    orderedAt: order.created_at,
-    displayTotal: order.total_price,
-    orderStatus: order.status,
-    items,
-  };
-}
-
 function mapV2Order(order: V2CheckoutOrder): UnifiedOrder {
   const items: UnifiedOrderItem[] = groupV2OrderItems(
     (order.items || []) as Array<Record<string, unknown>>,
@@ -112,7 +82,6 @@ function mapV2Order(order: V2CheckoutOrder): UnifiedOrder {
   }));
 
   return {
-    source: 'V2',
     id: order.id,
     orderNo: order.order_no,
     orderedAt: order.placed_at || '',
@@ -166,10 +135,7 @@ export default function MyPage() {
   const { showToast } = useToast();
   const { user, isLoading: sessionLoading, isAuthenticated } = useSession();
   const { mutate: logout, isPending: loggingOut } = useLogout();
-  const v1OrdersQuery = useMyOrders({ limit: 50 });
   const v2OrdersQuery = useV2CheckoutOrders({ limit: 50 });
-  const downloadMutation = useDownloadDigitalProduct();
-  const cancelV1Order = useCancelOrder();
   const cancelV2Order = useV2CancelOrder();
 
   useEffect(() => {
@@ -179,72 +145,19 @@ export default function MyPage() {
   }, [isAuthenticated, router, sessionLoading]);
 
   const mergedOrders = useMemo(() => {
-    const result = new Map<string, UnifiedOrder>();
     const v2Orders = v2OrdersQuery.data?.items || [];
-    const v1Orders = v1OrdersQuery.data?.data || [];
-
-    for (const order of v2Orders) {
-      const mapped = mapV2Order(order);
-      const key = mapped.orderNo || `V2:${mapped.id}`;
-      result.set(key, mapped);
-    }
-
-    for (const order of v1Orders) {
-      const mapped = mapV1Order(order);
-      const key = mapped.orderNo || `V1:${mapped.id}`;
-      if (!result.has(key)) {
-        result.set(key, mapped);
-      }
-    }
-
-    return Array.from(result.values()).sort((a, b) => {
+    return v2Orders.map(mapV2Order).sort((a, b) => {
       const aTime = new Date(a.orderedAt).getTime() || 0;
       const bTime = new Date(b.orderedAt).getTime() || 0;
       return bTime - aTime;
     });
-  }, [v1OrdersQuery.data?.data, v2OrdersQuery.data?.items]);
+  }, [v2OrdersQuery.data?.items]);
 
-  const isLoading = sessionLoading || v1OrdersQuery.isLoading || v2OrdersQuery.isLoading;
-  const error = v2OrdersQuery.error || v1OrdersQuery.error;
-
-  async function handleDownload(orderId: string, itemId: string, title: string) {
-    downloadMutation.mutate(
-      { orderId, itemId },
-      {
-        onSuccess: () => {
-          showToast(`${title} 다운로드를 시작합니다.`, { type: 'success' });
-        },
-        onError: (mutationError) => {
-          showToast(
-            mutationError instanceof Error
-              ? mutationError.message
-              : '다운로드 중 오류가 발생했습니다.',
-            { type: 'error' },
-          );
-        },
-      },
-    );
-  }
+  const isLoading = sessionLoading || v2OrdersQuery.isLoading;
+  const error = v2OrdersQuery.error;
 
   function handleCancel(order: UnifiedOrder) {
     if (!confirm(`주문 ${order.orderNo}를 취소하시겠습니까?`)) {
-      return;
-    }
-
-    if (order.source === 'V1') {
-      cancelV1Order.mutate(order.id, {
-        onSuccess: (result) => {
-          showToast(result.message, { type: 'success' });
-        },
-        onError: (mutationError) => {
-          showToast(
-            mutationError instanceof Error
-              ? mutationError.message
-              : '주문 취소 중 오류가 발생했습니다.',
-            { type: 'error' },
-          );
-        },
-      });
       return;
     }
 
@@ -282,16 +195,15 @@ export default function MyPage() {
       <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
         <EmptyState
           title="주문 내역을 불러오지 못했습니다"
-          description={error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.'}
-          action={
-            <Button
-              intent="primary"
-              size="md"
-              onClick={() => {
-                void v1OrdersQuery.refetch();
-                void v2OrdersQuery.refetch();
-              }}
-            >
+                description={error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.'}
+                action={
+                  <Button
+                    intent="primary"
+                    size="md"
+                    onClick={() => {
+                      void v2OrdersQuery.refetch();
+                    }}
+                  >
               다시 시도
             </Button>
           }
@@ -347,7 +259,7 @@ export default function MyPage() {
             <div className="space-y-5">
               {mergedOrders.map((order) => (
                 <article
-                  key={`${order.source}:${order.id}`}
+                  key={order.id}
                   className="rounded-2xl border border-neutral-200 bg-white p-6"
                 >
                   <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-neutral-200 pb-4">
@@ -358,9 +270,6 @@ export default function MyPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-neutral-100 px-2 py-1 text-xs font-semibold text-neutral-700">
-                        {order.source}
-                      </span>
                       <span
                         className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
                           order.orderStatus,
@@ -399,7 +308,7 @@ export default function MyPage() {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-text-primary">{item.title}</p>
-                              {order.source === 'V2' && item.lineType === 'BUNDLE_PARENT' && (
+                              {item.lineType === 'BUNDLE_PARENT' && (
                                 <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
                                   번들
                                 </span>
@@ -410,21 +319,6 @@ export default function MyPage() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            {order.source === 'V1' &&
-                              item.isDigital &&
-                              item.itemStatus === 'COMPLETED' && (
-                                <Button
-                                  intent="primary"
-                                  size="sm"
-                                  disabled={downloadMutation.isPending}
-                                  onClick={() =>
-                                    void handleDownload(order.id, item.id, item.title)
-                                  }
-                                >
-                                  <Download className="h-4 w-4" />
-                                  다운로드
-                                </Button>
-                              )}
                             <span className="text-xs text-text-secondary">
                               {item.itemStatus ? getStatusLabel(item.itemStatus) : '-'}
                             </span>
@@ -467,13 +361,12 @@ export default function MyPage() {
 
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 pt-4">
                     <div>
-                      {(order.source === 'V1' || order.orderStatus === 'PENDING') && (
+                      {order.orderStatus === 'PENDING' && (
                         <Button
                           intent="secondary"
                           size="sm"
                           disabled={
                             order.orderStatus !== 'PENDING' ||
-                            cancelV1Order.isPending ||
                             cancelV2Order.isPending
                           }
                           onClick={() => handleCancel(order)}
