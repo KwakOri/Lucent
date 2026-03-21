@@ -95,8 +95,10 @@ function ShopPageContent() {
     () => campaigns.find((campaign) => campaign.id === selectedCampaignId) || null,
     [campaigns, selectedCampaignId],
   );
+  const selectedCampaignBannerUrl =
+    selectedCampaign?.shop_banner_public_url || null;
   const showCampaignHeroBanner =
-    !!selectedCampaignId && !!selectedCampaign?.shop_banner_public_url;
+    !!selectedCampaignId && !!selectedCampaignBannerUrl;
 
   const products = data?.items || [];
   const exposedProducts = useMemo(
@@ -212,7 +214,7 @@ function ShopPageContent() {
           <div className="w-full">
             <div className="mx-auto w-full max-w-[1152px] overflow-hidden rounded-2xl border border-white/70 bg-white/60 shadow-sm">
               <img
-                src={selectedCampaign?.shop_banner_public_url || ""}
+                src={selectedCampaignBannerUrl || ""}
                 alt={
                   selectedCampaign?.shop_banner_alt_text ||
                   `${selectedCampaign?.name || "캠페인"} 배너`
@@ -243,15 +245,6 @@ function ShopPageContent() {
             ) : null}
           </div>
         )}
-        {showCampaignHeroBanner && selectedCampaignId ? (
-          <div className="mx-auto mt-5 max-w-6xl">
-            <div className="inline-flex rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-[#1a1a2e]/80">
-              {selectedCampaign
-                ? `${selectedCampaign.name} 캠페인 기준 상품을 보고 있습니다.`
-                : "캠페인 기준 상품을 보고 있습니다."}
-            </div>
-          </div>
-        ) : null}
       </section>
 
       <section className="px-4 py-16">
