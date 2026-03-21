@@ -110,7 +110,9 @@ function formatOptionSummary(optionSummary: Record<string, unknown> | null): str
 function formatVariantDetails(variant: V2Variant): string[] {
   if (variant.fulfillment_type === 'PHYSICAL') {
     return [
-      variant.track_inventory ? '재고를 추적합니다.' : '재고 추적 없이 판매합니다.',
+      variant.track_inventory
+        ? '재고를 추적합니다. 수량은 옵션 수정 화면에서 관리합니다.'
+        : '재고 추적 없이 판매합니다.',
       variant.weight_grams != null ? `무게 ${variant.weight_grams}g` : '무게 미설정',
       '배송이 필요한 옵션입니다.',
     ];

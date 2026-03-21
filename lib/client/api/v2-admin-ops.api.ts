@@ -545,6 +545,31 @@ export interface V2AdminInventoryHealthRow {
   updated_at: string;
 }
 
+export interface V2AdminStockLocation {
+  id: string;
+  code: string;
+  name: string;
+  location_type: string;
+  priority: number;
+  is_active: boolean;
+  country_code: string;
+  region_code: string | null;
+}
+
+export interface V2AdminInventoryLevelRow {
+  id: string;
+  variant_id: string;
+  location_id: string;
+  on_hand_quantity: number;
+  reserved_quantity: number;
+  available_quantity: number;
+  safety_stock_quantity: number;
+  updated_reason: string | null;
+  updated_at: string;
+  metadata: Record<string, unknown>;
+  location: V2AdminStockLocation | null;
+}
+
 export interface ListV2AdminActionLogsParams {
   limit?: number;
   status?: V2AdminActionStatus;
@@ -589,6 +614,19 @@ export interface ListV2AdminInventoryHealthParams {
   limit?: number;
   only_mismatches?: boolean;
   only_low_stock?: boolean;
+}
+
+export interface ListV2AdminInventoryLevelsParams {
+  variant_id: string;
+  location_id?: string;
+}
+
+export interface UpsertV2AdminInventoryLevelInput {
+  variant_id: string;
+  location_id?: string | null;
+  on_hand_quantity?: number;
+  safety_stock_quantity?: number;
+  metadata?: Record<string, unknown> | null;
 }
 
 export type V2AdminSalesStatsPreset =
@@ -919,6 +957,23 @@ export const V2AdminOpsAPI = {
   > {
     const query = toQueryString(params);
     return apiClient.get(`/api/v2/admin/ops/inventory-health${query}`);
+  },
+
+  async listStockLocations(): Promise<ApiResponse<V2AdminStockLocation[]>> {
+    return apiClient.get('/api/v2/fulfillment/admin/inventory/locations');
+  },
+
+  async listInventoryLevels(
+    params: ListV2AdminInventoryLevelsParams,
+  ): Promise<ApiResponse<V2AdminInventoryLevelRow[]>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/fulfillment/admin/inventory/levels${query}`);
+  },
+
+  async upsertInventoryLevel(
+    data: UpsertV2AdminInventoryLevelInput,
+  ): Promise<ApiResponse<V2AdminInventoryLevelRow>> {
+    return apiClient.post('/api/v2/fulfillment/admin/inventory/levels/upsert', data);
   },
 
   async listCutoverDomains(

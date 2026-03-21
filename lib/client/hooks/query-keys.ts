@@ -36,6 +36,7 @@ import type {
   ListV2AdminCutoverStageRunsParams,
   ListV2AdminFulfillmentQueueParams,
   ListV2AdminInventoryHealthParams,
+  ListV2AdminInventoryLevelsParams,
   ListV2AdminOrderQueueParams,
   ListV2AdminSalesStatsParams,
 } from '@/lib/client/api/v2-admin-ops.api';
@@ -336,6 +337,10 @@ export const queryKeys = {
         [...queryKeys.v2AdminOps.ops.all, 'fulfillment-queue', params] as const,
       inventoryHealth: (params: ListV2AdminInventoryHealthParams = {}) =>
         [...queryKeys.v2AdminOps.ops.all, 'inventory-health', params] as const,
+      stockLocations: () =>
+        [...queryKeys.v2AdminOps.ops.all, 'stock-locations'] as const,
+      inventoryLevels: (params: ListV2AdminInventoryLevelsParams) =>
+        [...queryKeys.v2AdminOps.ops.all, 'inventory-levels', params] as const,
     },
   },
 } as const;

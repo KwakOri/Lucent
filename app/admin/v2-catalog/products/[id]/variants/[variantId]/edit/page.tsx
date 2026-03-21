@@ -99,6 +99,7 @@ export default function V2CatalogProductVariantEditPage() {
         mode="edit"
         product={product}
         variant={variant}
+        variantCount={variants?.length || 0}
         primaryAsset={primaryAsset}
         isAssetsLoading={assetsLoading}
         onCancel={() => router.push(`/admin/v2-catalog/products/${productId}`)}
