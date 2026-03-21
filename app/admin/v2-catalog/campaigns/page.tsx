@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import { CampaignOverviewList } from '@/src/components/admin/v2-catalog/CampaignOverviewList';
+import { useToast } from '@/src/components/toast';
 import {
   useV2CampaignOverview,
   useV2CampaignTargetsMap,
@@ -50,6 +51,7 @@ type ProjectCampaignRow = {
 
 export default function V2CatalogCampaignsPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const { data: campaigns, isLoading: campaignsLoading, error: campaignsError } = useV2Campaigns();
   const { data: projects, isLoading: projectsLoading, error: projectsError } = useV2AdminProjects();
   const { data: products, isLoading: productsLoading, error: productsError } = useV2AdminProducts();
@@ -190,6 +192,26 @@ export default function V2CatalogCampaignsPage() {
         return right.updated_at.localeCompare(left.updated_at);
       });
   }, [campaigns, keyword, managementTab, periodFilter, sortKey, statusFilter, typeFilter]);
+
+  async function handleCopyCampaignLink(campaignId: string, campaignName: string) {
+    const campaignPath = `/shop?campaign_id=${encodeURIComponent(campaignId)}`;
+    const absoluteLink =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}${campaignPath}`
+        : campaignPath;
+
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      showToast('클립보드 복사를 지원하지 않는 환경입니다.', { type: 'warning' });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(absoluteLink);
+      showToast(`${campaignName} 링크를 복사했습니다.`, { type: 'success' });
+    } catch {
+      showToast('링크 복사에 실패했습니다. 다시 시도해 주세요.', { type: 'error' });
+    }
+  }
 
   if (isLoading) {
     return (
@@ -491,6 +513,9 @@ export default function V2CatalogCampaignsPage() {
                 overviewByCampaignId={overviewByCampaignId}
                 onOpen={(id) => router.push(`/admin/v2-catalog/campaigns/${id}`)}
                 onEdit={(id) => router.push(`/admin/v2-catalog/campaigns/${id}/edit`)}
+                onCopyLink={(campaign) =>
+                  void handleCopyCampaignLink(campaign.id, campaign.name)
+                }
               />
             </div>
           </section>
