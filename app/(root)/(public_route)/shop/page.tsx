@@ -15,8 +15,7 @@ import type {
   V2ShopListItem,
 } from "@/lib/client/api/v2-shop.api";
 import { ApiError } from "@/lib/client/utils/api-error";
-import { Package, ShoppingCart } from "lucide-react";
-import Link from "next/link";
+import { ShoppingCart } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { useToast } from "@/src/components/toast";
@@ -95,6 +94,10 @@ function ShopPageContent() {
     () => campaigns.find((campaign) => campaign.id === selectedCampaignId) || null,
     [campaigns, selectedCampaignId],
   );
+  const selectedCampaignBannerUrl =
+    selectedCampaign?.shop_banner_public_url || null;
+  const showCampaignHeroBanner =
+    !!selectedCampaignId && !!selectedCampaignBannerUrl;
 
   const products = data?.items || [];
   const exposedProducts = useMemo(
@@ -206,59 +209,55 @@ function ShopPageContent() {
   return (
     <div className="min-h-screen bg-neutral-50">
       <section className="relative overflow-hidden bg-[#f9f9ed] px-4 py-20">
-        <div className="relative mx-auto max-w-6xl">
-          {selectedCampaign?.shop_banner_public_url ? (
-            <div className="mb-8 overflow-hidden rounded-2xl border border-white/70 bg-white/60 shadow-sm">
+        {showCampaignHeroBanner ? (
+          <div className="w-full">
+            <div className="mx-auto w-full max-w-[1152px] overflow-hidden rounded-2xl border border-white/70 bg-white/60 shadow-sm">
               <img
-                src={selectedCampaign.shop_banner_public_url}
+                src={selectedCampaignBannerUrl || ""}
                 alt={
-                  selectedCampaign.shop_banner_alt_text ||
-                  `${selectedCampaign.name} 캠페인 배너`
+                  selectedCampaign?.shop_banner_alt_text ||
+                  `${selectedCampaign?.name || "캠페인"} 배너`
                 }
-                className="h-44 w-full object-cover sm:h-56 lg:h-64"
+                className="aspect-[12/5] w-full object-cover"
               />
             </div>
-          ) : null}
-          <h1 className="mb-6 text-4xl font-bold leading-tight sm:text-5xl">
-            <span className="text-[#1a1a2e]">루센트의 프로젝트에서,</span>
-            <br />
-            <span className="text-[#66B5F3]">이야기가 깃든 굿즈를</span>
-            <br />
-            <span className="text-[#1a1a2e]">만나보세요.</span>
-          </h1>
-          <p className="max-w-xl text-base leading-relaxed text-[#1a1a2e]/60">
-            루센트는 라이버의 굿즈 판매와 유통을 전담해 준비의 부담은 줄이고,
-            팬에게는 더 가까운 가격으로 굿즈를 전달합니다.
-          </p>
-          {selectedCampaignId ? (
-            <div className="mt-5 inline-flex rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-[#1a1a2e]/80">
-              {selectedCampaign
-                ? `${selectedCampaign.name} 캠페인 기준 상품을 보고 있습니다.`
-                : "캠페인 기준 상품을 보고 있습니다."}
-            </div>
-          ) : null}
-        </div>
+          </div>
+        ) : (
+          <div className="relative mx-auto max-w-6xl">
+            <h1 className="mb-6 text-4xl font-bold leading-tight sm:text-5xl">
+              <span className="text-[#1a1a2e]">루센트의 프로젝트에서,</span>
+              <br />
+              <span className="text-[#66B5F3]">이야기가 깃든 굿즈를</span>
+              <br />
+              <span className="text-[#1a1a2e]">만나보세요.</span>
+            </h1>
+            <p className="max-w-xl text-base leading-relaxed text-[#1a1a2e]/60">
+              루센트는 라이버의 굿즈 판매와 유통을 전담해 준비의 부담은 줄이고,
+              팬에게는 더 가까운 가격으로 굿즈를 전달합니다.
+            </p>
+            {selectedCampaignId ? (
+              <div className="mt-5 inline-flex rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-[#1a1a2e]/80">
+                {selectedCampaign
+                  ? `${selectedCampaign.name} 캠페인 기준 상품을 보고 있습니다.`
+                  : "캠페인 기준 상품을 보고 있습니다."}
+              </div>
+            ) : null}
+          </div>
+        )}
       </section>
 
-      <section className="px-4 py-16">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-12">
-            <h2 className="mb-3 text-3xl font-bold text-text-primary">
-              Voice Packs
-            </h2>
-            <p className="text-lg text-text-secondary">
-              다양한 아티스트의 보이스팩을 만나보세요
-            </p>
-          </div>
-
-          {voicePacks.length === 0 ? (
-            <div className="rounded-xl border border-neutral-200 bg-white p-12">
-              <EmptyState
-                title="준비 중입니다"
-                description="곧 멋진 보이스팩을 만나보실 수 있어요"
-              />
+      {voicePacks.length > 0 ? (
+        <section className="px-4 py-16">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-12">
+              <h2 className="mb-3 text-3xl font-bold text-text-primary">
+                Voice Packs
+              </h2>
+              <p className="text-lg text-text-secondary">
+                아티스트의 다양한 보이스팩을 만나보세요
+              </p>
             </div>
-          ) : (
+
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
               {voicePacks.map((pack, index) => (
                 <div
@@ -311,32 +310,20 @@ function ShopPageContent() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      </section>
-
-      <section className="bg-white px-4 py-16">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-12">
-            <h2 className="mb-3 text-3xl font-bold text-text-primary">Goods</h2>
-            <p className="text-lg text-text-secondary">실물 굿즈 컬렉션</p>
           </div>
+        </section>
+      ) : null}
 
-          {physicalGoods.length === 0 ? (
-            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-12">
-              <EmptyState
-                title="준비 중입니다"
-                description="곧 다양한 굿즈를 만나보실 수 있어요"
-              >
-                <Link href="/projects">
-                  <Button intent="primary" size="md">
-                    <Package className="h-4 w-4" />
-                    프로젝트 보러가기
-                  </Button>
-                </Link>
-              </EmptyState>
+      {physicalGoods.length > 0 ? (
+        <section className="bg-white px-4 py-16">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-12">
+              <h2 className="mb-3 text-3xl font-bold text-text-primary">Goods</h2>
+              <p className="text-lg text-text-secondary">
+                아티스트의 다양한 굿즈를 만나보세요
+              </p>
             </div>
-          ) : (
+
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
               {physicalGoods.map((goods) => {
                 const soldOut = goods.availability.reason === "OUT_OF_STOCK";
@@ -408,9 +395,9 @@ function ShopPageContent() {
                 );
               })}
             </div>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
