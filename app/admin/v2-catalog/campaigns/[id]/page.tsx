@@ -158,7 +158,7 @@ export default function V2CatalogCampaignDetailPage() {
             대상 추가
           </Button>
           <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/pricing`)}>
-            할인 가격 설정
+            가격 설정
           </Button>
         </div>
       </div>
@@ -201,7 +201,7 @@ export default function V2CatalogCampaignDetailPage() {
 
       {!priceLists.length && !promotions.length && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          아직 가격표나 프로모션이 연결되지 않았습니다. 대상을 고른 뒤 &quot;할인 가격 설정&quot;에서 옵션별 캠페인 가격을 연결해 주세요.
+          아직 가격표나 프로모션이 연결되지 않았습니다. 대상을 고른 뒤 &quot;가격 설정&quot;에서 옵션별 가격을 연결해 주세요.
         </div>
       )}
 
@@ -298,7 +298,7 @@ export default function V2CatalogCampaignDetailPage() {
               intent="neutral"
               onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/pricing`)}
             >
-              할인 가격 설정
+              가격 설정
             </Button>
           </div>
           <div className="mt-4 space-y-2">

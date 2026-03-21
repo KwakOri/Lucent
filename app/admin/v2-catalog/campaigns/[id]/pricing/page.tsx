@@ -150,14 +150,15 @@ export default function V2CatalogCampaignPricingPage() {
   const { data: campaign, isLoading: campaignLoading, error: campaignError } = useV2Campaign(campaignId);
   const { data: targets, isLoading: targetsLoading, error: targetsError } = useV2CampaignTargets(campaignId);
   const { data: products, isLoading: productsLoading, error: productsError } = useV2AdminProducts();
+  const isAlwaysOnCampaign = campaign?.campaign_type === 'ALWAYS_ON';
+  const campaignPriceScopeType = isAlwaysOnCampaign ? 'BASE' : 'OVERRIDE';
   const { data: campaignPriceLists, isLoading: campaignPriceListsLoading } = useV2PriceLists({
     campaignId,
-    scopeType: 'OVERRIDE',
+    scopeType: campaignPriceScopeType,
   });
   const { data: basePriceLists, isLoading: basePriceListsLoading } = useV2PriceLists({
     scopeType: 'BASE',
     status: 'PUBLISHED',
-    campaignId: '',
   });
 
   const createPriceList = useCreateV2PriceList();
@@ -165,13 +166,13 @@ export default function V2CatalogCampaignPricingPage() {
   const createPriceListItem = useCreateV2PriceListItem();
   const updatePriceListItem = useUpdateV2PriceListItem();
 
-  const publishedOverrideList = useMemo(
+  const publishedCampaignPriceList = useMemo(
     () => (campaignPriceLists || []).find((list) => list.status === 'PUBLISHED') || null,
     [campaignPriceLists],
   );
-  const activeOverrideList = useMemo(
-    () => publishedOverrideList || pickLatestPriceList(campaignPriceLists || []),
-    [campaignPriceLists, publishedOverrideList],
+  const activeCampaignPriceList = useMemo(
+    () => publishedCampaignPriceList || pickLatestPriceList(campaignPriceLists || []),
+    [campaignPriceLists, publishedCampaignPriceList],
   );
   const activeBaseList = useMemo(
     () => pickLatestPriceList(basePriceLists || []),
@@ -179,10 +180,10 @@ export default function V2CatalogCampaignPricingPage() {
   );
 
   const {
-    data: overrideItems,
-    isLoading: overrideItemsLoading,
-    error: overrideItemsError,
-  } = useV2PriceListItems(activeOverrideList?.id || null);
+    data: campaignPriceItems,
+    isLoading: campaignPriceItemsLoading,
+    error: campaignPriceItemsError,
+  } = useV2PriceListItems(activeCampaignPriceList?.id || null);
   const {
     data: baseItems,
     isLoading: baseItemsLoading,
@@ -198,7 +199,7 @@ export default function V2CatalogCampaignPricingPage() {
     productsLoading ||
     campaignPriceListsLoading ||
     basePriceListsLoading ||
-    overrideItemsLoading ||
+    campaignPriceItemsLoading ||
     baseItemsLoading ||
     variantsLoading;
 
@@ -297,19 +298,19 @@ export default function V2CatalogCampaignPricingPage() {
     });
   }, [baseItems, basePriceListById, selectedProductId, selectedVariantId]);
 
-  const overridePriceItem = useMemo(() => {
-    if (!selectedProductId || !selectedVariantId || !(overrideItems || []).length) {
+  const campaignPriceItem = useMemo(() => {
+    if (!selectedProductId || !selectedVariantId || !(campaignPriceItems || []).length) {
       return null;
     }
     return findPriceItem({
-      items: overrideItems || [],
+      items: campaignPriceItems || [],
       productId: selectedProductId,
       variantId: selectedVariantId,
     });
-  }, [overrideItems, selectedProductId, selectedVariantId]);
+  }, [campaignPriceItems, selectedProductId, selectedVariantId]);
 
   const selectedProductVariantPriceStatus = useMemo(() => {
-    const map = new Map<string, { hasBase: boolean; hasOverride: boolean; configured: boolean }>();
+    const map = new Map<string, { hasBase: boolean; hasCampaignPrice: boolean; configured: boolean }>();
     (variants || []).forEach((variant) => {
       const base = findPriceItem({
         items: baseItems || [],
@@ -317,32 +318,37 @@ export default function V2CatalogCampaignPricingPage() {
         variantId: variant.id,
         priceListsById: basePriceListById,
       });
-      const override = findPriceItem({
-        items: overrideItems || [],
+      const campaignPrice = findPriceItem({
+        items: campaignPriceItems || [],
         productId: selectedProductId,
         variantId: variant.id,
       });
       map.set(variant.id, {
         hasBase: Boolean(base),
-        hasOverride: Boolean(override),
-        configured: Boolean(base || override),
+        hasCampaignPrice: Boolean(campaignPrice),
+        configured: isAlwaysOnCampaign ? Boolean(campaignPrice) : Boolean(base || campaignPrice),
       });
     });
     return map;
-  }, [baseItems, basePriceListById, overrideItems, selectedProductId, variants]);
+  }, [baseItems, basePriceListById, campaignPriceItems, isAlwaysOnCampaign, selectedProductId, variants]);
 
   useEffect(() => {
-    if (!basePriceItem && !overridePriceItem) {
+    if (isAlwaysOnCampaign) {
+      setDiscountMode('FIXED');
+      setDiscountValue(campaignPriceItem ? String(campaignPriceItem.unit_amount) : '');
+      return;
+    }
+    if (!basePriceItem && !campaignPriceItem) {
       setDiscountMode('FIXED');
       setDiscountValue('');
       return;
     }
-    if (!basePriceItem && overridePriceItem) {
+    if (!basePriceItem && campaignPriceItem) {
       setDiscountMode('FIXED');
-      setDiscountValue(String(overridePriceItem.unit_amount));
+      setDiscountValue(String(campaignPriceItem.unit_amount));
       return;
     }
-    if (!overridePriceItem) {
+    if (!campaignPriceItem) {
       setDiscountMode('FIXED');
       setDiscountValue('');
       return;
@@ -352,16 +358,27 @@ export default function V2CatalogCampaignPricingPage() {
     }
 
     const basePrice = basePriceItem.unit_amount;
-    const overridePrice = overridePriceItem.unit_amount;
+    const overridePrice = campaignPriceItem.unit_amount;
     const fixedDiscount = Math.max(0, basePrice - overridePrice);
     setDiscountMode('FIXED');
     setDiscountValue(String(fixedDiscount));
-  }, [basePriceItem, overridePriceItem]);
+  }, [basePriceItem, campaignPriceItem, isAlwaysOnCampaign]);
 
   const previewFinalPrice = useMemo(() => {
+    if (isAlwaysOnCampaign) {
+      if (!discountValue.trim()) {
+        return campaignPriceItem ? campaignPriceItem.unit_amount : null;
+      }
+      try {
+        return parseDirectPrice(discountValue);
+      } catch {
+        return null;
+      }
+    }
+
     if (!discountValue.trim()) {
-      if (overridePriceItem) {
-        return overridePriceItem.unit_amount;
+      if (campaignPriceItem) {
+        return campaignPriceItem.unit_amount;
       }
       return basePriceItem ? basePriceItem.unit_amount : null;
     }
@@ -373,7 +390,7 @@ export default function V2CatalogCampaignPricingPage() {
     } catch {
       return null;
     }
-  }, [basePriceItem, discountMode, discountValue, overridePriceItem]);
+  }, [basePriceItem, campaignPriceItem, discountMode, discountValue, isAlwaysOnCampaign]);
 
   const isSaving =
     createPriceList.isPending ||
@@ -393,19 +410,29 @@ export default function V2CatalogCampaignPricingPage() {
         throw new Error('대상 상품과 옵션을 먼저 선택해 주세요.');
       }
       if (!discountValue.trim()) {
-        throw new Error(basePriceItem ? '할인 수치를 입력해 주세요.' : '판매가를 입력해 주세요.');
+        throw new Error(
+          isAlwaysOnCampaign
+            ? '기본 판매가를 입력해 주세요.'
+            : basePriceItem
+              ? '할인 수치를 입력해 주세요.'
+              : '판매가를 입력해 주세요.',
+        );
       }
 
-      const finalPrice = basePriceItem
-        ? computeFinalPrice(basePriceItem.unit_amount, discountMode, discountValue)
-        : parseDirectPrice(discountValue);
+      const finalPrice = isAlwaysOnCampaign
+        ? parseDirectPrice(discountValue)
+        : basePriceItem
+          ? computeFinalPrice(basePriceItem.unit_amount, discountMode, discountValue)
+          : parseDirectPrice(discountValue);
 
-      let priceList = activeOverrideList;
+      let priceList = activeCampaignPriceList;
       if (!priceList) {
         const created = await createPriceList.mutateAsync({
           campaign_id: campaign.id,
-          name: `${campaign.name} 캠페인 가격`,
-          scope_type: 'OVERRIDE',
+          name: isAlwaysOnCampaign
+            ? `${campaign.name} 기본 가격`
+            : `${campaign.name} 캠페인 가격`,
+          scope_type: campaignPriceScopeType,
           status: 'DRAFT',
           currency_code: 'KRW',
           starts_at: campaign.starts_at,
@@ -418,12 +445,12 @@ export default function V2CatalogCampaignPricingPage() {
         throw new Error('캠페인 가격표를 준비하지 못했습니다.');
       }
 
-      if (overridePriceItem) {
+      if (campaignPriceItem) {
         await updatePriceListItem.mutateAsync({
-          itemId: overridePriceItem.id,
+          itemId: campaignPriceItem.id,
           data: {
             unit_amount: finalPrice,
-            compare_at_amount: basePriceItem?.unit_amount ?? null,
+            compare_at_amount: isAlwaysOnCampaign ? null : (basePriceItem?.unit_amount ?? null),
             status: 'ACTIVE',
             product_id: selectedProduct.id,
             variant_id: selectedVariant.id,
@@ -436,7 +463,7 @@ export default function V2CatalogCampaignPricingPage() {
             product_id: selectedProduct.id,
             variant_id: selectedVariant.id,
             unit_amount: finalPrice,
-            compare_at_amount: basePriceItem?.unit_amount ?? null,
+            compare_at_amount: isAlwaysOnCampaign ? null : (basePriceItem?.unit_amount ?? null),
             status: 'ACTIVE',
           },
         });
@@ -447,7 +474,9 @@ export default function V2CatalogCampaignPricingPage() {
       }
 
       setMessage(
-        `${selectedVariant.title} 할인 가격을 ${formatCurrency(finalPrice)}으로 저장했습니다.`,
+        isAlwaysOnCampaign
+          ? `${selectedVariant.title} 기본 판매가를 ${formatCurrency(finalPrice)}으로 저장했습니다.`
+          : `${selectedVariant.title} 할인 가격을 ${formatCurrency(finalPrice)}으로 저장했습니다.`,
       );
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
@@ -466,7 +495,7 @@ export default function V2CatalogCampaignPricingPage() {
     campaignError ||
     targetsError ||
     productsError ||
-    overrideItemsError ||
+    campaignPriceItemsError ||
     baseItemsError ||
     variantsError ||
     !campaign ||
@@ -485,7 +514,7 @@ export default function V2CatalogCampaignPricingPage() {
     );
   }
 
-  const configuredItems = (overrideItems || []).filter((item) => item.status === 'ACTIVE');
+  const configuredItems = (campaignPriceItems || []).filter((item) => item.status === 'ACTIVE');
 
   return (
     <div className="space-y-6">
@@ -495,7 +524,9 @@ export default function V2CatalogCampaignPricingPage() {
             <Badge intent="default">캠페인 가격 설정</Badge>
             <Badge intent="info">{campaign.name}</Badge>
           </div>
-          <h1 className="mt-3 text-2xl font-bold text-gray-900">대상별 할인 가격 설정</h1>
+          <h1 className="mt-3 text-2xl font-bold text-gray-900">
+            {isAlwaysOnCampaign ? '상시 기본 가격 설정' : '대상별 할인 가격 설정'}
+          </h1>
           <p className="mt-1 text-sm text-gray-500">{formatDateRange(campaign.starts_at, campaign.ends_at)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -557,16 +588,31 @@ export default function V2CatalogCampaignPricingPage() {
 
         <div className="mt-5 grid gap-4 lg:grid-cols-[220px_1fr_220px]">
           <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">BASE 가격</p>
-            <p className="mt-2 text-sm font-semibold text-gray-900">
-              {basePriceItem ? formatCurrency(basePriceItem.unit_amount) : '미설정'}
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              {isAlwaysOnCampaign ? '현재 BASE 가격' : 'BASE 기준 가격'}
             </p>
-            {!basePriceItem && (
+            <p className="mt-2 text-sm font-semibold text-gray-900">
+              {isAlwaysOnCampaign
+                ? campaignPriceItem
+                  ? formatCurrency(campaignPriceItem.unit_amount)
+                  : '미설정'
+                : basePriceItem
+                  ? formatCurrency(basePriceItem.unit_amount)
+                  : '미설정'}
+            </p>
+            {!isAlwaysOnCampaign && !basePriceItem && (
               <Badge intent="error" size="sm" className="mt-2">캠페인에서 직접 입력 필요</Badge>
             )}
           </div>
 
-          {basePriceItem ? (
+          {isAlwaysOnCampaign ? (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+              <p className="text-sm font-medium text-blue-800">상시 캠페인은 BASE 가격을 직접 관리합니다.</p>
+              <p className="mt-1 text-xs text-blue-700">
+                이 가격은 기본 판매가로 사용되며, 기간 캠페인이 겹치면 해당 캠페인 OVERRIDE 가격이 우선됩니다.
+              </p>
+            </div>
+          ) : basePriceItem ? (
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">할인 방식</label>
               <div className="grid grid-cols-2 gap-2">
@@ -605,7 +651,9 @@ export default function V2CatalogCampaignPricingPage() {
 
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">
-              {basePriceItem
+              {isAlwaysOnCampaign
+                ? '기본 판매가(원)'
+                : basePriceItem
                 ? discountMode === 'FIXED'
                   ? '할인 금액(원)'
                   : '할인율(%)'
@@ -616,8 +664,14 @@ export default function V2CatalogCampaignPricingPage() {
               onChange={(event) => setDiscountValue(event.target.value)}
               type="number"
               min="0"
-              step={basePriceItem ? (discountMode === 'FIXED' ? '1' : '0.1') : '1'}
-              placeholder={basePriceItem ? (discountMode === 'FIXED' ? '예: 5000' : '예: 20') : '예: 25000'}
+              step={isAlwaysOnCampaign ? '1' : basePriceItem ? (discountMode === 'FIXED' ? '1' : '0.1') : '1'}
+              placeholder={
+                isAlwaysOnCampaign
+                  ? '예: 30000'
+                  : basePriceItem
+                    ? (discountMode === 'FIXED' ? '예: 5000' : '예: 20')
+                    : '예: 25000'
+              }
             />
           </div>
         </div>
@@ -628,7 +682,9 @@ export default function V2CatalogCampaignPricingPage() {
             {previewFinalPrice === null ? '계산 불가' : formatCurrency(previewFinalPrice)}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            {basePriceItem
+            {isAlwaysOnCampaign
+              ? '상시(BASE) 가격으로 저장됩니다.'
+              : basePriceItem
               ? '캠페인 기간에는 OVERRIDE 가격이 BASE보다 우선 적용됩니다.'
               : 'BASE 미설정 상태에서는 입력값이 캠페인 판매가로 바로 저장됩니다.'}
           </p>
@@ -636,7 +692,7 @@ export default function V2CatalogCampaignPricingPage() {
 
         <div className="mt-4 flex justify-end">
           <Button onClick={saveCampaignDiscount} loading={isSaving}>
-            할인 가격 저장
+            {isAlwaysOnCampaign ? '기본 가격 저장' : '할인 가격 저장'}
           </Button>
         </div>
       </section>
@@ -644,9 +700,13 @@ export default function V2CatalogCampaignPricingPage() {
       <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">저장된 캠페인 가격</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {isAlwaysOnCampaign ? '저장된 BASE 가격' : '저장된 캠페인 가격'}
+            </h2>
             <p className="mt-1 text-sm text-gray-500">
-              이 캠페인에 연결된 옵션별 할인가를 확인할 수 있습니다.
+              {isAlwaysOnCampaign
+                ? '이 상시 캠페인에 연결된 옵션별 기본 판매가를 확인할 수 있습니다.'
+                : '이 캠페인에 연결된 옵션별 할인가를 확인할 수 있습니다.'}
             </p>
           </div>
           <Badge intent="info">{configuredItems.length}개</Badge>
@@ -655,7 +715,9 @@ export default function V2CatalogCampaignPricingPage() {
         <div className="mt-4 space-y-2">
           {configuredItems.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-500">
-              아직 설정된 할인 가격이 없습니다.
+              {isAlwaysOnCampaign
+                ? '아직 설정된 BASE 가격이 없습니다.'
+                : '아직 설정된 할인 가격이 없습니다.'}
             </div>
           ) : (
             configuredItems.map((item) => (
