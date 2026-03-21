@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { FileInput } from '@/components/ui/file-input';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -577,11 +578,18 @@ export function ProductVariantForm({
               </div>
             )}
 
-            <input
-              type="file"
+            <FileInput
+              id="variant-audio-file"
+              triggerLabel={
+                audioFile
+                  ? `${audioFile.name} (${formatBytes(audioFile.size)})`
+                  : mode === 'create'
+                    ? '오디오 파일 선택'
+                    : '새 오디오 파일 선택'
+              }
               accept="audio/*,.mp3,.wav,.flac,.m4a"
               onChange={(event) => setAudioFile(event.target.files?.[0] || null)}
-              className="mt-4 h-11 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-xs file:font-medium file:text-gray-700 hover:file:bg-gray-200"
+              className="mt-4"
             />
             <p className="mt-2 text-xs text-gray-500">
               선택 파일: {audioFile ? `${audioFile.name} (${formatBytes(audioFile.size)})` : '없음'}

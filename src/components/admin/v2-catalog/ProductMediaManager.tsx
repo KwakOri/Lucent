@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { FileInput } from '@/components/ui/file-input';
 import { Loading } from '@/components/ui/loading';
 import type { V2Product, V2ProductMedia } from '@/lib/client/api/v2-catalog-admin.api';
 import {
@@ -322,8 +323,8 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
           </div>
 
           <div className="mt-4 space-y-2">
-            <input
-              type="file"
+            <FileInput
+              triggerLabel={isMutating ? '커버 이미지 업로드 중...' : '커버 이미지 선택'}
               accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
               disabled={isMutating}
               onChange={(event) => {
@@ -333,7 +334,6 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
                 }
                 event.target.value = '';
               }}
-              className="h-11 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-xs file:font-medium file:text-gray-700 hover:file:bg-gray-200"
             />
 
             <Button
@@ -361,8 +361,8 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
           </p>
 
           <div className="mt-4">
-            <input
-              type="file"
+            <FileInput
+              triggerLabel={isMutating ? '상세 이미지 업로드 중...' : '상세 이미지 선택 (여러 장)'}
               accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
               multiple
               disabled={isMutating}
@@ -373,7 +373,6 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
                 }
                 event.target.value = '';
               }}
-              className="h-11 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-xs file:font-medium file:text-gray-700 hover:file:bg-gray-200"
             />
           </div>
 

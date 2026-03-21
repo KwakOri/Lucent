@@ -9,3 +9,4 @@ export { Switch, type SwitchProps } from "./switch";
 export { Loading, type LoadingProps } from "./loading";
 export { EmptyState, type EmptyStateProps } from "./empty-state";
 export { Badge, type BadgeProps } from "./badge";
+export { FileInput, type FileInputProps } from "./file-input";
