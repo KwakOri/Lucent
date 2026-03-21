@@ -14,6 +14,7 @@ import {
   useV2AdminProject,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import {
+  FULFILLMENT_TYPE_LABELS,
   PRODUCT_KIND_LABELS,
   PRODUCT_STATUS_LABELS,
 } from '@/lib/client/utils/v2-product-admin-form';
@@ -67,6 +68,27 @@ function resolveKindIntent(
     return 'info';
   }
   return 'default';
+}
+
+function resolveFulfillmentBadge(product: {
+  product_kind: 'STANDARD' | 'BUNDLE';
+  fulfillment_type: 'DIGITAL' | 'PHYSICAL' | null;
+}): {
+  label: string;
+  intent: 'default' | 'success' | 'warning' | 'error' | 'info';
+} {
+  if (product.product_kind === 'BUNDLE') {
+    return { label: '구성별 상이', intent: 'default' };
+  }
+
+  if (!product.fulfillment_type) {
+    return { label: '미설정', intent: 'warning' };
+  }
+
+  return {
+    label: FULFILLMENT_TYPE_LABELS[product.fulfillment_type],
+    intent: product.fulfillment_type === 'DIGITAL' ? 'success' : 'info',
+  };
 }
 
 export default function V2CatalogProjectProductsPage() {
@@ -268,39 +290,47 @@ export default function V2CatalogProjectProductsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
-                    {filteredProducts.map((product) => (
-                      <tr key={product.id} className="transition hover:bg-blue-50/40">
-                        <td className="px-4 py-3 align-top">
-                          <p className="font-medium text-gray-900">{product.title}</p>
-                          <p className="mt-1 max-w-[360px] truncate text-xs text-gray-500">
-                            {product.short_description || '한 줄 설명 없음'}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <div className="flex flex-wrap gap-1.5">
-                            <Badge intent={resolveKindIntent(product.product_kind)}>
-                              {PRODUCT_KIND_LABELS[product.product_kind]}
-                            </Badge>
-                            <Badge intent={resolveProductStatusIntent(product.status)}>
-                              {PRODUCT_STATUS_LABELS[product.status]}
-                            </Badge>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 align-top text-gray-700">{product.sort_order}</td>
-                        <td className="px-4 py-3 align-top text-xs text-gray-500">
-                          {formatDateTime(product.updated_at)}
-                        </td>
-                        <td className="px-4 py-3 text-right align-top">
-                          <Button
-                            size="sm"
-                            intent="neutral"
-                            onClick={() => router.push(`/admin/v2-catalog/products/${product.id}`)}
-                          >
-                            상세
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredProducts.map((product) => {
+                      const fulfillmentBadge = resolveFulfillmentBadge({
+                        product_kind: product.product_kind,
+                        fulfillment_type: product.fulfillment_type,
+                      });
+
+                      return (
+                        <tr key={product.id} className="transition hover:bg-blue-50/40">
+                          <td className="px-4 py-3 align-top">
+                            <p className="font-medium text-gray-900">{product.title}</p>
+                            <p className="mt-1 max-w-[360px] truncate text-xs text-gray-500">
+                              {product.short_description || '한 줄 설명 없음'}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <div className="flex flex-wrap gap-1.5">
+                              <Badge intent={resolveKindIntent(product.product_kind)}>
+                                {PRODUCT_KIND_LABELS[product.product_kind]}
+                              </Badge>
+                              <Badge intent={fulfillmentBadge.intent}>{fulfillmentBadge.label}</Badge>
+                              <Badge intent={resolveProductStatusIntent(product.status)}>
+                                {PRODUCT_STATUS_LABELS[product.status]}
+                              </Badge>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top text-gray-700">{product.sort_order}</td>
+                          <td className="px-4 py-3 align-top text-xs text-gray-500">
+                            {formatDateTime(product.updated_at)}
+                          </td>
+                          <td className="px-4 py-3 text-right align-top">
+                            <Button
+                              size="sm"
+                              intent="neutral"
+                              onClick={() => router.push(`/admin/v2-catalog/products/${product.id}`)}
+                            >
+                              상세
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
