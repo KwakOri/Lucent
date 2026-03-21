@@ -15,6 +15,11 @@ import {
   useV2ValidateCheckout,
 } from '@/lib/client/hooks/useV2Checkout';
 import { ApiError } from '@/lib/client/utils/api-error';
+import {
+  buildDistinctOptionCountByProduct,
+  normalizeDisplayTitle,
+  shouldShowOptionTitle,
+} from '@/lib/client/utils/v2-item-display';
 import { useToast } from '@/src/components/toast';
 
 interface AddressFormState {
@@ -164,7 +169,7 @@ export default function V2CheckoutPage() {
   });
 
   const hasAuthError = error instanceof ApiError && error.isAuthError();
-  const items = cart?.items ?? [];
+  const items = useMemo(() => cart?.items ?? [], [cart?.items]);
   const isCartEmpty = items.length === 0;
 
   const cartCampaignIds = useMemo(
@@ -187,6 +192,15 @@ export default function V2CheckoutPage() {
     }
     return '';
   }, [campaignIdFromRoute, cartCampaignIds]);
+  const optionCountByProductId = useMemo(
+    () =>
+      buildDistinctOptionCountByProduct({
+        rows: items,
+        getProductId: (item) => item.product_id,
+        getOptionId: (item) => item.variant_id,
+      }),
+    [items],
+  );
 
   const shippingRequired = items.some(
     (item) => item.variant?.requires_shipping === true,
@@ -494,26 +508,38 @@ export default function V2CheckoutPage() {
 
           <div className="space-y-3">
             <h2 className="text-lg font-semibold text-text-primary">주문 상품</h2>
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-neutral-200 bg-neutral-50 p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-text-primary">
-                      {item.variant?.title || '옵션 정보 없음'}
-                    </p>
-                    <p className="text-sm text-text-secondary">
-                      {item.variant?.product?.title || '상품 정보 없음'}
+            {items.map((item) => {
+              const productTitle =
+                normalizeDisplayTitle(item.variant?.product?.title) || '상품 정보 없음';
+              const optionTitle = normalizeDisplayTitle(item.variant?.title);
+              const distinctOptionCount = item.product_id
+                ? optionCountByProductId.get(item.product_id)
+                : undefined;
+              const showOptionTitle = shouldShowOptionTitle({
+                productTitle,
+                optionTitle,
+                distinctOptionCount,
+              });
+
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-xl border border-neutral-200 bg-neutral-50 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-text-primary">{productTitle}</p>
+                      {showOptionTitle && (
+                        <p className="text-sm text-text-secondary">{optionTitle}</p>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-text-primary">
+                      수량 {item.quantity}
                     </p>
                   </div>
-                  <p className="text-sm font-medium text-text-primary">
-                    수량 {item.quantity}
-                  </p>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

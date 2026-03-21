@@ -9,6 +9,11 @@ import { Loading } from '@/components/ui/loading';
 import { useV2CheckoutOrder } from '@/lib/client/hooks/useV2Checkout';
 import { groupV2OrderItems } from '@/lib/client/utils/v2-order-item-groups';
 import { ApiError } from '@/lib/client/utils/api-error';
+import {
+  buildDistinctOptionCountByProduct,
+  normalizeDisplayTitle,
+  shouldShowOptionTitle,
+} from '@/lib/client/utils/v2-item-display';
 
 function readString(value: unknown): string {
   return typeof value === 'string' ? value : '';
@@ -124,6 +129,37 @@ export default function OrderCompletePage() {
 
   const items = Array.isArray(order.items) ? order.items : [];
   const itemGroups = groupV2OrderItems(items as Array<Record<string, unknown>>);
+  const optionCountByProductId = buildDistinctOptionCountByProduct({
+    rows: items,
+    getProductId: (rawItem) => readString(asObject(rawItem).product_id),
+    getOptionId: (rawItem) => readString(asObject(rawItem).variant_id),
+  });
+  const itemDisplayById = new Map<
+    string,
+    { productTitle: string; optionTitle: string; showOptionTitle: boolean }
+  >(
+    items.map((rawItem, index) => {
+      const item = asObject(rawItem);
+      const display = asObject(item.display_snapshot);
+      const itemId = readString(item.id) || `line-${index}`;
+      const productId = normalizeDisplayTitle(readString(item.product_id));
+      const productTitle =
+        normalizeDisplayTitle(readString(item.product_name_snapshot)) ||
+        normalizeDisplayTitle(readString(display.product_title)) ||
+        readString(item.variant_id) ||
+        `상품 ${index + 1}`;
+      const optionTitle =
+        normalizeDisplayTitle(readString(item.variant_name_snapshot)) ||
+        normalizeDisplayTitle(readString(display.variant_title)) ||
+        normalizeDisplayTitle(readString(display.title));
+      const showOptionTitle = shouldShowOptionTitle({
+        productTitle,
+        optionTitle,
+        distinctOptionCount: productId ? optionCountByProductId.get(productId) : undefined,
+      });
+      return [itemId, { productTitle, optionTitle, showOptionTitle }];
+    }),
+  );
   const hasShippingItem = items.some((rawItem) => {
     const display = asObject(asObject(rawItem).display_snapshot);
     return display.requires_shipping === true;
@@ -189,53 +225,80 @@ export default function OrderCompletePage() {
             주문 상품
           </h2>
           <div className="mt-4 space-y-3">
-            {itemGroups.map((group, index) => (
-              <div
-                key={group.key || `${group.id}-${index}`}
-                className="rounded-lg border border-neutral-200 p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-text-primary">{group.title}</p>
-                    <p className="text-xs text-text-secondary">
-                      {group.lineType === 'BUNDLE_PARENT' ? '번들 상품' : '일반 상품'} · 수량{' '}
-                      {group.quantity}
-                    </p>
-                  </div>
-                  <p className="font-semibold text-text-primary">
-                    {formatCurrency(group.lineTotal)}
-                  </p>
-                </div>
+            {itemGroups.map((group, index) => {
+              const groupDisplay = itemDisplayById.get(group.id);
+              const groupProductTitle = groupDisplay?.productTitle || group.title;
+              const groupOptionTitle =
+                groupDisplay?.showOptionTitle && groupDisplay.optionTitle
+                  ? groupDisplay.optionTitle
+                  : '';
 
-                {group.components.length > 0 && (
-                  <div className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3">
-                    <p className="text-xs font-semibold text-text-secondary">
-                      번들 구성품 {group.components.length}개
-                    </p>
-                    <div className="mt-2 space-y-2">
-                      {group.components.map((component, componentIndex) => (
-                        <div
-                          key={`${component.id}-${componentIndex}`}
-                          className="flex items-start justify-between gap-3"
-                        >
-                          <div>
-                            <p className="text-sm font-medium text-text-primary">
-                              {component.title}
-                            </p>
-                            <p className="text-xs text-text-secondary">
-                              수량 {component.quantity}
-                            </p>
-                          </div>
-                          <p className="text-sm font-medium text-text-primary">
-                            {formatCurrency(component.lineTotal)}
-                          </p>
-                        </div>
-                      ))}
+              return (
+                <div
+                  key={group.key || `${group.id}-${index}`}
+                  className="rounded-lg border border-neutral-200 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-text-primary">{groupProductTitle}</p>
+                      {groupOptionTitle && (
+                        <p className="text-sm text-text-secondary">{groupOptionTitle}</p>
+                      )}
+                      <p className="text-xs text-text-secondary">
+                        {group.lineType === 'BUNDLE_PARENT' ? '번들 상품' : '일반 상품'} · 수량{' '}
+                        {group.quantity}
+                      </p>
                     </div>
+                    <p className="font-semibold text-text-primary">
+                      {formatCurrency(group.lineTotal)}
+                    </p>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {group.components.length > 0 && (
+                    <div className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+                      <p className="text-xs font-semibold text-text-secondary">
+                        번들 구성품 {group.components.length}개
+                      </p>
+                      <div className="mt-2 space-y-2">
+                        {group.components.map((component, componentIndex) => {
+                          const componentDisplay = itemDisplayById.get(component.id);
+                          const componentProductTitle =
+                            componentDisplay?.productTitle || component.title;
+                          const componentOptionTitle =
+                            componentDisplay?.showOptionTitle && componentDisplay.optionTitle
+                              ? componentDisplay.optionTitle
+                              : '';
+
+                          return (
+                            <div
+                              key={`${component.id}-${componentIndex}`}
+                              className="flex items-start justify-between gap-3"
+                            >
+                              <div>
+                                <p className="text-sm font-medium text-text-primary">
+                                  {componentProductTitle}
+                                </p>
+                                {componentOptionTitle && (
+                                  <p className="text-xs text-text-secondary">
+                                    {componentOptionTitle}
+                                  </p>
+                                )}
+                                <p className="text-xs text-text-secondary">
+                                  수량 {component.quantity}
+                                </p>
+                              </div>
+                              <p className="text-sm font-medium text-text-primary">
+                                {formatCurrency(component.lineTotal)}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
 

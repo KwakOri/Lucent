@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useMemo } from 'react';
 import { Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -12,6 +13,11 @@ import {
   useV2UpdateCartItemQuantity,
 } from '@/lib/client/hooks/useV2Checkout';
 import { ApiError } from '@/lib/client/utils/api-error';
+import {
+  buildDistinctOptionCountByProduct,
+  normalizeDisplayTitle,
+  shouldShowOptionTitle,
+} from '@/lib/client/utils/v2-item-display';
 import { useToast } from '@/src/components/toast';
 
 const BASE_SHIPPING_FEE = 3500;
@@ -67,11 +73,20 @@ export default function V2CartPage() {
   const updateQuantity = useV2UpdateCartItemQuantity();
   const removeCartItem = useV2RemoveCartItem();
 
-  const items = cart?.items ?? [];
+  const items = useMemo(() => cart?.items ?? [], [cart?.items]);
   const isEmpty = items.length === 0;
   const hasAuthError = error instanceof ApiError && error.isAuthError();
   const hasShippingItem = items.some(
     (item) => item.variant?.requires_shipping === true,
+  );
+  const optionCountByProductId = useMemo(
+    () =>
+      buildDistinctOptionCountByProduct({
+        rows: items,
+        getProductId: (item) => item.product_id,
+        getOptionId: (item) => item.variant_id,
+      }),
+    [items],
   );
   const totalAmount = items.reduce((sum, item) => {
     const unit = readUnitAmount(
@@ -192,6 +207,19 @@ export default function V2CartPage() {
                     null,
                 );
                 const lineTotal = unitAmount * item.quantity;
+                const productTitle =
+                  normalizeDisplayTitle(item.variant?.product?.title) ||
+                  '상품 정보 없음';
+                const optionTitle = normalizeDisplayTitle(item.variant?.title);
+                const distinctOptionCount = item.product_id
+                  ? optionCountByProductId.get(item.product_id)
+                  : undefined;
+                const showOptionTitle = shouldShowOptionTitle({
+                  productTitle,
+                  optionTitle,
+                  distinctOptionCount,
+                });
+
                 return (
                   <article
                     key={item.id}
@@ -200,11 +228,11 @@ export default function V2CartPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="text-lg font-semibold text-text-primary">
-                          {item.variant?.title || '옵션 정보 없음'}
+                          {productTitle}
                         </p>
-                        <p className="text-sm text-text-secondary">
-                          {item.variant?.product?.title || '상품 정보 없음'}
-                        </p>
+                        {showOptionTitle && (
+                          <p className="text-sm text-text-secondary">{optionTitle}</p>
+                        )}
                         <p className="mt-2 text-sm text-text-secondary">
                           개당 {formatCurrency(unitAmount)}
                         </p>
