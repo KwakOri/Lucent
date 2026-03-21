@@ -206,6 +206,7 @@ export interface V2MediaAsset {
   reference_summary?: {
     product_media_count: number;
     digital_asset_count: number;
+    campaign_banner_count?: number;
     total_reference_count: number;
     is_orphan: boolean;
   };
@@ -513,6 +514,8 @@ export interface V2Campaign {
   status: V2CampaignStatus;
   starts_at: string | null;
   ends_at: string | null;
+  shop_banner_media_asset_id: string | null;
+  shop_banner_alt_text: string | null;
   channel_scope_json: unknown[];
   purchase_limit_json: Record<string, unknown>;
   source_type: string | null;
@@ -522,6 +525,10 @@ export interface V2Campaign {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  shop_banner_media_asset?: Pick<
+    V2MediaAsset,
+    'id' | 'asset_kind' | 'status' | 'file_name' | 'public_url'
+  > | null;
 }
 
 export interface V2CampaignTarget {
@@ -1191,6 +1198,8 @@ export interface CreateV2CampaignData {
   status?: V2CampaignStatus;
   starts_at?: string | null;
   ends_at?: string | null;
+  shop_banner_media_asset_id?: string | null;
+  shop_banner_alt_text?: string | null;
   channel_scope_json?: unknown[];
   purchase_limit_json?: Record<string, unknown>;
   source_type?: string | null;
@@ -1207,6 +1216,8 @@ export interface UpdateV2CampaignData {
   status?: V2CampaignStatus;
   starts_at?: string | null;
   ends_at?: string | null;
+  shop_banner_media_asset_id?: string | null;
+  shop_banner_alt_text?: string | null;
   channel_scope_json?: unknown[];
   purchase_limit_json?: Record<string, unknown>;
   source_type?: string | null;
