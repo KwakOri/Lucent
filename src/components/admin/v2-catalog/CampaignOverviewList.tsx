@@ -112,7 +112,7 @@ export function CampaignOverviewList({
                     : '아직 가격/프로모션이 연결되지 않았습니다.'}
                 </p>
                 <p className="mt-1 text-xs text-gray-500">
-                  캠페인 상세에서 대상별 할인 가격(OVERRIDE)을 설정하면 즉시 운영 기준에 반영됩니다.
+                  캠페인 상세에서 가격을 설정하면 유형에 따라 BASE/OVERRIDE로 운영 기준에 반영됩니다.
                 </p>
               </div>
             </div>
