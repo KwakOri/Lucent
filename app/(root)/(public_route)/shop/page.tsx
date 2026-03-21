@@ -1,22 +1,18 @@
 "use client";
 
+import { VoicePackCover } from "@/components/order/VoicePackCover";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
-import { Select } from "@/components/ui/select";
-import {
-  useSession,
-  useV2AddCartItem,
-  useV2ShopCampaigns,
-  useV2ShopProducts,
-} from "@/lib/client/hooks";
+import { useSession, useV2AddCartItem, useV2ShopProducts } from "@/lib/client/hooks";
 import type {
   V2ShopDisplayPrice,
   V2ShopListItem,
 } from "@/lib/client/api/v2-shop.api";
 import { ApiError } from "@/lib/client/utils/api-error";
-import { Headphones, Package } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Package, ShoppingCart } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { useToast } from "@/src/components/toast";
 
@@ -72,115 +68,14 @@ function getErrorMessage(error: unknown): string {
   return "요청 처리 중 오류가 발생했습니다.";
 }
 
-function ProductCard({
-  item,
-  onOpenDetail,
-  onAddToCart,
-  onBuyNow,
-  isAdding,
-  isBuyingNow,
-}: {
-  item: V2ShopListItem;
-  onOpenDetail: () => void;
-  onAddToCart: () => void;
-  onBuyNow: () => void;
-  isAdding: boolean;
-  isBuyingNow: boolean;
-}) {
-  const isDigital = item.fulfillment_type === "DIGITAL";
-  const canPurchase = item.availability.sellable && !!item.primary_variant_id;
-
-  return (
-    <div
-      className="cursor-pointer overflow-hidden rounded-2xl border border-neutral-200 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-      onClick={onOpenDetail}
-    >
-      <div className="relative aspect-square bg-neutral-100">
-        {item.thumbnail_url ? (
-          <img
-            src={item.thumbnail_url}
-            alt={item.title}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-neutral-400">
-            {isDigital ? (
-              <Headphones className="h-16 w-16" />
-            ) : (
-              <Package className="h-16 w-16" />
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-3 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="line-clamp-2 text-lg font-bold text-text-primary">
-            {item.title}
-          </h3>
-          {renderSellableBadge(item)}
-        </div>
-
-        <p className="line-clamp-2 min-h-10 text-sm text-text-secondary">
-          {item.short_description || "상품 설명이 준비 중입니다."}
-        </p>
-
-        <div className="flex items-center justify-between">
-          <p className="text-2xl font-bold text-primary-700">
-            {formatDisplayPrice(item)}
-          </p>
-          <Button
-            intent="secondary"
-            size="sm"
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpenDetail();
-            }}
-          >
-            자세히 보기
-          </Button>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            intent="primary"
-            size="sm"
-            disabled={!canPurchase || isAdding || isBuyingNow}
-            onClick={(event) => {
-              event.stopPropagation();
-              onAddToCart();
-            }}
-          >
-            {isAdding ? "담는 중..." : "장바구니"}
-          </Button>
-          <Button
-            intent="neutral"
-            size="sm"
-            disabled={!canPurchase || isAdding || isBuyingNow}
-            onClick={(event) => {
-              event.stopPropagation();
-              onBuyNow();
-            }}
-          >
-            {isBuyingNow ? "이동 중..." : "바로 구매"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ShopPageContent() {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isAuthenticated } = useSession();
   const { showToast } = useToast();
   const addCartItem = useV2AddCartItem();
-  const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
+  const [addingToCart, setAddingToCart] = useState<string | null>(null);
   const selectedCampaignId = searchParams.get("campaign_id")?.trim() || "";
-  const { data: campaigns = [] } = useV2ShopCampaigns({
-    channel: "WEB",
-  });
   const { data, isLoading, error } = useV2ShopProducts({
     limit: 60,
     sort: "SORT_ORDER",
@@ -188,27 +83,14 @@ function ShopPageContent() {
     campaign_id: selectedCampaignId || undefined,
   });
 
-  const items = data?.items || [];
-  const campaignOptions = useMemo(
-    () => [
-      { value: "", label: "상시 판매(기본)" },
-      ...campaigns.map((campaign) => ({
-        value: campaign.id,
-        label: campaign.name,
-      })),
-    ],
-    [campaigns],
+  const products = data?.items || [];
+  const voicePacks = useMemo(
+    () => products.filter((item) => item.fulfillment_type === "DIGITAL"),
+    [products],
   );
-  const selectedCampaign = useMemo(
-    () =>
-      campaigns.find((campaign) => campaign.id === selectedCampaignId) || null,
-    [campaigns, selectedCampaignId],
-  );
-  const digitalProducts = items.filter(
-    (item) => item.fulfillment_type === "DIGITAL",
-  );
-  const physicalProducts = items.filter(
-    (item) => item.fulfillment_type !== "DIGITAL",
+  const physicalGoods = useMemo(
+    () => products.filter((item) => item.fulfillment_type !== "DIGITAL"),
+    [products],
   );
 
   const getShopPath = (campaignId: string | null | undefined) =>
@@ -225,18 +107,19 @@ function ShopPageContent() {
     );
   };
 
-  const handleCampaignChange = (campaignId: string) => {
-    const nextParams = new URLSearchParams(searchParams.toString());
-    if (campaignId) {
-      nextParams.set("campaign_id", campaignId);
-    } else {
-      nextParams.delete("campaign_id");
-    }
-    const query = nextParams.toString();
-    router.replace(`${pathname}${query ? `?${query}` : ""}`);
+  const handleProductClick = (productId: string) => {
+    router.push(buildProductDetailPath(productId));
   };
 
-  async function handleAddToCart(item: V2ShopListItem, buyNow: boolean) {
+  const canAddToCart = (item: V2ShopListItem) =>
+    item.availability.sellable && !!item.primary_variant_id;
+
+  async function handleAddToCart(
+    event: React.MouseEvent,
+    item: V2ShopListItem,
+  ) {
+    event.stopPropagation();
+
     if (!item.primary_variant_id) {
       showToast("선택 가능한 상품 옵션이 없습니다.", { type: "warning" });
       return;
@@ -252,8 +135,7 @@ function ShopPageContent() {
       return;
     }
 
-    const actionKey = `${item.product_id}:${buyNow ? "BUY_NOW" : "ADD"}`;
-    setPendingActionKey(actionKey);
+    setAddingToCart(item.product_id);
 
     try {
       await addCartItem.mutateAsync({
@@ -261,18 +143,13 @@ function ShopPageContent() {
         quantity: 1,
         campaign_id: selectedCampaignId || null,
         display_price_snapshot: buildDisplayPriceSnapshot(item.display_price),
-        added_via: buyNow ? "BUY_NOW" : "SHOP_LIST",
+        added_via: "SHOP_LIST",
         metadata: {
           source: "shop-list",
           product_id: item.product_id,
           campaign_id: selectedCampaignId || null,
         },
       });
-
-      if (buyNow) {
-        router.push(selectedCampaignId ? `/checkout?campaign_id=${selectedCampaignId}` : "/checkout");
-        return;
-      }
 
       showToast("장바구니에 상품을 담았습니다.", { type: "success" });
     } catch (submitError) {
@@ -282,7 +159,7 @@ function ShopPageContent() {
       }
       showToast(getErrorMessage(submitError), { type: "error" });
     } finally {
-      setPendingActionKey(null);
+      setAddingToCart(null);
     }
   }
 
@@ -311,103 +188,194 @@ function ShopPageContent() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <section className="bg-[#f9f9ed] px-4 py-20">
-        <div className="mx-auto max-w-6xl">
-          <h1 className="mb-6 text-4xl font-bold leading-tight text-[#1a1a2e] sm:text-5xl">
-            루센트 상점
+      <section className="relative overflow-hidden bg-[#f9f9ed] px-4 py-20">
+        <div className="relative mx-auto max-w-6xl">
+          <h1 className="mb-6 text-4xl font-bold leading-tight sm:text-5xl">
+            <span className="text-[#1a1a2e]">루센트의 프로젝트에서,</span>
+            <br />
+            <span className="text-[#66B5F3]">이야기가 깃든 굿즈를</span>
+            <br />
+            <span className="text-[#1a1a2e]">만나보세요.</span>
           </h1>
-          <p className="max-w-2xl text-base leading-relaxed text-[#1a1a2e]/70">
-            v2 카탈로그 기준으로 구성된 상품 목록입니다. 상품 상세에서 옵션/구매 조건을
-            확인하고 다음 단계에서 장바구니 담기를 진행할 수 있습니다.
+          <p className="max-w-xl text-base leading-relaxed text-[#1a1a2e]/60">
+            루센트는 라이버의 굿즈 판매와 유통을 전담해 준비의 부담은 줄이고,
+            팬에게는 더 가까운 가격으로 굿즈를 전달합니다.
           </p>
-          <div className="mt-8 max-w-lg rounded-xl border border-neutral-200 bg-white p-4">
-            <label className="mb-2 block text-sm font-semibold text-text-primary">
-              판매 캠페인
-            </label>
-            <Select
-              size="md"
-              value={selectedCampaignId}
-              options={campaignOptions}
-              onChange={(event) => handleCampaignChange(event.target.value)}
-            />
-            <p className="mt-2 text-xs text-text-secondary">
-              {selectedCampaign
-                ? `현재 "${selectedCampaign.name}" 기준 가격/재고를 조회 중입니다.`
-                : "상시 판매 기준으로 상품을 조회 중입니다."}
-            </p>
-          </div>
+          {selectedCampaignId ? (
+            <div className="mt-5 inline-flex rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-[#1a1a2e]/80">
+              캠페인 기준 상품을 보고 있습니다.
+            </div>
+          ) : null}
         </div>
       </section>
 
-      <section className="px-4 py-14">
+      <section className="px-4 py-16">
         <div className="mx-auto max-w-6xl">
-          <div className="mb-8 flex items-center justify-between">
-            <div>
-              <h2 className="text-3xl font-bold text-text-primary">Digital</h2>
-              <p className="text-sm text-text-secondary">디지털 상품</p>
-            </div>
-            <span className="text-sm text-text-secondary">
-              {digitalProducts.length}개
-            </span>
+          <div className="mb-12">
+            <h2 className="mb-3 text-3xl font-bold text-text-primary">
+              Voice Packs
+            </h2>
+            <p className="text-lg text-text-secondary">
+              다양한 아티스트의 보이스팩을 만나보세요
+            </p>
           </div>
 
-          {digitalProducts.length === 0 ? (
-            <div className="rounded-xl border border-neutral-200 bg-white p-10">
+          {voicePacks.length === 0 ? (
+            <div className="rounded-xl border border-neutral-200 bg-white p-12">
               <EmptyState
-                title="디지털 상품이 없습니다"
-                description="곧 새로운 상품이 등록될 예정입니다."
+                title="준비 중입니다"
+                description="곧 멋진 보이스팩을 만나보실 수 있어요"
               />
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {digitalProducts.map((item) => (
-                <ProductCard
-                  key={item.product_id}
-                  item={item}
-                  onOpenDetail={() => router.push(buildProductDetailPath(item.product_id))}
-                  onAddToCart={() => void handleAddToCart(item, false)}
-                  onBuyNow={() => void handleAddToCart(item, true)}
-                  isAdding={pendingActionKey === `${item.product_id}:ADD`}
-                  isBuyingNow={pendingActionKey === `${item.product_id}:BUY_NOW`}
-                />
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {voicePacks.map((pack, index) => (
+                <div
+                  key={pack.product_id}
+                  className="cursor-pointer overflow-hidden rounded-2xl border-2 border-primary-200 bg-white transition-all duration-300 hover:scale-105 hover:shadow-xl"
+                  onClick={() => handleProductClick(pack.product_id)}
+                >
+                  <VoicePackCover
+                    index={index}
+                    name={pack.title}
+                    thumbnail={pack.thumbnail_url}
+                  />
+
+                  <div className="p-6">
+                    <h3 className="mb-2 text-xl font-bold text-text-primary">
+                      {pack.title}
+                    </h3>
+                    <p className="mb-4 line-clamp-2 text-sm text-text-secondary">
+                      {pack.short_description || "보이스팩"}
+                    </p>
+                    <p className="mb-4 text-2xl font-bold text-primary-700">
+                      {formatDisplayPrice(pack)}
+                    </p>
+                    <div className="mb-3">{renderSellableBadge(pack)}</div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        intent="secondary"
+                        size="md"
+                        fullWidth
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleProductClick(pack.product_id);
+                        }}
+                      >
+                        자세히 보기
+                      </Button>
+                      <Button
+                        intent="primary"
+                        size="md"
+                        disabled={
+                          !canAddToCart(pack) || addingToCart === pack.product_id
+                        }
+                        onClick={(event) => void handleAddToCart(event, pack)}
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           )}
         </div>
       </section>
 
-      <section className="bg-white px-4 py-14">
+      <section className="bg-white px-4 py-16">
         <div className="mx-auto max-w-6xl">
-          <div className="mb-8 flex items-center justify-between">
-            <div>
-              <h2 className="text-3xl font-bold text-text-primary">Goods & Bundle</h2>
-              <p className="text-sm text-text-secondary">실물/번들 상품</p>
-            </div>
-            <span className="text-sm text-text-secondary">
-              {physicalProducts.length}개
-            </span>
+          <div className="mb-12">
+            <h2 className="mb-3 text-3xl font-bold text-text-primary">Goods</h2>
+            <p className="text-lg text-text-secondary">실물 굿즈 컬렉션</p>
           </div>
 
-          {physicalProducts.length === 0 ? (
-            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-10">
+          {physicalGoods.length === 0 ? (
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-12">
               <EmptyState
-                title="실물/번들 상품이 없습니다"
-                description="곧 다양한 굿즈가 추가됩니다."
-              />
+                title="준비 중입니다"
+                description="곧 다양한 굿즈를 만나보실 수 있어요"
+              >
+                <Link href="/projects">
+                  <Button intent="primary" size="md">
+                    <Package className="h-4 w-4" />
+                    프로젝트 보러가기
+                  </Button>
+                </Link>
+              </EmptyState>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {physicalProducts.map((item) => (
-                <ProductCard
-                  key={item.product_id}
-                  item={item}
-                  onOpenDetail={() => router.push(buildProductDetailPath(item.product_id))}
-                  onAddToCart={() => void handleAddToCart(item, false)}
-                  onBuyNow={() => void handleAddToCart(item, true)}
-                  isAdding={pendingActionKey === `${item.product_id}:ADD`}
-                  isBuyingNow={pendingActionKey === `${item.product_id}:BUY_NOW`}
-                />
-              ))}
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {physicalGoods.map((goods) => {
+                const soldOut = goods.availability.reason === "OUT_OF_STOCK";
+                const canAdd = canAddToCart(goods);
+                return (
+                  <div
+                    key={goods.product_id}
+                    className="cursor-pointer overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 transition-all duration-300 hover:scale-105 hover:shadow-xl"
+                    onClick={() => handleProductClick(goods.product_id)}
+                  >
+                    <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-br from-neutral-100 to-neutral-200">
+                      {goods.thumbnail_url ? (
+                        <img
+                          src={goods.thumbnail_url}
+                          alt={goods.title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-6xl">📦</span>
+                      )}
+                    </div>
+
+                    <div className="p-6">
+                      <h3 className="mb-2 text-xl font-bold text-text-primary">
+                        {goods.title}
+                      </h3>
+                      <p className="mb-4 line-clamp-2 text-sm text-text-secondary">
+                        {goods.short_description || "굿즈"}
+                      </p>
+                      <p className="mb-4 text-2xl font-bold text-primary-700">
+                        {formatDisplayPrice(goods)}
+                      </p>
+
+                      {!goods.availability.sellable ? (
+                        <p className="mb-2 text-sm text-red-600">
+                          {soldOut ? "품절" : "판매 준비 중"}
+                        </p>
+                      ) : null}
+
+                      {!canAdd ? (
+                        <Button intent="primary" size="md" fullWidth disabled>
+                          {soldOut ? "품절" : "판매 준비 중"}
+                        </Button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Button
+                            intent="secondary"
+                            size="md"
+                            fullWidth
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleProductClick(goods.product_id);
+                            }}
+                          >
+                            자세히 보기
+                          </Button>
+                          <Button
+                            intent="primary"
+                            size="md"
+                            disabled={addingToCart === goods.product_id}
+                            onClick={(event) => void handleAddToCart(event, goods)}
+                          >
+                            <ShoppingCart className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
