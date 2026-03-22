@@ -230,6 +230,7 @@ export function CampaignPricingBulkTable({
     }
 
     setPriceDrafts((previous) => {
+      let hasChanges = false;
       const next = {
         ...previous,
       };
@@ -237,12 +238,14 @@ export function CampaignPricingBulkTable({
         if (next[variantId] !== undefined) {
           return;
         }
+        hasChanges = true;
         next[variantId] = String(row.campaignItem?.unit_amount ?? row.baseItem?.unit_amount ?? '');
       });
-      return next;
+      return hasChanges ? next : previous;
     });
 
     setStockDrafts((previous) => {
+      let hasChanges = false;
       const next = {
         ...previous,
       };
@@ -250,9 +253,10 @@ export function CampaignPricingBulkTable({
         if (next[variantId] !== undefined) {
           return;
         }
+        hasChanges = true;
         next[variantId] = '';
       });
-      return next;
+      return hasChanges ? next : previous;
     });
   }, [variantRowsById]);
 
