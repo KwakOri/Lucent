@@ -57,6 +57,18 @@ interface UnifiedOrder {
   items: UnifiedOrderItem[];
 }
 
+type MyPageLinearStatus =
+  | 'PAYMENT_PENDING'
+  | 'PAYMENT_CONFIRMED'
+  | 'PRODUCTION'
+  | 'READY_TO_SHIP'
+  | 'IN_TRANSIT'
+  | 'COMPLETED'
+  | 'CANCELED'
+  | 'FAILED'
+  | 'PARTIALLY_REFUNDED'
+  | 'REFUNDED';
+
 function readString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
@@ -240,18 +252,108 @@ function getStatusLabel(status: string) {
   return labels[status] || status;
 }
 
-function statusBadgeClass(status: string) {
-  if (status.includes('FAILED') || status.includes('CANCELED')) {
+function includesCanceledStatus(status: string | undefined): boolean {
+  return String(status || '').toUpperCase().includes('CANCEL');
+}
+
+function resolveMyPageLinearStatus(order: UnifiedOrder): MyPageLinearStatus {
+  const orderStatus = String(order.orderStatus || '').toUpperCase();
+  const paymentStatus = String(order.paymentStatus || '').toUpperCase();
+  const fulfillmentStatus = String(order.fulfillmentStatus || '').toUpperCase();
+  const hasPhysicalItem = order.items.some((item) => !item.isDigital);
+
+  if (
+    includesCanceledStatus(orderStatus) ||
+    includesCanceledStatus(paymentStatus) ||
+    includesCanceledStatus(fulfillmentStatus)
+  ) {
+    return 'CANCELED';
+  }
+
+  if (paymentStatus === 'FAILED') {
+    return 'FAILED';
+  }
+
+  if (paymentStatus === 'REFUNDED') {
+    return 'REFUNDED';
+  }
+
+  if (paymentStatus === 'PARTIALLY_REFUNDED') {
+    return 'PARTIALLY_REFUNDED';
+  }
+
+  if (!paymentStatus || paymentStatus === 'PENDING') {
+    return 'PAYMENT_PENDING';
+  }
+
+  if (paymentStatus === 'AUTHORIZED') {
+    return 'PAYMENT_CONFIRMED';
+  }
+
+  if (orderStatus === 'COMPLETED' || fulfillmentStatus === 'FULFILLED') {
+    return 'COMPLETED';
+  }
+
+  if (fulfillmentStatus === 'PARTIAL') {
+    return hasPhysicalItem ? 'IN_TRANSIT' : 'PRODUCTION';
+  }
+
+  if (fulfillmentStatus === 'UNFULFILLED') {
+    return hasPhysicalItem ? 'READY_TO_SHIP' : 'PRODUCTION';
+  }
+
+  return hasPhysicalItem ? 'READY_TO_SHIP' : 'PRODUCTION';
+}
+
+function myPageLinearStatusLabel(status: MyPageLinearStatus): string {
+  if (status === 'PAYMENT_PENDING') {
+    return '입금 대기';
+  }
+  if (status === 'PAYMENT_CONFIRMED') {
+    return '입금 확인';
+  }
+  if (status === 'PRODUCTION') {
+    return '제작중';
+  }
+  if (status === 'READY_TO_SHIP') {
+    return '배송 준비';
+  }
+  if (status === 'IN_TRANSIT') {
+    return '배송 중';
+  }
+  if (status === 'COMPLETED') {
+    return '완료';
+  }
+  if (status === 'FAILED') {
+    return '결제 실패';
+  }
+  if (status === 'PARTIALLY_REFUNDED') {
+    return '부분 환불';
+  }
+  if (status === 'REFUNDED') {
+    return '환불 완료';
+  }
+  return '취소';
+}
+
+function myPageLinearStatusBadgeClass(status: MyPageLinearStatus) {
+  if (status === 'FAILED' || status === 'CANCELED') {
     return 'bg-red-100 text-red-700';
   }
+  if (status === 'PARTIALLY_REFUNDED' || status === 'REFUNDED') {
+    return 'bg-neutral-200 text-neutral-700';
+  }
+  if (status === 'COMPLETED') {
+    return 'bg-green-100 text-green-700';
+  }
   if (
-    status.includes('PENDING') ||
-    status.includes('UNFULFILLED') ||
-    status.includes('READY_TO_SHIP')
+    status === 'PAYMENT_PENDING' ||
+    status === 'PRODUCTION' ||
+    status === 'READY_TO_SHIP'
   ) {
     return 'bg-yellow-100 text-yellow-700';
   }
-  return 'bg-green-100 text-green-700';
+  return 'bg-blue-100 text-blue-700';
 }
 
 export default function MyPage() {
@@ -381,46 +483,34 @@ export default function MyPage() {
             </div>
           ) : (
             <div className="space-y-5">
-              {mergedOrders.map((order) => (
-                <article
-                  key={order.id}
-                  className="rounded-2xl border border-neutral-200 bg-white p-6"
-                >
-                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-neutral-200 pb-4">
-                    <div>
-                      <p className="text-sm text-text-secondary">주문번호: {order.orderNo}</p>
-                      <p className="text-sm text-text-secondary">
-                        주문일: {formatDate(order.orderedAt)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
-                          order.orderStatus,
-                        )}`}
-                      >
-                        {getStatusLabel(order.orderStatus)}
-                      </span>
-                      {order.paymentStatus && (
+              {mergedOrders.map((order) => {
+                const linearStatus = resolveMyPageLinearStatus(order);
+                return (
+                  <article
+                    key={order.id}
+                    className="rounded-2xl border border-neutral-200 bg-white p-6"
+                  >
+                    {/*
+                      사용자 화면에서는 3축 상태를 직접 노출하지 않고 단일 선형 상태로 안내해
+                      주문 진행 단계를 한눈에 이해할 수 있게 한다.
+                    */}
+                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-neutral-200 pb-4">
+                      <div>
+                        <p className="text-sm text-text-secondary">주문번호: {order.orderNo}</p>
+                        <p className="text-sm text-text-secondary">
+                          주문일: {formatDate(order.orderedAt)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
                         <span
-                          className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
-                            order.paymentStatus,
+                          className={`rounded-full px-2 py-1 text-xs font-semibold ${myPageLinearStatusBadgeClass(
+                            linearStatus,
                           )}`}
                         >
-                          결제: {getStatusLabel(order.paymentStatus)}
+                          {myPageLinearStatusLabel(linearStatus)}
                         </span>
-                      )}
-                      {order.fulfillmentStatus && (
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
-                            order.fulfillmentStatus,
-                          )}`}
-                        >
-                          이행: {getStatusLabel(order.fulfillmentStatus)}
-                        </span>
-                      )}
+                      </div>
                     </div>
-                  </div>
 
                   <div className="space-y-3">
                     {order.items.map((item) => (
@@ -552,8 +642,9 @@ export default function MyPage() {
                       </p>
                     </div>
                   </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
