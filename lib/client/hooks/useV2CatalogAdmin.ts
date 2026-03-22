@@ -68,6 +68,7 @@ import {
   type ValidateV2CouponData,
   type ValidateV2BundleDefinitionData,
   type UploadV2MediaAssetFileData,
+  type V2Variant,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import { queryKeys } from './query-keys';
 
@@ -304,6 +305,43 @@ export function useV2AdminVariants(productId: string | null | undefined) {
     },
     enabled: !!productId,
   });
+}
+
+export function useV2AdminVariantsMap(productIds: string[]) {
+  const normalizedProductIds = useMemo(
+    () =>
+      Array.from(
+        new Set(productIds.map((productId) => productId.trim()).filter(Boolean)),
+      ),
+    [productIds],
+  );
+
+  const variantQueries = useQueries({
+    queries: normalizedProductIds.map((productId) => ({
+      queryKey: queryKeys.v2CatalogAdmin.products.variants(productId),
+      queryFn: async () => {
+        const response = await V2CatalogAdminAPI.getVariants(productId);
+        return response.data;
+      },
+      enabled: productId.length > 0,
+    })),
+  });
+
+  return useMemo(() => {
+    const variantsByProductId = normalizedProductIds.reduce<
+      Record<string, V2Variant[]>
+    >((accumulator, productId, index) => {
+      accumulator[productId] = (variantQueries[index]?.data || []) as V2Variant[];
+      return accumulator;
+    }, {});
+
+    return {
+      variantsByProductId,
+      isLoading: variantQueries.some((query) => query.isLoading),
+      isFetching: variantQueries.some((query) => query.isFetching),
+      isError: variantQueries.some((query) => Boolean(query.error)),
+    };
+  }, [normalizedProductIds, variantQueries]);
 }
 
 export function useCreateV2Variant() {

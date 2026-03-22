@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import {
-  CampaignPricingProductCard,
+  CampaignPricingBulkTable,
   type SaveCampaignVariantPriceParams,
-} from '@/src/components/admin/v2-catalog/CampaignPricingProductCard';
+} from '@/src/components/admin/v2-catalog/CampaignPricingBulkTable';
 import type { V2PriceList, V2PriceListItem } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useCreateV2PriceList,
@@ -661,17 +661,11 @@ export default function V2CatalogCampaignPricingPage() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">상품 리스트 빠른 편집</h2>
             <p className="mt-1 text-sm text-gray-500">
-              상품을 펼쳐 옵션별로 가격과 재고를 바로 입력할 수 있습니다.
+              표에서 여러 상품/옵션 가격과 재고를 한 번에 수정하고 일괄 저장합니다.
             </p>
           </div>
           <Badge intent="info">{quickEditorProducts.length}개</Badge>
         </div>
-
-        {!defaultStockLocationId && (
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            활성 재고 위치가 없어 재고 수량 저장은 동작하지 않습니다. 가격 저장은 계속 가능합니다.
-          </div>
-        )}
 
         <div className="mt-4">
           {quickEditorProducts.length === 0 ? (
@@ -681,20 +675,15 @@ export default function V2CatalogCampaignPricingPage() {
                 : '편집할 대상 상품이 없습니다.'}
             </div>
           ) : (
-            <div className="space-y-3">
-              {quickEditorProducts.map((product) => (
-                <CampaignPricingProductCard
-                  key={product.id}
-                  product={product}
-                  isAlwaysOnCampaign={isAlwaysOnCampaign}
-                  baseItems={baseItems || []}
-                  campaignItems={campaignPriceItems || []}
-                  basePriceListsById={basePriceListById}
-                  defaultStockLocationId={defaultStockLocationId}
-                  onSavePrice={upsertCampaignVariantPrice}
-                />
-              ))}
-            </div>
+            <CampaignPricingBulkTable
+              products={quickEditorProducts}
+              isAlwaysOnCampaign={isAlwaysOnCampaign}
+              baseItems={baseItems || []}
+              campaignItems={campaignPriceItems || []}
+              basePriceListsById={basePriceListById}
+              defaultStockLocationId={defaultStockLocationId}
+              onSavePrice={upsertCampaignVariantPrice}
+            />
           )}
         </div>
       </section>
