@@ -215,7 +215,7 @@ function ShopPageContent() {
       >
         {showCampaignHeroBanner ? (
           <div className="w-full">
-            <div className="mx-auto w-full max-w-[1152px] overflow-hidden rounded-2xl border border-white/70 bg-white/60 shadow-sm">
+            <div className="mx-auto w-full max-w-[1152px] overflow-hidden bg-white/60">
               <img
                 src={selectedCampaignBannerUrl || ""}
                 alt={
