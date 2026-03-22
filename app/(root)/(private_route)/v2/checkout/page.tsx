@@ -14,6 +14,7 @@ import {
   useV2CreateOrder,
   useV2ValidateCheckout,
 } from '@/lib/client/hooks/useV2Checkout';
+import type { V2CartItem } from '@/lib/client/api/v2-checkout.api';
 import { ApiError } from '@/lib/client/utils/api-error';
 import {
   buildDistinctOptionCountByProduct,
@@ -66,6 +67,15 @@ function getErrorMessage(error: unknown): string {
     return error.message;
   }
   return '요청 처리 중 오류가 발생했습니다.';
+}
+
+function getItemThumbnailUrl(item: V2CartItem): string | null {
+  const thumbnailUrl = item.variant?.product?.thumbnail_url;
+  if (typeof thumbnailUrl !== 'string') {
+    return null;
+  }
+  const normalized = thumbnailUrl.trim();
+  return normalized || null;
 }
 
 function readQuoteSummary(quote: Record<string, unknown> | null) {
@@ -520,22 +530,40 @@ export default function V2CheckoutPage() {
                 optionTitle,
                 distinctOptionCount,
               });
+              const thumbnailUrl = getItemThumbnailUrl(item);
 
               return (
                 <div
                   key={item.id}
                   className="rounded-xl border border-neutral-200 bg-neutral-50 p-4"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-text-primary">{productTitle}</p>
-                      {showOptionTitle && (
-                        <p className="text-sm text-text-secondary">{optionTitle}</p>
+                  <div className="flex items-start gap-3">
+                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-white">
+                      {thumbnailUrl ? (
+                        <img
+                          src={thumbnailUrl}
+                          alt={productTitle}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs text-neutral-400">
+                          이미지 없음
+                        </div>
                       )}
                     </div>
-                    <p className="text-sm font-medium text-text-primary">
-                      수량 {item.quantity}
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-text-primary">{productTitle}</p>
+                          {showOptionTitle && (
+                            <p className="text-sm text-text-secondary">{optionTitle}</p>
+                          )}
+                        </div>
+                        <p className="text-sm font-medium text-text-primary">
+                          수량 {item.quantity}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
