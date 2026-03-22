@@ -208,7 +208,11 @@ function ShopPageContent() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <section className="relative overflow-hidden bg-[#f9f9ed] px-4 py-20">
+      <section
+        className={`relative overflow-hidden bg-[#f9f9ed] px-4 ${
+          showCampaignHeroBanner ? "py-0" : "py-20"
+        }`}
+      >
         {showCampaignHeroBanner ? (
           <div className="w-full">
             <div className="mx-auto w-full max-w-[1152px] overflow-hidden rounded-2xl border border-white/70 bg-white/60 shadow-sm">
