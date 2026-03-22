@@ -6,7 +6,8 @@
 
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import {
   V2ShopAPI,
   type GetV2ShopCampaignsParams,
@@ -63,6 +64,62 @@ export function useV2ShopProduct(
     enabled: !!productId,
     staleTime: 1000 * 30,
   });
+}
+
+export function useV2ShopProductThumbnails(
+  productIds: string[],
+  params: GetV2ShopProductDetailParams = {},
+) {
+  const normalizedProductIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          productIds
+            .filter((productId): productId is string => typeof productId === "string")
+            .map((productId) => productId.trim())
+            .filter((productId) => productId.length > 0),
+        ),
+      ),
+    [productIds],
+  );
+
+  const productQueries = useQueries({
+    queries: normalizedProductIds.map((productId) => ({
+      queryKey: queryKeys.v2Shop.products.detail(productId, params),
+      queryFn: async () => {
+        const response = await V2ShopAPI.getProduct(productId, params);
+        return response.data;
+      },
+      staleTime: 1000 * 60,
+      enabled: !!productId,
+    })),
+  });
+
+  const thumbnailUrlByProductId = useMemo(() => {
+    const map = new Map<string, string>();
+    productQueries.forEach((query, index) => {
+      const productId = normalizedProductIds[index];
+      if (!productId) {
+        return;
+      }
+      const thumbnailUrl = query.data?.product?.thumbnail_url;
+      if (typeof thumbnailUrl !== "string") {
+        return;
+      }
+      const normalized = thumbnailUrl.trim();
+      if (!normalized) {
+        return;
+      }
+      map.set(productId, normalized);
+    });
+    return map;
+  }, [normalizedProductIds, productQueries]);
+
+  return {
+    thumbnailUrlByProductId,
+    isLoading: productQueries.some((query) => query.isLoading),
+    isError: productQueries.some((query) => query.isError),
+  };
 }
 
 export function useV2ShopPricePreview() {

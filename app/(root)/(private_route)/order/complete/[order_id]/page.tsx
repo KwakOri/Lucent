@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { CheckCircle, Package } from 'lucide-react';
+import { BankAccountInfo } from '@/components/order';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
 import { useV2CheckoutOrder } from '@/lib/client/hooks/useV2Checkout';
+import { useV2ShopProductThumbnails } from '@/lib/client/hooks/useV2Shop';
 import { groupV2OrderItems } from '@/lib/client/utils/v2-order-item-groups';
 import { ApiError } from '@/lib/client/utils/api-error';
 import {
@@ -24,6 +26,31 @@ function asObject(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>;
   }
   return {};
+}
+
+function readNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+}
+
+function readUrl(value: unknown): string {
+  return readString(value).trim();
+}
+
+function resolveAmount(primary: number, fallback: unknown): number {
+  if (primary > 0) {
+    return primary;
+  }
+  const fallbackAmount = readNumber(fallback);
+  return fallbackAmount > 0 ? fallbackAmount : primary;
 }
 
 function formatCurrency(amount: number): string {
@@ -47,52 +74,19 @@ function formatDateTime(value: string | null): string {
   });
 }
 
-function mapStatusLabel(
-  value: string,
-  type: 'order' | 'payment' | 'fulfillment',
-): string {
-  const dictionary: Record<string, string> =
-    type === 'order'
-      ? {
-          PENDING: '주문 대기',
-          CONFIRMED: '주문 확정',
-          CANCELED: '주문 취소',
-          COMPLETED: '주문 완료',
-        }
-      : type === 'payment'
-      ? {
-          PENDING: '결제 대기',
-          AUTHORIZED: '승인됨',
-          CAPTURED: '결제 완료',
-          FAILED: '결제 실패',
-          CANCELED: '결제 취소',
-          PARTIALLY_REFUNDED: '부분 환불',
-          REFUNDED: '환불 완료',
-        }
-      : {
-          UNFULFILLED: '미이행',
-          PARTIAL: '부분 이행',
-          FULFILLED: '이행 완료',
-          CANCELED: '이행 취소',
-        };
-
-  return dictionary[value] || value || '-';
-}
-
-function badgeClass(value: string) {
-  if (value.includes('FAILED') || value.includes('CANCELED')) {
-    return 'bg-red-100 text-red-700';
-  }
-  if (value.includes('PENDING') || value.includes('UNFULFILLED')) {
-    return 'bg-yellow-100 text-yellow-700';
-  }
-  return 'bg-green-100 text-green-700';
-}
-
 export default function OrderCompletePage() {
   const params = useParams();
   const orderId = params.order_id as string;
   const { data: order, isLoading, error } = useV2CheckoutOrder(orderId);
+  const items = Array.isArray(order?.items) ? order.items : [];
+  const productIds = Array.from(
+    new Set(
+      items
+        .map((rawItem) => readString(asObject(rawItem).product_id))
+        .filter((productId) => productId.length > 0),
+    ),
+  );
+  const { thumbnailUrlByProductId } = useV2ShopProductThumbnails(productIds);
 
   if (isLoading) {
     return (
@@ -127,7 +121,6 @@ export default function OrderCompletePage() {
     );
   }
 
-  const items = Array.isArray(order.items) ? order.items : [];
   const itemGroups = groupV2OrderItems(items as Array<Record<string, unknown>>);
   const optionCountByProductId = buildDistinctOptionCountByProduct({
     rows: items,
@@ -136,36 +129,88 @@ export default function OrderCompletePage() {
   });
   const itemDisplayById = new Map<
     string,
-    { productTitle: string; optionTitle: string; showOptionTitle: boolean }
+    {
+      productId: string;
+      productTitle: string;
+      optionTitle: string;
+      showOptionTitle: boolean;
+      thumbnailUrl: string;
+    }
   >(
     items.map((rawItem, index) => {
       const item = asObject(rawItem);
       const display = asObject(item.display_snapshot);
+      const metadata = asObject(item.metadata);
       const itemId = readString(item.id) || `line-${index}`;
-      const productId = normalizeDisplayTitle(readString(item.product_id));
+      const productId = readString(item.product_id);
+      const normalizedProductId = normalizeDisplayTitle(productId);
       const productTitle =
         normalizeDisplayTitle(readString(item.product_name_snapshot)) ||
         normalizeDisplayTitle(readString(display.product_title)) ||
-        readString(item.variant_id) ||
+        normalizeDisplayTitle(readString(display.title)) ||
         `상품 ${index + 1}`;
       const optionTitle =
         normalizeDisplayTitle(readString(item.variant_name_snapshot)) ||
-        normalizeDisplayTitle(readString(display.variant_title)) ||
-        normalizeDisplayTitle(readString(display.title));
+        normalizeDisplayTitle(readString(display.variant_title));
+      const thumbnailUrl =
+        readUrl(display.product_thumbnail_url) ||
+        readUrl(display.thumbnail_url) ||
+        readUrl(display.image_url) ||
+        readUrl(item.thumbnail_url) ||
+        readUrl(metadata.product_thumbnail_url) ||
+        readUrl(metadata.thumbnail_url) ||
+        thumbnailUrlByProductId.get(productId) ||
+        '';
       const showOptionTitle = shouldShowOptionTitle({
         productTitle,
         optionTitle,
-        distinctOptionCount: productId ? optionCountByProductId.get(productId) : undefined,
+        distinctOptionCount: normalizedProductId
+          ? optionCountByProductId.get(normalizedProductId)
+          : undefined,
       });
-      return [itemId, { productTitle, optionTitle, showOptionTitle }];
+      return [itemId, { productId, productTitle, optionTitle, showOptionTitle, thumbnailUrl }];
     }),
   );
   const hasShippingItem = items.some((rawItem) => {
     const display = asObject(asObject(rawItem).display_snapshot);
     return display.requires_shipping === true;
   });
+  const pricingSummary = asObject(asObject(order.pricing_snapshot).summary);
+  const subtotalAmount = resolveAmount(order.subtotal_amount, pricingSummary.subtotal);
+  const itemDiscountTotal = resolveAmount(
+    order.item_discount_total,
+    pricingSummary.item_discount_total,
+  );
+  const orderDiscountTotal = resolveAmount(
+    order.order_discount_total,
+    pricingSummary.order_level_discount_total,
+  );
+  const shippingAmount = resolveAmount(order.shipping_amount, pricingSummary.shipping_amount);
+  const shippingDiscountTotal = resolveAmount(
+    order.shipping_discount_total,
+    pricingSummary.shipping_discount_total,
+  );
+  const taxTotal = resolveAmount(order.tax_total, pricingSummary.tax_total);
+  const calculatedGrandTotal = Math.max(
+    subtotalAmount -
+      itemDiscountTotal -
+      orderDiscountTotal +
+      shippingAmount -
+      shippingDiscountTotal +
+      taxTotal,
+    0,
+  );
+  const snapshotGrandTotal = readNumber(pricingSummary.total_payable_amount);
+  const payableAmount = Math.max(order.grand_total, snapshotGrandTotal, calculatedGrandTotal);
   const shippingSnapshot = asObject(order.shipping_address_snapshot);
+  const customerSnapshot = asObject(order.customer_snapshot);
   const shippingLine1 = readString(shippingSnapshot.line1);
+  const depositorName =
+    readString(customerSnapshot.name) ||
+    readString(customerSnapshot.full_name) ||
+    readString(customerSnapshot.recipient_name) ||
+    readString(shippingSnapshot.recipient_name) ||
+    '주문자명';
 
   return (
     <div className="min-h-screen bg-neutral-50 py-10">
@@ -183,41 +228,7 @@ export default function OrderCompletePage() {
           </p>
         </section>
 
-        <section className="rounded-2xl border border-neutral-200 bg-white p-6">
-          <h2 className="text-lg font-semibold text-text-primary">주문 상태</h2>
-          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <div className="rounded-lg border border-neutral-200 p-3">
-              <p className="text-xs text-text-secondary">주문 상태</p>
-              <span
-                className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${badgeClass(
-                  order.order_status,
-                )}`}
-              >
-                {mapStatusLabel(order.order_status, 'order')}
-              </span>
-            </div>
-            <div className="rounded-lg border border-neutral-200 p-3">
-              <p className="text-xs text-text-secondary">결제 상태</p>
-              <span
-                className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${badgeClass(
-                  order.payment_status,
-                )}`}
-              >
-                {mapStatusLabel(order.payment_status, 'payment')}
-              </span>
-            </div>
-            <div className="rounded-lg border border-neutral-200 p-3">
-              <p className="text-xs text-text-secondary">이행 상태</p>
-              <span
-                className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${badgeClass(
-                  order.fulfillment_status,
-                )}`}
-              >
-                {mapStatusLabel(order.fulfillment_status, 'fulfillment')}
-              </span>
-            </div>
-          </div>
-        </section>
+        <BankAccountInfo depositorName={depositorName} totalAmount={payableAmount} />
 
         <section className="rounded-2xl border border-neutral-200 bg-white p-6">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
@@ -238,16 +249,34 @@ export default function OrderCompletePage() {
                   key={group.key || `${group.id}-${index}`}
                   className="rounded-lg border border-neutral-200 p-4"
                 >
+                  {/*
+                    주문 완료 직후에는 상품 식별을 쉽게 하기 위해 썸네일과 상품명을 우선 노출한다.
+                  */}
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-text-primary">{groupProductTitle}</p>
-                      {groupOptionTitle && (
-                        <p className="text-sm text-text-secondary">{groupOptionTitle}</p>
-                      )}
-                      <p className="text-xs text-text-secondary">
-                        {group.lineType === 'BUNDLE_PARENT' ? '번들 상품' : '일반 상품'} · 수량{' '}
-                        {group.quantity}
-                      </p>
+                    <div className="flex items-start gap-3">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-neutral-100">
+                        {groupDisplay?.thumbnailUrl ? (
+                          <img
+                            src={groupDisplay.thumbnailUrl}
+                            alt={groupProductTitle}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[11px] text-text-secondary">
+                            이미지 없음
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-text-primary">{groupProductTitle}</p>
+                        {groupOptionTitle && (
+                          <p className="text-sm text-text-secondary">{groupOptionTitle}</p>
+                        )}
+                        <p className="text-xs text-text-secondary">
+                          {group.lineType === 'BUNDLE_PARENT' ? '번들 상품' : '일반 상품'} · 수량{' '}
+                          {group.quantity}
+                        </p>
+                      </div>
                     </div>
                     <p className="font-semibold text-text-primary">
                       {formatCurrency(group.lineTotal)}
@@ -274,18 +303,33 @@ export default function OrderCompletePage() {
                               key={`${component.id}-${componentIndex}`}
                               className="flex items-start justify-between gap-3"
                             >
-                              <div>
-                                <p className="text-sm font-medium text-text-primary">
-                                  {componentProductTitle}
-                                </p>
-                                {componentOptionTitle && (
-                                  <p className="text-xs text-text-secondary">
-                                    {componentOptionTitle}
+                              <div className="flex items-start gap-2">
+                                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-white">
+                                  {componentDisplay?.thumbnailUrl ? (
+                                    <img
+                                      src={componentDisplay.thumbnailUrl}
+                                      alt={componentProductTitle}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-[10px] text-text-secondary">
+                                      없음
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-text-primary">
+                                    {componentProductTitle}
                                   </p>
-                                )}
-                                <p className="text-xs text-text-secondary">
-                                  수량 {component.quantity}
-                                </p>
+                                  {componentOptionTitle && (
+                                    <p className="text-xs text-text-secondary">
+                                      {componentOptionTitle}
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-text-secondary">
+                                    수량 {component.quantity}
+                                  </p>
+                                </div>
                               </div>
                               <p className="text-sm font-medium text-text-primary">
                                 {formatCurrency(component.lineTotal)}
@@ -308,33 +352,33 @@ export default function OrderCompletePage() {
             <div className="flex items-center justify-between">
               <dt>상품 금액</dt>
               <dd className="font-medium text-text-primary">
-                {formatCurrency(order.subtotal_amount)}
+                {formatCurrency(subtotalAmount)}
               </dd>
             </div>
             <div className="flex items-center justify-between">
               <dt>상품 할인</dt>
-              <dd>-{formatCurrency(order.item_discount_total)}</dd>
+              <dd>-{formatCurrency(itemDiscountTotal)}</dd>
             </div>
             <div className="flex items-center justify-between">
               <dt>주문 할인</dt>
-              <dd>-{formatCurrency(order.order_discount_total)}</dd>
+              <dd>-{formatCurrency(orderDiscountTotal)}</dd>
             </div>
             <div className="flex items-center justify-between">
               <dt>배송비</dt>
-              <dd>{formatCurrency(order.shipping_amount)}</dd>
+              <dd>{formatCurrency(shippingAmount)}</dd>
             </div>
             <div className="flex items-center justify-between">
               <dt>배송 할인</dt>
-              <dd>-{formatCurrency(order.shipping_discount_total)}</dd>
+              <dd>-{formatCurrency(shippingDiscountTotal)}</dd>
             </div>
             <div className="flex items-center justify-between">
               <dt>세금</dt>
-              <dd>{formatCurrency(order.tax_total)}</dd>
+              <dd>{formatCurrency(taxTotal)}</dd>
             </div>
             <div className="flex items-center justify-between border-t border-neutral-200 pt-3 text-base">
               <dt className="font-semibold text-text-primary">총 결제 금액</dt>
               <dd className="font-bold text-primary-700">
-                {formatCurrency(order.grand_total)}
+                {formatCurrency(payableAmount)}
               </dd>
             </div>
           </dl>
