@@ -6,6 +6,7 @@
     "dev": "next dev --webpack",
     "dev:turbo": "next dev",
     "dev:v2-local": "bash scripts/dev-v2-local.sh",
+    "dev:v2-local:local-db": "bash scripts/dev-v2-local.sh --use-local-supabase",
     "dev:v2-local:reset": "bash scripts/dev-v2-local.sh --reset-db",
     "build": "next build",
     "start": "next start",
