@@ -96,6 +96,28 @@ export default function AdminOrderDetailPage() {
     () => groupV2OrderItems((detail?.items || []) as Array<Record<string, unknown>>),
     [detail?.items],
   );
+  const orderItemProductTitleById = useMemo(() => {
+    const rows = (detail?.items || []) as Array<Record<string, unknown>>;
+    const titleById = new Map<string, string>();
+
+    for (const row of rows) {
+      const itemId = readString(row.id);
+      if (!itemId) {
+        continue;
+      }
+      const display = asObject(row.display_snapshot);
+      const productTitle =
+        readString(row.product_name_snapshot) ||
+        readString(display.product_title) ||
+        readString(display.product_name);
+      if (!productTitle) {
+        continue;
+      }
+      titleById.set(itemId, productTitle);
+    }
+
+    return titleById;
+  }, [detail?.items]);
 
   async function handleRefundOrder() {
     if (!orderId) {
@@ -261,7 +283,9 @@ export default function AdminOrderDetailPage() {
                 className="rounded-lg border border-gray-200 p-3"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium text-gray-900">{group.title}</p>
+                  <p className="font-medium text-gray-900">
+                    {orderItemProductTitleById.get(group.id) || group.title}
+                  </p>
                   <p className="font-semibold text-gray-900">{formatCurrency(group.lineTotal)}</p>
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
@@ -281,7 +305,9 @@ export default function AdminOrderDetailPage() {
                           className="flex items-start justify-between gap-2"
                         >
                           <div>
-                            <p className="text-sm font-medium text-gray-800">{component.title}</p>
+                            <p className="text-sm font-medium text-gray-800">
+                              {orderItemProductTitleById.get(component.id) || component.title}
+                            </p>
                             <p className="text-xs text-gray-500">
                               수량 {component.quantity} · 상태 {component.lineStatus || '-'}
                             </p>
