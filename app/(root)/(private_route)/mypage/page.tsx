@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
@@ -14,12 +15,19 @@ import {
   useV2CancelOrder,
   useV2CheckoutOrders,
 } from '@/lib/client/hooks';
+import {
+  buildDistinctOptionCountByProduct,
+  normalizeDisplayTitle,
+  shouldShowOptionTitle,
+} from '@/lib/client/utils/v2-item-display';
 import { groupV2OrderItems } from '@/lib/client/utils/v2-order-item-groups';
 import { useToast } from '@/src/components/toast';
 
 interface UnifiedOrderItem {
   id: string;
   title: string;
+  optionTitle: string;
+  thumbnailUrl: string | null;
   quantity: number;
   lineTotal: number;
   isDigital: boolean;
@@ -28,6 +36,8 @@ interface UnifiedOrderItem {
   components: Array<{
     id: string;
     title: string;
+    optionTitle: string;
+    thumbnailUrl: string | null;
     quantity: number;
     lineTotal: number;
     itemStatus: string;
@@ -39,10 +49,36 @@ interface UnifiedOrder {
   orderNo: string;
   orderedAt: string;
   displayTotal: number;
+  shippingAmount: number;
+  shippingDiscountTotal: number;
   orderStatus: string;
   paymentStatus?: string;
   fulfillmentStatus?: string;
   items: UnifiedOrderItem[];
+}
+
+function readString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function readNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+}
+
+function asObject(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
 }
 
 function formatCurrency(amount: number): string {
@@ -62,30 +98,118 @@ function formatDate(value: string): string {
 }
 
 function mapV2Order(order: V2CheckoutOrder): UnifiedOrder {
+  const rawItems = Array.isArray(order.items)
+    ? ((order.items as Array<Record<string, unknown>>) ?? [])
+    : [];
+  const optionCountByProductId = buildDistinctOptionCountByProduct({
+    rows: rawItems,
+    getProductId: (rawItem) => {
+      const item = asObject(rawItem);
+      const display = asObject(item.display_snapshot);
+      return (
+        readString(item.product_id) ||
+        readString(display.product_id) ||
+        ''
+      );
+    },
+    getOptionId: (rawItem) => readString(asObject(rawItem).variant_id),
+  });
+  const itemDisplayById = new Map<
+    string,
+    {
+      productTitle: string;
+      optionTitle: string;
+      showOptionTitle: boolean;
+      thumbnailUrl: string | null;
+    }
+  >(
+    rawItems.map((rawItem, index) => {
+      const item = asObject(rawItem);
+      const display = asObject(item.display_snapshot);
+      const itemId = readString(item.id) || `line-${index}`;
+      const productId =
+        normalizeDisplayTitle(readString(item.product_id)) ||
+        normalizeDisplayTitle(readString(display.product_id));
+      const productTitle =
+        normalizeDisplayTitle(readString(item.product_name_snapshot)) ||
+        normalizeDisplayTitle(readString(display.product_title)) ||
+        normalizeDisplayTitle(readString(display.title)) ||
+        readString(item.variant_id) ||
+        `상품 ${index + 1}`;
+      const optionTitle =
+        normalizeDisplayTitle(readString(item.variant_name_snapshot)) ||
+        normalizeDisplayTitle(readString(display.variant_title)) ||
+        normalizeDisplayTitle(readString(display.title));
+      const showOptionTitle = shouldShowOptionTitle({
+        productTitle,
+        optionTitle,
+        distinctOptionCount: productId ? optionCountByProductId.get(productId) : undefined,
+      });
+      const thumbnailUrl =
+        normalizeDisplayTitle(readString(display.thumbnail_url)) || null;
+
+      return [
+        itemId,
+        {
+          productTitle,
+          optionTitle,
+          showOptionTitle,
+          thumbnailUrl,
+        },
+      ];
+    }),
+  );
+
   const items: UnifiedOrderItem[] = groupV2OrderItems(
-    (order.items || []) as Array<Record<string, unknown>>,
-  ).map((group, index) => ({
-    id: group.id || `${order.id}-${index}`,
-    title: group.title,
-    quantity: group.quantity,
-    lineTotal: group.lineTotal,
-    isDigital: !group.requiresShipping,
-    itemStatus: group.lineStatus,
-    lineType: group.lineType,
-    components: group.components.map((component) => ({
-      id: component.id,
-      title: component.title,
-      quantity: component.quantity,
-      lineTotal: component.lineTotal,
-      itemStatus: component.lineStatus,
-    })),
-  }));
+    rawItems,
+  ).map((group, index) => {
+    const groupDisplay = itemDisplayById.get(group.id);
+    return {
+      id: group.id || `${order.id}-${index}`,
+      title: groupDisplay?.productTitle || group.title,
+      optionTitle:
+        groupDisplay?.showOptionTitle && groupDisplay.optionTitle
+          ? groupDisplay.optionTitle
+          : '',
+      thumbnailUrl: groupDisplay?.thumbnailUrl ?? null,
+      quantity: group.quantity,
+      lineTotal: group.lineTotal,
+      isDigital: !group.requiresShipping,
+      itemStatus: group.lineStatus,
+      lineType: group.lineType,
+      components: group.components.map((component) => {
+        const componentDisplay = itemDisplayById.get(component.id);
+        return {
+          id: component.id,
+          title: componentDisplay?.productTitle || component.title,
+          optionTitle:
+            componentDisplay?.showOptionTitle && componentDisplay.optionTitle
+              ? componentDisplay.optionTitle
+              : '',
+          thumbnailUrl: componentDisplay?.thumbnailUrl ?? null,
+          quantity: component.quantity,
+          lineTotal: component.lineTotal,
+          itemStatus: component.lineStatus,
+        };
+      }),
+    };
+  });
+
+  const recomputedGrandTotal =
+    readNumber(order.subtotal_amount) -
+    readNumber(order.item_discount_total) -
+    readNumber(order.order_discount_total) +
+    readNumber(order.shipping_amount) -
+    readNumber(order.shipping_discount_total) +
+    readNumber(order.tax_total);
 
   return {
     id: order.id,
     orderNo: order.order_no,
     orderedAt: order.placed_at || '',
-    displayTotal: order.grand_total,
+    displayTotal: Math.max(0, readNumber(order.grand_total), recomputedGrandTotal),
+    shippingAmount: Math.max(0, readNumber(order.shipping_amount)),
+    shippingDiscountTotal: Math.max(0, readNumber(order.shipping_discount_total)),
     orderStatus: order.order_status,
     paymentStatus: order.payment_status,
     fulfillmentStatus: order.fulfillment_status,
@@ -305,9 +429,27 @@ export default function MyPage() {
                         className="rounded-lg bg-neutral-50 p-3"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
+                          <div className="flex items-start gap-3">
+                            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-white">
+                              {item.thumbnailUrl ? (
+                                <img
+                                  src={item.thumbnailUrl}
+                                  alt={item.title}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-xs text-text-secondary">
+                                  이미지 없음
+                                </div>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2">
-                              <p className="font-medium text-text-primary">{item.title}</p>
+                              <div>
+                                <p className="font-medium text-text-primary">{item.title}</p>
+                                {item.optionTitle && (
+                                  <p className="text-xs text-text-secondary">{item.optionTitle}</p>
+                                )}
+                              </div>
                               {item.lineType === 'BUNDLE_PARENT' && (
                                 <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
                                   번들
@@ -336,16 +478,36 @@ export default function MyPage() {
                                   key={component.id}
                                   className="flex items-start justify-between gap-3"
                                 >
-                                  <div>
-                                    <p className="text-sm font-medium text-text-primary">
-                                      {component.title}
-                                    </p>
-                                    <p className="text-xs text-text-secondary">
-                                      {component.quantity}개 ·{' '}
-                                      {component.itemStatus
-                                        ? getStatusLabel(component.itemStatus)
-                                        : '-'}
-                                    </p>
+                                  <div className="flex items-start gap-2">
+                                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-white">
+                                      {component.thumbnailUrl ? (
+                                        <img
+                                          src={component.thumbnailUrl}
+                                          alt={component.title}
+                                          className="h-full w-full object-cover"
+                                        />
+                                      ) : (
+                                        <div className="flex h-full w-full items-center justify-center text-[10px] text-text-secondary">
+                                          없음
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-medium text-text-primary">
+                                        {component.title}
+                                      </p>
+                                      {component.optionTitle && (
+                                        <p className="text-xs text-text-secondary">
+                                          {component.optionTitle}
+                                        </p>
+                                      )}
+                                      <p className="text-xs text-text-secondary">
+                                        {component.quantity}개 ·{' '}
+                                        {component.itemStatus
+                                          ? getStatusLabel(component.itemStatus)
+                                          : '-'}
+                                      </p>
+                                    </div>
                                   </div>
                                   <p className="text-sm font-medium text-text-primary">
                                     {formatCurrency(component.lineTotal)}
@@ -376,9 +538,19 @@ export default function MyPage() {
                         </Button>
                       )}
                     </div>
-                    <p className="text-xl font-bold text-primary-700">
-                      총 {formatCurrency(order.displayTotal)}
-                    </p>
+                    <div className="text-right">
+                      {order.shippingAmount > 0 && (
+                        <p className="text-xs text-text-secondary">
+                          배송비 {formatCurrency(order.shippingAmount)}
+                          {order.shippingDiscountTotal > 0
+                            ? ` (할인 -${formatCurrency(order.shippingDiscountTotal)})`
+                            : ''}
+                        </p>
+                      )}
+                      <p className="text-xl font-bold text-primary-700">
+                        총 {formatCurrency(order.displayTotal)}
+                      </p>
+                    </div>
                   </div>
                 </article>
               ))}

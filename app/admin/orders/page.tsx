@@ -17,7 +17,8 @@ import {
   useV2AdminOrderQueue,
 } from '@/lib/client/hooks/useV2AdminOps';
 
-type V2OrderStageTab = 'ALL' | V2AdminOrderLinearStage;
+type V2OrderStageTab = 'ALL' | 'CANCELED' | V2AdminOrderLinearStage;
+type V2OrderRowStage = 'CANCELED' | V2AdminOrderLinearStage;
 
 type TransitionExecuteLog = Record<string, unknown>;
 
@@ -84,6 +85,28 @@ function linearStageLabel(stage: V2AdminOrderLinearStage): string {
   return '배송 완료';
 }
 
+function orderStageTabLabel(stage: V2OrderStageTab): string {
+  if (stage === 'ALL') {
+    return '전체';
+  }
+  if (stage === 'CANCELED') {
+    return '취소';
+  }
+  return linearStageLabel(stage);
+}
+
+function isCanceledStatus(status: string): boolean {
+  return status.toUpperCase().includes('CANCEL');
+}
+
+function isCanceledOrder(row: V2AdminOrderQueueRow): boolean {
+  return (
+    isCanceledStatus(String(row.order_status || '')) ||
+    isCanceledStatus(String(row.payment_status || '')) ||
+    isCanceledStatus(String(row.fulfillment_status || ''))
+  );
+}
+
 function resolveLinearStageFromRow(row: V2AdminOrderQueueRow): V2AdminOrderLinearStage {
   const orderStatus = String(row.order_status || '').toUpperCase();
   const paymentStatus = String(row.payment_status || '').toUpperCase();
@@ -133,6 +156,13 @@ function resolveLinearStageFromRow(row: V2AdminOrderQueueRow): V2AdminOrderLinea
   }
 
   return 'PRODUCTION';
+}
+
+function resolveStageTabFromRow(row: V2AdminOrderQueueRow): V2OrderRowStage {
+  if (isCanceledOrder(row)) {
+    return 'CANCELED';
+  }
+  return resolveLinearStageFromRow(row);
 }
 
 function getNextLinearStage(stage: V2AdminOrderLinearStage): V2AdminOrderLinearStage | null {
@@ -186,13 +216,14 @@ const LINEAR_STAGE_TABS: Array<{
   key: V2OrderStageTab;
   label: string;
 }> = [
-  { key: 'ALL', label: '전체' },
-  { key: 'PAYMENT_PENDING', label: linearStageLabel('PAYMENT_PENDING') },
-  { key: 'PAYMENT_CONFIRMED', label: linearStageLabel('PAYMENT_CONFIRMED') },
-  { key: 'PRODUCTION', label: linearStageLabel('PRODUCTION') },
-  { key: 'READY_TO_SHIP', label: linearStageLabel('READY_TO_SHIP') },
-  { key: 'IN_TRANSIT', label: linearStageLabel('IN_TRANSIT') },
-  { key: 'DELIVERED', label: linearStageLabel('DELIVERED') },
+  { key: 'ALL', label: orderStageTabLabel('ALL') },
+  { key: 'CANCELED', label: orderStageTabLabel('CANCELED') },
+  { key: 'PAYMENT_PENDING', label: orderStageTabLabel('PAYMENT_PENDING') },
+  { key: 'PAYMENT_CONFIRMED', label: orderStageTabLabel('PAYMENT_CONFIRMED') },
+  { key: 'PRODUCTION', label: orderStageTabLabel('PRODUCTION') },
+  { key: 'READY_TO_SHIP', label: orderStageTabLabel('READY_TO_SHIP') },
+  { key: 'IN_TRANSIT', label: orderStageTabLabel('IN_TRANSIT') },
+  { key: 'DELIVERED', label: orderStageTabLabel('DELIVERED') },
 ];
 
 const ORDER_PAGE_SIZE = 10;
@@ -217,6 +248,7 @@ export default function AdminOrdersPage() {
   const stageCounts = useMemo(() => {
     const counts: Record<V2OrderStageTab, number> = {
       ALL: 0,
+      CANCELED: 0,
       PAYMENT_PENDING: 0,
       PAYMENT_CONFIRMED: 0,
       PRODUCTION: 0,
@@ -226,7 +258,7 @@ export default function AdminOrdersPage() {
     };
 
     for (const item of data?.items || []) {
-      const stage = resolveLinearStageFromRow(item);
+      const stage = resolveStageTabFromRow(item);
       counts.ALL += 1;
       counts[stage] += 1;
     }
@@ -239,7 +271,7 @@ export default function AdminOrdersPage() {
     const stageFiltered =
       stageTab === 'ALL'
         ? items
-        : items.filter((item) => resolveLinearStageFromRow(item) === stageTab);
+        : items.filter((item) => resolveStageTabFromRow(item) === stageTab);
 
     if (!search.trim()) {
       return stageFiltered;
@@ -271,7 +303,7 @@ export default function AdminOrdersPage() {
   );
 
   const recommendedNextStage = useMemo(() => {
-    if (stageTab === 'ALL') {
+    if (stageTab === 'ALL' || stageTab === 'CANCELED') {
       return null;
     }
     return getNextLinearStage(stageTab);
@@ -280,7 +312,8 @@ export default function AdminOrdersPage() {
   function handleStageTabChange(nextTab: V2OrderStageTab) {
     setStageTab(nextTab);
     setCurrentPage(1);
-    const nextStage = nextTab === 'ALL' ? null : getNextLinearStage(nextTab);
+    const nextStage =
+      nextTab === 'ALL' || nextTab === 'CANCELED' ? null : getNextLinearStage(nextTab);
     if (nextStage) {
       setTargetStage(nextStage);
     }
@@ -340,7 +373,10 @@ export default function AdminOrdersPage() {
         if (!effectiveSelectedOrderIds.includes(row.order_id)) {
           return false;
         }
-        const currentStage = resolveLinearStageFromRow(row);
+        const currentStage = resolveStageTabFromRow(row);
+        if (currentStage === 'CANCELED') {
+          return false;
+        }
         return linearStageIndex(stage) < linearStageIndex(currentStage);
       });
 
@@ -693,7 +729,11 @@ export default function AdminOrdersPage() {
                   const hasBundle = row.has_bundle === true;
                   const hasDigital = row.has_digital === true;
                   const hasPhysical = row.has_physical === true;
-                  const currentLinearStage = resolveLinearStageFromRow(row);
+                  const currentStageTab = resolveStageTabFromRow(row);
+                  const stageBadgeClassName =
+                    currentStageTab === 'CANCELED'
+                      ? 'rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700'
+                      : 'rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700';
 
                   return (
                     <tr key={row.order_id}>
@@ -761,8 +801,8 @@ export default function AdminOrdersPage() {
                           >
                             이행 {row.fulfillment_status}
                           </span>
-                          <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
-                            단계 {linearStageLabel(currentLinearStage)}
+                          <span className={stageBadgeClassName}>
+                            단계 {orderStageTabLabel(currentStageTab)}
                           </span>
                         </div>
                       </td>
