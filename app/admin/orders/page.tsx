@@ -42,18 +42,11 @@ function formatDate(value: string | null): string {
   });
 }
 
-function statusBadgeClass(status: string) {
-  if (status.includes('FAILED') || status.includes('CANCELED')) {
-    return 'bg-red-100 text-red-700';
+function truncateMiddle(value: string, front = 8, back = 4): string {
+  if (value.length <= front + back + 1) {
+    return value;
   }
-  if (
-    status.includes('PENDING') ||
-    status.includes('UNFULFILLED') ||
-    status.includes('PARTIAL')
-  ) {
-    return 'bg-yellow-100 text-yellow-700';
-  }
-  return 'bg-green-100 text-green-700';
+  return `${value.slice(0, front)}...${value.slice(-back)}`;
 }
 
 function compositionBadgeClass(type: 'BUNDLE' | 'DIGITAL' | 'PHYSICAL') {
@@ -522,7 +515,7 @@ export default function AdminOrdersPage() {
       <header>
         <h1 className="text-2xl font-bold text-gray-900">주문 운영 큐 (v2)</h1>
         <p className="mt-1 text-sm text-gray-500">
-          주문 상태 3축과 이행 위험도를 기준으로 운영 대상을 확인합니다.
+          단계와 상품 종류 중심으로 운영 대상을 확인합니다.
         </p>
       </header>
 
@@ -711,28 +704,15 @@ export default function AdminOrdersPage() {
                     />
                   </th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">주문</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">상태</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">단계</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">금액</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">이행 위험도</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">상품 종류</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">주문시각</th>
                   <th className="px-4 py-3 text-right font-semibold text-gray-700">상세</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {pagedRows.map((row) => {
-                  const waitingShipmentCount = Number.isFinite(row.waiting_shipment_count)
-                    ? row.waiting_shipment_count
-                    : null;
-                  const inTransitShipmentCount = Number.isFinite(row.in_transit_shipment_count)
-                    ? row.in_transit_shipment_count
-                    : null;
-                  const deliveredShipmentCount = Number.isFinite(row.delivered_shipment_count)
-                    ? row.delivered_shipment_count
-                    : null;
-                  const hasSplitShipmentCounts =
-                    waitingShipmentCount !== null ||
-                    inTransitShipmentCount !== null ||
-                    deliveredShipmentCount !== null;
                   const hasBundle = row.has_bundle === true;
                   const hasDigital = row.has_digital === true;
                   const hasPhysical = row.has_physical === true;
@@ -754,8 +734,20 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-semibold text-gray-900">{row.order_no}</p>
-                        <p className="text-xs text-gray-500">{row.order_id}</p>
-                        <div className="mt-1 flex flex-wrap gap-1">
+                        <p className="text-xs text-gray-500" title={row.order_id}>
+                          {truncateMiddle(row.order_id)}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={stageBadgeClassName}>
+                          단계 {orderStageTabLabel(currentStageTab)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-medium text-gray-900">
+                        {formatCurrency(row.grand_total)}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">
+                        <div className="flex flex-wrap gap-1">
                           {hasBundle ? (
                             <span
                               className={`rounded-full px-2 py-1 text-[11px] font-semibold ${compositionBadgeClass(
@@ -783,50 +775,10 @@ export default function AdminOrdersPage() {
                               실물
                             </span>
                           ) : null}
+                          {!hasBundle && !hasDigital && !hasPhysical ? (
+                            <span className="text-xs text-gray-500">-</span>
+                          ) : null}
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          <span
-                            className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
-                              row.order_status,
-                            )}`}
-                          >
-                            주문 {row.order_status}
-                          </span>
-                          <span
-                            className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
-                              row.payment_status,
-                            )}`}
-                          >
-                            결제 {row.payment_status}
-                          </span>
-                          <span
-                            className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadgeClass(
-                              row.fulfillment_status,
-                            )}`}
-                          >
-                            이행 {row.fulfillment_status}
-                          </span>
-                          <span className={stageBadgeClassName}>
-                            단계 {orderStageTabLabel(currentStageTab)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-gray-900">
-                        {formatCurrency(row.grand_total)}
-                      </td>
-                      <td className="px-4 py-3 text-gray-700">
-                        {hasSplitShipmentCounts ? (
-                          <>
-                            <p>배송 대기: {waitingShipmentCount ?? 0}</p>
-                            <p>배송 중: {inTransitShipmentCount ?? 0}</p>
-                            <p>배송 완료: {deliveredShipmentCount ?? 0}</p>
-                          </>
-                        ) : (
-                          <p>배송 진행중: {row.active_shipment_count}</p>
-                        )}
-                        <p>디지털 진행중: {row.active_entitlement_count}</p>
                       </td>
                       <td className="px-4 py-3 text-gray-700">
                         {formatDate(row.placed_at || row.created_at)}
