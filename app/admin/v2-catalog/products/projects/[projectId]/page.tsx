@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import { Select } from '@/components/ui/select';
-import { ProjectProductListItem } from '@/src/components/admin/v2-catalog/ProjectProductListItem';
+import { ProjectProductsBulkTable } from '@/src/components/admin/v2-catalog/ProjectProductsBulkTable';
 import type { V2ProductStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import { useV2AdminProducts, useV2AdminProject } from '@/lib/client/hooks/useV2CatalogAdmin';
 import { PRODUCT_STATUS_LABELS } from '@/lib/client/utils/v2-product-admin-form';
@@ -185,7 +185,7 @@ export default function V2CatalogProjectProductsPage() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">상품 목록</h2>
             <p className="mt-1 text-sm text-gray-500">
-              리스트에서 대표 이미지와 옵션을 펼쳐 필요한 항목만 빠르게 수정합니다.
+              표에서 여러 상품/옵션을 한 번에 편집하고 일괄 저장할 수 있습니다.
             </p>
           </div>
           <Badge intent="info">{filteredProducts.length}개 표시</Badge>
@@ -203,15 +203,10 @@ export default function V2CatalogProjectProductsPage() {
               }
             />
           ) : (
-            <div className="space-y-3">
-              {filteredProducts.map((product) => (
-                <ProjectProductListItem
-                  key={product.id}
-                  product={product}
-                  onOpenDetail={() => router.push(`/admin/v2-catalog/products/${product.id}`)}
-                />
-              ))}
-            </div>
+            <ProjectProductsBulkTable
+              products={filteredProducts}
+              onOpenDetail={(productId) => router.push(`/admin/v2-catalog/products/${productId}`)}
+            />
           )}
         </div>
       </section>
