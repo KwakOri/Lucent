@@ -209,7 +209,7 @@ function ShopPageContent() {
   return (
     <div className="min-h-screen bg-neutral-50">
       <section
-        className={`relative overflow-hidden bg-[#f9f9ed] px-4 ${
+        className={`relative overflow-hidden bg-[#7bb8e9] px-4 ${
           showCampaignHeroBanner ? "py-0" : "py-20"
         }`}
       >
