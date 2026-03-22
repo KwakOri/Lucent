@@ -43,6 +43,7 @@ export interface V2CartItem {
     product?: {
       id: string;
       title: string;
+      thumbnail_url: string | null;
       product_kind: "STANDARD" | "BUNDLE";
       project_id: string | null;
       project?: {

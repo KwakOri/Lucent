@@ -12,6 +12,7 @@ import {
   useV2RemoveCartItem,
   useV2UpdateCartItemQuantity,
 } from '@/lib/client/hooks/useV2Checkout';
+import type { V2CartItem } from '@/lib/client/api/v2-checkout.api';
 import { ApiError } from '@/lib/client/utils/api-error';
 import {
   buildDistinctOptionCountByProduct,
@@ -64,6 +65,15 @@ function getErrorMessage(error: unknown): string {
     return error.message;
   }
   return '요청 처리 중 오류가 발생했습니다.';
+}
+
+function getItemThumbnailUrl(item: V2CartItem): string | null {
+  const thumbnailUrl = item.variant?.product?.thumbnail_url;
+  if (typeof thumbnailUrl !== 'string') {
+    return null;
+  }
+  const normalized = thumbnailUrl.trim();
+  return normalized || null;
 }
 
 export default function V2CartPage() {
@@ -219,65 +229,83 @@ export default function V2CartPage() {
                   optionTitle,
                   distinctOptionCount,
                 });
+                const thumbnailUrl = getItemThumbnailUrl(item);
 
                 return (
                   <article
                     key={item.id}
                     className="rounded-xl border border-neutral-200 bg-white p-5"
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-lg font-semibold text-text-primary">
-                          {productTitle}
-                        </p>
-                        {showOptionTitle && (
-                          <p className="text-sm text-text-secondary">{optionTitle}</p>
+                    <div className="flex items-start gap-4">
+                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100">
+                        {thumbnailUrl ? (
+                          <img
+                            src={thumbnailUrl}
+                            alt={productTitle}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs text-neutral-400">
+                            이미지 없음
+                          </div>
                         )}
-                        <p className="mt-2 text-sm text-text-secondary">
-                          개당 {formatCurrency(unitAmount)}
-                        </p>
                       </div>
-                      <Button
-                        intent="ghost"
-                        size="sm"
-                        disabled={isUpdating}
-                        onClick={() => void handleRemoveItem(item.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        삭제
-                      </Button>
-                    </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="text-lg font-semibold text-text-primary">
+                              {productTitle}
+                            </p>
+                            {showOptionTitle && (
+                              <p className="text-sm text-text-secondary">{optionTitle}</p>
+                            )}
+                            <p className="mt-2 text-sm text-text-secondary">
+                              개당 {formatCurrency(unitAmount)}
+                            </p>
+                          </div>
+                          <Button
+                            intent="ghost"
+                            size="sm"
+                            disabled={isUpdating}
+                            onClick={() => void handleRemoveItem(item.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            삭제
+                          </Button>
+                        </div>
 
-                    <div className="mt-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          intent="secondary"
-                          size="sm"
-                          disabled={item.quantity <= 1 || isUpdating}
-                          onClick={() =>
-                            void handleQuantityChange(item.id, item.quantity - 1)
-                          }
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="w-10 text-center text-sm font-semibold text-text-primary">
-                          {item.quantity}
-                        </span>
-                        <Button
-                          intent="secondary"
-                          size="sm"
-                          disabled={isUpdating}
-                          onClick={() =>
-                            void handleQuantityChange(item.id, item.quantity + 1)
-                          }
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                        <div className="mt-4 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              intent="secondary"
+                              size="sm"
+                              disabled={item.quantity <= 1 || isUpdating}
+                              onClick={() =>
+                                void handleQuantityChange(item.id, item.quantity - 1)
+                              }
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                            <span className="w-10 text-center text-sm font-semibold text-text-primary">
+                              {item.quantity}
+                            </span>
+                            <Button
+                              intent="secondary"
+                              size="sm"
+                              disabled={isUpdating}
+                              onClick={() =>
+                                void handleQuantityChange(item.id, item.quantity + 1)
+                              }
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+
+                          <p className="text-base font-semibold text-text-primary">
+                            {formatCurrency(lineTotal)}
+                          </p>
+                        </div>
                       </div>
-
-                      <p className="text-base font-semibold text-text-primary">
-                        {formatCurrency(lineTotal)}
-                      </p>
                     </div>
                   </article>
                 );
