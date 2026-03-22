@@ -273,6 +273,9 @@ export default function AdminOrdersPage() {
     return stageFiltered.filter(
       (item) =>
         item.order_no.toLowerCase().includes(keyword) ||
+        String(item.depositor_name || '')
+          .toLowerCase()
+          .includes(keyword) ||
         item.order_id.toLowerCase().includes(keyword),
     );
   }, [data?.items, search, stageTab]);
@@ -553,7 +556,7 @@ export default function AdminOrdersPage() {
               setSearch(event.target.value);
               setCurrentPage(1);
             }}
-            placeholder="주문번호 또는 주문 ID 검색"
+            placeholder="주문번호 / 주문 ID / 입금자명 검색"
           />
         </div>
 
@@ -704,6 +707,7 @@ export default function AdminOrdersPage() {
                     />
                   </th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">주문</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">입금자명</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">단계</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">금액</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">상품 종류</th>
@@ -737,6 +741,9 @@ export default function AdminOrdersPage() {
                         <p className="text-xs text-gray-500" title={row.order_id}>
                           {truncateMiddle(row.order_id)}
                         </p>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {row.depositor_name || '-'}
                       </td>
                       <td className="px-4 py-3">
                         <span className={stageBadgeClassName}>
