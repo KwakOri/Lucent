@@ -432,6 +432,9 @@ export default function AdminOrdersPage() {
       const hasBlockedWithoutExecution =
         (result.execute?.attempted_action_count ?? 0) === 0 &&
         result.summary.blocked_order_count > 0;
+      const hasNoopWithoutBlock =
+        (result.execute?.attempted_action_count ?? 0) === 0 &&
+        result.summary.blocked_order_count === 0;
 
       if (failedLogs.length > 0) {
         setTransitionMessage(
@@ -440,6 +443,10 @@ export default function AdminOrdersPage() {
       } else if (hasBlockedWithoutExecution) {
         setTransitionMessage(
           `실행 대상 없음(${linearStageLabel(stage)}): 실행 가능 주문이 없습니다. ${firstBlockedReason ? `차단 사유: ${firstBlockedReason}` : ''}`,
+        );
+      } else if (hasNoopWithoutBlock) {
+        setTransitionMessage(
+          `실행 대상 없음(${linearStageLabel(stage)}): 선택한 주문이 이미 목표 단계이거나 변경이 필요하지 않습니다.`,
         );
       } else {
         setTransitionMessage(

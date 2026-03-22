@@ -5,10 +5,15 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import { Select } from '@/components/ui/select';
 import {
   type ListV2AdminSalesStatsParams,
   type V2AdminSalesStatsPreset,
 } from '@/lib/client/api/v2-admin-ops.api';
+import {
+  useV2AdminProjects,
+  useV2Campaigns,
+} from '@/lib/client/hooks/useV2CatalogAdmin';
 import { useV2AdminSalesStats } from '@/lib/client/hooks/useV2AdminOps';
 
 type FilterState = {
@@ -219,7 +224,37 @@ export default function V2AdminSalesStatsPage() {
   });
 
   const params = useMemo(() => toSalesStatsParams(applied), [applied]);
-  const { data, isLoading, isFetching, error } = useV2AdminSalesStats(params);
+  const { data, isLoading, isFetching, error: statsError } = useV2AdminSalesStats(params);
+  const { data: projects = [], isLoading: projectsLoading } = useV2AdminProjects();
+  const { data: campaigns = [], isLoading: campaignsLoading } = useV2Campaigns();
+
+  const projectOptions = useMemo(
+    () => [
+      { value: '', label: '전체 프로젝트' },
+      ...projects
+        .slice()
+        .sort((left, right) => left.name.localeCompare(right.name, 'ko-KR'))
+        .map((project) => ({
+          value: project.id,
+          label: `${project.name} (${project.slug})`,
+        })),
+    ],
+    [projects],
+  );
+
+  const campaignOptions = useMemo(
+    () => [
+      { value: '', label: '전체 캠페인' },
+      ...campaigns
+        .slice()
+        .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+        .map((campaign) => ({
+          value: campaign.id,
+          label: `${campaign.name} (${campaign.code})`,
+        })),
+    ],
+    [campaigns],
+  );
 
   const currencyCode = data?.summary.currency_code || 'KRW';
 
@@ -322,20 +357,20 @@ export default function V2AdminSalesStatsPage() {
               setDraft((prev) => ({ ...prev, salesChannelId: event.target.value }))
             }
           />
-          <Input
-            type="text"
+          <Select
             size="sm"
-            placeholder="project_id (UUID)"
             value={draft.projectId}
+            options={projectOptions}
+            disabled={projectsLoading}
             onChange={(event) =>
               setDraft((prev) => ({ ...prev, projectId: event.target.value }))
             }
           />
-          <Input
-            type="text"
+          <Select
             size="sm"
-            placeholder="campaign_id (UUID)"
             value={draft.campaignId}
+            options={campaignOptions}
+            disabled={campaignsLoading}
             onChange={(event) =>
               setDraft((prev) => ({ ...prev, campaignId: event.target.value }))
             }
@@ -368,9 +403,9 @@ export default function V2AdminSalesStatsPage() {
         </div>
       ) : null}
 
-      {error ? (
+      {statsError ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {getErrorMessage(error)}
+          {getErrorMessage(statsError)}
         </div>
       ) : null}
 
