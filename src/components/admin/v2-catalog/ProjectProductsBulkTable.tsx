@@ -139,6 +139,7 @@ export function ProjectProductsBulkTable({
       return;
     }
     setProductDrafts((previous) => {
+      let hasChanges = false;
       const next = {
         ...previous,
       };
@@ -146,13 +147,14 @@ export function ProjectProductsBulkTable({
         if (next[product.id]) {
           return;
         }
+        hasChanges = true;
         next[product.id] = {
           title: product.title,
           shortDescription: product.short_description || '',
           status: product.status,
         };
       });
-      return next;
+      return hasChanges ? next : previous;
     });
   }, [products]);
 
@@ -161,6 +163,7 @@ export function ProjectProductsBulkTable({
       return;
     }
     setVariantDrafts((previous) => {
+      let hasChanges = false;
       const next = {
         ...previous,
       };
@@ -168,12 +171,13 @@ export function ProjectProductsBulkTable({
         if (next[variant.id]) {
           return;
         }
+        hasChanges = true;
         next[variant.id] = {
           title: variant.title,
           status: variant.status,
         };
       });
-      return next;
+      return hasChanges ? next : previous;
     });
   }, [variantMetaById]);
 
