@@ -68,6 +68,7 @@ import {
   type ValidateV2CouponData,
   type ValidateV2BundleDefinitionData,
   type UploadV2MediaAssetFileData,
+  type V2ProductMedia,
   type V2Variant,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import { queryKeys } from './query-keys';
@@ -449,6 +450,43 @@ export function useV2AdminProductMedia(productId: string | null | undefined) {
     },
     enabled: !!productId,
   });
+}
+
+export function useV2AdminProductMediaMap(productIds: string[]) {
+  const normalizedProductIds = useMemo(
+    () =>
+      Array.from(
+        new Set(productIds.map((productId) => productId.trim()).filter(Boolean)),
+      ),
+    [productIds],
+  );
+
+  const mediaQueries = useQueries({
+    queries: normalizedProductIds.map((productId) => ({
+      queryKey: queryKeys.v2CatalogAdmin.products.media(productId),
+      queryFn: async () => {
+        const response = await V2CatalogAdminAPI.getProductMedia(productId);
+        return response.data;
+      },
+      enabled: productId.length > 0,
+    })),
+  });
+
+  return useMemo(() => {
+    const mediaByProductId = normalizedProductIds.reduce<
+      Record<string, V2ProductMedia[]>
+    >((accumulator, productId, index) => {
+      accumulator[productId] = (mediaQueries[index]?.data || []) as V2ProductMedia[];
+      return accumulator;
+    }, {});
+
+    return {
+      mediaByProductId,
+      isLoading: mediaQueries.some((query) => query.isLoading),
+      isFetching: mediaQueries.some((query) => query.isFetching),
+      isError: mediaQueries.some((query) => Boolean(query.error)),
+    };
+  }, [mediaQueries, normalizedProductIds]);
 }
 
 export function useCreateV2ProductMedia() {
