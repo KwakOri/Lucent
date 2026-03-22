@@ -23,6 +23,7 @@ export type SaveCampaignVariantPriceParams = {
   unitAmount: number;
   baseItem: V2PriceListItem | null;
   campaignItem: V2PriceListItem | null;
+  skipInvalidate?: boolean;
 };
 
 type CampaignPricingBulkTableProps = {
@@ -33,6 +34,7 @@ type CampaignPricingBulkTableProps = {
   basePriceListsById: Map<string, V2PriceList>;
   defaultStockLocationId: string | null;
   onSavePrice: (params: SaveCampaignVariantPriceParams) => Promise<void>;
+  onAfterSave?: () => Promise<void>;
 };
 
 type VariantPricingRow = {
@@ -162,6 +164,7 @@ export function CampaignPricingBulkTable({
   basePriceListsById,
   defaultStockLocationId,
   onSavePrice,
+  onAfterSave,
 }: CampaignPricingBulkTableProps) {
   const [expandedProducts, setExpandedProducts] = useState<DirtyMap>({});
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
@@ -372,6 +375,7 @@ export function CampaignPricingBulkTable({
             data: {
               track_inventory: trackInventoryEnabled,
             },
+            skipInvalidate: true,
           });
         }
 
@@ -387,6 +391,7 @@ export function CampaignPricingBulkTable({
             unitAmount,
             baseItem: row.baseItem,
             campaignItem: row.campaignItem,
+            skipInvalidate: true,
           });
         }
 
@@ -424,6 +429,9 @@ export function CampaignPricingBulkTable({
         });
         return next;
       });
+      if (onAfterSave) {
+        await onAfterSave();
+      }
       setMessage(
         `가격 ${pendingPriceIds.length}건, 재고 ${pendingStockIds.length}건, 재고 추적 ${pendingTrackIds.length}건을 저장했습니다.`,
       );

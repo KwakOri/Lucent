@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ import {
   PRODUCT_STATUS_LABELS,
   VARIANT_STATUS_LABELS,
 } from '@/lib/client/utils/v2-product-admin-form';
+import { queryKeys } from '@/lib/client/hooks/query-keys';
 
 type ProjectProductsBulkTableProps = {
   products: V2Product[];
@@ -122,6 +124,7 @@ export function ProjectProductsBulkTable({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [updatingCoverProductId, setUpdatingCoverProductId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const productIds = useMemo(() => products.map((product) => product.id), [products]);
   const {
@@ -132,8 +135,6 @@ export function ProjectProductsBulkTable({
   } = useV2AdminVariantsMap(productIds);
   const {
     mediaByProductId,
-    isLoading: mediaLoading,
-    isFetching: mediaFetching,
     isError: mediaError,
   } = useV2AdminProductMediaMap(productIds);
 
@@ -306,6 +307,8 @@ export function ProjectProductsBulkTable({
     setIsSaving(true);
 
     try {
+      const touchedVariantProductIds = new Set<string>();
+
       for (const productId of pendingProductIds) {
         const product = productsById.get(productId);
         const draft = productDrafts[productId];
@@ -325,6 +328,7 @@ export function ProjectProductsBulkTable({
             short_description: draft.shortDescription.trim() || null,
             status: draft.status,
           },
+          skipInvalidate: true,
         });
       }
 
@@ -347,8 +351,24 @@ export function ProjectProductsBulkTable({
             title: nextTitle,
             status: draft.status,
           },
+          skipInvalidate: true,
         });
+        touchedVariantProductIds.add(meta.productId);
       }
+
+      await queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey[0] === 'v2-catalog-admin' &&
+          query.queryKey[1] === 'products' &&
+          query.queryKey[2] === 'list',
+      });
+      await Promise.all(
+        Array.from(touchedVariantProductIds).map((productId) =>
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.v2CatalogAdmin.products.variants(productId),
+          }),
+        ),
+      );
 
       setDirtyProductIds({});
       setDirtyVariantIds({});
@@ -381,6 +401,7 @@ export function ProjectProductsBulkTable({
             source: 'v2-project-products-bulk-cover-upload',
           },
         },
+        skipInvalidate: true,
       });
 
       const currentCoverMedia = getCoverMedia(mediaByProductId[product.id] || []);
@@ -394,6 +415,7 @@ export function ProjectProductsBulkTable({
             sort_order: 0,
             status: 'ACTIVE',
           },
+          skipInvalidate: true,
         });
       } else {
         await createProductMedia.mutateAsync({
@@ -405,9 +427,13 @@ export function ProjectProductsBulkTable({
             sort_order: 0,
             status: 'ACTIVE',
           },
+          skipInvalidate: true,
         });
       }
 
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.v2CatalogAdmin.products.media(product.id),
+      });
       setMessage(`${product.title} 대표 이미지를 저장했습니다.`);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
@@ -621,7 +647,7 @@ export function ProjectProductsBulkTable({
                   {isExpanded && (
                     <tr>
                       <td colSpan={7} className="bg-gray-50 px-3 py-3">
-                        {variantsLoading || variantsFetching || mediaLoading || mediaFetching ? (
+                        {variantsLoading || variantsFetching ? (
                           <div className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-sm text-gray-500">
                             옵션 정보를 불러오는 중입니다.
                           </div>
