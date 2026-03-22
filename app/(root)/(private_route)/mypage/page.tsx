@@ -512,104 +512,106 @@ export default function MyPage() {
                       </div>
                     </div>
 
-                  <div className="space-y-3">
-                    {order.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-lg bg-neutral-50 p-3"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-start gap-3">
-                            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-white">
-                              {item.thumbnailUrl ? (
-                                <img
-                                  src={item.thumbnailUrl}
-                                  alt={item.title}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-xs text-text-secondary">
-                                  이미지 없음
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div>
-                                <p className="font-medium text-text-primary">{item.title}</p>
-                                {item.optionTitle && (
-                                  <p className="text-xs text-text-secondary">{item.optionTitle}</p>
+                    <div className="space-y-3">
+                      {order.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="rounded-lg bg-neutral-50 p-3"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-white">
+                                {item.thumbnailUrl ? (
+                                  <img
+                                    src={item.thumbnailUrl}
+                                    alt={item.title}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-xs text-text-secondary">
+                                    이미지 없음
+                                  </div>
                                 )}
                               </div>
-                              {item.lineType === 'BUNDLE_PARENT' && (
-                                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
-                                  번들
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-sm text-text-secondary">
-                              {item.quantity}개 · {formatCurrency(item.lineTotal)}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-text-secondary">
-                              {item.itemStatus ? getStatusLabel(item.itemStatus) : '-'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {item.components.length > 0 && (
-                          <div className="mt-2 rounded-md border border-neutral-200 bg-white p-2">
-                            <p className="text-xs font-semibold text-text-secondary">
-                              구성품 {item.components.length}개
-                            </p>
-                            <div className="mt-2 space-y-2">
-                              {item.components.map((component) => (
-                                <div
-                                  key={component.id}
-                                  className="flex items-start justify-between gap-3"
-                                >
-                                  <div className="flex items-start gap-2">
-                                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-white">
-                                      {component.thumbnailUrl ? (
-                                        <img
-                                          src={component.thumbnailUrl}
-                                          alt={component.title}
-                                          className="h-full w-full object-cover"
-                                        />
-                                      ) : (
-                                        <div className="flex h-full w-full items-center justify-center text-[10px] text-text-secondary">
-                                          없음
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div>
-                                      <p className="text-sm font-medium text-text-primary">
-                                        {component.title}
-                                      </p>
-                                      {component.optionTitle && (
-                                        <p className="text-xs text-text-secondary">
-                                          {component.optionTitle}
-                                        </p>
-                                      )}
-                                      <p className="text-xs text-text-secondary">
-                                        {component.quantity}개 ·{' '}
-                                        {component.itemStatus
-                                          ? getStatusLabel(component.itemStatus)
-                                          : '-'}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <p className="text-sm font-medium text-text-primary">
-                                    {formatCurrency(component.lineTotal)}
-                                  </p>
+                              <div className="flex items-center gap-2">
+                                <div>
+                                  <p className="font-medium text-text-primary">{item.title}</p>
+                                  {item.optionTitle && (
+                                    <p className="text-xs text-text-secondary">
+                                      {item.optionTitle}
+                                    </p>
+                                  )}
                                 </div>
-                              ))}
+                                {item.lineType === 'BUNDLE_PARENT' && (
+                                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                                    번들
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-text-secondary">
+                                {item.quantity}개 · {formatCurrency(item.lineTotal)}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-text-secondary">
+                                {item.itemStatus ? getStatusLabel(item.itemStatus) : '-'}
+                              </span>
                             </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+
+                          {item.components.length > 0 && (
+                            <div className="mt-2 rounded-md border border-neutral-200 bg-white p-2">
+                              <p className="text-xs font-semibold text-text-secondary">
+                                구성품 {item.components.length}개
+                              </p>
+                              <div className="mt-2 space-y-2">
+                                {item.components.map((component) => (
+                                  <div
+                                    key={component.id}
+                                    className="flex items-start justify-between gap-3"
+                                  >
+                                    <div className="flex items-start gap-2">
+                                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-white">
+                                        {component.thumbnailUrl ? (
+                                          <img
+                                            src={component.thumbnailUrl}
+                                            alt={component.title}
+                                            className="h-full w-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="flex h-full w-full items-center justify-center text-[10px] text-text-secondary">
+                                            없음
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium text-text-primary">
+                                          {component.title}
+                                        </p>
+                                        {component.optionTitle && (
+                                          <p className="text-xs text-text-secondary">
+                                            {component.optionTitle}
+                                          </p>
+                                        )}
+                                        <p className="text-xs text-text-secondary">
+                                          {component.quantity}개 ·{' '}
+                                          {component.itemStatus
+                                            ? getStatusLabel(component.itemStatus)
+                                            : '-'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <p className="text-sm font-medium text-text-primary">
+                                      {formatCurrency(component.lineTotal)}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
 
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 pt-4">
                     <div>
