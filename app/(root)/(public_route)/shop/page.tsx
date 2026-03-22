@@ -99,11 +99,24 @@ function ShopPageContent() {
   const showCampaignHeroBanner =
     !!selectedCampaignId && !!selectedCampaignBannerUrl;
 
-  const products = data?.items || [];
-  const exposedProducts = useMemo(
-    () => products.filter((item) => item.display_price !== null),
-    [products],
-  );
+  const products = useMemo(() => data?.items ?? [], [data?.items]);
+  const exposedProducts = useMemo(() => {
+    const visibleProducts = products.filter((item) => item.display_price !== null);
+
+    if (!selectedCampaignId) {
+      return visibleProducts;
+    }
+
+    return [...visibleProducts].sort((left, right) => {
+      const leftAmount = left.display_price?.amount ?? 0;
+      const rightAmount = right.display_price?.amount ?? 0;
+      const amountDiff = rightAmount - leftAmount;
+      if (amountDiff !== 0) {
+        return amountDiff;
+      }
+      return left.product_id.localeCompare(right.product_id);
+    });
+  }, [products, selectedCampaignId]);
   const voicePacks = useMemo(
     () => exposedProducts.filter((item) => item.fulfillment_type === "DIGITAL"),
     [exposedProducts],
@@ -208,10 +221,14 @@ function ShopPageContent() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <section className="relative overflow-hidden bg-[#f9f9ed] px-4 py-20">
+      <section
+        className={`relative overflow-hidden bg-[#7bb8e9] px-4 ${
+          showCampaignHeroBanner ? "py-0" : "py-20"
+        }`}
+      >
         {showCampaignHeroBanner ? (
           <div className="w-full">
-            <div className="mx-auto w-full max-w-[1152px] overflow-hidden rounded-2xl border border-white/70 bg-white/60 shadow-sm">
+            <div className="mx-auto w-full max-w-[1152px] overflow-hidden bg-white/60">
               <img
                 src={selectedCampaignBannerUrl || ""}
                 alt={

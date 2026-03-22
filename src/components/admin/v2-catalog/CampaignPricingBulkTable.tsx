@@ -10,7 +10,7 @@ import type {
   V2Product,
   V2Variant,
 } from '@/lib/client/api/v2-catalog-admin.api';
-import { useV2AdminVariantsMap } from '@/lib/client/hooks/useV2CatalogAdmin';
+import { useUpdateV2Variant, useV2AdminVariantsMap } from '@/lib/client/hooks/useV2CatalogAdmin';
 import { useV2AdminUpsertInventoryLevel } from '@/lib/client/hooks/useV2AdminOps';
 import {
   FULFILLMENT_TYPE_LABELS,
@@ -23,6 +23,7 @@ export type SaveCampaignVariantPriceParams = {
   unitAmount: number;
   baseItem: V2PriceListItem | null;
   campaignItem: V2PriceListItem | null;
+  skipInvalidate?: boolean;
 };
 
 type CampaignPricingBulkTableProps = {
@@ -33,6 +34,7 @@ type CampaignPricingBulkTableProps = {
   basePriceListsById: Map<string, V2PriceList>;
   defaultStockLocationId: string | null;
   onSavePrice: (params: SaveCampaignVariantPriceParams) => Promise<void>;
+  onAfterSave?: () => Promise<void>;
 };
 
 type VariantPricingRow = {
@@ -162,12 +164,15 @@ export function CampaignPricingBulkTable({
   basePriceListsById,
   defaultStockLocationId,
   onSavePrice,
+  onAfterSave,
 }: CampaignPricingBulkTableProps) {
   const [expandedProducts, setExpandedProducts] = useState<DirtyMap>({});
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
   const [stockDrafts, setStockDrafts] = useState<Record<string, string>>({});
+  const [trackInventoryDrafts, setTrackInventoryDrafts] = useState<Record<string, boolean>>({});
   const [dirtyPriceVariantIds, setDirtyPriceVariantIds] = useState<DirtyMap>({});
   const [dirtyStockVariantIds, setDirtyStockVariantIds] = useState<DirtyMap>({});
+  const [dirtyTrackVariantIds, setDirtyTrackVariantIds] = useState<DirtyMap>({});
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -181,6 +186,7 @@ export function CampaignPricingBulkTable({
   } = useV2AdminVariantsMap(productIds);
 
   const upsertInventoryLevel = useV2AdminUpsertInventoryLevel();
+  const updateVariant = useUpdateV2Variant();
 
   const variantRowsByProductId = useMemo(() => {
     const result: Record<string, VariantPricingRow[]> = {};
@@ -230,6 +236,7 @@ export function CampaignPricingBulkTable({
     }
 
     setPriceDrafts((previous) => {
+      let hasChanges = false;
       const next = {
         ...previous,
       };
@@ -237,12 +244,14 @@ export function CampaignPricingBulkTable({
         if (next[variantId] !== undefined) {
           return;
         }
+        hasChanges = true;
         next[variantId] = String(row.campaignItem?.unit_amount ?? row.baseItem?.unit_amount ?? '');
       });
-      return next;
+      return hasChanges ? next : previous;
     });
 
     setStockDrafts((previous) => {
+      let hasChanges = false;
       const next = {
         ...previous,
       };
@@ -250,9 +259,25 @@ export function CampaignPricingBulkTable({
         if (next[variantId] !== undefined) {
           return;
         }
+        hasChanges = true;
         next[variantId] = '';
       });
-      return next;
+      return hasChanges ? next : previous;
+    });
+
+    setTrackInventoryDrafts((previous) => {
+      let hasChanges = false;
+      const next = {
+        ...previous,
+      };
+      variantRowsById.forEach((row, variantId) => {
+        if (next[variantId] !== undefined) {
+          return;
+        }
+        hasChanges = true;
+        next[variantId] = row.variant.track_inventory;
+      });
+      return hasChanges ? next : previous;
     });
   }, [variantRowsById]);
 
@@ -295,15 +320,35 @@ export function CampaignPricingBulkTable({
     setDirtyStockVariantIds((previous) => setDirtyFlag(previous, variantId, hasChanges));
   };
 
+  const handleTrackInventoryChange = (variantId: string, checked: boolean) => {
+    const row = variantRowsById.get(variantId);
+    if (!row) {
+      return;
+    }
+
+    setMessage(null);
+    setErrorMessage(null);
+
+    setTrackInventoryDrafts((previous) => ({
+      ...previous,
+      [variantId]: checked,
+    }));
+
+    const hasChanges = checked !== row.variant.track_inventory;
+    setDirtyTrackVariantIds((previous) => setDirtyFlag(previous, variantId, hasChanges));
+  };
+
   const pendingPriceCount = Object.keys(dirtyPriceVariantIds).length;
   const pendingStockCount = Object.keys(dirtyStockVariantIds).length;
-  const pendingCount = pendingPriceCount + pendingStockCount;
+  const pendingTrackCount = Object.keys(dirtyTrackVariantIds).length;
+  const pendingCount = pendingPriceCount + pendingStockCount + pendingTrackCount;
 
   const handleSaveAll = async () => {
     const pendingPriceIds = Object.keys(dirtyPriceVariantIds);
     const pendingStockIds = Object.keys(dirtyStockVariantIds);
+    const pendingTrackIds = Object.keys(dirtyTrackVariantIds);
 
-    if (pendingPriceIds.length === 0 && pendingStockIds.length === 0) {
+    if (pendingPriceIds.length === 0 && pendingStockIds.length === 0 && pendingTrackIds.length === 0) {
       return;
     }
 
@@ -312,12 +357,26 @@ export function CampaignPricingBulkTable({
     setIsSaving(true);
 
     try {
-      const targetVariantIds = Array.from(new Set([...pendingPriceIds, ...pendingStockIds]));
+      const targetVariantIds = Array.from(
+        new Set([...pendingPriceIds, ...pendingStockIds, ...pendingTrackIds]),
+      );
 
       for (const variantId of targetVariantIds) {
         const row = variantRowsById.get(variantId);
         if (!row) {
           continue;
+        }
+        const trackInventoryEnabled =
+          trackInventoryDrafts[variantId] ?? row.variant.track_inventory;
+
+        if (dirtyTrackVariantIds[variantId]) {
+          await updateVariant.mutateAsync({
+            variantId: row.variant.id,
+            data: {
+              track_inventory: trackInventoryEnabled,
+            },
+            skipInvalidate: true,
+          });
         }
 
         if (dirtyPriceVariantIds[variantId]) {
@@ -332,12 +391,13 @@ export function CampaignPricingBulkTable({
             unitAmount,
             baseItem: row.baseItem,
             campaignItem: row.campaignItem,
+            skipInvalidate: true,
           });
         }
 
         if (dirtyStockVariantIds[variantId]) {
           const requiresStockUpdate =
-            row.variant.fulfillment_type === 'PHYSICAL' && row.variant.track_inventory;
+            row.variant.fulfillment_type === 'PHYSICAL' && trackInventoryEnabled;
 
           if (requiresStockUpdate) {
             const stockRaw = (stockDrafts[variantId] || '').trim();
@@ -359,6 +419,7 @@ export function CampaignPricingBulkTable({
 
       setDirtyPriceVariantIds({});
       setDirtyStockVariantIds({});
+      setDirtyTrackVariantIds({});
       setStockDrafts((previous) => {
         const next = {
           ...previous,
@@ -368,7 +429,12 @@ export function CampaignPricingBulkTable({
         });
         return next;
       });
-      setMessage(`가격 ${pendingPriceIds.length}건, 재고 ${pendingStockIds.length}건을 저장했습니다.`);
+      if (onAfterSave) {
+        await onAfterSave();
+      }
+      setMessage(
+        `가격 ${pendingPriceIds.length}건, 재고 ${pendingStockIds.length}건, 재고 추적 ${pendingTrackIds.length}건을 저장했습니다.`,
+      );
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -429,7 +495,10 @@ export function CampaignPricingBulkTable({
               const rows = variantRowsByProductId[product.id] || [];
               const configuredCount = rows.filter((row) => row.configured).length;
               const dirtyCount = rows.filter(
-                (row) => dirtyPriceVariantIds[row.variant.id] || dirtyStockVariantIds[row.variant.id],
+                (row) =>
+                  dirtyPriceVariantIds[row.variant.id] ||
+                  dirtyStockVariantIds[row.variant.id] ||
+                  dirtyTrackVariantIds[row.variant.id],
               ).length;
               const isExpanded = Boolean(expandedProducts[product.id]);
 
@@ -502,16 +571,21 @@ export function CampaignPricingBulkTable({
                                   <th className="px-3 py-2 text-left font-semibold text-gray-700">BASE 가격</th>
                                   <th className="px-3 py-2 text-left font-semibold text-gray-700">캠페인 가격</th>
                                   <th className="px-3 py-2 text-left font-semibold text-gray-700">판매가 입력</th>
+                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">재고 추적</th>
                                   <th className="px-3 py-2 text-left font-semibold text-gray-700">재고 입력</th>
                                   <th className="px-3 py-2 text-left font-semibold text-gray-700">상태</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-100">
                                 {rows.map((row) => {
+                                  const trackInventoryEnabled =
+                                    trackInventoryDrafts[row.variant.id] ?? row.variant.track_inventory;
                                   const requiresStockUpdate =
-                                    row.variant.fulfillment_type === 'PHYSICAL' && row.variant.track_inventory;
+                                    row.variant.fulfillment_type === 'PHYSICAL' && trackInventoryEnabled;
                                   const isPriceDirty = Boolean(dirtyPriceVariantIds[row.variant.id]);
                                   const isStockDirty = Boolean(dirtyStockVariantIds[row.variant.id]);
+                                  const isTrackDirty = Boolean(dirtyTrackVariantIds[row.variant.id]);
+                                  const isPhysicalVariant = row.variant.fulfillment_type === 'PHYSICAL';
 
                                   return (
                                     <tr key={row.variant.id}>
@@ -538,6 +612,25 @@ export function CampaignPricingBulkTable({
                                         />
                                       </td>
                                       <td className="px-3 py-2">
+                                        <label className={`inline-flex items-center gap-2 text-xs ${
+                                          isPhysicalVariant ? 'text-gray-700' : 'text-gray-400'
+                                        }`}>
+                                          <input
+                                            type="checkbox"
+                                            className="h-4 w-4 rounded border-gray-300"
+                                            checked={trackInventoryEnabled}
+                                            disabled={!isPhysicalVariant}
+                                            onChange={(event) =>
+                                              handleTrackInventoryChange(
+                                                row.variant.id,
+                                                event.target.checked,
+                                              )
+                                            }
+                                          />
+                                          재고 추적
+                                        </label>
+                                      </td>
+                                      <td className="px-3 py-2">
                                         <Input
                                           type="number"
                                           min="0"
@@ -556,7 +649,7 @@ export function CampaignPricingBulkTable({
                                           <Badge intent="default" size="sm">
                                             {VARIANT_STATUS_LABELS[row.variant.status]}
                                           </Badge>
-                                          {(isPriceDirty || isStockDirty) && (
+                                          {(isPriceDirty || isStockDirty || isTrackDirty) && (
                                             <Badge intent="warning" size="sm">저장 대기</Badge>
                                           )}
                                         </div>

@@ -171,6 +171,7 @@ export default function ProductDetailPage() {
   const hasSelectedVariant = !!selectedVariant;
   const canPurchase =
     hasSelectedVariant && selectedVariant.availability.sellable && !soldOut;
+  const shouldShowOptionSelector = data.variants.length > 1;
 
   const requestLogin = () => {
     router.push(`/login?redirect=${encodeURIComponent(detailPath)}`);
@@ -307,52 +308,58 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            <div className="rounded-xl border border-neutral-200 bg-white p-5">
-              <p className="mb-3 text-sm font-semibold text-text-primary">구매 옵션</p>
-              <div className="space-y-2">
-                {data.variants.map((variant) => {
-                  const selected = selectedVariant?.id === variant.id;
-                  const stockLabel = variantStockLabel(variant);
+            {shouldShowOptionSelector && (
+              <div className="rounded-xl border border-neutral-200 bg-white p-5">
+                <p className="mb-3 text-sm font-semibold text-text-primary">
+                  구매 옵션
+                </p>
+                <div className="space-y-2">
+                  {data.variants.map((variant) => {
+                    const selected = selectedVariant?.id === variant.id;
+                    const stockLabel = variantStockLabel(variant);
 
-                  return (
-                    <button
-                      key={variant.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedVariantId(variant.id);
-                        setQuantity(
-                          Math.max(
-                            1,
-                            variant.purchase_constraints.min_quantity ||
-                              data.purchase_constraints.min_quantity ||
+                    return (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedVariantId(variant.id);
+                          setQuantity(
+                            Math.max(
                               1,
-                          ),
-                        );
-                      }}
-                      className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                        selected
-                          ? "border-primary-500 bg-primary-50"
-                          : "border-neutral-200 hover:bg-neutral-50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-text-primary">{variant.title}</p>
+                              variant.purchase_constraints.min_quantity ||
+                                data.purchase_constraints.min_quantity ||
+                                1,
+                            ),
+                          );
+                        }}
+                        className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                          selected
+                            ? "border-primary-500 bg-primary-50"
+                            : "border-neutral-200 hover:bg-neutral-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-text-primary">
+                              {variant.title}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-text-primary">
+                              {formatPrice(variant.display_price)}
+                            </p>
+                            {stockLabel && (
+                              <p className="text-xs text-red-600">{stockLabel}</p>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-text-primary">
-                            {formatPrice(variant.display_price)}
-                          </p>
-                          {stockLabel && (
-                            <p className="text-xs text-red-600">{stockLabel}</p>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {data.product.description && (
               <div className="rounded-xl border border-neutral-200 bg-white p-5">

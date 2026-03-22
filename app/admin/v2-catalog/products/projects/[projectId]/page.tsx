@@ -209,6 +209,12 @@ export default function V2CatalogProjectProductsPage() {
             />
           )}
         </div>
+
+        <div className="mt-4 flex justify-end">
+          <Button onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}>
+            상품 추가
+          </Button>
+        </div>
       </section>
     </div>
   );

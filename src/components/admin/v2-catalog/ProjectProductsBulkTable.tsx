@@ -1,19 +1,25 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import type {
   V2Product,
+  V2ProductMedia,
   V2ProductStatus,
   V2Variant,
   V2VariantStatus,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
+  useCreateV2ProductMedia,
   useUpdateV2Product,
+  useUpdateV2ProductMedia,
   useUpdateV2Variant,
+  useUploadV2MediaAssetFile,
+  useV2AdminProductMediaMap,
   useV2AdminVariantsMap,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import {
@@ -21,6 +27,7 @@ import {
   PRODUCT_STATUS_LABELS,
   VARIANT_STATUS_LABELS,
 } from '@/lib/client/utils/v2-product-admin-form';
+import { queryKeys } from '@/lib/client/hooks/query-keys';
 
 type ProjectProductsBulkTableProps = {
   products: V2Product[];
@@ -66,6 +73,22 @@ function shouldHideVariantTitleInput(variants: V2Variant[], variant: V2Variant):
   return variant.title.trim().toLowerCase() === 'default';
 }
 
+function isImageFile(file: File): boolean {
+  if (file.type.toLowerCase().startsWith('image/')) {
+    return true;
+  }
+  return /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(file.name);
+}
+
+function getCoverMedia(mediaList: V2ProductMedia[]): V2ProductMedia | null {
+  const active = mediaList.filter((media) => media.status === 'ACTIVE');
+  return (
+    active.find((media) => media.is_primary) ||
+    active.find((media) => media.media_role === 'PRIMARY') ||
+    null
+  );
+}
+
 function setDirtyFlag(previous: DirtyMap, id: string, isDirty: boolean): DirtyMap {
   if (isDirty) {
     if (previous[id]) {
@@ -100,6 +123,8 @@ export function ProjectProductsBulkTable({
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [updatingCoverProductId, setUpdatingCoverProductId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const productIds = useMemo(() => products.map((product) => product.id), [products]);
   const {
@@ -108,7 +133,14 @@ export function ProjectProductsBulkTable({
     isFetching: variantsFetching,
     isError: variantsError,
   } = useV2AdminVariantsMap(productIds);
+  const {
+    mediaByProductId,
+    isError: mediaError,
+  } = useV2AdminProductMediaMap(productIds);
 
+  const uploadMediaAssetFile = useUploadV2MediaAssetFile();
+  const createProductMedia = useCreateV2ProductMedia();
+  const updateProductMedia = useUpdateV2ProductMedia();
   const updateProduct = useUpdateV2Product();
   const updateVariant = useUpdateV2Variant();
 
@@ -139,6 +171,7 @@ export function ProjectProductsBulkTable({
       return;
     }
     setProductDrafts((previous) => {
+      let hasChanges = false;
       const next = {
         ...previous,
       };
@@ -146,13 +179,14 @@ export function ProjectProductsBulkTable({
         if (next[product.id]) {
           return;
         }
+        hasChanges = true;
         next[product.id] = {
           title: product.title,
           shortDescription: product.short_description || '',
           status: product.status,
         };
       });
-      return next;
+      return hasChanges ? next : previous;
     });
   }, [products]);
 
@@ -161,6 +195,7 @@ export function ProjectProductsBulkTable({
       return;
     }
     setVariantDrafts((previous) => {
+      let hasChanges = false;
       const next = {
         ...previous,
       };
@@ -168,12 +203,13 @@ export function ProjectProductsBulkTable({
         if (next[variant.id]) {
           return;
         }
+        hasChanges = true;
         next[variant.id] = {
           title: variant.title,
           status: variant.status,
         };
       });
-      return next;
+      return hasChanges ? next : previous;
     });
   }, [variantMetaById]);
 
@@ -271,6 +307,8 @@ export function ProjectProductsBulkTable({
     setIsSaving(true);
 
     try {
+      const touchedVariantProductIds = new Set<string>();
+
       for (const productId of pendingProductIds) {
         const product = productsById.get(productId);
         const draft = productDrafts[productId];
@@ -290,6 +328,7 @@ export function ProjectProductsBulkTable({
             short_description: draft.shortDescription.trim() || null,
             status: draft.status,
           },
+          skipInvalidate: true,
         });
       }
 
@@ -312,8 +351,24 @@ export function ProjectProductsBulkTable({
             title: nextTitle,
             status: draft.status,
           },
+          skipInvalidate: true,
         });
+        touchedVariantProductIds.add(meta.productId);
       }
+
+      await queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey[0] === 'v2-catalog-admin' &&
+          query.queryKey[1] === 'products' &&
+          query.queryKey[2] === 'list',
+      });
+      await Promise.all(
+        Array.from(touchedVariantProductIds).map((productId) =>
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.v2CatalogAdmin.products.variants(productId),
+          }),
+        ),
+      );
 
       setDirtyProductIds({});
       setDirtyVariantIds({});
@@ -322,6 +377,68 @@ export function ProjectProductsBulkTable({
       setErrorMessage(getErrorMessage(error));
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleCoverImageChange = async (product: V2Product, file: File) => {
+    setMessage(null);
+    setErrorMessage(null);
+
+    if (!isImageFile(file)) {
+      setErrorMessage('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    setUpdatingCoverProductId(product.id);
+
+    try {
+      const uploaded = await uploadMediaAssetFile.mutateAsync({
+        data: {
+          file,
+          asset_kind: 'IMAGE',
+          status: 'ACTIVE',
+          metadata: {
+            source: 'v2-project-products-bulk-cover-upload',
+          },
+        },
+        skipInvalidate: true,
+      });
+
+      const currentCoverMedia = getCoverMedia(mediaByProductId[product.id] || []);
+      if (currentCoverMedia) {
+        await updateProductMedia.mutateAsync({
+          mediaId: currentCoverMedia.id,
+          data: {
+            media_asset_id: uploaded.data.id,
+            media_role: 'PRIMARY',
+            is_primary: true,
+            sort_order: 0,
+            status: 'ACTIVE',
+          },
+          skipInvalidate: true,
+        });
+      } else {
+        await createProductMedia.mutateAsync({
+          productId: product.id,
+          data: {
+            media_asset_id: uploaded.data.id,
+            media_role: 'PRIMARY',
+            is_primary: true,
+            sort_order: 0,
+            status: 'ACTIVE',
+          },
+          skipInvalidate: true,
+        });
+      }
+
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.v2CatalogAdmin.products.media(product.id),
+      });
+      setMessage(`${product.title} 대표 이미지를 저장했습니다.`);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setUpdatingCoverProductId(null);
     }
   };
 
@@ -361,11 +478,17 @@ export function ProjectProductsBulkTable({
           옵션 정보를 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
         </div>
       )}
+      {mediaError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          상품 이미지 정보를 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-xl border border-gray-200">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
+              <th className="px-3 py-2 text-left font-semibold text-gray-700">커버</th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">상품</th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">상품명</th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">상태</th>
@@ -385,10 +508,54 @@ export function ProjectProductsBulkTable({
               const isExpanded = Boolean(expandedProducts[product.id]);
               const isProductDirty = Boolean(dirtyProductIds[product.id]);
               const dirtyVariantCount = productVariants.filter((variant) => dirtyVariantIds[variant.id]).length;
+              const coverMedia = getCoverMedia(mediaByProductId[product.id] || []);
+              const coverInputId = `bulk-product-cover-${product.id}`;
+              const isCoverUpdating =
+                updatingCoverProductId === product.id &&
+                (uploadMediaAssetFile.isPending ||
+                  createProductMedia.isPending ||
+                  updateProductMedia.isPending);
 
               return (
                 <Fragment key={product.id}>
                   <tr className="align-top">
+                    <td className="px-3 py-3">
+                      <input
+                        id={coverInputId}
+                        type="file"
+                        accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+                        className="hidden"
+                        disabled={isCoverUpdating}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) {
+                            void handleCoverImageChange(product, file);
+                          }
+                          event.target.value = '';
+                        }}
+                      />
+                      <label
+                        htmlFor={coverInputId}
+                        className={`group relative block h-14 w-14 overflow-hidden rounded-lg border border-gray-200 ${
+                          isCoverUpdating ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                        }`}
+                      >
+                        {coverMedia?.public_url ? (
+                          <img
+                            src={coverMedia.public_url}
+                            alt={coverMedia.alt_text || `${product.title} 대표 이미지`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gray-50 text-[10px] text-gray-400">
+                            없음
+                          </div>
+                        )}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-[10px] font-medium text-white opacity-0 transition group-hover:opacity-100">
+                          {isCoverUpdating ? '업로드 중' : '변경'}
+                        </div>
+                      </label>
+                    </td>
                     <td className="px-3 py-3">
                       <div className="min-w-[220px]">
                         <div className="flex items-center gap-2">
@@ -479,7 +646,7 @@ export function ProjectProductsBulkTable({
 
                   {isExpanded && (
                     <tr>
-                      <td colSpan={6} className="bg-gray-50 px-3 py-3">
+                      <td colSpan={7} className="bg-gray-50 px-3 py-3">
                         {variantsLoading || variantsFetching ? (
                           <div className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-sm text-gray-500">
                             옵션 정보를 불러오는 중입니다.

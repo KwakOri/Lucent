@@ -68,6 +68,7 @@ import {
   type ValidateV2CouponData,
   type ValidateV2BundleDefinitionData,
   type UploadV2MediaAssetFileData,
+  type V2ProductMedia,
   type V2Variant,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import { queryKeys } from './query-keys';
@@ -77,6 +78,10 @@ async function invalidateV2CatalogAdmin(queryClient: ReturnType<typeof useQueryC
     queryKey: queryKeys.v2CatalogAdmin.all,
   });
 }
+
+type InvalidateControl = {
+  skipInvalidate?: boolean;
+};
 
 export function useV2AdminProjects(params: GetV2ProjectsParams = {}) {
   return useQuery({
@@ -276,11 +281,18 @@ export function useUpdateV2Product() {
     mutationFn: async ({
       id,
       data,
+      skipInvalidate,
     }: {
       id: string;
       data: UpdateV2ProductData;
-    }) => V2CatalogAdminAPI.updateProduct(id, data),
-    onSuccess: async () => {
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.updateProduct(id, data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -324,6 +336,8 @@ export function useV2AdminVariantsMap(productIds: string[]) {
         return response.data;
       },
       enabled: productId.length > 0,
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
     })),
   });
 
@@ -366,11 +380,18 @@ export function useUpdateV2Variant() {
     mutationFn: async ({
       variantId,
       data,
+      skipInvalidate,
     }: {
       variantId: string;
       data: UpdateV2VariantData;
-    }) => V2CatalogAdminAPI.updateVariant(variantId, data),
-    onSuccess: async () => {
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.updateVariant(variantId, data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -430,11 +451,18 @@ export function useUploadV2MediaAssetFile() {
     mutationFn: async ({
       data,
       options,
+      skipInvalidate,
     }: {
       data: UploadV2MediaAssetFileData;
       options?: UploadV2MediaAssetFileOptions;
-    }) => V2CatalogAdminAPI.uploadMediaAssetFile(data, options),
-    onSuccess: async () => {
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.uploadMediaAssetFile(data, options);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -451,17 +479,63 @@ export function useV2AdminProductMedia(productId: string | null | undefined) {
   });
 }
 
+export function useV2AdminProductMediaMap(productIds: string[]) {
+  const normalizedProductIds = useMemo(
+    () =>
+      Array.from(
+        new Set(productIds.map((productId) => productId.trim()).filter(Boolean)),
+      ),
+    [productIds],
+  );
+
+  const mediaQueries = useQueries({
+    queries: normalizedProductIds.map((productId) => ({
+      queryKey: queryKeys.v2CatalogAdmin.products.media(productId),
+      queryFn: async () => {
+        const response = await V2CatalogAdminAPI.getProductMedia(productId);
+        return response.data;
+      },
+      enabled: productId.length > 0,
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+    })),
+  });
+
+  return useMemo(() => {
+    const mediaByProductId = normalizedProductIds.reduce<
+      Record<string, V2ProductMedia[]>
+    >((accumulator, productId, index) => {
+      accumulator[productId] = (mediaQueries[index]?.data || []) as V2ProductMedia[];
+      return accumulator;
+    }, {});
+
+    return {
+      mediaByProductId,
+      isLoading: mediaQueries.some((query) => query.isLoading),
+      isFetching: mediaQueries.some((query) => query.isFetching),
+      isError: mediaQueries.some((query) => Boolean(query.error)),
+    };
+  }, [mediaQueries, normalizedProductIds]);
+}
+
 export function useCreateV2ProductMedia() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
       productId,
       data,
+      skipInvalidate,
     }: {
       productId: string;
       data: CreateV2MediaData;
-    }) => V2CatalogAdminAPI.createProductMedia(productId, data),
-    onSuccess: async () => {
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.createProductMedia(productId, data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -473,11 +547,18 @@ export function useUpdateV2ProductMedia() {
     mutationFn: async ({
       mediaId,
       data,
+      skipInvalidate,
     }: {
       mediaId: string;
       data: UpdateV2MediaData;
-    }) => V2CatalogAdminAPI.updateProductMedia(mediaId, data),
-    onSuccess: async () => {
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.updateProductMedia(mediaId, data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -1061,9 +1142,18 @@ export function useV2PriceList(priceListId: string | null | undefined) {
 export function useCreateV2PriceList() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: CreateV2PriceListData) =>
-      V2CatalogAdminAPI.createPriceList(data),
-    onSuccess: async () => {
+    mutationFn: async (input: CreateV2PriceListData & InvalidateControl) => {
+      const {
+        skipInvalidate,
+        ...data
+      } = input;
+      void skipInvalidate;
+      return V2CatalogAdminAPI.createPriceList(data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -1088,8 +1178,14 @@ export function useUpdateV2PriceList() {
 export function usePublishV2PriceList() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => V2CatalogAdminAPI.publishPriceList(id),
-    onSuccess: async () => {
+    mutationFn: async (input: string | ({ id: string } & InvalidateControl)) => {
+      const id = typeof input === 'string' ? input : input.id;
+      return V2CatalogAdminAPI.publishPriceList(id);
+    },
+    onSuccess: async (_response, variables) => {
+      if (typeof variables !== 'string' && variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -1122,11 +1218,18 @@ export function useCreateV2PriceListItem() {
     mutationFn: async ({
       priceListId,
       data,
+      skipInvalidate,
     }: {
       priceListId: string;
       data: CreateV2PriceListItemData;
-    }) => V2CatalogAdminAPI.createPriceListItem(priceListId, data),
-    onSuccess: async () => {
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.createPriceListItem(priceListId, data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -1138,11 +1241,18 @@ export function useUpdateV2PriceListItem() {
     mutationFn: async ({
       itemId,
       data,
+      skipInvalidate,
     }: {
       itemId: string;
       data: UpdateV2PriceListItemData;
-    }) => V2CatalogAdminAPI.updatePriceListItem(itemId, data),
-    onSuccess: async () => {
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.updatePriceListItem(itemId, data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
