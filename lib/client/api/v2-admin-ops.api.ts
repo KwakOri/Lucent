@@ -376,6 +376,7 @@ export interface V2AdminOrderQueueRow {
   payment_status: string;
   fulfillment_status: string;
   grand_total: number;
+  depositor_name: string | null;
   placed_at: string | null;
   created_at: string;
   fulfillment_group_count: number;
