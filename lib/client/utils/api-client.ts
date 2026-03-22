@@ -9,6 +9,7 @@ import { ApiError } from './api-error';
 
 interface APIRequestOptions extends RequestInit {
   requiresAuth?: boolean;
+  retryOnNetworkError?: boolean;
 }
 
 class APIClient {
@@ -23,7 +24,13 @@ class APIClient {
    * HTTP 요청 공통 처리
    */
   private async request<T>(url: string, options: APIRequestOptions = {}): Promise<T> {
-    const { requiresAuth = true, headers: customHeaders, ...requestInit } = options;
+    const {
+      requiresAuth = true,
+      retryOnNetworkError = true,
+      headers: customHeaders,
+      ...requestInit
+    } = options;
+    const method = (requestInit.method ?? 'GET').toUpperCase();
     const headers = new Headers(customHeaders || {});
 
     if (!(requestInit.body instanceof FormData) && !headers.has('Content-Type')) {
@@ -38,13 +45,28 @@ class APIClient {
     }
 
     const resolvedUrl = this.resolveUrl(url);
-    console.log(`[apiClient] ${requestInit.method ?? 'GET'} ${resolvedUrl}`);
+    console.log(`[apiClient] ${method} ${resolvedUrl}`);
 
-    const response = await fetch(resolvedUrl, {
-      credentials: 'include',
-      ...requestInit,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await this.fetchWithRetry(
+        resolvedUrl,
+        {
+          credentials: 'include',
+          ...requestInit,
+          method,
+          headers,
+        },
+        {
+          enabled:
+            retryOnNetworkError &&
+            this.isRetryableMethod(method) &&
+            !(requestInit.body instanceof FormData),
+        },
+      );
+    } catch (networkError) {
+      throw this.toNetworkApiError(networkError);
+    }
 
     console.log(`[apiClient] 응답 상태: ${response.status} ${response.statusText}`);
 
@@ -133,6 +155,92 @@ class APIClient {
     } catch {
       return null;
     }
+  }
+
+  private isRetryableMethod(method: string): boolean {
+    return ['GET', 'HEAD', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'].includes(method);
+  }
+
+  private async fetchWithRetry(
+    url: string,
+    init: RequestInit,
+    retry: { enabled: boolean },
+  ): Promise<Response> {
+    const maxAttempts = retry.enabled ? 2 : 1;
+    let lastError: unknown = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await fetch(url, init);
+      } catch (error) {
+        lastError = error;
+        const shouldRetry =
+          attempt < maxAttempts && this.isRetryableNetworkError(error);
+        if (!shouldRetry) {
+          break;
+        }
+        await this.delay(250 * attempt);
+      }
+    }
+
+    if (lastError instanceof Error) {
+      throw lastError;
+    }
+
+    throw new Error('Network request failed');
+  }
+
+  private isRetryableNetworkError(error: unknown): boolean {
+    const details = this.extractErrorDetails(error);
+    if (/AbortError/i.test(details)) {
+      return false;
+    }
+
+    return /ERR_NETWORK_CHANGED|Failed to fetch|NetworkError|fetch failed|Network request failed/i.test(
+      details,
+    );
+  }
+
+  private toNetworkApiError(error: unknown): ApiError {
+    const details = this.extractErrorDetails(error);
+    if (/ERR_NETWORK_CHANGED/i.test(details)) {
+      return new ApiError(
+        '네트워크 환경이 변경되어 요청이 중단되었습니다. 다시 시도해 주세요.',
+        0,
+        'NETWORK_CHANGED',
+      );
+    }
+
+    return new ApiError(
+      '네트워크 요청에 실패했습니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.',
+      0,
+      'NETWORK_ERROR',
+    );
+  }
+
+  private extractErrorDetails(error: unknown): string {
+    if (error instanceof Error) {
+      const cause = (error as { cause?: unknown }).cause;
+      const causeText =
+        cause instanceof Error
+          ? `${cause.name} ${cause.message}`
+          : typeof cause === 'string'
+            ? cause
+            : '';
+      return `${error.name} ${error.message} ${causeText}`;
+    }
+
+    if (typeof error === 'string') {
+      return error;
+    }
+
+    return '';
+  }
+
+  private async delay(ms: number): Promise<void> {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, ms);
+    });
   }
 
   private getErrorMessage(payload: unknown): string {
