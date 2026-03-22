@@ -19,6 +19,7 @@ import type {
   V2ShopProductDetail,
 } from "@/lib/client/api/v2-shop.api";
 import { ApiError } from "@/lib/client/utils/api-error";
+import { normalizeDisplayTitle } from "@/lib/client/utils/v2-item-display";
 import { useToast } from "@/src/components/toast";
 
 function formatPrice(
@@ -313,6 +314,10 @@ export default function ProductDetailPage() {
                 {data.variants.map((variant) => {
                   const selected = selectedVariant?.id === variant.id;
                   const stockLabel = variantStockLabel(variant);
+                  const normalizedVariantTitle = normalizeDisplayTitle(variant.title);
+                  const shouldHideSingleDefaultTitle =
+                    data.variants.length === 1 &&
+                    normalizedVariantTitle.toLowerCase() === "default";
 
                   return (
                     <button
@@ -337,7 +342,11 @@ export default function ProductDetailPage() {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="font-semibold text-text-primary">{variant.title}</p>
+                          {!shouldHideSingleDefaultTitle && (
+                            <p className="font-semibold text-text-primary">
+                              {variant.title}
+                            </p>
+                          )}
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-text-primary">
