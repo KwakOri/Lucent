@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +24,7 @@ import {
   useV2PriceListItems,
   useV2PriceLists,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
+import { queryKeys } from '@/lib/client/hooks/query-keys';
 import { useV2AdminStockLocations } from '@/lib/client/hooks/useV2AdminOps';
 import { formatDateRange, getErrorMessage } from '@/lib/client/utils/v2-campaign-admin';
 import { resolveEligibleCampaignProducts } from '@/lib/client/utils/v2-campaign-targeting';
@@ -137,6 +139,7 @@ function findPriceItem(params: {
 
 export default function V2CatalogCampaignPricingPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const [message, setMessage] = useState<string | null>(null);
@@ -440,6 +443,12 @@ export default function V2CatalogCampaignPricingPage() {
     campaignPriceListRef.current = activeCampaignPriceList || null;
   }, [activeCampaignPriceList]);
 
+  const refreshPricingQueries = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.v2CatalogAdmin.pricing.all,
+    });
+  };
+
   const ensureCampaignPriceList = async (): Promise<V2PriceList> => {
     if (!campaign) {
       throw new Error('캠페인을 찾을 수 없습니다.');
@@ -455,6 +464,7 @@ export default function V2CatalogCampaignPricingPage() {
         currency_code: 'KRW',
         starts_at: campaign.starts_at,
         ends_at: campaign.ends_at,
+        skipInvalidate: true,
       });
       priceList = created.data;
     }
@@ -473,6 +483,7 @@ export default function V2CatalogCampaignPricingPage() {
     unitAmount,
     baseItem,
     campaignItem,
+    skipInvalidate = false,
   }: SaveCampaignVariantPriceParams) => {
     const priceList = await ensureCampaignPriceList();
 
@@ -486,6 +497,7 @@ export default function V2CatalogCampaignPricingPage() {
           product_id: product.id,
           variant_id: variant.id,
         },
+        skipInvalidate,
       });
     } else {
       await createPriceListItem.mutateAsync({
@@ -497,11 +509,15 @@ export default function V2CatalogCampaignPricingPage() {
           compare_at_amount: isAlwaysOnCampaign ? null : (baseItem?.unit_amount ?? null),
           status: 'ACTIVE',
         },
+        skipInvalidate,
       });
     }
 
     if (priceList.status !== 'PUBLISHED') {
-      await publishPriceList.mutateAsync(priceList.id);
+      await publishPriceList.mutateAsync({
+        id: priceList.id,
+        skipInvalidate,
+      });
       campaignPriceListRef.current = {
         ...priceList,
         status: 'PUBLISHED',
@@ -548,7 +564,9 @@ export default function V2CatalogCampaignPricingPage() {
         unitAmount: finalPrice,
         baseItem: basePriceItem,
         campaignItem: campaignPriceItem,
+        skipInvalidate: true,
       });
+      await refreshPricingQueries();
 
       setMessage(
         isAlwaysOnCampaign
@@ -683,6 +701,7 @@ export default function V2CatalogCampaignPricingPage() {
               basePriceListsById={basePriceListById}
               defaultStockLocationId={defaultStockLocationId}
               onSavePrice={upsertCampaignVariantPrice}
+              onAfterSave={refreshPricingQueries}
             />
           )}
         </div>
