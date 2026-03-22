@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
+import { ProductBundleManager } from '@/src/components/admin/v2-catalog/ProductBundleManager';
 import { ProductMediaManager } from '@/src/components/admin/v2-catalog/ProductMediaManager';
 import { ProductVariantManager } from '@/src/components/admin/v2-catalog/ProductVariantManager';
 import {
@@ -211,11 +212,6 @@ export default function V2CatalogProductDetailPage() {
           >
             옵션 추가
           </Button>
-          {product.product_kind === 'BUNDLE' && (
-            <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/bundles')}>
-              번들 구성 관리
-            </Button>
-          )}
           <Button intent="danger" onClick={handleDeleteProduct} loading={deleteProduct.isPending}>
             상품 삭제
           </Button>
@@ -282,25 +278,7 @@ export default function V2CatalogProductDetailPage() {
       </section>
 
       {product.product_kind === 'BUNDLE' && (
-        <section className="rounded-2xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-blue-900">번들 구성 안내</h2>
-              <p className="mt-1 text-sm text-blue-900/80">
-                번들 상품의 포함 옵션 선택은 별도 번들 관리 화면에서 진행합니다.
-              </p>
-              <p className="mt-3 text-sm text-blue-900/80">
-                1) 이 상품에 필요한 옵션을 먼저 추가한 뒤 2) 번들 관리에서 definition을 만들고 3)
-                component로 포함 옵션을 연결해 주세요.
-              </p>
-            </div>
-            <div className="flex shrink-0 gap-2">
-              <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/bundles')}>
-                번들 구성 관리 열기
-              </Button>
-            </div>
-          </div>
-        </section>
+        <ProductBundleManager bundleProduct={product} />
       )}
 
       <ProductMediaManager product={product} />
