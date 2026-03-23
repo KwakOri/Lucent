@@ -671,9 +671,11 @@ export default function MyPage() {
                                         </p>
                                       </div>
                                     </div>
-                                    <p className="text-sm font-medium text-text-primary">
-                                      {formatCurrency(component.lineTotal)}
-                                    </p>
+                                    {item.lineType !== 'BUNDLE_PARENT' && (
+                                      <p className="text-sm font-medium text-text-primary">
+                                        {formatCurrency(component.lineTotal)}
+                                      </p>
+                                    )}
                                   </div>
                                 ))}
                               </div>
