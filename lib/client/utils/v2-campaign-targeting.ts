@@ -122,6 +122,8 @@ export function resolveEligibleCampaignProducts(params: {
       candidates = activeProducts.filter(
         (product) => product.project_id === normalizedCampaignSourceId,
       );
+    } else {
+      candidates = [];
     }
   } else if (hasIncludeTargets) {
     candidates = activeProducts.filter(
