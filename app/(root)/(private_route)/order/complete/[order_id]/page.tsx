@@ -331,9 +331,11 @@ export default function OrderCompletePage() {
                                   </p>
                                 </div>
                               </div>
-                              <p className="text-sm font-medium text-text-primary">
-                                {formatCurrency(component.lineTotal)}
-                              </p>
+                              {group.lineType !== 'BUNDLE_PARENT' && (
+                                <p className="text-sm font-medium text-text-primary">
+                                  {formatCurrency(component.lineTotal)}
+                                </p>
+                              )}
                             </div>
                           );
                         })}
