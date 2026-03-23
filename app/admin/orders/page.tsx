@@ -209,20 +209,20 @@ const LINEAR_STAGE_TABS: Array<{
   key: V2OrderStageTab;
   label: string;
 }> = [
-  { key: 'ALL', label: orderStageTabLabel('ALL') },
-  { key: 'CANCELED', label: orderStageTabLabel('CANCELED') },
   { key: 'PAYMENT_PENDING', label: orderStageTabLabel('PAYMENT_PENDING') },
   { key: 'PAYMENT_CONFIRMED', label: orderStageTabLabel('PAYMENT_CONFIRMED') },
   { key: 'PRODUCTION', label: orderStageTabLabel('PRODUCTION') },
   { key: 'READY_TO_SHIP', label: orderStageTabLabel('READY_TO_SHIP') },
   { key: 'IN_TRANSIT', label: orderStageTabLabel('IN_TRANSIT') },
   { key: 'DELIVERED', label: orderStageTabLabel('DELIVERED') },
+  { key: 'CANCELED', label: orderStageTabLabel('CANCELED') },
+  { key: 'ALL', label: orderStageTabLabel('ALL') },
 ];
 
 const ORDER_PAGE_SIZE = 10;
 
 export default function AdminOrdersPage() {
-  const [stageTab, setStageTab] = useState<V2OrderStageTab>('ALL');
+  const [stageTab, setStageTab] = useState<V2OrderStageTab>('PAYMENT_PENDING');
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [targetStage, setTargetStage] = useState<V2AdminOrderLinearStage>('PRODUCTION');
