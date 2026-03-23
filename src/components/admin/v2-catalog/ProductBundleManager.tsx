@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
@@ -23,6 +24,7 @@ import {
   useV2BundleComponents,
   useV2BundleDefinitions,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
+import { queryKeys } from '@/lib/client/hooks/query-keys';
 
 type ProductBundleManagerProps = {
   bundleProduct: V2Product;
@@ -80,6 +82,7 @@ function sortVariants(left: V2Variant, right: V2Variant): number {
 }
 
 export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProps) {
+  const queryClient = useQueryClient();
   const [preferredDefinitionId, setPreferredDefinitionId] = useState<string | null>(
     null,
   );
@@ -256,6 +259,7 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
       bundle_product_id: bundleProduct.id,
       mode: 'CUSTOMIZABLE',
       pricing_strategy: pricingStrategy,
+      skipInvalidate: true,
     });
     setPreferredDefinitionId(response.data.id);
 
@@ -334,6 +338,7 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
         await updateDefinition.mutateAsync({
           definitionId: editableDefinition.definitionId,
           data: { mode: 'CUSTOMIZABLE' },
+          skipInvalidate: true,
         });
       }
 
@@ -367,7 +372,10 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
         });
 
       for (const component of componentsToDelete) {
-        await deleteComponent.mutateAsync(component.id);
+        await deleteComponent.mutateAsync({
+          componentId: component.id,
+          skipInvalidate: true,
+        });
       }
 
       for (const component of componentsToCreate) {
@@ -382,6 +390,7 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
             sort_order: component.sortOrder,
             price_allocation_weight: 1,
           },
+          skipInvalidate: true,
         });
       }
 
@@ -395,8 +404,13 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
             default_quantity: desired.defaultQuantity,
             sort_order: desired.sortOrder,
           },
+          skipInvalidate: true,
         });
       }
+
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.v2CatalogAdmin.bundles.definitions.all,
+      });
 
       setIsSelectionDirty(false);
       setDraftSelectedProductIds(selectedProductIds);

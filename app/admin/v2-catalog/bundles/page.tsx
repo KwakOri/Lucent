@@ -284,7 +284,9 @@ export default function V2CatalogBundlesPage() {
       return;
     }
     await runWithNotice(async () => {
-      await publishDefinition.mutateAsync(activeDefinitionId);
+      await publishDefinition.mutateAsync({
+        definitionId: activeDefinitionId,
+      });
       setMessage('bundle definition을 ACTIVE로 publish했습니다.');
     });
   };
@@ -387,7 +389,9 @@ export default function V2CatalogBundlesPage() {
     }
 
     await runWithNotice(async () => {
-      await deleteComponent.mutateAsync(componentId);
+      await deleteComponent.mutateAsync({
+        componentId,
+      });
       if (selectedComponentId === componentId) {
         setSelectedComponentId(null);
       }
