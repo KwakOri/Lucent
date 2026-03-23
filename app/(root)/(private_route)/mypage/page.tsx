@@ -356,6 +356,23 @@ function myPageLinearStatusBadgeClass(status: MyPageLinearStatus) {
   return 'bg-blue-100 text-blue-700';
 }
 
+function resolveOrderItemStatusLabel(
+  itemStatus: string,
+  fallbackLinearStatus: MyPageLinearStatus,
+): string {
+  const normalizedStatus = String(itemStatus || '').toUpperCase();
+
+  if (normalizedStatus && normalizedStatus !== 'PENDING') {
+    return getStatusLabel(normalizedStatus);
+  }
+
+  if (fallbackLinearStatus === 'PAYMENT_PENDING') {
+    return normalizedStatus === 'PENDING' ? getStatusLabel('PENDING') : '-';
+  }
+
+  return myPageLinearStatusLabel(fallbackLinearStatus);
+}
+
 export default function MyPage() {
   const router = useRouter();
   const { showToast } = useToast();
@@ -542,6 +559,15 @@ export default function MyPage() {
                                     </p>
                                   )}
                                 </div>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                    item.isDigital
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : 'bg-amber-100 text-amber-700'
+                                  }`}
+                                >
+                                  {item.isDigital ? '디지털' : '굿즈'}
+                                </span>
                                 {item.lineType === 'BUNDLE_PARENT' && (
                                   <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
                                     번들
@@ -554,7 +580,7 @@ export default function MyPage() {
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-text-secondary">
-                                {item.itemStatus ? getStatusLabel(item.itemStatus) : '-'}
+                                {resolveOrderItemStatusLabel(item.itemStatus, linearStatus)}
                               </span>
                             </div>
                           </div>
@@ -595,9 +621,10 @@ export default function MyPage() {
                                         )}
                                         <p className="text-xs text-text-secondary">
                                           {component.quantity}개 ·{' '}
-                                          {component.itemStatus
-                                            ? getStatusLabel(component.itemStatus)
-                                            : '-'}
+                                          {resolveOrderItemStatusLabel(
+                                            component.itemStatus,
+                                            linearStatus,
+                                          )}
                                         </p>
                                       </div>
                                     </div>
