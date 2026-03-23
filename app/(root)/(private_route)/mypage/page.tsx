@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Disc3, LogOut, Settings, X } from 'lucide-react';
+import { LogOut, Settings, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
@@ -492,12 +492,6 @@ export default function MyPage() {
             <p className="mt-1 text-text-secondary">{user?.email}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/mypage/digital-products">
-              <Button intent="secondary" size="sm">
-                <Disc3 className="h-4 w-4" />
-                디지털 상품
-              </Button>
-            </Link>
             <Link href="/mypage/profile">
               <Button intent="secondary" size="sm">
                 <Settings className="h-4 w-4" />

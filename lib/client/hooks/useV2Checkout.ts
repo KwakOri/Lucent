@@ -149,6 +149,16 @@ export function useV2CheckoutOrders(
   });
 }
 
+export function useV2DigitalEntitlements() {
+  return useQuery({
+    queryKey: queryKeys.v2Checkout.digitalEntitlements(),
+    queryFn: async () => {
+      const response = await V2CheckoutAPI.getDigitalEntitlements();
+      return response.data;
+    },
+  });
+}
+
 export function useV2CheckoutOrder(orderId: string | null | undefined) {
   return useQuery({
     queryKey: queryKeys.v2Checkout.orders.detail(orderId || ""),

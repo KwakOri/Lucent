@@ -70,6 +70,8 @@ export const queryKeys = {
   v2Checkout: {
     all: ['v2-checkout'] as const,
     cart: () => [...queryKeys.v2Checkout.all, 'cart'] as const,
+    digitalEntitlements: () =>
+      [...queryKeys.v2Checkout.all, 'digital-entitlements'] as const,
     orders: {
       all: ['v2-checkout', 'orders'] as const,
       list: (
