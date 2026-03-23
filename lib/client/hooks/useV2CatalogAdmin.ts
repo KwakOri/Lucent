@@ -666,9 +666,18 @@ export function useV2BundleDefinition(definitionId: string | null | undefined) {
 export function useCreateV2BundleDefinition() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: CreateV2BundleDefinitionData) =>
-      V2CatalogAdminAPI.createBundleDefinition(data),
-    onSuccess: async () => {
+    mutationFn: async (input: CreateV2BundleDefinitionData & InvalidateControl) => {
+      const {
+        skipInvalidate,
+        ...data
+      } = input;
+      void skipInvalidate;
+      return V2CatalogAdminAPI.createBundleDefinition(data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -680,11 +689,18 @@ export function useUpdateV2BundleDefinition() {
     mutationFn: async ({
       definitionId,
       data,
+      skipInvalidate,
     }: {
       definitionId: string;
       data: UpdateV2BundleDefinitionData;
-    }) => V2CatalogAdminAPI.updateBundleDefinition(definitionId, data),
-    onSuccess: async () => {
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.updateBundleDefinition(definitionId, data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -693,9 +709,19 @@ export function useUpdateV2BundleDefinition() {
 export function usePublishV2BundleDefinition() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (definitionId: string) =>
-      V2CatalogAdminAPI.publishBundleDefinition(definitionId),
-    onSuccess: async () => {
+    mutationFn: async ({
+      definitionId,
+      skipInvalidate,
+    }: {
+      definitionId: string;
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.publishBundleDefinition(definitionId);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -747,11 +773,18 @@ export function useCreateV2BundleComponent() {
     mutationFn: async ({
       definitionId,
       data,
+      skipInvalidate,
     }: {
       definitionId: string;
       data: CreateV2BundleComponentData;
-    }) => V2CatalogAdminAPI.createBundleComponent(definitionId, data),
-    onSuccess: async () => {
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.createBundleComponent(definitionId, data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -763,11 +796,18 @@ export function useUpdateV2BundleComponent() {
     mutationFn: async ({
       componentId,
       data,
+      skipInvalidate,
     }: {
       componentId: string;
       data: UpdateV2BundleComponentData;
-    }) => V2CatalogAdminAPI.updateBundleComponent(componentId, data),
-    onSuccess: async () => {
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.updateBundleComponent(componentId, data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -776,9 +816,19 @@ export function useUpdateV2BundleComponent() {
 export function useDeleteV2BundleComponent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (componentId: string) =>
-      V2CatalogAdminAPI.deleteBundleComponent(componentId),
-    onSuccess: async () => {
+    mutationFn: async ({
+      componentId,
+      skipInvalidate,
+    }: {
+      componentId: string;
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.deleteBundleComponent(componentId);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
