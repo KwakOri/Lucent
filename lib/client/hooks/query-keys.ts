@@ -39,6 +39,7 @@ import type {
   ListV2AdminInventoryLevelsParams,
   ListV2AdminOrderQueueParams,
   ListV2AdminSalesStatsParams,
+  ListV2AdminUnifiedAuditLogsParams,
 } from '@/lib/client/api/v2-admin-ops.api';
 
 export const queryKeys = {
@@ -70,9 +71,13 @@ export const queryKeys = {
   v2Checkout: {
     all: ['v2-checkout'] as const,
     cart: () => [...queryKeys.v2Checkout.all, 'cart'] as const,
+    digitalEntitlements: () =>
+      [...queryKeys.v2Checkout.all, 'digital-entitlements'] as const,
     orders: {
       all: ['v2-checkout', 'orders'] as const,
-      list: (params: { limit?: number; order_status?: string } = {}) =>
+      list: (
+        params: { page?: number; limit?: number; order_status?: string } = {},
+      ) =>
         [...queryKeys.v2Checkout.orders.all, 'list', params] as const,
       detail: (id: string) =>
         [...queryKeys.v2Checkout.orders.all, 'detail', id] as const,
@@ -322,6 +327,8 @@ export const queryKeys = {
     },
     audit: {
       all: ['v2-admin-ops', 'audit'] as const,
+      unifiedLogs: (params: ListV2AdminUnifiedAuditLogsParams = {}) =>
+        [...queryKeys.v2AdminOps.audit.all, 'unified-logs', params] as const,
       actionLogs: (params: ListV2AdminActionLogsParams = {}) =>
         [...queryKeys.v2AdminOps.audit.all, 'action-logs', params] as const,
       approvals: (params: ListV2AdminApprovalsParams = {}) =>

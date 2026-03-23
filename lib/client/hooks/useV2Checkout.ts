@@ -135,6 +135,7 @@ export function useV2CreateOrder() {
 
 export function useV2CheckoutOrders(
   params: {
+    page?: number;
     limit?: number;
     order_status?: V2OrderStatus;
   } = {},
@@ -143,6 +144,16 @@ export function useV2CheckoutOrders(
     queryKey: queryKeys.v2Checkout.orders.list(params),
     queryFn: async () => {
       const response = await V2CheckoutAPI.getOrders(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2DigitalEntitlements() {
+  return useQuery({
+    queryKey: queryKeys.v2Checkout.digitalEntitlements(),
+    queryFn: async () => {
+      const response = await V2CheckoutAPI.getDigitalEntitlements();
       return response.data;
     },
   });

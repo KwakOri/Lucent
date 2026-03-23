@@ -209,20 +209,21 @@ const LINEAR_STAGE_TABS: Array<{
   key: V2OrderStageTab;
   label: string;
 }> = [
-  { key: 'ALL', label: orderStageTabLabel('ALL') },
-  { key: 'CANCELED', label: orderStageTabLabel('CANCELED') },
   { key: 'PAYMENT_PENDING', label: orderStageTabLabel('PAYMENT_PENDING') },
   { key: 'PAYMENT_CONFIRMED', label: orderStageTabLabel('PAYMENT_CONFIRMED') },
   { key: 'PRODUCTION', label: orderStageTabLabel('PRODUCTION') },
   { key: 'READY_TO_SHIP', label: orderStageTabLabel('READY_TO_SHIP') },
   { key: 'IN_TRANSIT', label: orderStageTabLabel('IN_TRANSIT') },
   { key: 'DELIVERED', label: orderStageTabLabel('DELIVERED') },
+  { key: 'CANCELED', label: orderStageTabLabel('CANCELED') },
+  { key: 'ALL', label: orderStageTabLabel('ALL') },
 ];
 
 const ORDER_PAGE_SIZE = 10;
 
 export default function AdminOrdersPage() {
-  const [stageTab, setStageTab] = useState<V2OrderStageTab>('ALL');
+  const [stageTab, setStageTab] = useState<V2OrderStageTab>('PAYMENT_PENDING');
+  const [showManualTransition, setShowManualTransition] = useState(false);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [targetStage, setTargetStage] = useState<V2AdminOrderLinearStage>('PRODUCTION');
@@ -562,10 +563,10 @@ export default function AdminOrdersPage() {
 
         <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
           <p className="text-xs font-semibold text-gray-600">선형 단계 일괄 전환</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="mt-2 flex items-center gap-2">
             <Button
               intent="primary"
-              size="sm"
+              size="md"
               loading={executeTransition.isPending}
               disabled={!canRunNextStage}
               onClick={() => {
@@ -579,52 +580,61 @@ export default function AdminOrdersPage() {
                 ? `다음 단계 실행 (${linearStageLabel(recommendedNextStage)})`
                 : '다음 단계 없음'}
             </Button>
-            <p className="text-xs text-gray-500">
-              {stageTab === 'ALL'
-                ? '탭을 선택하면 다음 단계 버튼이 활성화됩니다.'
-                : `현재 탭 기준 기본 다음 단계: ${recommendedNextStage ? linearStageLabel(recommendedNextStage) : '없음'}`}
-            </p>
-          </div>
-          <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-[180px_1fr_auto_auto]">
-            <select
-              value={targetStage}
-              onChange={(event) => setTargetStage(event.target.value as V2AdminOrderLinearStage)}
-              className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm"
-            >
-              {LINEAR_STAGE_OPTIONS.map((stage) => (
-                <option key={stage} value={stage}>
-                  {linearStageLabel(stage)}
-                </option>
-              ))}
-            </select>
-            <Input
-              value={transitionReason}
-              onChange={(event) => setTransitionReason(event.target.value)}
-              placeholder="전환 사유(선택, 기본값은 현재 탭의 다음 단계)"
-            />
             <Button
               intent="secondary"
-              size="sm"
-              loading={previewTransition.isPending}
-              disabled={!canSubmitTransition}
-              onClick={() => void handlePreviewTransition(targetStage)}
+              size="md"
+              className="ml-auto"
+              onClick={() => setShowManualTransition((prev) => !prev)}
             >
-              미리보기
-            </Button>
-            <Button
-              intent="secondary"
-              size="sm"
-              loading={executeTransition.isPending}
-              disabled={!canSubmitTransition}
-              onClick={() => void handleExecuteTransition(targetStage)}
-            >
-              선택 단계 실행
+              {showManualTransition ? '임의 단계 변경 닫기' : '임의 단계 변경'}
             </Button>
           </div>
-          <p className="mt-2 text-xs text-gray-500">
-            선택 주문: {effectiveSelectedOrderIds.length}건 · 목표 단계:{' '}
-            {linearStageLabel(targetStage)}
-          </p>
+          {showManualTransition ? (
+            <>
+              <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-[180px_1fr_auto_auto]">
+                <select
+                  value={targetStage}
+                  onChange={(event) =>
+                    setTargetStage(event.target.value as V2AdminOrderLinearStage)
+                  }
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm"
+                >
+                  {LINEAR_STAGE_OPTIONS.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {linearStageLabel(stage)}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  value={transitionReason}
+                  onChange={(event) => setTransitionReason(event.target.value)}
+                  placeholder="전환 사유(선택, 기본값은 현재 탭의 다음 단계)"
+                />
+                <Button
+                  intent="secondary"
+                  size="sm"
+                  loading={previewTransition.isPending}
+                  disabled={!canSubmitTransition}
+                  onClick={() => void handlePreviewTransition(targetStage)}
+                >
+                  미리보기
+                </Button>
+                <Button
+                  intent="secondary"
+                  size="sm"
+                  loading={executeTransition.isPending}
+                  disabled={!canSubmitTransition}
+                  onClick={() => void handleExecuteTransition(targetStage)}
+                >
+                  선택 단계 실행
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                선택 주문: {effectiveSelectedOrderIds.length}건 · 목표 단계:{' '}
+                {linearStageLabel(targetStage)}
+              </p>
+            </>
+          ) : null}
           {transitionMessage ? (
             <p className="mt-2 text-xs font-medium text-gray-700">{transitionMessage}</p>
           ) : null}

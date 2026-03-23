@@ -98,6 +98,9 @@ function ShopPageContent() {
     selectedCampaign?.shop_banner_public_url || null;
   const showCampaignHeroBanner =
     !!selectedCampaignId && !!selectedCampaignBannerUrl;
+  const heroBackgroundClass = selectedCampaignId
+    ? "bg-[#7bb8e9]"
+    : "bg-[#f9f9ed]";
 
   const products = useMemo(() => data?.items ?? [], [data?.items]);
   const exposedProducts = useMemo(() => {
@@ -222,7 +225,7 @@ function ShopPageContent() {
   return (
     <div className="min-h-screen bg-neutral-50">
       <section
-        className={`relative overflow-hidden bg-[#7bb8e9] px-4 ${
+        className={`relative overflow-hidden ${heroBackgroundClass} px-4 ${
           showCampaignHeroBanner ? "py-0" : "py-20"
         }`}
       >

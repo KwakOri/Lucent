@@ -354,6 +354,35 @@ export interface V2AdminActionLog {
   finished_at: string | null;
 }
 
+export type V2AdminUnifiedAuditSourceTable =
+  | 'logs'
+  | 'v2_admin_action_logs'
+  | 'v2_admin_state_transition_logs'
+  | 'v2_admin_approval_requests'
+  | 'v2_order_notifications'
+  | 'v2_digital_entitlement_events'
+  | 'v2_order_financial_events';
+
+export interface V2AdminUnifiedAuditLog {
+  audit_id: string;
+  source_table: V2AdminUnifiedAuditSourceTable;
+  source_kind: string;
+  occurred_at: string;
+  created_at: string | null;
+  domain: string;
+  event_type: string;
+  status: string | null;
+  severity: string | null;
+  resource_type: string | null;
+  resource_id: string | null;
+  actor_id: string | null;
+  actor_email: string | null;
+  order_id: string | null;
+  action_log_id: string | null;
+  message: string;
+  metadata: Record<string, unknown>;
+}
+
 export interface V2AdminApprovalRequest {
   id: string;
   action_log_id: string;
@@ -575,6 +604,21 @@ export interface ListV2AdminActionLogsParams {
   limit?: number;
   status?: V2AdminActionStatus;
   domain?: string;
+}
+
+export interface ListV2AdminUnifiedAuditLogsParams {
+  limit?: number;
+  source?: V2AdminUnifiedAuditSourceTable;
+  domain?: string;
+  event_type?: string;
+  status?: string;
+  severity?: 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
+  resource_type?: string;
+  resource_id?: string;
+  actor_id?: string;
+  date_from?: string;
+  date_to?: string;
+  search?: string;
 }
 
 export interface ListV2AdminApprovalsParams {
@@ -891,6 +935,13 @@ export const V2AdminOpsAPI = {
   ): Promise<ApiResponse<V2AdminListResponse<V2AdminActionLog>>> {
     const query = toQueryString(params);
     return apiClient.get(`/api/v2/admin/audit/action-logs${query}`);
+  },
+
+  async listUnifiedAuditLogs(
+    params: ListV2AdminUnifiedAuditLogsParams = {},
+  ): Promise<ApiResponse<V2AdminListResponse<V2AdminUnifiedAuditLog>>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/audit/unified${query}`);
   },
 
   async listApprovals(

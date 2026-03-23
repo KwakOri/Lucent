@@ -180,6 +180,55 @@ export interface V2CheckoutOrdersListResult {
   items: V2CheckoutOrder[];
   total: number;
   limit: number;
+  page: number;
+  totalPages: number;
+}
+
+export interface V2DigitalEntitlementItem {
+  id: string;
+  status: string;
+  access_type: "DOWNLOAD" | "STREAM" | "LICENSE" | null;
+  granted_at: string | null;
+  expires_at: string | null;
+  download_count: number;
+  max_downloads: number | null;
+  remaining_downloads: number | null;
+  can_download: boolean;
+  blocked_reason: string | null;
+  order: {
+    id: string;
+    order_no: string;
+    placed_at: string | null;
+    order_status: string;
+    payment_status: string;
+    fulfillment_status: string;
+  };
+  order_item: {
+    id: string | null;
+    line_type: string | null;
+    line_status: string | null;
+    quantity: number;
+    final_line_total: number;
+    product_id: string | null;
+    product_title: string;
+    variant_title: string | null;
+    thumbnail_url: string | null;
+    item_kind: "DIGITAL";
+  };
+  digital_asset: {
+    id: string;
+    file_name: string;
+    file_size: number;
+    mime_type: string;
+    status: string;
+    version_no: number;
+  } | null;
+  download_path: string;
+}
+
+export interface V2DigitalEntitlementsResult {
+  items: V2DigitalEntitlementItem[];
+  total: number;
 }
 
 export const V2CheckoutAPI = {
@@ -221,10 +270,14 @@ export const V2CheckoutAPI = {
   },
 
   async getOrders(params: {
+    page?: number;
     limit?: number;
     order_status?: V2OrderStatus;
   } = {}): Promise<ApiResponse<V2CheckoutOrdersListResult>> {
     const searchParams = new URLSearchParams();
+    if (params.page !== undefined) {
+      searchParams.set('page', String(params.page));
+    }
     if (params.limit !== undefined) {
       searchParams.set('limit', String(params.limit));
     }
@@ -233,6 +286,12 @@ export const V2CheckoutAPI = {
     }
     const query = searchParams.toString();
     return apiClient.get(`/api/v2/checkout/orders${query ? `?${query}` : ''}`);
+  },
+
+  async getDigitalEntitlements(): Promise<
+    ApiResponse<V2DigitalEntitlementsResult>
+  > {
+    return apiClient.get('/api/v2/checkout/me/digital-entitlements');
   },
 
   async cancelOrder(
