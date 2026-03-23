@@ -239,7 +239,7 @@ export function ProductBasicsForm({
                   고정하지 않습니다.
                 </p>
                 <p className="mt-2 text-xs text-gray-500">
-                  저장 후 상품 상세의 `번들 구성 관리` 버튼에서 포함할 옵션(구성품)을 선택합니다.
+                  저장 후 상품 상세의 `번들 구성 상품` 영역에서 포함 상품과 수량 정책을 확정합니다.
                 </p>
               </div>
             )}
