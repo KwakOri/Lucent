@@ -72,7 +72,9 @@ export const queryKeys = {
     cart: () => [...queryKeys.v2Checkout.all, 'cart'] as const,
     orders: {
       all: ['v2-checkout', 'orders'] as const,
-      list: (params: { limit?: number; order_status?: string } = {}) =>
+      list: (
+        params: { page?: number; limit?: number; order_status?: string } = {},
+      ) =>
         [...queryKeys.v2Checkout.orders.all, 'list', params] as const,
       detail: (id: string) =>
         [...queryKeys.v2Checkout.orders.all, 'detail', id] as const,

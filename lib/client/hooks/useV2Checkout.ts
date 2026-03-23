@@ -135,6 +135,7 @@ export function useV2CreateOrder() {
 
 export function useV2CheckoutOrders(
   params: {
+    page?: number;
     limit?: number;
     order_status?: V2OrderStatus;
   } = {},

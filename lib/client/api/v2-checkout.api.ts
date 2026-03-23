@@ -180,6 +180,8 @@ export interface V2CheckoutOrdersListResult {
   items: V2CheckoutOrder[];
   total: number;
   limit: number;
+  page: number;
+  totalPages: number;
 }
 
 export const V2CheckoutAPI = {
@@ -221,10 +223,14 @@ export const V2CheckoutAPI = {
   },
 
   async getOrders(params: {
+    page?: number;
     limit?: number;
     order_status?: V2OrderStatus;
   } = {}): Promise<ApiResponse<V2CheckoutOrdersListResult>> {
     const searchParams = new URLSearchParams();
+    if (params.page !== undefined) {
+      searchParams.set('page', String(params.page));
+    }
     if (params.limit !== undefined) {
       searchParams.set('limit', String(params.limit));
     }

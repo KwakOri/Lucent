@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LogOut, Settings, X } from 'lucide-react';
@@ -46,6 +46,7 @@ interface UnifiedOrderItem {
 
 interface UnifiedOrder {
   id: string;
+  profileId: string | null;
   orderNo: string;
   orderedAt: string;
   displayTotal: number;
@@ -68,6 +69,8 @@ type MyPageLinearStatus =
   | 'FAILED'
   | 'PARTIALLY_REFUNDED'
   | 'REFUNDED';
+
+const ORDERS_PER_PAGE = 10;
 
 function readString(value: unknown): string {
   return typeof value === 'string' ? value : '';
@@ -217,6 +220,7 @@ function mapV2Order(order: V2CheckoutOrder): UnifiedOrder {
 
   return {
     id: order.id,
+    profileId: order.profile_id,
     orderNo: order.order_no,
     orderedAt: order.placed_at || '',
     displayTotal: Math.max(0, readNumber(order.grand_total), recomputedGrandTotal),
@@ -359,9 +363,13 @@ function myPageLinearStatusBadgeClass(status: MyPageLinearStatus) {
 export default function MyPage() {
   const router = useRouter();
   const { showToast } = useToast();
-  const { user, isLoading: sessionLoading, isAuthenticated } = useSession();
+  const { user, isAdmin, isLoading: sessionLoading, isAuthenticated } = useSession();
   const { mutate: logout, isPending: loggingOut } = useLogout();
-  const v2OrdersQuery = useV2CheckoutOrders({ limit: 50 });
+  const [currentPage, setCurrentPage] = useState(1);
+  const v2OrdersQuery = useV2CheckoutOrders({
+    page: currentPage,
+    limit: ORDERS_PER_PAGE,
+  });
   const cancelV2Order = useV2CancelOrder();
 
   useEffect(() => {
@@ -381,6 +389,26 @@ export default function MyPage() {
 
   const isLoading = sessionLoading || v2OrdersQuery.isLoading;
   const error = v2OrdersQuery.error;
+  const totalOrders = v2OrdersQuery.data?.total ?? mergedOrders.length;
+  const totalPages = Math.max(
+    1,
+    v2OrdersQuery.data?.totalPages ??
+      Math.ceil(totalOrders / Math.max(v2OrdersQuery.data?.limit ?? ORDERS_PER_PAGE, 1)),
+  );
+  const activePage = Math.min(currentPage, totalPages);
+
+  const visiblePageNumbers = useMemo(() => {
+    const maxVisiblePages = 5;
+    const half = Math.floor(maxVisiblePages / 2);
+    let start = Math.max(1, activePage - half);
+    const end = Math.min(totalPages, start + maxVisiblePages - 1);
+
+    if (end - start + 1 < maxVisiblePages) {
+      start = Math.max(1, end - maxVisiblePages + 1);
+    }
+
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  }, [activePage, totalPages]);
 
   function handleCancel(order: UnifiedOrder) {
     if (!confirm(`주문 ${order.orderNo}를 취소하시겠습니까?`)) {
@@ -466,7 +494,14 @@ export default function MyPage() {
         </header>
 
         <section>
-          <h2 className="mb-5 text-2xl font-bold text-text-primary">주문 내역</h2>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-2xl font-bold text-text-primary">주문 내역</h2>
+            {isAdmin && (
+              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                관리자 전체 주문 조회 모드
+              </span>
+            )}
+          </div>
           {mergedOrders.length === 0 ? (
             <div className="rounded-2xl border border-neutral-200 bg-white p-10">
               <EmptyState
@@ -615,7 +650,8 @@ export default function MyPage() {
 
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 pt-4">
                     <div>
-                      {order.orderStatus === 'PENDING' && (
+                      {order.orderStatus === 'PENDING' &&
+                        (!isAdmin || order.profileId === user?.id) && (
                         <Button
                           intent="secondary"
                           size="sm"
@@ -628,7 +664,7 @@ export default function MyPage() {
                           <X className="h-4 w-4" />
                           주문 취소
                         </Button>
-                      )}
+                        )}
                     </div>
                     <div className="text-right">
                       {order.shippingAmount > 0 && (
@@ -647,6 +683,43 @@ export default function MyPage() {
                   </article>
                 );
               })}
+              {totalPages > 1 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white p-4">
+                  <p className="text-sm text-text-secondary">
+                    총 {totalOrders.toLocaleString()}건 · {activePage} / {totalPages} 페이지
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      intent="secondary"
+                      size="sm"
+                      disabled={activePage <= 1}
+                      onClick={() => setCurrentPage(Math.max(activePage - 1, 1))}
+                    >
+                      이전
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {visiblePageNumbers.map((pageNumber) => (
+                        <Button
+                          key={pageNumber}
+                          intent={pageNumber === activePage ? 'primary' : 'secondary'}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNumber)}
+                        >
+                          {pageNumber}
+                        </Button>
+                      ))}
+                    </div>
+                    <Button
+                      intent="secondary"
+                      size="sm"
+                      disabled={activePage >= totalPages}
+                      onClick={() => setCurrentPage(Math.min(activePage + 1, totalPages))}
+                    >
+                      다음
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
