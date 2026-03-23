@@ -563,7 +563,7 @@ export default function AdminOrdersPage() {
 
         <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
           <p className="text-xs font-semibold text-gray-600">선형 단계 일괄 전환</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="mt-2 flex items-center gap-2">
             <Button
               intent="primary"
               size="md"
@@ -582,7 +582,8 @@ export default function AdminOrdersPage() {
             </Button>
             <Button
               intent="secondary"
-              size="sm"
+              size="md"
+              className="ml-auto"
               onClick={() => setShowManualTransition((prev) => !prev)}
             >
               {showManualTransition ? '임의 단계 변경 닫기' : '임의 단계 변경'}
