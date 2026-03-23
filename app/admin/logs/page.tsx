@@ -1,31 +1,19 @@
 'use client';
 
 import { Loading } from '@/components/ui/loading';
-import { useLogs, useLogStats } from '@/lib/client/hooks/useLogs';
+import { useV2AdminUnifiedAuditLogs } from '@/lib/client/hooks/useV2AdminOps';
 import { LogsTable } from '@/src/components/admin/logs/LogsTable';
 
-function readCount(
-  bucket: Record<string, number> | undefined,
-  candidates: string[],
-): number {
-  if (!bucket) {
-    return 0;
-  }
-
-  return candidates.reduce((sum, key) => {
-    const upper = key.toUpperCase();
-    const lower = key.toLowerCase();
-    return sum + (bucket[key] || bucket[upper] || bucket[lower] || 0);
-  }, 0);
-}
-
 export default function AdminLogsPage() {
-  const { data: logsResponse, isLoading: isLogsLoading, error: logsError } = useLogs({
-    limit: 100,
+  const {
+    data: logsResponse,
+    isLoading: isLogsLoading,
+    error: logsError,
+  } = useV2AdminUnifiedAuditLogs({
+    limit: 200,
   });
-  const { data: stats, isLoading: isStatsLoading } = useLogStats();
 
-  if (isLogsLoading || isStatsLoading) {
+  if (isLogsLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loading size="lg" />
@@ -41,20 +29,30 @@ export default function AdminLogsPage() {
     );
   }
 
-  const logs = logsResponse?.data || [];
+  const logs = logsResponse?.items || [];
   const statsView = {
-    total: stats?.total || logs.length,
-    auth: readCount(stats?.byCategory, ['AUTH', 'auth']),
-    order: readCount(stats?.byCategory, ['ORDER', 'order']),
-    download: readCount(stats?.byCategory, ['DOWNLOAD', 'download']),
-    security: readCount(stats?.byCategory, ['SECURITY', 'security']),
+    total: logs.length,
+    legacy: logs.filter((log) => log.source_table === 'logs').length,
+    actions: logs.filter((log) => log.source_table === 'v2_admin_action_logs').length,
+    transitions: logs.filter((log) => log.source_table === 'v2_admin_state_transition_logs')
+      .length,
+    approvals: logs.filter((log) => log.source_table === 'v2_admin_approval_requests')
+      .length,
+    domainEvents: logs.filter(
+      (log) =>
+        log.source_table === 'v2_order_notifications' ||
+        log.source_table === 'v2_digital_entitlement_events' ||
+        log.source_table === 'v2_order_financial_events',
+    ).length,
   };
 
   return (
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">로그 조회</h1>
-        <p className="mt-1 text-sm text-gray-500">시스템 이벤트 로그를 조회합니다</p>
+        <p className="mt-1 text-sm text-gray-500">
+          legacy + v2 운영/감사 로그를 통합 조회합니다
+        </p>
       </div>
 
       <div className="mb-8 bg-white shadow sm:rounded-lg">
@@ -62,7 +60,7 @@ export default function AdminLogsPage() {
           <h3 className="text-base font-semibold leading-6 text-gray-900 mb-4">
             로그 통계
           </h3>
-          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-5">
+          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-6">
             <div className="overflow-hidden rounded-lg bg-gray-50 px-4 py-5">
               <dt className="truncate text-sm font-medium text-gray-500">총 이벤트</dt>
               <dd className="mt-1 text-3xl font-semibold tracking-tight text-gray-900">
@@ -70,27 +68,33 @@ export default function AdminLogsPage() {
               </dd>
             </div>
             <div className="overflow-hidden rounded-lg bg-blue-50 px-4 py-5">
-              <dt className="truncate text-sm font-medium text-blue-600">인증</dt>
+              <dt className="truncate text-sm font-medium text-blue-600">Legacy Logs</dt>
               <dd className="mt-1 text-3xl font-semibold tracking-tight text-blue-900">
-                {statsView.auth}
+                {statsView.legacy}
               </dd>
             </div>
             <div className="overflow-hidden rounded-lg bg-green-50 px-4 py-5">
-              <dt className="truncate text-sm font-medium text-green-600">주문</dt>
+              <dt className="truncate text-sm font-medium text-green-600">Action</dt>
               <dd className="mt-1 text-3xl font-semibold tracking-tight text-green-900">
-                {statsView.order}
+                {statsView.actions}
               </dd>
             </div>
-            <div className="overflow-hidden rounded-lg bg-purple-50 px-4 py-5">
-              <dt className="truncate text-sm font-medium text-purple-600">다운로드</dt>
-              <dd className="mt-1 text-3xl font-semibold tracking-tight text-purple-900">
-                {statsView.download}
+            <div className="overflow-hidden rounded-lg bg-indigo-50 px-4 py-5">
+              <dt className="truncate text-sm font-medium text-indigo-600">Transition</dt>
+              <dd className="mt-1 text-3xl font-semibold tracking-tight text-indigo-900">
+                {statsView.transitions}
               </dd>
             </div>
-            <div className="overflow-hidden rounded-lg bg-red-50 px-4 py-5">
-              <dt className="truncate text-sm font-medium text-red-600">보안</dt>
-              <dd className="mt-1 text-3xl font-semibold tracking-tight text-red-900">
-                {statsView.security}
+            <div className="overflow-hidden rounded-lg bg-amber-50 px-4 py-5">
+              <dt className="truncate text-sm font-medium text-amber-700">Approval</dt>
+              <dd className="mt-1 text-3xl font-semibold tracking-tight text-amber-900">
+                {statsView.approvals}
+              </dd>
+            </div>
+            <div className="overflow-hidden rounded-lg bg-rose-50 px-4 py-5">
+              <dt className="truncate text-sm font-medium text-rose-700">도메인 이벤트</dt>
+              <dd className="mt-1 text-3xl font-semibold tracking-tight text-rose-900">
+                {statsView.domainEvents}
               </dd>
             </div>
           </dl>
