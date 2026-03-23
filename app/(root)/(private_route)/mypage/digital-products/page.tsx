@@ -7,83 +7,25 @@ import { VoicePackCover } from '@/components/order/VoicePackCover';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
-import type { V2CheckoutOrder } from '@/lib/client/api/v2-checkout.api';
-import { useV2CheckoutOrders } from '@/lib/client/hooks';
-import {
-  buildDistinctOptionCountByProduct,
-  normalizeDisplayTitle,
-  shouldShowOptionTitle,
-} from '@/lib/client/utils/v2-item-display';
+import type { V2DigitalEntitlementItem } from '@/lib/client/api/v2-checkout.api';
+import { useV2DigitalEntitlements } from '@/lib/client/hooks';
+import { normalizeDisplayTitle } from '@/lib/client/utils/v2-item-display';
 import { useToast } from '@/src/components/toast';
-
-interface DigitalLibraryItem {
-  id: string;
-  orderId: string;
-  orderNo: string;
-  orderedAt: string;
-  productId: string | null;
-  title: string;
-  optionTitle: string;
-  thumbnailUrl: string | null;
-  quantity: number;
-  lineTotal: number;
-  lineStatus: string;
-  canDownload: boolean;
-  downloadUrl: string | null;
-}
-
-function readString(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function readNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return 0;
-}
-
-function readBoolean(value: unknown): boolean {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === 'true') {
-      return true;
-    }
-    if (normalized === 'false') {
-      return false;
-    }
-  }
-  if (typeof value === 'number') {
-    return value !== 0;
-  }
-  return false;
-}
-
-function asObject(value: unknown): Record<string, unknown> {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return {};
-}
 
 function formatCurrency(amount: number): string {
   return `${Math.max(0, amount).toLocaleString()}원`;
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string | null | undefined): string {
+  if (!value) {
+    return '-';
+  }
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return value || '-';
+    return value;
   }
+
   return date.toLocaleDateString('ko-KR', {
     year: 'numeric',
     month: 'long',
@@ -91,160 +33,81 @@ function formatDate(value: string): string {
   });
 }
 
-function normalizeStatus(value: string | undefined): string {
+function normalizeStatus(value: string | null | undefined): string {
   return String(value || '').toUpperCase();
 }
 
-function includesCanceledStatus(status: string | undefined): boolean {
-  return normalizeStatus(status).includes('CANCEL');
-}
+function resolveEntitlementStatusLabel(item: V2DigitalEntitlementItem): string {
+  const status = normalizeStatus(item.status);
+  const lineStatus = normalizeStatus(item.order_item.line_status);
 
-function resolveLineStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
+  const entitlementLabels: Record<string, string> = {
+    GRANTED: '다운로드 가능',
+    PENDING: '준비중',
+    EXPIRED: '만료됨',
+    REVOKED: '회수됨',
+    FAILED: '실패',
+  };
+
+  if (status && entitlementLabels[status]) {
+    return entitlementLabels[status];
+  }
+
+  const lineLabels: Record<string, string> = {
     PENDING: '준비중',
     CONFIRMED: '이용 가능',
     FULFILLED: '다운로드 가능',
-    PARTIAL: '부분 처리',
-    COMPLETED: '완료',
     CANCELED: '취소됨',
-    FAILED: '실패',
+    PARTIALLY_REFUNDED: '부분환불',
+    REFUNDED: '환불',
   };
-  const normalized = normalizeStatus(status);
-  return labels[normalized] || (normalized ? normalized : '-');
-}
 
-function resolveDownloadUrl(
-  item: Record<string, unknown>,
-  display: Record<string, unknown>,
-): string | null {
-  const metadata = asObject(item.metadata);
-  const candidates = [
-    item.download_url,
-    metadata.download_url,
-    metadata.digital_file_url,
-    display.download_url,
-    display.digital_file_url,
-  ];
-
-  for (const candidate of candidates) {
-    const url = readString(candidate).trim();
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
+  if (lineStatus && lineLabels[lineStatus]) {
+    return lineLabels[lineStatus];
   }
 
-  return null;
+  return status || lineStatus || '-';
 }
 
-function isPaidOrder(order: V2CheckoutOrder): boolean {
-  const orderStatus = normalizeStatus(order.order_status);
-  const paymentStatus = normalizeStatus(order.payment_status);
-  const fulfillmentStatus = normalizeStatus(order.fulfillment_status);
+function resolveBlockedReasonMessage(
+  blockedReason: string | null,
+  fallbackStatusLabel: string,
+): string {
+  const reason = normalizeStatus(blockedReason);
+  const messages: Record<string, string> = {
+    DIGITAL_ASSET_NOT_READY: '파일 준비가 완료되면 다운로드할 수 있습니다.',
+    ENTITLEMENT_PENDING: '권한이 아직 발급되지 않았습니다.',
+    ENTITLEMENT_EXPIRED: '다운로드 가능 기간이 만료되었습니다.',
+    ENTITLEMENT_REVOKED: '회수된 상품은 다운로드할 수 없습니다.',
+    ENTITLEMENT_FAILED: '다운로드 권한 상태를 확인해 주세요.',
+    ENTITLEMENT_DOWNLOAD_LIMIT_EXCEEDED: '다운로드 가능 횟수를 모두 사용했습니다.',
+  };
 
-  if (
-    includesCanceledStatus(orderStatus) ||
-    includesCanceledStatus(paymentStatus) ||
-    includesCanceledStatus(fulfillmentStatus)
-  ) {
-    return false;
+  if (reason && messages[reason]) {
+    return messages[reason];
   }
 
-  if (paymentStatus === 'AUTHORIZED' || paymentStatus === 'CAPTURED') {
-    return true;
-  }
-
-  return orderStatus === 'COMPLETED' || fulfillmentStatus === 'FULFILLED';
+  return `${fallbackStatusLabel} 상태라서 아직 다운로드할 수 없습니다.`;
 }
 
-function extractDigitalItems(order: V2CheckoutOrder): DigitalLibraryItem[] {
-  const rawItems = Array.isArray(order.items)
-    ? ((order.items as Array<Record<string, unknown>>) ?? [])
-    : [];
-  const orderPaid = isPaidOrder(order);
-
-  const optionCountByProduct = buildDistinctOptionCountByProduct({
-    rows: rawItems,
-    getProductId: (rawItem) => {
-      const item = asObject(rawItem);
-      const display = asObject(item.display_snapshot);
-      return readString(item.product_id) || readString(display.product_id) || '';
-    },
-    getOptionId: (rawItem) => readString(asObject(rawItem).variant_id),
-  });
-
-  return rawItems
-    .map((rawItem, index) => {
-      const item = asObject(rawItem);
-      const display = asObject(item.display_snapshot);
-      const requiresShipping =
-        readBoolean(display.requires_shipping) ||
-        readBoolean(item.requires_shipping_snapshot);
-
-      if (requiresShipping) {
-        return null;
-      }
-
-      const lineStatus = readString(item.line_status);
-      const productId =
-        normalizeDisplayTitle(readString(item.product_id)) ||
-        normalizeDisplayTitle(readString(display.product_id));
-      const title =
-        normalizeDisplayTitle(readString(item.product_name_snapshot)) ||
-        normalizeDisplayTitle(readString(display.product_title)) ||
-        normalizeDisplayTitle(readString(display.title)) ||
-        readString(item.variant_id) ||
-        `디지털 상품 ${index + 1}`;
-      const optionTitle =
-        normalizeDisplayTitle(readString(item.variant_name_snapshot)) ||
-        normalizeDisplayTitle(readString(display.variant_title)) ||
-        normalizeDisplayTitle(readString(display.title));
-      const showOptionTitle = shouldShowOptionTitle({
-        productTitle: title,
-        optionTitle,
-        distinctOptionCount: productId ? optionCountByProduct.get(productId) : undefined,
-      });
-
-      const lineTotal = Math.max(
-        0,
-        readNumber(item.final_line_total || item.line_subtotal),
-      );
-      const downloadUrl = resolveDownloadUrl(item, display);
-
-      return {
-        id: `${order.id}:${readString(item.id) || `line-${index}`}`,
-        orderId: order.id,
-        orderNo: order.order_no,
-        orderedAt: order.placed_at || '',
-        productId: productId || null,
-        title,
-        optionTitle: showOptionTitle && optionTitle ? optionTitle : '',
-        thumbnailUrl: normalizeDisplayTitle(readString(display.thumbnail_url)) || null,
-        quantity: Math.max(1, readNumber(item.quantity)),
-        lineTotal,
-        lineStatus,
-        canDownload: orderPaid && !includesCanceledStatus(lineStatus),
-        downloadUrl,
-      } as DigitalLibraryItem;
-    })
-    .filter((item): item is DigitalLibraryItem => item !== null);
+function sortByRecent(left: V2DigitalEntitlementItem, right: V2DigitalEntitlementItem) {
+  const leftTime =
+    new Date(left.order.placed_at || left.granted_at || 0).getTime() || 0;
+  const rightTime =
+    new Date(right.order.placed_at || right.granted_at || 0).getTime() || 0;
+  return rightTime - leftTime;
 }
 
 export default function MyDigitalProductsPage() {
   const { showToast } = useToast();
-  const ordersQuery = useV2CheckoutOrders({ limit: 100 });
+  const entitlementsQuery = useV2DigitalEntitlements();
 
   const digitalItems = useMemo(() => {
-    const orders = ordersQuery.data?.items || [];
-    return orders
-      .flatMap((order) => extractDigitalItems(order))
-      .sort((left, right) => {
-        const leftTime = new Date(left.orderedAt).getTime() || 0;
-        const rightTime = new Date(right.orderedAt).getTime() || 0;
-        return rightTime - leftTime;
-      });
-  }, [ordersQuery.data?.items]);
+    const items = entitlementsQuery.data?.items || [];
+    return [...items].sort(sortByRecent);
+  }, [entitlementsQuery.data?.items]);
 
-  if (ordersQuery.isLoading) {
+  if (entitlementsQuery.isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-50">
         <Loading size="lg" />
@@ -252,14 +115,14 @@ export default function MyDigitalProductsPage() {
     );
   }
 
-  if (ordersQuery.error) {
+  if (entitlementsQuery.error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
         <EmptyState
           title="디지털 상품을 불러오지 못했습니다"
           description={
-            ordersQuery.error instanceof Error
-              ? ordersQuery.error.message
+            entitlementsQuery.error instanceof Error
+              ? entitlementsQuery.error.message
               : '잠시 후 다시 시도해 주세요.'
           }
           action={
@@ -267,7 +130,7 @@ export default function MyDigitalProductsPage() {
               intent="primary"
               size="md"
               onClick={() => {
-                void ordersQuery.refetch();
+                void entitlementsQuery.refetch();
               }}
             >
               다시 시도
@@ -300,7 +163,7 @@ export default function MyDigitalProductsPage() {
           <div className="rounded-2xl border border-neutral-200 bg-white p-10">
             <EmptyState
               title="구매한 디지털 상품이 없습니다"
-              description="상점의 Voice Pack 상품을 구매하면 이곳에서 모아볼 수 있습니다."
+              description="상점의 디지털 음원 상품을 구매하면 이곳에서 모아볼 수 있습니다."
               action={
                 <Link href="/shop">
                   <Button intent="primary" size="md">
@@ -313,8 +176,16 @@ export default function MyDigitalProductsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {digitalItems.map((item, index) => {
-              const statusLabel = resolveLineStatusLabel(item.lineStatus);
-              const downloadEnabled = item.canDownload && Boolean(item.downloadUrl);
+              const title =
+                normalizeDisplayTitle(item.order_item.product_title) || '디지털 상품';
+              const optionTitle =
+                normalizeDisplayTitle(item.order_item.variant_title) || '';
+              const statusLabel = resolveEntitlementStatusLabel(item);
+              const downloadEnabled = item.can_download && Boolean(item.download_path);
+              const blockedMessage = resolveBlockedReasonMessage(
+                item.blocked_reason,
+                statusLabel,
+              );
 
               return (
                 <article
@@ -323,8 +194,8 @@ export default function MyDigitalProductsPage() {
                 >
                   <VoicePackCover
                     index={index}
-                    name={item.title}
-                    thumbnail={item.thumbnailUrl}
+                    name={title}
+                    thumbnail={item.order_item.thumbnail_url}
                   />
 
                   <div className="space-y-3 p-5">
@@ -338,18 +209,24 @@ export default function MyDigitalProductsPage() {
                     </div>
 
                     <div>
-                      <p className="line-clamp-2 text-lg font-bold text-text-primary">{item.title}</p>
-                      {item.optionTitle ? (
-                        <p className="text-xs text-text-secondary">{item.optionTitle}</p>
+                      <p className="line-clamp-2 text-lg font-bold text-text-primary">{title}</p>
+                      {optionTitle ? (
+                        <p className="text-xs text-text-secondary">{optionTitle}</p>
                       ) : null}
                     </div>
 
                     <div className="space-y-1 text-xs text-text-secondary">
-                      <p>주문번호: {item.orderNo}</p>
-                      <p>구매일: {formatDate(item.orderedAt)}</p>
+                      <p>주문번호: {item.order.order_no}</p>
+                      <p>구매일: {formatDate(item.order.placed_at)}</p>
                       <p>
-                        수량 {item.quantity}개 · {formatCurrency(item.lineTotal)}
+                        수량 {item.order_item.quantity}개 ·{' '}
+                        {formatCurrency(item.order_item.final_line_total)}
                       </p>
+                      {item.remaining_downloads !== null ? (
+                        <p>남은 다운로드: {item.remaining_downloads}회</p>
+                      ) : (
+                        <p>남은 다운로드: 무제한</p>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 pt-1">
@@ -358,21 +235,21 @@ export default function MyDigitalProductsPage() {
                         size="sm"
                         disabled={!downloadEnabled}
                         onClick={() => {
-                          if (item.downloadUrl && downloadEnabled) {
-                            window.open(item.downloadUrl, '_blank', 'noopener,noreferrer');
+                          if (!downloadEnabled || !item.download_path) {
+                            showToast(blockedMessage, {
+                              type: 'info',
+                            });
                             return;
                           }
-                          showToast('다운로드 링크 연동은 다음 단계에서 연결할 수 있어요.', {
-                            type: 'info',
-                          });
+                          window.open(item.download_path, '_blank', 'noopener,noreferrer');
                         }}
                       >
                         <Download className="h-4 w-4" />
                         {downloadEnabled ? '다운로드' : '다운로드 준비중'}
                       </Button>
 
-                      {item.productId ? (
-                        <Link href={`/shop/${item.productId}`}>
+                      {item.order_item.product_id ? (
+                        <Link href={`/shop/${item.order_item.product_id}`}>
                           <Button intent="secondary" size="sm">
                             상세 보기
                           </Button>
@@ -380,10 +257,8 @@ export default function MyDigitalProductsPage() {
                       ) : null}
                     </div>
 
-                    {!item.canDownload ? (
-                      <p className="text-xs text-amber-700">
-                        결제/처리 상태 확인 후 다운로드가 활성화됩니다.
-                      </p>
+                    {!downloadEnabled ? (
+                      <p className="text-xs text-amber-700">{blockedMessage}</p>
                     ) : null}
                   </div>
                 </article>
