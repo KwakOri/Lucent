@@ -25,6 +25,7 @@ import {
   type ListV2AdminInventoryLevelsParams,
   type ListV2AdminOrderQueueParams,
   type ListV2AdminSalesStatsParams,
+  type ListV2AdminUnifiedAuditLogsParams,
   type SaveV2AdminCutoverBatchInput,
   type SaveV2AdminCutoverGateReportInput,
   type SaveV2AdminCutoverRoutingFlagInput,
@@ -186,6 +187,18 @@ export function useV2AdminActionLogs(params: ListV2AdminActionLogsParams = {}) {
     queryKey: queryKeys.v2AdminOps.audit.actionLogs(params),
     queryFn: async () => {
       const response = await V2AdminOpsAPI.listActionLogs(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminUnifiedAuditLogs(
+  params: ListV2AdminUnifiedAuditLogsParams = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.audit.unifiedLogs(params),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.listUnifiedAuditLogs(params);
       return response.data;
     },
   });
