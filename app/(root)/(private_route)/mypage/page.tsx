@@ -490,12 +490,6 @@ export default function MyPage() {
             <p className="mt-1 text-text-secondary">{user?.email}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/mypage/digital-products">
-              <Button intent="secondary" size="sm">
-                <Disc3 className="h-4 w-4" />
-                디지털 상품
-              </Button>
-            </Link>
             <Link href="/mypage/profile">
               <Button intent="secondary" size="sm">
                 <Settings className="h-4 w-4" />
@@ -506,6 +500,25 @@ export default function MyPage() {
         </header>
 
         <section>
+          <Link
+            href="/mypage/digital-products"
+            className="mb-5 block rounded-2xl border border-primary-200 bg-white p-6 transition hover:border-primary-300 hover:bg-primary-50/30"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-700">
+                  <Disc3 className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="text-xl font-bold text-text-primary">디지털 상품 보러가기</p>
+                  <p className="text-sm text-text-secondary">
+                    구매한 디지털 상품을 확인하고 바로 다운로드할 수 있어요.
+                  </p>
+                </div>
+              </div>
+              <span className="text-sm font-semibold text-primary-700">바로 이동</span>
+            </div>
+          </Link>
           <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-2xl font-bold text-text-primary">주문 내역</h2>
             {isAdmin && (
