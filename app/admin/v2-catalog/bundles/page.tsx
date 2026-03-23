@@ -783,7 +783,7 @@ export default function V2CatalogBundlesPage() {
                           onClick={() => handleDeleteComponent(component.id)}
                           loading={
                             deleteComponent.isPending &&
-                            deleteComponent.variables === component.id
+                            deleteComponent.variables?.componentId === component.id
                           }
                         >
                           삭제
