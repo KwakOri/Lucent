@@ -9,7 +9,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
 import type { V2DigitalEntitlementItem } from '@/lib/client/api/v2-checkout.api';
 import { useV2DigitalEntitlements } from '@/lib/client/hooks';
-import { normalizeDisplayTitle } from '@/lib/client/utils/v2-item-display';
+import {
+  normalizeDisplayTitle,
+  shouldShowOptionTitle,
+} from '@/lib/client/utils/v2-item-display';
 import { useToast } from '@/src/components/toast';
 
 function formatCurrency(amount: number): string {
@@ -180,8 +183,14 @@ export default function MyDigitalProductsPage() {
                 normalizeDisplayTitle(item.order_item.product_title) || '디지털 상품';
               const optionTitle =
                 normalizeDisplayTitle(item.order_item.variant_title) || '';
+              const showOptionTitle = shouldShowOptionTitle({
+                productTitle: title,
+                optionTitle,
+              });
               const statusLabel = resolveEntitlementStatusLabel(item);
               const downloadEnabled = item.can_download && Boolean(item.download_path);
+              const hasDownloadConstraint =
+                item.expires_at !== null || item.max_downloads !== null;
               const blockedMessage = resolveBlockedReasonMessage(
                 item.blocked_reason,
                 statusLabel,
@@ -210,26 +219,22 @@ export default function MyDigitalProductsPage() {
 
                     <div>
                       <p className="line-clamp-2 text-lg font-bold text-text-primary">{title}</p>
-                      {optionTitle ? (
+                      {showOptionTitle ? (
                         <p className="text-xs text-text-secondary">{optionTitle}</p>
                       ) : null}
                     </div>
 
                     <div className="space-y-1 text-xs text-text-secondary">
-                      <p>주문번호: {item.order.order_no}</p>
                       <p>구매일: {formatDate(item.order.placed_at)}</p>
-                      <p>
-                        수량 {item.order_item.quantity}개 ·{' '}
-                        {formatCurrency(item.order_item.final_line_total)}
-                      </p>
-                      {item.remaining_downloads !== null ? (
-                        <p>남은 다운로드: {item.remaining_downloads}회</p>
-                      ) : (
-                        <p>남은 다운로드: 무제한</p>
-                      )}
+                      <p>구매 금액: {formatCurrency(item.order_item.final_line_total)}</p>
+                      {hasDownloadConstraint
+                        ? item.remaining_downloads !== null
+                          ? <p>남은 다운로드: {item.remaining_downloads}회</p>
+                          : <p>남은 다운로드: 무제한</p>
+                        : null}
                     </div>
 
-                    <div className="flex items-center gap-2 pt-1">
+                    <div className="pt-1">
                       <Button
                         intent="primary"
                         size="sm"
@@ -247,14 +252,6 @@ export default function MyDigitalProductsPage() {
                         <Download className="h-4 w-4" />
                         {downloadEnabled ? '다운로드' : '다운로드 준비중'}
                       </Button>
-
-                      {item.order_item.product_id ? (
-                        <Link href={`/shop/${item.order_item.product_id}`}>
-                          <Button intent="secondary" size="sm">
-                            상세 보기
-                          </Button>
-                        </Link>
-                      ) : null}
                     </div>
 
                     {!downloadEnabled ? (
