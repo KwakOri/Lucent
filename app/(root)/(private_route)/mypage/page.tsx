@@ -4,13 +4,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Disc3, LogOut, Settings, X } from 'lucide-react';
+import { Disc3, Settings, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
 import type { V2CheckoutOrder } from '@/lib/client/api/v2-checkout.api';
 import {
-  useLogout,
   useSession,
   useV2CancelOrder,
   useV2CheckoutOrders,
@@ -381,7 +380,6 @@ export default function MyPage() {
   const router = useRouter();
   const { showToast } = useToast();
   const { user, isAdmin, isLoading: sessionLoading, isAuthenticated } = useSession();
-  const { mutate: logout, isPending: loggingOut } = useLogout();
   const [currentPage, setCurrentPage] = useState(1);
   const v2OrdersQuery = useV2CheckoutOrders({
     page: currentPage,
@@ -504,15 +502,6 @@ export default function MyPage() {
                 회원정보 수정
               </Button>
             </Link>
-            <Button
-              intent="neutral"
-              size="sm"
-              disabled={loggingOut}
-              onClick={() => logout()}
-            >
-              <LogOut className="h-4 w-4" />
-              {loggingOut ? '로그아웃 중...' : '로그아웃'}
-            </Button>
           </div>
         </header>
 
