@@ -392,6 +392,66 @@ export default function AdminProductionPage() {
     };
   }, [candidateRows.length, selectedOrderIds.length, previewData, batchesQuery.data?.items]);
 
+  const workflowGuideSteps = useMemo(() => {
+    const hasAppliedView =
+      selectedViewId !== 'DEFAULT' ||
+      Boolean(keyword || projectId || campaignId || dateFrom || dateTo);
+    const hasOrderSelection = selectedOrderIds.length > 0;
+    const hasPreview = Boolean(previewData);
+    const hasTransitionStarted =
+      (selectedBatch?.status as V2AdminProductionBatchStatus | undefined) === 'ACTIVE' ||
+      (selectedBatch?.status as V2AdminProductionBatchStatus | undefined) === 'COMPLETED';
+
+    return [
+      {
+        key: 'view',
+        title: '1. 뷰 선택',
+        description: '반복 조건에 맞는 뷰를 선택하거나 필터를 적용합니다.',
+        done: hasAppliedView,
+        hint: hasAppliedView
+          ? '현재 조건이 적용되어 있습니다.'
+          : '전체 뷰에서 시작해도 됩니다.',
+      },
+      {
+        key: 'select',
+        title: '2. 주문 선택',
+        description: '후보 주문을 체크해 이번 제작 스냅샷 대상을 확정합니다.',
+        done: hasOrderSelection,
+        hint: hasOrderSelection
+          ? `${selectedOrderIds.length}건이 선택되었습니다.`
+          : '체크박스로 주문을 선택하세요.',
+      },
+      {
+        key: 'snapshot',
+        title: '3. 스냅샷 생성',
+        description: '미리보기로 수량을 점검한 뒤 배치(YYMMDD순번)를 생성합니다.',
+        done: hasPreview,
+        hint: hasPreview
+          ? '미리보기가 준비되어 수량 검증이 가능합니다.'
+          : '미리보기 생성을 먼저 실행하세요.',
+      },
+      {
+        key: 'transition',
+        title: '4. 배치 전이',
+        description: '준비중 → 제작중 → 제작 완료 순으로 배치를 전이합니다.',
+        done: hasTransitionStarted,
+        hint: hasTransitionStarted
+          ? '선택 배치가 전이 단계에 진입했습니다.'
+          : '생성된 배치를 선택해 액션을 실행하세요.',
+      },
+    ] as const;
+  }, [
+    campaignId,
+    dateFrom,
+    dateTo,
+    keyword,
+    previewData,
+    projectId,
+    selectedBatch?.status,
+    selectedOrderIds.length,
+    selectedViewId,
+  ]);
+
   useEffect(() => {
     window.localStorage.setItem(
       PRODUCTION_CANDIDATE_FILTER_STORAGE_KEY,
@@ -676,6 +736,29 @@ export default function AdminProductionPage() {
           {errorMessage || message}
         </div>
       )}
+
+      <section className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-5">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">작업 가이드</h2>
+          <p className="text-sm text-slate-600">
+            뷰 선택부터 배치 전이까지, 아래 순서대로 진행하면 누락 없이 처리할 수 있습니다.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
+          {workflowGuideSteps.map((step) => (
+            <div key={step.key} className="rounded-lg border border-slate-200 bg-white p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-900">{step.title}</p>
+                <Badge intent={step.done ? 'success' : 'default'}>
+                  {step.done ? '완료' : '대기'}
+                </Badge>
+              </div>
+              <p className="mt-2 text-xs text-slate-600">{step.description}</p>
+              <p className="mt-2 text-xs text-slate-500">{step.hint}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
