@@ -161,6 +161,19 @@ type SavedProductionCandidateFilter = {
   values: ProductionCandidateFilterValue;
 };
 
+function isSameFilterValues(
+  left: ProductionCandidateFilterValue,
+  right: ProductionCandidateFilterValue,
+): boolean {
+  return (
+    left.keyword === right.keyword &&
+    left.projectId === right.projectId &&
+    left.campaignId === right.campaignId &&
+    left.dateFrom === right.dateFrom &&
+    left.dateTo === right.dateTo
+  );
+}
+
 function readSavedProductionCandidateFilters(): SavedProductionCandidateFilter[] {
   if (typeof window === 'undefined') {
     return [];
@@ -233,7 +246,9 @@ export default function AdminProductionPage() {
   const [savedFilters, setSavedFilters] = useState<SavedProductionCandidateFilter[]>(
     () => readSavedProductionCandidateFilters(),
   );
-  const [filterNameInput, setFilterNameInput] = useState('');
+  const [selectedViewId, setSelectedViewId] = useState<string>('DEFAULT');
+  const [isViewManagerOpen, setIsViewManagerOpen] = useState(false);
+  const [viewNameDraft, setViewNameDraft] = useState('');
 
   const [keyword, setKeyword] = useState(initialFilterValues.keyword);
   const [projectId, setProjectId] = useState(initialFilterValues.projectId);
@@ -331,6 +346,27 @@ export default function AdminProductionPage() {
     [campaigns],
   );
 
+  const projectNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const project of projects) {
+      map.set(project.id, project.name);
+    }
+    return map;
+  }, [projects]);
+
+  const campaignNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const campaign of campaigns) {
+      map.set(campaign.id, campaign.name);
+    }
+    return map;
+  }, [campaigns]);
+
+  const selectedSavedView = useMemo(
+    () => savedFilters.find((row) => row.id === selectedViewId) || null,
+    [savedFilters, selectedViewId],
+  );
+
   const allCandidateIds = candidateRows.map((row) => row.order_id);
   const allChecked =
     candidateRows.length > 0 &&
@@ -394,6 +430,21 @@ export default function AdminProductionPage() {
     );
   };
 
+  const buildFilterSummaryText = (values: ProductionCandidateFilterValue): string => {
+    const projectLabel = values.projectId
+      ? projectNameById.get(values.projectId) || '알 수 없는 프로젝트'
+      : '전체 프로젝트';
+    const campaignLabel = values.campaignId
+      ? campaignNameById.get(values.campaignId) || '알 수 없는 캠페인'
+      : '전체 캠페인';
+    const dateLabel =
+      values.dateFrom || values.dateTo
+        ? `${values.dateFrom || '시작'} ~ ${values.dateTo || '현재'}`
+        : '전체 기간';
+    const keywordLabel = values.keyword || '없음';
+    return `${projectLabel} · ${campaignLabel} · ${dateLabel} · 검색:${keywordLabel}`;
+  };
+
   const setError = (error: unknown) => {
     setMessage(null);
     setErrorMessage(getErrorMessage(error));
@@ -425,6 +476,10 @@ export default function AdminProductionPage() {
     clearNotice();
     applyFilterValues(currentFilterInputValue);
     persistLastFilter(currentFilterInputValue);
+    const matchedView = savedFilters.find((row) =>
+      isSameFilterValues(row.values, currentFilterInputValue),
+    );
+    setSelectedViewId(matchedView?.id || 'DEFAULT');
   };
 
   const handleSearchReset = () => {
@@ -438,45 +493,71 @@ export default function AdminProductionPage() {
     };
     applyFilterValues(emptyFilter);
     persistLastFilter(emptyFilter);
+    setSelectedViewId('DEFAULT');
   };
 
-  const handleSaveCurrentFilter = () => {
+  const handleCreateViewFromCurrentFilter = () => {
     clearNotice();
     const hasAnyValue = Object.values(currentFilterInputValue).some(
       (value) => value.trim().length > 0,
     );
     if (!hasAnyValue) {
-      setErrorMessage('저장할 필터 조건이 없습니다.');
+      setErrorMessage('저장할 뷰 조건이 없습니다.');
       return;
     }
 
-    const defaultName = `필터 ${new Date().toLocaleString('ko-KR', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })}`;
+    if (!viewNameDraft.trim()) {
+      setErrorMessage('뷰 이름을 입력해 주세요.');
+      return;
+    }
+
     const nextFilter: SavedProductionCandidateFilter = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      name: filterNameInput.trim() || defaultName,
+      name: viewNameDraft.trim(),
       createdAt: new Date().toISOString(),
       values: currentFilterInputValue,
     };
 
     setSavedFilters((prev) => [nextFilter, ...prev].slice(0, MAX_SAVED_PRODUCTION_FILTERS));
-    setFilterNameInput('');
-    setMessage('현재 필터를 저장했습니다.');
+    setViewNameDraft('');
+    setSelectedViewId(nextFilter.id);
+    setMessage('현재 조건을 새 뷰로 저장했습니다.');
   };
 
   const handleApplySavedFilter = (savedFilter: SavedProductionCandidateFilter) => {
     clearNotice();
     applyFilterValues(savedFilter.values);
     persistLastFilter(savedFilter.values);
-    setMessage(`"${savedFilter.name}" 필터를 적용했습니다.`);
+    setSelectedViewId(savedFilter.id);
+    setMessage(`"${savedFilter.name}" 뷰를 적용했습니다.`);
+  };
+
+  const handleUpdateSelectedView = () => {
+    clearNotice();
+    if (!selectedSavedView) {
+      setErrorMessage('업데이트할 저장 뷰를 먼저 선택해 주세요.');
+      return;
+    }
+
+    setSavedFilters((prev) =>
+      prev.map((row) =>
+        row.id === selectedSavedView.id
+          ? {
+              ...row,
+              values: currentFilterInputValue,
+              createdAt: new Date().toISOString(),
+            }
+          : row,
+      ),
+    );
+    setMessage(`"${selectedSavedView.name}" 뷰를 현재 조건으로 업데이트했습니다.`);
   };
 
   const handleDeleteSavedFilter = (filterId: string) => {
     setSavedFilters((prev) => prev.filter((row) => row.id !== filterId));
+    if (selectedViewId === filterId) {
+      setSelectedViewId('DEFAULT');
+    }
   };
 
   const handlePreview = async () => {
@@ -632,6 +713,42 @@ export default function AdminProductionPage() {
           </p>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            intent={selectedViewId === 'DEFAULT' ? 'secondary' : 'neutral'}
+            onClick={() => {
+              const defaultFilter: ProductionCandidateFilterValue = {
+                keyword: '',
+                projectId: '',
+                campaignId: '',
+                dateFrom: '',
+                dateTo: '',
+              };
+              clearNotice();
+              applyFilterValues(defaultFilter);
+              persistLastFilter(defaultFilter);
+              setSelectedViewId('DEFAULT');
+            }}
+          >
+            전체 뷰
+          </Button>
+          {savedFilters.map((savedFilter) => (
+            <Button
+              key={savedFilter.id}
+              intent={selectedViewId === savedFilter.id ? 'secondary' : 'neutral'}
+              onClick={() => handleApplySavedFilter(savedFilter)}
+            >
+              {savedFilter.name}
+            </Button>
+          ))}
+          <Button
+            intent="neutral"
+            onClick={() => setIsViewManagerOpen((prev) => !prev)}
+          >
+            {isViewManagerOpen ? '뷰 관리 닫기' : '뷰 관리'}
+          </Button>
+        </div>
+
         <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
           <Input
             value={keywordInput}
@@ -684,46 +801,66 @@ export default function AdminProductionPage() {
           <Button intent="neutral" onClick={handleSearchReset}>
             필터 초기화
           </Button>
-          <Input
-            value={filterNameInput}
-            onChange={(event) => setFilterNameInput(event.target.value)}
-            placeholder="필터 이름 (예: 미루루 프로젝트)"
-            className="w-full sm:max-w-xs"
-          />
-          <Button intent="neutral" onClick={handleSaveCurrentFilter}>
-            현재 필터 저장
-          </Button>
         </div>
 
-        {savedFilters.length > 0 && (
-          <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <p className="text-xs font-medium text-gray-600">저장된 필터 그룹</p>
-            <div className="flex flex-wrap gap-2">
-              {savedFilters.map((savedFilter) => (
-                <div key={savedFilter.id} className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-1">
+        {isViewManagerOpen && (
+          <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <p className="text-sm font-medium text-gray-800">뷰 관리</p>
+            <p className="text-xs text-gray-600">
+              반복 작업할 조건을 뷰로 저장해 두면 다음 배치 생성 때 바로 불러올 수 있습니다.
+            </p>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+              <Input
+                value={viewNameDraft}
+                onChange={(event) => setViewNameDraft(event.target.value)}
+                placeholder="새 뷰 이름 (예: 미루루-3월4주)"
+              />
+              <Button intent="neutral" onClick={handleCreateViewFromCurrentFilter}>
+                새 뷰 저장
+              </Button>
+            </div>
+
+            {selectedSavedView && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button intent="neutral" size="sm" onClick={handleUpdateSelectedView}>
+                  선택 뷰 업데이트
+                </Button>
+                <Button
+                  intent="danger"
+                  size="sm"
+                  onClick={() => handleDeleteSavedFilter(selectedSavedView.id)}
+                >
+                  선택 뷰 삭제
+                </Button>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {savedFilters.length === 0 ? (
+                <p className="text-xs text-gray-500">저장된 뷰가 없습니다.</p>
+              ) : (
+                savedFilters.map((savedFilter) => (
                   <button
+                    key={savedFilter.id}
                     type="button"
-                    className="text-xs font-medium text-gray-700 hover:text-gray-900"
                     onClick={() => handleApplySavedFilter(savedFilter)}
+                    className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
+                      selectedViewId === savedFilter.id
+                        ? 'border-blue-200 bg-blue-50 text-blue-900'
+                        : 'border-gray-200 bg-white text-gray-700'
+                    }`}
                   >
-                    {savedFilter.name}
+                    <p className="font-medium">{savedFilter.name}</p>
+                    <p className="mt-1 text-[11px]">{buildFilterSummaryText(savedFilter.values)}</p>
                   </button>
-                  <button
-                    type="button"
-                    className="text-xs text-gray-400 hover:text-red-500"
-                    onClick={() => handleDeleteSavedFilter(savedFilter.id)}
-                    aria-label={`${savedFilter.name} 필터 삭제`}
-                  >
-                    삭제
-                  </button>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}
 
         <p className="text-xs text-gray-500">
-          마지막 적용 필터는 자동 저장되며, 다음 접속 시 동일 조건으로 복원됩니다.
+          마지막 적용 조건은 자동 저장되며, 다음 접속 시 동일 조건으로 복원됩니다.
         </p>
 
         <div className="flex flex-wrap items-center gap-2">
