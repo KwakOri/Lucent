@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -20,6 +20,7 @@ import {
   useV2AdminProductionBatches,
   useV2AdminProductionCandidates,
 } from '@/lib/client/hooks/useV2AdminProduction';
+import { useV2AdminProjects, useV2Campaigns } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -121,14 +122,106 @@ function resolveComposition(row: {
   return '기타';
 }
 
+const PRODUCTION_CANDIDATE_FILTER_STORAGE_KEY =
+  'lucent.admin.production.candidate.saved-filters.v1';
+const PRODUCTION_CANDIDATE_LAST_FILTER_STORAGE_KEY =
+  'lucent.admin.production.candidate.last-filter.v1';
+const MAX_SAVED_PRODUCTION_FILTERS = 12;
+
+type ProductionCandidateFilterValue = {
+  keyword: string;
+  projectId: string;
+  campaignId: string;
+  dateFrom: string;
+  dateTo: string;
+};
+
+type SavedProductionCandidateFilter = {
+  id: string;
+  name: string;
+  createdAt: string;
+  values: ProductionCandidateFilterValue;
+};
+
+function readSavedProductionCandidateFilters(): SavedProductionCandidateFilter[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  const rawSavedFilters = window.localStorage.getItem(
+    PRODUCTION_CANDIDATE_FILTER_STORAGE_KEY,
+  );
+  if (!rawSavedFilters) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(rawSavedFilters) as SavedProductionCandidateFilter[];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((row) => row && typeof row.id === 'string');
+  } catch {
+    window.localStorage.removeItem(PRODUCTION_CANDIDATE_FILTER_STORAGE_KEY);
+    return [];
+  }
+}
+
+function readLastProductionCandidateFilter(): ProductionCandidateFilterValue {
+  const emptyFilter: ProductionCandidateFilterValue = {
+    keyword: '',
+    projectId: '',
+    campaignId: '',
+    dateFrom: '',
+    dateTo: '',
+  };
+
+  if (typeof window === 'undefined') {
+    return emptyFilter;
+  }
+
+  const rawLastFilter = window.localStorage.getItem(
+    PRODUCTION_CANDIDATE_LAST_FILTER_STORAGE_KEY,
+  );
+  if (!rawLastFilter) {
+    return emptyFilter;
+  }
+
+  try {
+    const parsed = JSON.parse(rawLastFilter) as ProductionCandidateFilterValue;
+    return {
+      keyword: parsed.keyword || '',
+      projectId: parsed.projectId || '',
+      campaignId: parsed.campaignId || '',
+      dateFrom: parsed.dateFrom || '',
+      dateTo: parsed.dateTo || '',
+    };
+  } catch {
+    window.localStorage.removeItem(PRODUCTION_CANDIDATE_LAST_FILTER_STORAGE_KEY);
+    return emptyFilter;
+  }
+}
+
 export default function AdminProductionPage() {
+  const initialFilterValues = useMemo(() => readLastProductionCandidateFilter(), []);
+
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [keywordInput, setKeywordInput] = useState('');
-  const [keyword, setKeyword] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [keywordInput, setKeywordInput] = useState(initialFilterValues.keyword);
+  const [projectIdInput, setProjectIdInput] = useState(initialFilterValues.projectId);
+  const [campaignIdInput, setCampaignIdInput] = useState(initialFilterValues.campaignId);
+  const [dateFromInput, setDateFromInput] = useState(initialFilterValues.dateFrom);
+  const [dateToInput, setDateToInput] = useState(initialFilterValues.dateTo);
+  const [savedFilters, setSavedFilters] = useState<SavedProductionCandidateFilter[]>(
+    () => readSavedProductionCandidateFilters(),
+  );
+  const [filterNameInput, setFilterNameInput] = useState('');
+
+  const [keyword, setKeyword] = useState(initialFilterValues.keyword);
+  const [projectId, setProjectId] = useState(initialFilterValues.projectId);
+  const [campaignId, setCampaignId] = useState(initialFilterValues.campaignId);
+  const [dateFrom, setDateFrom] = useState(initialFilterValues.dateFrom);
+  const [dateTo, setDateTo] = useState(initialFilterValues.dateTo);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [batchTitle, setBatchTitle] = useState('');
@@ -139,9 +232,14 @@ export default function AdminProductionPage() {
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [batchActionReason, setBatchActionReason] = useState('');
 
+  const { data: projects = [], isLoading: projectsLoading } = useV2AdminProjects();
+  const { data: campaigns = [], isLoading: campaignsLoading } = useV2Campaigns();
+
   const candidatesQuery = useV2AdminProductionCandidates({
     limit: 300,
     keyword: keyword || undefined,
+    project_id: projectId || undefined,
+    campaign_id: campaignId || undefined,
     date_from: dateFrom || undefined,
     date_to: dateTo || undefined,
   });
@@ -161,6 +259,30 @@ export default function AdminProductionPage() {
   const candidateRows = candidatesQuery.data?.items || [];
   const detail = batchDetailQuery.data;
   const selectedBatch = detail?.batch || null;
+
+  const projectOptions = useMemo(
+    () =>
+      projects
+        .slice()
+        .sort((left, right) => left.name.localeCompare(right.name, 'ko-KR'))
+        .map((project) => ({
+          value: project.id,
+          label: `${project.name} (${project.slug})`,
+        })),
+    [projects],
+  );
+
+  const campaignOptions = useMemo(
+    () =>
+      campaigns
+        .slice()
+        .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+        .map((campaign) => ({
+          value: campaign.id,
+          label: `${campaign.name} (${campaign.code})`,
+        })),
+    [campaigns],
+  );
 
   const allCandidateIds = candidateRows.map((row) => row.order_id);
   const allChecked =
@@ -186,6 +308,44 @@ export default function AdminProductionPage() {
           .length || 0,
     };
   }, [candidateRows.length, selectedOrderIds.length, previewData, batchesQuery.data?.items]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      PRODUCTION_CANDIDATE_FILTER_STORAGE_KEY,
+      JSON.stringify(savedFilters),
+    );
+  }, [savedFilters]);
+
+  const currentFilterInputValue: ProductionCandidateFilterValue = {
+    keyword: keywordInput.trim(),
+    projectId: projectIdInput,
+    campaignId: campaignIdInput,
+    dateFrom: dateFromInput,
+    dateTo: dateToInput,
+  };
+
+  const applyFilterValues = (values: ProductionCandidateFilterValue) => {
+    setKeywordInput(values.keyword);
+    setProjectIdInput(values.projectId);
+    setCampaignIdInput(values.campaignId);
+    setDateFromInput(values.dateFrom);
+    setDateToInput(values.dateTo);
+
+    setKeyword(values.keyword.trim());
+    setProjectId(values.projectId);
+    setCampaignId(values.campaignId);
+    setDateFrom(values.dateFrom);
+    setDateTo(values.dateTo);
+    setSelectedOrderIds([]);
+    previewMutation.reset();
+  };
+
+  const persistLastFilter = (values: ProductionCandidateFilterValue) => {
+    window.localStorage.setItem(
+      PRODUCTION_CANDIDATE_LAST_FILTER_STORAGE_KEY,
+      JSON.stringify(values),
+    );
+  };
 
   const setError = (error: unknown) => {
     setMessage(null);
@@ -215,8 +375,61 @@ export default function AdminProductionPage() {
   };
 
   const handleSearchApply = () => {
-    setKeyword(keywordInput.trim());
-    setSelectedOrderIds([]);
+    clearNotice();
+    applyFilterValues(currentFilterInputValue);
+    persistLastFilter(currentFilterInputValue);
+  };
+
+  const handleSearchReset = () => {
+    clearNotice();
+    const emptyFilter: ProductionCandidateFilterValue = {
+      keyword: '',
+      projectId: '',
+      campaignId: '',
+      dateFrom: '',
+      dateTo: '',
+    };
+    applyFilterValues(emptyFilter);
+    persistLastFilter(emptyFilter);
+  };
+
+  const handleSaveCurrentFilter = () => {
+    clearNotice();
+    const hasAnyValue = Object.values(currentFilterInputValue).some(
+      (value) => value.trim().length > 0,
+    );
+    if (!hasAnyValue) {
+      setErrorMessage('저장할 필터 조건이 없습니다.');
+      return;
+    }
+
+    const defaultName = `필터 ${new Date().toLocaleString('ko-KR', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`;
+    const nextFilter: SavedProductionCandidateFilter = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name: filterNameInput.trim() || defaultName,
+      createdAt: new Date().toISOString(),
+      values: currentFilterInputValue,
+    };
+
+    setSavedFilters((prev) => [nextFilter, ...prev].slice(0, MAX_SAVED_PRODUCTION_FILTERS));
+    setFilterNameInput('');
+    setMessage('현재 필터를 저장했습니다.');
+  };
+
+  const handleApplySavedFilter = (savedFilter: SavedProductionCandidateFilter) => {
+    clearNotice();
+    applyFilterValues(savedFilter.values);
+    persistLastFilter(savedFilter.values);
+    setMessage(`"${savedFilter.name}" 필터를 적용했습니다.`);
+  };
+
+  const handleDeleteSavedFilter = (filterId: string) => {
+    setSavedFilters((prev) => prev.filter((row) => row.id !== filterId));
   };
 
   const handlePreview = async () => {
@@ -375,27 +588,99 @@ export default function AdminProductionPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
           <Input
             value={keywordInput}
             onChange={(event) => setKeywordInput(event.target.value)}
-            placeholder="주문번호/입금자명/주문ID"
+            placeholder="주문번호/입금자명/프로젝트/캠페인"
             className="md:col-span-2"
           />
+          <select
+            className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
+            value={projectIdInput}
+            disabled={projectsLoading}
+            onChange={(event) => setProjectIdInput(event.target.value)}
+          >
+            <option value="">전체 프로젝트</option>
+            {projectOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
+            value={campaignIdInput}
+            disabled={campaignsLoading}
+            onChange={(event) => setCampaignIdInput(event.target.value)}
+          >
+            <option value="">전체 캠페인</option>
+            {campaignOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
           <Input
             type="date"
-            value={dateFrom}
-            onChange={(event) => setDateFrom(event.target.value)}
+            value={dateFromInput}
+            onChange={(event) => setDateFromInput(event.target.value)}
           />
           <Input
             type="date"
-            value={dateTo}
-            onChange={(event) => setDateTo(event.target.value)}
+            value={dateToInput}
+            onChange={(event) => setDateToInput(event.target.value)}
           />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           <Button intent="neutral" onClick={handleSearchApply}>
             검색 적용
           </Button>
+          <Button intent="neutral" onClick={handleSearchReset}>
+            필터 초기화
+          </Button>
+          <Input
+            value={filterNameInput}
+            onChange={(event) => setFilterNameInput(event.target.value)}
+            placeholder="필터 이름 (예: 미루루 프로젝트)"
+            className="w-full sm:max-w-xs"
+          />
+          <Button intent="neutral" onClick={handleSaveCurrentFilter}>
+            현재 필터 저장
+          </Button>
         </div>
+
+        {savedFilters.length > 0 && (
+          <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <p className="text-xs font-medium text-gray-600">저장된 필터 그룹</p>
+            <div className="flex flex-wrap gap-2">
+              {savedFilters.map((savedFilter) => (
+                <div key={savedFilter.id} className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-1">
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-gray-700 hover:text-gray-900"
+                    onClick={() => handleApplySavedFilter(savedFilter)}
+                  >
+                    {savedFilter.name}
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs text-gray-400 hover:text-red-500"
+                    onClick={() => handleDeleteSavedFilter(savedFilter.id)}
+                    aria-label={`${savedFilter.name} 필터 삭제`}
+                  >
+                    삭제
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p className="text-xs text-gray-500">
+          마지막 적용 필터는 자동 저장되며, 다음 접속 시 동일 조건으로 복원됩니다.
+        </p>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -456,6 +741,8 @@ export default function AdminProductionPage() {
                   </th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">주문번호</th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">입금자</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">프로젝트</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">캠페인</th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">구성</th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">주문금액</th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">주문일시</th>
@@ -480,6 +767,8 @@ export default function AdminProductionPage() {
                       <td className="px-3 py-2 text-gray-700">
                         {row.depositor_name || '-'}
                       </td>
+                      <td className="px-3 py-2 text-gray-700">{row.project_name || '-'}</td>
+                      <td className="px-3 py-2 text-gray-700">{row.campaign_name || '-'}</td>
                       <td className="px-3 py-2 text-gray-700">{resolveComposition(row)}</td>
                       <td className="px-3 py-2 text-gray-700">
                         {formatCurrency(row.grand_total)}
