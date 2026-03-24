@@ -33,7 +33,7 @@ Usage:
 Options:
   --use-local-supabase  로컬 Supabase를 기동해서 연결 (기본: 원격 DB)
   --reset-db            --use-local-supabase 모드에서 supabase db reset 실행
-  --sync-linked-data    linked 원격 DB 데이터를 덤프해 로컬 DB로 복원 (자동으로 --use-local-supabase + --reset-db 적용)
+  --sync-linked-data    linked 원격 DB(public + auth.users/identities) 데이터를 덤프해 로컬 DB로 복원 (자동으로 --use-local-supabase + --reset-db 적용)
   --frontend-port <n>   프론트 포트 (default: 3000)
   --backend-port <n>    백엔드 포트 (default: 3001)
   --no-admin-bypass     LOCAL_ADMIN_BYPASS=false로 실행
@@ -148,8 +148,8 @@ run_local_db_sql_file() {
   docker exec -i "${LOCAL_DB_CONTAINER}" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "${sql_file}"
 }
 
-truncate_local_public_tables() {
-  local truncate_sql="${FE_DIR}/.tmp/dev-v2-local-truncate-public.sql"
+truncate_local_target_tables() {
+  local truncate_sql="${FE_DIR}/.tmp/dev-v2-local-truncate-target-tables.sql"
   cat > "${truncate_sql}" <<'SQL'
 DO $$
 DECLARE
@@ -158,10 +158,14 @@ BEGIN
   SELECT
     'TRUNCATE TABLE '
     || string_agg(format('%I.%I', schemaname, tablename), ', ')
-    || ' RESTART IDENTITY CASCADE'
+    || ' CASCADE'
   INTO truncate_stmt
   FROM pg_tables
-  WHERE schemaname = 'public';
+  WHERE schemaname = 'public'
+     OR (
+      schemaname = 'auth'
+      AND tablename IN ('users', 'identities')
+    );
 
   IF truncate_stmt IS NOT NULL THEN
     EXECUTE truncate_stmt;
@@ -206,10 +210,32 @@ sync_linked_data_to_local() {
 
   log "dumping linked remote data to ${dump_file}"
   cd "${FE_DIR}"
-  npx supabase db dump --linked --data-only --schema public --use-copy -f "${dump_file}"
+  npx supabase db dump --linked --data-only --schema public,auth \
+    --exclude auth.schema_migrations \
+    --exclude auth.instances \
+    --exclude auth.audit_log_entries \
+    --exclude auth.flow_state \
+    --exclude auth.mfa_amr_claims \
+    --exclude auth.mfa_challenges \
+    --exclude auth.mfa_factors \
+    --exclude auth.oauth_authorizations \
+    --exclude auth.oauth_client_states \
+    --exclude auth.oauth_clients \
+    --exclude auth.oauth_consents \
+    --exclude auth.one_time_tokens \
+    --exclude auth.refresh_tokens \
+    --exclude auth.saml_providers \
+    --exclude auth.saml_relay_states \
+    --exclude auth.sessions \
+    --exclude auth.sso_domains \
+    --exclude auth.sso_providers \
+    --exclude auth.custom_oauth_providers \
+    --exclude auth.webauthn_challenges \
+    --exclude auth.webauthn_credentials \
+    --use-copy -f "${dump_file}"
 
-  log "clearing local public table data before import"
-  truncate_local_public_tables
+  log "clearing local public + auth.users/identities data before import"
+  truncate_local_target_tables
 
   log "preparing local schema compatibility for linked data import"
   prepare_local_schema_for_linked_import
