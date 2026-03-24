@@ -41,6 +41,14 @@ import type {
   ListV2AdminSalesStatsParams,
   ListV2AdminUnifiedAuditLogsParams,
 } from '@/lib/client/api/v2-admin-ops.api';
+import type {
+  ListV2AdminProductionBatchesParams,
+  ListV2AdminProductionCandidatesParams,
+} from '@/lib/client/api/v2-admin-production.api';
+import type {
+  ListV2AdminShippingBatchesParams,
+  ListV2AdminShippingCandidatesParams,
+} from '@/lib/client/api/v2-admin-shipping.api';
 
 export const queryKeys = {
   /**
@@ -299,6 +307,26 @@ export const queryKeys = {
   v2AdminOps: {
     all: ['v2-admin-ops'] as const,
     catalog: () => [...queryKeys.v2AdminOps.all, 'catalog'] as const,
+    production: {
+      all: ['v2-admin-ops', 'production'] as const,
+      candidates: (params: ListV2AdminProductionCandidatesParams = {}) =>
+        [...queryKeys.v2AdminOps.production.all, 'candidates', params] as const,
+      preview: () => [...queryKeys.v2AdminOps.production.all, 'preview'] as const,
+      batches: (params: ListV2AdminProductionBatchesParams = {}) =>
+        [...queryKeys.v2AdminOps.production.all, 'batches', params] as const,
+      batchDetail: (batchId: string) =>
+        [...queryKeys.v2AdminOps.production.all, 'batch-detail', batchId] as const,
+    },
+    shipping: {
+      all: ['v2-admin-ops', 'shipping'] as const,
+      candidates: (params: ListV2AdminShippingCandidatesParams = {}) =>
+        [...queryKeys.v2AdminOps.shipping.all, 'candidates', params] as const,
+      preview: () => [...queryKeys.v2AdminOps.shipping.all, 'preview'] as const,
+      batches: (params: ListV2AdminShippingBatchesParams = {}) =>
+        [...queryKeys.v2AdminOps.shipping.all, 'batches', params] as const,
+      batchDetail: (batchId: string) =>
+        [...queryKeys.v2AdminOps.shipping.all, 'batch-detail', batchId] as const,
+    },
     cutover: {
       all: ['v2-admin-ops', 'cutover'] as const,
       policy: () => [...queryKeys.v2AdminOps.cutover.all, 'policy'] as const,

@@ -14,6 +14,8 @@ export { CartAPI } from './cart.api';
 export { LogsAPI } from './logs.api';
 export { V2CatalogAdminAPI } from './v2-catalog-admin.api';
 export { V2CheckoutAPI } from './v2-checkout.api';
+export { V2AdminProductionAPI } from './v2-admin-production.api';
+export { V2AdminShippingAPI } from './v2-admin-shipping.api';
 
 // Types
 export type { SendVerificationData } from './auth.api';
