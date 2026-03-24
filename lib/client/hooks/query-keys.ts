@@ -312,6 +312,7 @@ export const queryKeys = {
       candidates: (params: ListV2AdminProductionCandidatesParams = {}) =>
         [...queryKeys.v2AdminOps.production.all, 'candidates', params] as const,
       preview: () => [...queryKeys.v2AdminOps.production.all, 'preview'] as const,
+      views: () => [...queryKeys.v2AdminOps.production.all, 'views'] as const,
       batches: (params: ListV2AdminProductionBatchesParams = {}) =>
         [...queryKeys.v2AdminOps.production.all, 'batches', params] as const,
       batchDetail: (batchId: string) =>

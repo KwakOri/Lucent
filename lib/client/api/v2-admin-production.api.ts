@@ -84,6 +84,20 @@ export interface V2AdminProductionBatchDetail {
   aggregates: V2AdminProductionBatchAggregateRow[];
 }
 
+export interface V2AdminProductionSavedViewFilter {
+  project_id: string | null;
+  campaign_id: string | null;
+}
+
+export interface V2AdminProductionSavedView {
+  id: string;
+  name: string;
+  filter: V2AdminProductionSavedViewFilter;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface V2AdminProductionBatchBlockedRow {
   order_id: string;
   order_no: string | null;
@@ -145,6 +159,20 @@ export interface ActV2AdminProductionBatchInput {
   metadata?: Record<string, unknown> | null;
 }
 
+export interface CreateV2AdminProductionSavedViewInput {
+  name: string;
+  filter: V2AdminProductionSavedViewFilter;
+  is_default?: boolean;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface UpdateV2AdminProductionSavedViewInput {
+  name?: string;
+  filter?: V2AdminProductionSavedViewFilter;
+  is_default?: boolean;
+  metadata?: Record<string, unknown> | null;
+}
+
 function toQueryString<T extends object>(params: T) {
   const searchParams = new URLSearchParams();
   Object.entries(params as Record<string, unknown>).forEach(([key, value]) => {
@@ -186,6 +214,27 @@ export const V2AdminProductionAPI = {
 
   async getBatchDetail(batchId: string): Promise<ApiResponse<V2AdminProductionBatchDetail>> {
     return apiClient.get(`/api/v2/admin/ops/production/batches/${batchId}`);
+  },
+
+  async listViews(): Promise<ApiResponse<{ items: V2AdminProductionSavedView[] }>> {
+    return apiClient.get('/api/v2/admin/ops/production/views');
+  },
+
+  async createView(
+    data: CreateV2AdminProductionSavedViewInput,
+  ): Promise<ApiResponse<V2AdminProductionSavedView>> {
+    return apiClient.post('/api/v2/admin/ops/production/views', data);
+  },
+
+  async updateView(
+    viewId: string,
+    data: UpdateV2AdminProductionSavedViewInput,
+  ): Promise<ApiResponse<V2AdminProductionSavedView>> {
+    return apiClient.patch(`/api/v2/admin/ops/production/views/${viewId}`, data);
+  },
+
+  async deleteView(viewId: string): Promise<ApiResponse<{ id: string; deleted: boolean }>> {
+    return apiClient.delete(`/api/v2/admin/ops/production/views/${viewId}`);
   },
 
   async activateBatch(

@@ -5,9 +5,11 @@ import {
   V2AdminProductionAPI,
   type ActV2AdminProductionBatchInput,
   type CreateV2AdminProductionBatchInput,
+  type CreateV2AdminProductionSavedViewInput,
   type ListV2AdminProductionBatchesParams,
   type ListV2AdminProductionCandidatesParams,
   type PreviewV2AdminProductionBatchInput,
+  type UpdateV2AdminProductionSavedViewInput,
 } from '@/lib/client/api/v2-admin-production.api';
 import { queryKeys } from './query-keys';
 
@@ -51,6 +53,16 @@ export function useV2AdminProductionBatchDetail(batchId: string | null | undefin
       return response.data;
     },
     enabled: Boolean(batchId),
+  });
+}
+
+export function useV2AdminProductionViews() {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.production.views(),
+    queryFn: async () => {
+      const response = await V2AdminProductionAPI.listViews();
+      return response.data;
+    },
   });
 }
 
@@ -107,6 +119,51 @@ export function useV2AdminCancelProductionBatch() {
   return useMutation({
     mutationFn: async ({ batchId, reason }: { batchId: string; reason?: string | null }) => {
       const response = await V2AdminProductionAPI.cancelBatch(batchId, { reason: reason || null });
+      return response.data;
+    },
+    onSettled: async () => {
+      await invalidateProductionQueries(queryClient);
+    },
+  });
+}
+
+export function useV2AdminCreateProductionView() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateV2AdminProductionSavedViewInput) => {
+      const response = await V2AdminProductionAPI.createView(data);
+      return response.data;
+    },
+    onSettled: async () => {
+      await invalidateProductionQueries(queryClient);
+    },
+  });
+}
+
+export function useV2AdminUpdateProductionView() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      viewId,
+      data,
+    }: {
+      viewId: string;
+      data: UpdateV2AdminProductionSavedViewInput;
+    }) => {
+      const response = await V2AdminProductionAPI.updateView(viewId, data);
+      return response.data;
+    },
+    onSettled: async () => {
+      await invalidateProductionQueries(queryClient);
+    },
+  });
+}
+
+export function useV2AdminDeleteProductionView() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (viewId: string) => {
+      const response = await V2AdminProductionAPI.deleteView(viewId);
       return response.data;
     },
     onSettled: async () => {

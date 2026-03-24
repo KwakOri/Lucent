@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -8,6 +8,7 @@ import { Input, Textarea } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import type {
   V2AdminProductionBatchStatus,
+  V2AdminProductionSavedView,
   V2AdminTransitionResult,
 } from '@/lib/client/api/v2-admin-production.api';
 import {
@@ -15,10 +16,14 @@ import {
   useV2AdminCancelProductionBatch,
   useV2AdminCompleteProductionBatch,
   useV2AdminCreateProductionBatch,
+  useV2AdminCreateProductionView,
+  useV2AdminDeleteProductionView,
   useV2AdminPreviewProductionBatch,
   useV2AdminProductionBatchDetail,
   useV2AdminProductionBatches,
   useV2AdminProductionCandidates,
+  useV2AdminProductionViews,
+  useV2AdminUpdateProductionView,
 } from '@/lib/client/hooks/useV2AdminProduction';
 import { useV2AdminProjects, useV2Campaigns } from '@/lib/client/hooks/useV2CatalogAdmin';
 
@@ -140,23 +145,12 @@ function buildProjectSummary(projectNames: string[]): string {
   return `${unique[0]} 외 ${unique.length - 1}`;
 }
 
-const PRODUCTION_CANDIDATE_FILTER_STORAGE_KEY =
-  'lucent.admin.production.candidate.saved-filters.v1';
-const PRODUCTION_CANDIDATE_LAST_FILTER_STORAGE_KEY =
-  'lucent.admin.production.candidate.last-filter.v1';
-const MAX_SAVED_PRODUCTION_FILTERS = 12;
-
 type ProductionCandidateFilterValue = {
   projectId: string;
   campaignId: string;
 };
 
-type SavedProductionCandidateFilter = {
-  id: string;
-  name: string;
-  createdAt: string;
-  values: ProductionCandidateFilterValue;
-};
+const MAX_SAVED_PRODUCTION_FILTERS = 30;
 
 function isSameFilterValues(
   left: ProductionCandidateFilterValue,
@@ -177,68 +171,26 @@ function normalizeProductionFilterValues(
   };
 }
 
-function readSavedProductionCandidateFilters(): SavedProductionCandidateFilter[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-  const rawSavedFilters = window.localStorage.getItem(
-    PRODUCTION_CANDIDATE_FILTER_STORAGE_KEY,
-  );
-  if (!rawSavedFilters) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(rawSavedFilters) as SavedProductionCandidateFilter[];
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed
-      .filter((row) => row && typeof row.id === 'string')
-      .map((row) => ({
-        ...row,
-        values: normalizeProductionFilterValues(row.values),
-      }));
-  } catch {
-    window.localStorage.removeItem(PRODUCTION_CANDIDATE_FILTER_STORAGE_KEY);
-    return [];
-  }
-}
-
-function readLastProductionCandidateFilter(): ProductionCandidateFilterValue {
-  const emptyFilter: ProductionCandidateFilterValue = normalizeProductionFilterValues(null);
-
-  if (typeof window === 'undefined') {
-    return emptyFilter;
-  }
-
-  const rawLastFilter = window.localStorage.getItem(
-    PRODUCTION_CANDIDATE_LAST_FILTER_STORAGE_KEY,
-  );
-  if (!rawLastFilter) {
-    return emptyFilter;
-  }
-
-  try {
-    const parsed = JSON.parse(rawLastFilter) as Partial<ProductionCandidateFilterValue>;
-    return normalizeProductionFilterValues(parsed);
-  } catch {
-    window.localStorage.removeItem(PRODUCTION_CANDIDATE_LAST_FILTER_STORAGE_KEY);
-    return emptyFilter;
-  }
+function toFilterValueFromSavedView(
+  view: V2AdminProductionSavedView,
+): ProductionCandidateFilterValue {
+  return {
+    projectId: view.filter.project_id || '',
+    campaignId: view.filter.campaign_id || '',
+  };
 }
 
 export default function AdminProductionPage() {
-  const initialFilterValues = useMemo(() => readLastProductionCandidateFilter(), []);
+  const initialFilterValues = useMemo(
+    () => normalizeProductionFilterValues(null),
+    [],
+  );
 
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [projectIdInput, setProjectIdInput] = useState(initialFilterValues.projectId);
   const [campaignIdInput, setCampaignIdInput] = useState(initialFilterValues.campaignId);
-  const [savedFilters, setSavedFilters] = useState<SavedProductionCandidateFilter[]>(
-    () => readSavedProductionCandidateFilters(),
-  );
   const [selectedViewId, setSelectedViewId] = useState<string>('DEFAULT');
   const [isViewManagerOpen, setIsViewManagerOpen] = useState(false);
   const [viewNameDraft, setViewNameDraft] = useState('');
@@ -273,6 +225,10 @@ export default function AdminProductionPage() {
   const activateBatchMutation = useV2AdminActivateProductionBatch();
   const completeBatchMutation = useV2AdminCompleteProductionBatch();
   const cancelBatchMutation = useV2AdminCancelProductionBatch();
+  const productionViewsQuery = useV2AdminProductionViews();
+  const createViewMutation = useV2AdminCreateProductionView();
+  const updateViewMutation = useV2AdminUpdateProductionView();
+  const deleteViewMutation = useV2AdminDeleteProductionView();
 
   const previewData = previewMutation.data;
   const candidateRows = useMemo(
@@ -281,6 +237,10 @@ export default function AdminProductionPage() {
   );
   const detail = batchDetailQuery.data;
   const selectedBatch = detail?.batch || null;
+  const savedFilters = useMemo(
+    () => (productionViewsQuery.data?.items || []).slice(0, MAX_SAVED_PRODUCTION_FILTERS),
+    [productionViewsQuery.data?.items],
+  );
 
   const selectedCandidateRows = useMemo(() => {
     const selectedIdSet = new Set(selectedOrderIds);
@@ -365,7 +325,10 @@ export default function AdminProductionPage() {
     createBatchMutation.isPending ||
     activateBatchMutation.isPending ||
     completeBatchMutation.isPending ||
-    cancelBatchMutation.isPending;
+    cancelBatchMutation.isPending ||
+    createViewMutation.isPending ||
+    updateViewMutation.isPending ||
+    deleteViewMutation.isPending;
 
   const summary = useMemo(() => {
     return {
@@ -435,13 +398,6 @@ export default function AdminProductionPage() {
     selectedViewId,
   ]);
 
-  useEffect(() => {
-    window.localStorage.setItem(
-      PRODUCTION_CANDIDATE_FILTER_STORAGE_KEY,
-      JSON.stringify(savedFilters),
-    );
-  }, [savedFilters]);
-
   const currentFilterInputValue: ProductionCandidateFilterValue = {
     projectId: projectIdInput,
     campaignId: campaignIdInput,
@@ -455,13 +411,6 @@ export default function AdminProductionPage() {
     setCampaignId(values.campaignId);
     setSelectedOrderIds([]);
     previewMutation.reset();
-  };
-
-  const persistLastFilter = (values: ProductionCandidateFilterValue) => {
-    window.localStorage.setItem(
-      PRODUCTION_CANDIDATE_LAST_FILTER_STORAGE_KEY,
-      JSON.stringify(values),
-    );
   };
 
   const buildFilterSummaryText = (values: ProductionCandidateFilterValue): string => {
@@ -509,9 +458,8 @@ export default function AdminProductionPage() {
   const handleSearchApply = () => {
     clearNotice();
     applyFilterValues(currentFilterInputValue);
-    persistLastFilter(currentFilterInputValue);
     const matchedView = savedFilters.find((row) =>
-      isSameFilterValues(row.values, currentFilterInputValue),
+      isSameFilterValues(toFilterValueFromSavedView(row), currentFilterInputValue),
     );
     setSelectedViewId(matchedView?.id || 'DEFAULT');
   };
@@ -520,11 +468,10 @@ export default function AdminProductionPage() {
     clearNotice();
     const emptyFilter: ProductionCandidateFilterValue = normalizeProductionFilterValues(null);
     applyFilterValues(emptyFilter);
-    persistLastFilter(emptyFilter);
     setSelectedViewId('DEFAULT');
   };
 
-  const handleCreateViewFromCurrentFilter = () => {
+  const handleCreateViewFromCurrentFilter = async () => {
     clearNotice();
     const hasAnyValue = Object.values(currentFilterInputValue).some(
       (value) => value.trim().length > 0,
@@ -539,52 +486,62 @@ export default function AdminProductionPage() {
       return;
     }
 
-    const nextFilter: SavedProductionCandidateFilter = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      name: viewNameDraft.trim(),
-      createdAt: new Date().toISOString(),
-      values: currentFilterInputValue,
-    };
-
-    setSavedFilters((prev) => [nextFilter, ...prev].slice(0, MAX_SAVED_PRODUCTION_FILTERS));
-    setViewNameDraft('');
-    setSelectedViewId(nextFilter.id);
-    setMessage('현재 조건을 새 뷰로 저장했습니다.');
+    try {
+      const created = await createViewMutation.mutateAsync({
+        name: viewNameDraft.trim(),
+        filter: {
+          project_id: currentFilterInputValue.projectId || null,
+          campaign_id: currentFilterInputValue.campaignId || null,
+        },
+      });
+      setViewNameDraft('');
+      setSelectedViewId(created.id);
+      setMessage('현재 조건을 새 뷰로 저장했습니다.');
+    } catch (error) {
+      setError(error);
+    }
   };
 
-  const handleApplySavedFilter = (savedFilter: SavedProductionCandidateFilter) => {
+  const handleApplySavedFilter = (savedFilter: V2AdminProductionSavedView) => {
     clearNotice();
-    applyFilterValues(savedFilter.values);
-    persistLastFilter(savedFilter.values);
+    applyFilterValues(toFilterValueFromSavedView(savedFilter));
     setSelectedViewId(savedFilter.id);
     setMessage(`"${savedFilter.name}" 뷰를 적용했습니다.`);
   };
 
-  const handleUpdateSelectedView = () => {
+  const handleUpdateSelectedView = async () => {
     clearNotice();
     if (!selectedSavedView) {
       setErrorMessage('업데이트할 저장 뷰를 먼저 선택해 주세요.');
       return;
     }
 
-    setSavedFilters((prev) =>
-      prev.map((row) =>
-        row.id === selectedSavedView.id
-          ? {
-              ...row,
-              values: currentFilterInputValue,
-              createdAt: new Date().toISOString(),
-            }
-          : row,
-      ),
-    );
-    setMessage(`"${selectedSavedView.name}" 뷰를 현재 조건으로 업데이트했습니다.`);
+    try {
+      await updateViewMutation.mutateAsync({
+        viewId: selectedSavedView.id,
+        data: {
+          filter: {
+            project_id: currentFilterInputValue.projectId || null,
+            campaign_id: currentFilterInputValue.campaignId || null,
+          },
+        },
+      });
+      setMessage(`"${selectedSavedView.name}" 뷰를 현재 조건으로 업데이트했습니다.`);
+    } catch (error) {
+      setError(error);
+    }
   };
 
-  const handleDeleteSavedFilter = (filterId: string) => {
-    setSavedFilters((prev) => prev.filter((row) => row.id !== filterId));
-    if (selectedViewId === filterId) {
-      setSelectedViewId('DEFAULT');
+  const handleDeleteSavedFilter = async (filterId: string) => {
+    clearNotice();
+    try {
+      await deleteViewMutation.mutateAsync(filterId);
+      if (selectedViewId === filterId) {
+        setSelectedViewId('DEFAULT');
+      }
+      setMessage('선택한 뷰를 삭제했습니다.');
+    } catch (error) {
+      setError(error);
     }
   };
 
@@ -896,7 +853,7 @@ export default function AdminProductionPage() {
                     >
                       <p className="font-medium">{savedFilter.name}</p>
                       <p className="mt-1 text-[11px]">
-                        {buildFilterSummaryText(savedFilter.values)}
+                        {buildFilterSummaryText(toFilterValueFromSavedView(savedFilter))}
                       </p>
                     </button>
                   ))
