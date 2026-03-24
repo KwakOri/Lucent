@@ -26,6 +26,12 @@ export interface V2AdminShippingCandidate {
   has_physical: boolean;
   has_digital: boolean;
   depositor_name: string | null;
+  project_id: string | null;
+  project_name: string | null;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  project_ids: string[];
+  campaign_ids: string[];
   linear_stage: 'READY_TO_SHIP';
 }
 
@@ -116,6 +122,8 @@ export interface ListV2AdminShippingCandidatesParams {
   keyword?: string;
   date_from?: string;
   date_to?: string;
+  project_id?: string;
+  campaign_id?: string;
 }
 
 export interface ListV2AdminShippingBatchesParams {
