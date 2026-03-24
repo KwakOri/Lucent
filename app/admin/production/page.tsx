@@ -122,6 +122,24 @@ function resolveComposition(row: {
   return '기타';
 }
 
+function formatAutoBatchTitleDate(date: Date): string {
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yy}${mm}${dd}`;
+}
+
+function buildProjectSummary(projectNames: string[]): string {
+  const unique = Array.from(new Set(projectNames.filter((name) => name.trim().length > 0)));
+  if (unique.length === 0) {
+    return '선택 없음';
+  }
+  if (unique.length === 1) {
+    return unique[0];
+  }
+  return `${unique[0]} 외 ${unique.length - 1}`;
+}
+
 const PRODUCTION_CANDIDATE_FILTER_STORAGE_KEY =
   'lucent.admin.production.candidate.saved-filters.v1';
 const PRODUCTION_CANDIDATE_LAST_FILTER_STORAGE_KEY =
@@ -224,7 +242,6 @@ export default function AdminProductionPage() {
   const [dateTo, setDateTo] = useState(initialFilterValues.dateTo);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
-  const [batchTitle, setBatchTitle] = useState('');
   const [batchNotes, setBatchNotes] = useState('');
 
   const [batchStatusFilter, setBatchStatusFilter] =
@@ -256,9 +273,39 @@ export default function AdminProductionPage() {
   const cancelBatchMutation = useV2AdminCancelProductionBatch();
 
   const previewData = previewMutation.data;
-  const candidateRows = candidatesQuery.data?.items || [];
+  const candidateRows = useMemo(
+    () => candidatesQuery.data?.items || [],
+    [candidatesQuery.data?.items],
+  );
   const detail = batchDetailQuery.data;
   const selectedBatch = detail?.batch || null;
+
+  const selectedCandidateRows = useMemo(() => {
+    const selectedIdSet = new Set(selectedOrderIds);
+    return candidateRows.filter((row) => selectedIdSet.has(row.order_id));
+  }, [candidateRows, selectedOrderIds]);
+
+  const selectedProjectSummary = useMemo(
+    () => buildProjectSummary(selectedCandidateRows.map((row) => row.project_name || '')),
+    [selectedCandidateRows],
+  );
+
+  const autoBatchTitle = useMemo(() => {
+    const datePrefix = formatAutoBatchTitleDate(new Date());
+    const todaySequences = (batchesQuery.data?.items || [])
+      .map((row) => String(row.title || ''))
+      .map((title) => {
+        const match = title.match(/^(\d{6})(\d{2,})$/);
+        if (!match || match[1] !== datePrefix) {
+          return 0;
+        }
+        return Number.parseInt(match[2], 10);
+      })
+      .filter((value) => Number.isFinite(value));
+
+    const nextSequence = (todaySequences.length > 0 ? Math.max(...todaySequences) : 0) + 1;
+    return `${datePrefix}${String(nextSequence).padStart(2, '0')}`;
+  }, [batchesQuery.data?.items]);
 
   const projectOptions = useMemo(
     () =>
@@ -449,10 +496,6 @@ export default function AdminProductionPage() {
 
   const handleCreateBatch = async () => {
     clearNotice();
-    if (!batchTitle.trim()) {
-      setErrorMessage('배치 제목을 입력해 주세요.');
-      return;
-    }
     if (selectedOrderIds.length === 0) {
       setErrorMessage('배치에 포함할 주문을 먼저 선택해 주세요.');
       return;
@@ -460,7 +503,7 @@ export default function AdminProductionPage() {
 
     try {
       const created = await createBatchMutation.mutateAsync({
-        title: batchTitle.trim(),
+        title: autoBatchTitle,
         order_ids: selectedOrderIds,
         notes: batchNotes.trim() || null,
       });
@@ -469,11 +512,12 @@ export default function AdminProductionPage() {
         setSelectedBatchId(nextBatchId);
       }
 
-      setBatchTitle('');
       setBatchNotes('');
       setSelectedOrderIds([]);
       previewMutation.reset();
-      setMessage('제작 배치를 생성했습니다.');
+      const createdTitle =
+        typeof created.batch?.title === 'string' ? created.batch.title : autoBatchTitle;
+      setMessage(`제작 배치를 생성했습니다. (${createdTitle})`);
     } catch (error) {
       setError(error);
     }
@@ -702,17 +746,22 @@ export default function AdminProductionPage() {
           <Button
             size="sm"
             onClick={handleCreateBatch}
-            disabled={selectedOrderIds.length === 0 || !batchTitle.trim() || isBusy}
+            disabled={selectedOrderIds.length === 0 || isBusy}
           >
             선택 주문으로 배치 생성
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
           <Input
-            value={batchTitle}
-            onChange={(event) => setBatchTitle(event.target.value)}
-            placeholder="예: 3월 4주차 응원봉 제작"
+            value={autoBatchTitle}
+            readOnly
+            placeholder="자동 생성 스냅샷 번호"
+          />
+          <Input
+            value={selectedProjectSummary}
+            readOnly
+            placeholder="선택 주문 프로젝트 요약"
           />
           <Textarea
             rows={2}
@@ -721,6 +770,10 @@ export default function AdminProductionPage() {
             placeholder="배치 메모(선택)"
           />
         </div>
+
+        <p className="text-xs text-gray-500">
+          스냅샷 번호는 `YYMMDD + 일일 순번` 형식으로 자동 부여됩니다. (예: 26032401)
+        </p>
 
         {candidatesQuery.isLoading ? (
           <div className="py-8">

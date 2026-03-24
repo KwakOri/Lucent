@@ -132,7 +132,7 @@ export interface PreviewV2AdminProductionBatchInput {
 }
 
 export interface CreateV2AdminProductionBatchInput {
-  title: string;
+  title?: string;
   order_ids: string[];
   notes?: string | null;
   idempotency_key?: string | null;
