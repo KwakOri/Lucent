@@ -132,7 +132,7 @@ function formatAutoBatchTitleDate(date: Date): string {
 function buildProjectSummary(projectNames: string[]): string {
   const unique = Array.from(new Set(projectNames.filter((name) => name.trim().length > 0)));
   if (unique.length === 0) {
-    return '선택 없음';
+    return '선택 주문 없음';
   }
   if (unique.length === 1) {
     return unique[0];
@@ -147,11 +147,8 @@ const PRODUCTION_CANDIDATE_LAST_FILTER_STORAGE_KEY =
 const MAX_SAVED_PRODUCTION_FILTERS = 12;
 
 type ProductionCandidateFilterValue = {
-  keyword: string;
   projectId: string;
   campaignId: string;
-  dateFrom: string;
-  dateTo: string;
 };
 
 type SavedProductionCandidateFilter = {
@@ -166,12 +163,18 @@ function isSameFilterValues(
   right: ProductionCandidateFilterValue,
 ): boolean {
   return (
-    left.keyword === right.keyword &&
     left.projectId === right.projectId &&
-    left.campaignId === right.campaignId &&
-    left.dateFrom === right.dateFrom &&
-    left.dateTo === right.dateTo
+    left.campaignId === right.campaignId
   );
+}
+
+function normalizeProductionFilterValues(
+  value: Partial<ProductionCandidateFilterValue> | null | undefined,
+): ProductionCandidateFilterValue {
+  return {
+    projectId: value?.projectId || '',
+    campaignId: value?.campaignId || '',
+  };
 }
 
 function readSavedProductionCandidateFilters(): SavedProductionCandidateFilter[] {
@@ -190,7 +193,12 @@ function readSavedProductionCandidateFilters(): SavedProductionCandidateFilter[]
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return parsed.filter((row) => row && typeof row.id === 'string');
+    return parsed
+      .filter((row) => row && typeof row.id === 'string')
+      .map((row) => ({
+        ...row,
+        values: normalizeProductionFilterValues(row.values),
+      }));
   } catch {
     window.localStorage.removeItem(PRODUCTION_CANDIDATE_FILTER_STORAGE_KEY);
     return [];
@@ -198,13 +206,7 @@ function readSavedProductionCandidateFilters(): SavedProductionCandidateFilter[]
 }
 
 function readLastProductionCandidateFilter(): ProductionCandidateFilterValue {
-  const emptyFilter: ProductionCandidateFilterValue = {
-    keyword: '',
-    projectId: '',
-    campaignId: '',
-    dateFrom: '',
-    dateTo: '',
-  };
+  const emptyFilter: ProductionCandidateFilterValue = normalizeProductionFilterValues(null);
 
   if (typeof window === 'undefined') {
     return emptyFilter;
@@ -218,14 +220,8 @@ function readLastProductionCandidateFilter(): ProductionCandidateFilterValue {
   }
 
   try {
-    const parsed = JSON.parse(rawLastFilter) as ProductionCandidateFilterValue;
-    return {
-      keyword: parsed.keyword || '',
-      projectId: parsed.projectId || '',
-      campaignId: parsed.campaignId || '',
-      dateFrom: parsed.dateFrom || '',
-      dateTo: parsed.dateTo || '',
-    };
+    const parsed = JSON.parse(rawLastFilter) as Partial<ProductionCandidateFilterValue>;
+    return normalizeProductionFilterValues(parsed);
   } catch {
     window.localStorage.removeItem(PRODUCTION_CANDIDATE_LAST_FILTER_STORAGE_KEY);
     return emptyFilter;
@@ -238,11 +234,8 @@ export default function AdminProductionPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [keywordInput, setKeywordInput] = useState(initialFilterValues.keyword);
   const [projectIdInput, setProjectIdInput] = useState(initialFilterValues.projectId);
   const [campaignIdInput, setCampaignIdInput] = useState(initialFilterValues.campaignId);
-  const [dateFromInput, setDateFromInput] = useState(initialFilterValues.dateFrom);
-  const [dateToInput, setDateToInput] = useState(initialFilterValues.dateTo);
   const [savedFilters, setSavedFilters] = useState<SavedProductionCandidateFilter[]>(
     () => readSavedProductionCandidateFilters(),
   );
@@ -250,11 +243,8 @@ export default function AdminProductionPage() {
   const [isViewManagerOpen, setIsViewManagerOpen] = useState(false);
   const [viewNameDraft, setViewNameDraft] = useState('');
 
-  const [keyword, setKeyword] = useState(initialFilterValues.keyword);
   const [projectId, setProjectId] = useState(initialFilterValues.projectId);
   const [campaignId, setCampaignId] = useState(initialFilterValues.campaignId);
-  const [dateFrom, setDateFrom] = useState(initialFilterValues.dateFrom);
-  const [dateTo, setDateTo] = useState(initialFilterValues.dateTo);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [batchNotes, setBatchNotes] = useState('');
@@ -269,11 +259,8 @@ export default function AdminProductionPage() {
 
   const candidatesQuery = useV2AdminProductionCandidates({
     limit: 300,
-    keyword: keyword || undefined,
     project_id: projectId || undefined,
     campaign_id: campaignId || undefined,
-    date_from: dateFrom || undefined,
-    date_to: dateTo || undefined,
   });
   const batchesQuery = useV2AdminProductionBatches({
     limit: 100,
@@ -394,8 +381,7 @@ export default function AdminProductionPage() {
 
   const workflowGuideSteps = useMemo(() => {
     const hasAppliedView =
-      selectedViewId !== 'DEFAULT' ||
-      Boolean(keyword || projectId || campaignId || dateFrom || dateTo);
+      selectedViewId !== 'DEFAULT' || Boolean(projectId || campaignId);
     const hasOrderSelection = selectedOrderIds.length > 0;
     const hasPreview = Boolean(previewData);
     const hasTransitionStarted =
@@ -405,12 +391,12 @@ export default function AdminProductionPage() {
     return [
       {
         key: 'view',
-        title: '1. 뷰 선택',
-        description: '반복 조건에 맞는 뷰를 선택하거나 필터를 적용합니다.',
+        title: '1. 뷰/필터 선택',
+        description: '뷰 관리에서 프로젝트/캠페인 필터를 적용하거나 저장된 뷰를 불러옵니다.',
         done: hasAppliedView,
         hint: hasAppliedView
           ? '현재 조건이 적용되어 있습니다.'
-          : '전체 뷰에서 시작해도 됩니다.',
+          : '설정된 뷰/필터 없이 시작 중입니다.',
       },
       {
         key: 'select',
@@ -442,9 +428,6 @@ export default function AdminProductionPage() {
     ] as const;
   }, [
     campaignId,
-    dateFrom,
-    dateTo,
-    keyword,
     previewData,
     projectId,
     selectedBatch?.status,
@@ -460,25 +443,16 @@ export default function AdminProductionPage() {
   }, [savedFilters]);
 
   const currentFilterInputValue: ProductionCandidateFilterValue = {
-    keyword: keywordInput.trim(),
     projectId: projectIdInput,
     campaignId: campaignIdInput,
-    dateFrom: dateFromInput,
-    dateTo: dateToInput,
   };
 
   const applyFilterValues = (values: ProductionCandidateFilterValue) => {
-    setKeywordInput(values.keyword);
     setProjectIdInput(values.projectId);
     setCampaignIdInput(values.campaignId);
-    setDateFromInput(values.dateFrom);
-    setDateToInput(values.dateTo);
 
-    setKeyword(values.keyword.trim());
     setProjectId(values.projectId);
     setCampaignId(values.campaignId);
-    setDateFrom(values.dateFrom);
-    setDateTo(values.dateTo);
     setSelectedOrderIds([]);
     previewMutation.reset();
   };
@@ -497,13 +471,13 @@ export default function AdminProductionPage() {
     const campaignLabel = values.campaignId
       ? campaignNameById.get(values.campaignId) || '알 수 없는 캠페인'
       : '전체 캠페인';
-    const dateLabel =
-      values.dateFrom || values.dateTo
-        ? `${values.dateFrom || '시작'} ~ ${values.dateTo || '현재'}`
-        : '전체 기간';
-    const keywordLabel = values.keyword || '없음';
-    return `${projectLabel} · ${campaignLabel} · ${dateLabel} · 검색:${keywordLabel}`;
+    return `${projectLabel} · ${campaignLabel}`;
   };
+
+  const appliedFilterSummaryText =
+    !projectId && !campaignId
+      ? '설정된 필터 없음'
+      : buildFilterSummaryText({ projectId, campaignId });
 
   const setError = (error: unknown) => {
     setMessage(null);
@@ -544,13 +518,7 @@ export default function AdminProductionPage() {
 
   const handleSearchReset = () => {
     clearNotice();
-    const emptyFilter: ProductionCandidateFilterValue = {
-      keyword: '',
-      projectId: '',
-      campaignId: '',
-      dateFrom: '',
-      dateTo: '',
-    };
+    const emptyFilter: ProductionCandidateFilterValue = normalizeProductionFilterValues(null);
     applyFilterValues(emptyFilter);
     persistLastFilter(emptyFilter);
     setSelectedViewId('DEFAULT');
@@ -796,155 +764,147 @@ export default function AdminProductionPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            intent={selectedViewId === 'DEFAULT' ? 'secondary' : 'neutral'}
-            onClick={() => {
-              const defaultFilter: ProductionCandidateFilterValue = {
-                keyword: '',
-                projectId: '',
-                campaignId: '',
-                dateFrom: '',
-                dateTo: '',
-              };
-              clearNotice();
-              applyFilterValues(defaultFilter);
-              persistLastFilter(defaultFilter);
-              setSelectedViewId('DEFAULT');
-            }}
-          >
-            전체 뷰
-          </Button>
-          {savedFilters.map((savedFilter) => (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <p className="text-xs text-gray-500">설정된 뷰</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {selectedSavedView?.name || '설정된 뷰 없음'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">설정된 필터</p>
+                <p className="text-sm font-medium text-gray-900">{appliedFilterSummaryText}</p>
+              </div>
+            </div>
             <Button
-              key={savedFilter.id}
-              intent={selectedViewId === savedFilter.id ? 'secondary' : 'neutral'}
-              onClick={() => handleApplySavedFilter(savedFilter)}
+              intent="neutral"
+              onClick={() => setIsViewManagerOpen((prev) => !prev)}
             >
-              {savedFilter.name}
+              {isViewManagerOpen ? '뷰 관리 닫기' : '뷰 관리 열기'}
             </Button>
-          ))}
-          <Button
-            intent="neutral"
-            onClick={() => setIsViewManagerOpen((prev) => !prev)}
-          >
-            {isViewManagerOpen ? '뷰 관리 닫기' : '뷰 관리'}
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
-          <Input
-            value={keywordInput}
-            onChange={(event) => setKeywordInput(event.target.value)}
-            placeholder="주문번호/입금자명/프로젝트/캠페인"
-            className="md:col-span-2"
-          />
-          <select
-            className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-            value={projectIdInput}
-            disabled={projectsLoading}
-            onChange={(event) => setProjectIdInput(event.target.value)}
-          >
-            <option value="">전체 프로젝트</option>
-            {projectOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-            value={campaignIdInput}
-            disabled={campaignsLoading}
-            onChange={(event) => setCampaignIdInput(event.target.value)}
-          >
-            <option value="">전체 캠페인</option>
-            {campaignOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <Input
-            type="date"
-            value={dateFromInput}
-            onChange={(event) => setDateFromInput(event.target.value)}
-          />
-          <Input
-            type="date"
-            value={dateToInput}
-            onChange={(event) => setDateToInput(event.target.value)}
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button intent="neutral" onClick={handleSearchApply}>
-            검색 적용
-          </Button>
-          <Button intent="neutral" onClick={handleSearchReset}>
-            필터 초기화
-          </Button>
+          </div>
         </div>
 
         {isViewManagerOpen && (
           <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <p className="text-sm font-medium text-gray-800">뷰 관리</p>
-            <p className="text-xs text-gray-600">
-              반복 작업할 조건을 뷰로 저장해 두면 다음 배치 생성 때 바로 불러올 수 있습니다.
-            </p>
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
-              <Input
-                value={viewNameDraft}
-                onChange={(event) => setViewNameDraft(event.target.value)}
-                placeholder="새 뷰 이름 (예: 미루루-3월4주)"
-              />
-              <Button intent="neutral" onClick={handleCreateViewFromCurrentFilter}>
-                새 뷰 저장
-              </Button>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-800">필터 관리</p>
+              <p className="text-xs text-gray-600">
+                제작 후보 조회는 프로젝트/캠페인 필터만 사용합니다.
+              </p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <select
+                  className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
+                  value={projectIdInput}
+                  disabled={projectsLoading}
+                  onChange={(event) => setProjectIdInput(event.target.value)}
+                >
+                  <option value="">전체 프로젝트</option>
+                  {projectOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
+                  value={campaignIdInput}
+                  disabled={campaignsLoading}
+                  onChange={(event) => setCampaignIdInput(event.target.value)}
+                >
+                  <option value="">전체 캠페인</option>
+                  {campaignOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button intent="neutral" onClick={handleSearchApply}>
+                  필터 적용
+                </Button>
+                <Button intent="neutral" onClick={handleSearchReset}>
+                  필터 해제
+                </Button>
+              </div>
             </div>
 
-            {selectedSavedView && (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button intent="neutral" size="sm" onClick={handleUpdateSelectedView}>
-                  선택 뷰 업데이트
+            <div className="border-t border-gray-200" />
+
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-800">뷰 관리</p>
+              <p className="text-xs text-gray-600">
+                현재 필터를 뷰로 저장하면 반복 작업 시 바로 다시 적용할 수 있습니다.
+              </p>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+                <Input
+                  value={viewNameDraft}
+                  onChange={(event) => setViewNameDraft(event.target.value)}
+                  placeholder="새 뷰 이름 (예: 미루루-3월4주)"
+                />
+                <Button intent="neutral" onClick={handleCreateViewFromCurrentFilter}>
+                  새 뷰 저장
                 </Button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  intent={selectedViewId === 'DEFAULT' ? 'secondary' : 'neutral'}
+                  size="sm"
+                  onClick={() => {
+                    clearNotice();
+                    setSelectedViewId('DEFAULT');
+                    setMessage('뷰 선택을 해제했습니다.');
+                  }}
+                >
+                  뷰 선택 해제
+                </Button>
+                {selectedSavedView && (
+                  <Button intent="neutral" size="sm" onClick={handleUpdateSelectedView}>
+                    선택 뷰 업데이트
+                  </Button>
+                )}
                 <Button
                   intent="danger"
                   size="sm"
-                  onClick={() => handleDeleteSavedFilter(selectedSavedView.id)}
+                  onClick={() =>
+                    selectedSavedView ? handleDeleteSavedFilter(selectedSavedView.id) : null
+                  }
+                  disabled={!selectedSavedView}
                 >
                   선택 뷰 삭제
                 </Button>
               </div>
-            )}
 
-            <div className="space-y-2">
-              {savedFilters.length === 0 ? (
-                <p className="text-xs text-gray-500">저장된 뷰가 없습니다.</p>
-              ) : (
-                savedFilters.map((savedFilter) => (
-                  <button
-                    key={savedFilter.id}
-                    type="button"
-                    onClick={() => handleApplySavedFilter(savedFilter)}
-                    className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
-                      selectedViewId === savedFilter.id
-                        ? 'border-blue-200 bg-blue-50 text-blue-900'
-                        : 'border-gray-200 bg-white text-gray-700'
-                    }`}
-                  >
-                    <p className="font-medium">{savedFilter.name}</p>
-                    <p className="mt-1 text-[11px]">{buildFilterSummaryText(savedFilter.values)}</p>
-                  </button>
-                ))
-              )}
+              <div className="space-y-2">
+                {savedFilters.length === 0 ? (
+                  <p className="text-xs text-gray-500">저장된 뷰가 없습니다.</p>
+                ) : (
+                  savedFilters.map((savedFilter) => (
+                    <button
+                      key={savedFilter.id}
+                      type="button"
+                      onClick={() => handleApplySavedFilter(savedFilter)}
+                      className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
+                        selectedViewId === savedFilter.id
+                          ? 'border-blue-200 bg-blue-50 text-blue-900'
+                          : 'border-gray-200 bg-white text-gray-700'
+                      }`}
+                    >
+                      <p className="font-medium">{savedFilter.name}</p>
+                      <p className="mt-1 text-[11px]">
+                        {buildFilterSummaryText(savedFilter.values)}
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}
-
-        <p className="text-xs text-gray-500">
-          마지막 적용 조건은 자동 저장되며, 다음 접속 시 동일 조건으로 복원됩니다.
-        </p>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -972,23 +932,41 @@ export default function AdminProductionPage() {
           </Button>
         </div>
 
+        <div className="space-y-1 text-xs text-gray-500">
+          <p>
+            미리보기 생성: 선택 주문을 DB에 저장하지 않고, 차단 주문/수량 집계만 사전 검토합니다.
+          </p>
+          <p>
+            선택 주문으로 배치 생성: 실제 DRAFT 배치를 생성해 이후 제작중/제작 완료 전이의 기준으로 사용합니다.
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <Input
-            value={autoBatchTitle}
-            readOnly
-            placeholder="자동 생성 스냅샷 번호"
-          />
-          <Input
-            value={selectedProjectSummary}
-            readOnly
-            placeholder="선택 주문 프로젝트 요약"
-          />
-          <Textarea
-            rows={2}
-            value={batchNotes}
-            onChange={(event) => setBatchNotes(event.target.value)}
-            placeholder="배치 메모(선택)"
-          />
+          <div className="space-y-1">
+            <p className="text-xs text-gray-500">자동 스냅샷 번호</p>
+            <Input
+              value={autoBatchTitle}
+              readOnly
+              placeholder="자동 생성 스냅샷 번호"
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-gray-500">선택 주문 프로젝트 요약(자동)</p>
+            <Input
+              value={selectedProjectSummary}
+              readOnly
+              placeholder="선택 주문 없음"
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-gray-500">배치 메모(선택)</p>
+            <Textarea
+              rows={2}
+              value={batchNotes}
+              onChange={(event) => setBatchNotes(event.target.value)}
+              placeholder="배치 메모(선택)"
+            />
+          </div>
         </div>
 
         <p className="text-xs text-gray-500">
