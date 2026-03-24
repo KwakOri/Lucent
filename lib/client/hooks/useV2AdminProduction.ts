@@ -56,13 +56,20 @@ export function useV2AdminProductionBatchDetail(batchId: string | null | undefin
   });
 }
 
-export function useV2AdminProductionViews() {
+export function useV2AdminProductionViews(
+  ownerAdminId?: string | null,
+  options: { enabled?: boolean } = {},
+) {
+  const normalizedOwnerAdminId = ownerAdminId?.trim() || '';
   return useQuery({
-    queryKey: queryKeys.v2AdminOps.production.views(),
+    queryKey: queryKeys.v2AdminOps.production.views(normalizedOwnerAdminId),
     queryFn: async () => {
-      const response = await V2AdminProductionAPI.listViews();
+      const response = await V2AdminProductionAPI.listViews({
+        owner_admin_id: normalizedOwnerAdminId || undefined,
+      });
       return response.data;
     },
+    enabled: Boolean(options.enabled ?? true) && Boolean(normalizedOwnerAdminId),
   });
 }
 
@@ -127,11 +134,17 @@ export function useV2AdminCancelProductionBatch() {
   });
 }
 
-export function useV2AdminCreateProductionView() {
+export function useV2AdminCreateProductionView(ownerAdminId?: string | null) {
   const queryClient = useQueryClient();
+  const normalizedOwnerAdminId = ownerAdminId?.trim() || '';
   return useMutation({
     mutationFn: async (data: CreateV2AdminProductionSavedViewInput) => {
-      const response = await V2AdminProductionAPI.createView(data);
+      if (!normalizedOwnerAdminId) {
+        throw new Error('뷰 저장은 로그인된 관리자 계정에서만 사용할 수 있습니다.');
+      }
+      const response = await V2AdminProductionAPI.createView(data, {
+        owner_admin_id: normalizedOwnerAdminId,
+      });
       return response.data;
     },
     onSettled: async () => {
@@ -140,8 +153,9 @@ export function useV2AdminCreateProductionView() {
   });
 }
 
-export function useV2AdminUpdateProductionView() {
+export function useV2AdminUpdateProductionView(ownerAdminId?: string | null) {
   const queryClient = useQueryClient();
+  const normalizedOwnerAdminId = ownerAdminId?.trim() || '';
   return useMutation({
     mutationFn: async ({
       viewId,
@@ -150,7 +164,12 @@ export function useV2AdminUpdateProductionView() {
       viewId: string;
       data: UpdateV2AdminProductionSavedViewInput;
     }) => {
-      const response = await V2AdminProductionAPI.updateView(viewId, data);
+      if (!normalizedOwnerAdminId) {
+        throw new Error('뷰 수정은 로그인된 관리자 계정에서만 사용할 수 있습니다.');
+      }
+      const response = await V2AdminProductionAPI.updateView(viewId, data, {
+        owner_admin_id: normalizedOwnerAdminId,
+      });
       return response.data;
     },
     onSettled: async () => {
@@ -159,11 +178,17 @@ export function useV2AdminUpdateProductionView() {
   });
 }
 
-export function useV2AdminDeleteProductionView() {
+export function useV2AdminDeleteProductionView(ownerAdminId?: string | null) {
   const queryClient = useQueryClient();
+  const normalizedOwnerAdminId = ownerAdminId?.trim() || '';
   return useMutation({
     mutationFn: async (viewId: string) => {
-      const response = await V2AdminProductionAPI.deleteView(viewId);
+      if (!normalizedOwnerAdminId) {
+        throw new Error('뷰 삭제는 로그인된 관리자 계정에서만 사용할 수 있습니다.');
+      }
+      const response = await V2AdminProductionAPI.deleteView(viewId, {
+        owner_admin_id: normalizedOwnerAdminId,
+      });
       return response.data;
     },
     onSettled: async () => {

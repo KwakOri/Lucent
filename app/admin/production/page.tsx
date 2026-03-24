@@ -25,6 +25,7 @@ import {
   useV2AdminProductionViews,
   useV2AdminUpdateProductionView,
 } from '@/lib/client/hooks/useV2AdminProduction';
+import { useSession } from '@/lib/client/hooks';
 import { useV2AdminProjects, useV2Campaigns } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 function getErrorMessage(error: unknown): string {
@@ -181,6 +182,9 @@ function toFilterValueFromSavedView(
 }
 
 export default function AdminProductionPage() {
+  const { user, isLoading: sessionLoading } = useSession();
+  const ownerAdminId = user?.id || null;
+
   const initialFilterValues = useMemo(
     () => normalizeProductionFilterValues(null),
     [],
@@ -225,10 +229,12 @@ export default function AdminProductionPage() {
   const activateBatchMutation = useV2AdminActivateProductionBatch();
   const completeBatchMutation = useV2AdminCompleteProductionBatch();
   const cancelBatchMutation = useV2AdminCancelProductionBatch();
-  const productionViewsQuery = useV2AdminProductionViews();
-  const createViewMutation = useV2AdminCreateProductionView();
-  const updateViewMutation = useV2AdminUpdateProductionView();
-  const deleteViewMutation = useV2AdminDeleteProductionView();
+  const productionViewsQuery = useV2AdminProductionViews(ownerAdminId, {
+    enabled: !sessionLoading,
+  });
+  const createViewMutation = useV2AdminCreateProductionView(ownerAdminId);
+  const updateViewMutation = useV2AdminUpdateProductionView(ownerAdminId);
+  const deleteViewMutation = useV2AdminDeleteProductionView(ownerAdminId);
 
   const previewData = previewMutation.data;
   const candidateRows = useMemo(

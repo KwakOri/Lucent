@@ -164,6 +164,7 @@ export interface CreateV2AdminProductionSavedViewInput {
   filter: V2AdminProductionSavedViewFilter;
   is_default?: boolean;
   metadata?: Record<string, unknown> | null;
+  owner_admin_id?: string;
 }
 
 export interface UpdateV2AdminProductionSavedViewInput {
@@ -171,6 +172,11 @@ export interface UpdateV2AdminProductionSavedViewInput {
   filter?: V2AdminProductionSavedViewFilter;
   is_default?: boolean;
   metadata?: Record<string, unknown> | null;
+  owner_admin_id?: string;
+}
+
+export interface ProductionSavedViewOwnerParams {
+  owner_admin_id?: string;
 }
 
 function toQueryString<T extends object>(params: T) {
@@ -216,25 +222,40 @@ export const V2AdminProductionAPI = {
     return apiClient.get(`/api/v2/admin/ops/production/batches/${batchId}`);
   },
 
-  async listViews(): Promise<ApiResponse<{ items: V2AdminProductionSavedView[] }>> {
-    return apiClient.get('/api/v2/admin/ops/production/views');
+  async listViews(
+    params: ProductionSavedViewOwnerParams = {},
+  ): Promise<ApiResponse<{ items: V2AdminProductionSavedView[] }>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/ops/production/views${query}`);
   },
 
   async createView(
     data: CreateV2AdminProductionSavedViewInput,
+    params: ProductionSavedViewOwnerParams = {},
   ): Promise<ApiResponse<V2AdminProductionSavedView>> {
-    return apiClient.post('/api/v2/admin/ops/production/views', data);
+    const payload = params.owner_admin_id
+      ? { ...data, owner_admin_id: params.owner_admin_id }
+      : data;
+    return apiClient.post('/api/v2/admin/ops/production/views', payload);
   },
 
   async updateView(
     viewId: string,
     data: UpdateV2AdminProductionSavedViewInput,
+    params: ProductionSavedViewOwnerParams = {},
   ): Promise<ApiResponse<V2AdminProductionSavedView>> {
-    return apiClient.patch(`/api/v2/admin/ops/production/views/${viewId}`, data);
+    const payload = params.owner_admin_id
+      ? { ...data, owner_admin_id: params.owner_admin_id }
+      : data;
+    return apiClient.patch(`/api/v2/admin/ops/production/views/${viewId}`, payload);
   },
 
-  async deleteView(viewId: string): Promise<ApiResponse<{ id: string; deleted: boolean }>> {
-    return apiClient.delete(`/api/v2/admin/ops/production/views/${viewId}`);
+  async deleteView(
+    viewId: string,
+    params: ProductionSavedViewOwnerParams = {},
+  ): Promise<ApiResponse<{ id: string; deleted: boolean }>> {
+    const query = toQueryString(params);
+    return apiClient.delete(`/api/v2/admin/ops/production/views/${viewId}${query}`);
   },
 
   async activateBatch(
