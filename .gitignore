@@ -25,6 +25,8 @@
 *.pem
 /.vscode
 /.tmp/
+/.worktrees/
+/frontend/.worktrees/
 
 # debug
 npm-debug.log*
