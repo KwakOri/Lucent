@@ -12,6 +12,17 @@ DO $$
 DECLARE
   legacy_count INTEGER;
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'order_items'
+      AND column_name = 'item_status'
+  ) THEN
+    RAISE NOTICE 'order_items.item_status 컬럼이 없어 사전 검증 단계를 건너뜁니다';
+    RETURN;
+  END IF;
+
   SELECT COUNT(*) INTO legacy_count
   FROM order_items
   WHERE item_status::TEXT IN ('PROCESSING', 'READY', 'SHIPPED', 'DELIVERED', 'COMPLETED');
@@ -25,6 +36,17 @@ END $$;
 
 DO $$
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'order_items'
+      AND column_name = 'item_status'
+  ) THEN
+    RAISE NOTICE 'order_items.item_status 컬럼이 없어 1단계를 건너뜁니다';
+    RETURN;
+  END IF;
+
   RAISE NOTICE 'item_status를 TEXT 타입으로 임시 변환 중...';
 
   -- order_item_status → TEXT
@@ -43,6 +65,17 @@ DO $$
 DECLARE
   updated_count INTEGER := 0;
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'order_items'
+      AND column_name = 'item_status'
+  ) THEN
+    RAISE NOTICE 'order_items.item_status 컬럼이 없어 2단계를 건너뜁니다';
+    RETURN;
+  END IF;
+
   RAISE NOTICE '레거시 상태값 변환 시작...';
 
   -- 레거시 상태값 → 새 상태값 매핑
@@ -77,6 +110,17 @@ END $$;
 
 DO $$
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'order_items'
+      AND column_name = 'item_status'
+  ) THEN
+    RAISE NOTICE 'order_items.item_status 컬럼이 없어 3단계를 건너뜁니다';
+    RETURN;
+  END IF;
+
   RAISE NOTICE 'item_status를 order_status 타입으로 변환 중...';
 
   -- DEFAULT 제거 (타입 변경 전)
@@ -133,6 +177,17 @@ DECLARE
   total_items INTEGER;
   valid_statuses INTEGER;
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'order_items'
+      AND column_name = 'item_status'
+  ) THEN
+    RAISE NOTICE 'order_items.item_status 컬럼이 없어 5단계 검증을 건너뜁니다';
+    RETURN;
+  END IF;
+
   RAISE NOTICE '마이그레이션 검증 시작...';
 
   -- 전체 order_items 개수
@@ -158,6 +213,17 @@ END $$;
 -- 기존 인덱스가 자동으로 재생성되지만, 명시적으로 확인
 DO $$
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'order_items'
+      AND column_name = 'item_status'
+  ) THEN
+    RAISE NOTICE 'order_items.item_status 컬럼이 없어 6단계 인덱스 확인을 건너뜁니다';
+    RETURN;
+  END IF;
+
   -- idx_order_items_item_status 인덱스가 존재하는지 확인
   IF NOT EXISTS (
     SELECT 1
@@ -182,6 +248,17 @@ DO $$
 DECLARE
   status_distribution TEXT;
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'order_items'
+      AND column_name = 'item_status'
+  ) THEN
+    RAISE NOTICE 'order_items.item_status 컬럼이 없어 7단계 요약을 건너뜁니다';
+    RETURN;
+  END IF;
+
   RAISE NOTICE '=================================================';
   RAISE NOTICE '마이그레이션 완료 요약';
   RAISE NOTICE '=================================================';
