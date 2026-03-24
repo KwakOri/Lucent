@@ -71,6 +71,23 @@ function resolveBatchIntent(status: V2AdminProductionBatchStatus) {
   return 'default' as const;
 }
 
+function resolveBatchStatusLabel(status: string | null | undefined): string {
+  const normalized = String(status || '').toUpperCase();
+  if (normalized === 'DRAFT') {
+    return '준비중';
+  }
+  if (normalized === 'ACTIVE') {
+    return '제작중';
+  }
+  if (normalized === 'COMPLETED') {
+    return '제작 완료';
+  }
+  if (normalized === 'CANCELED') {
+    return '취소됨';
+  }
+  return status || '-';
+}
+
 function resolveTransitionIntent(status: V2AdminTransitionResult) {
   if (status === 'SUCCEEDED') {
     return 'success' as const;
@@ -260,7 +277,7 @@ export default function AdminProductionPage() {
         batchId: selectedBatchId,
         data: { reason: batchActionReason.trim() || null },
       });
-      setMessage('배치를 ACTIVE로 전환하고 주문을 제작중으로 이동했습니다.');
+      setMessage('배치를 제작중으로 전환하고 주문을 제작 단계로 이동했습니다.');
     } catch (error) {
       setError(error);
     }
@@ -564,8 +581,7 @@ export default function AdminProductionPage() {
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-gray-900">3) 제작 배치 목록/상세</h2>
           <p className="text-sm text-gray-600">
-            DRAFT - ACTIVE - COMPLETED 흐름으로 관리하며, 상세에서 전이 결과를 확인할 수
-            있습니다.
+            준비중 - 제작중 - 제작 완료 흐름으로 관리하며, 상세에서 전이 결과를 확인할 수 있습니다.
           </p>
         </div>
 
@@ -584,10 +600,10 @@ export default function AdminProductionPage() {
             }
           >
             <option value="">전체</option>
-            <option value="DRAFT">DRAFT</option>
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="COMPLETED">COMPLETED</option>
-            <option value="CANCELED">CANCELED</option>
+            <option value="DRAFT">준비중</option>
+            <option value="ACTIVE">제작중</option>
+            <option value="COMPLETED">제작 완료</option>
+            <option value="CANCELED">취소됨</option>
           </select>
         </div>
 
@@ -614,7 +630,9 @@ export default function AdminProductionPage() {
                       <p className="text-xs text-gray-500">{row.title}</p>
                     </td>
                     <td className="px-3 py-2">
-                      <Badge intent={resolveBatchIntent(row.status)}>{row.status}</Badge>
+                      <Badge intent={resolveBatchIntent(row.status)}>
+                        {resolveBatchStatusLabel(row.status)}
+                      </Badge>
                     </td>
                     <td className="px-3 py-2 text-right text-gray-700">
                       {row.order_count.toLocaleString()}
@@ -656,7 +674,7 @@ export default function AdminProductionPage() {
                         selectedBatch.status as V2AdminProductionBatchStatus,
                       )}
                     >
-                      {String(selectedBatch.status || '-')}
+                      {resolveBatchStatusLabel(String(selectedBatch.status || '-'))}
                     </Badge>
                   </div>
                 </div>
@@ -670,12 +688,12 @@ export default function AdminProductionPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   {(selectedBatch.status as V2AdminProductionBatchStatus) === 'DRAFT' && (
                     <Button onClick={handleActivateBatch} disabled={isBusy}>
-                      배치 확정(ACTIVE)
+                      배치 시작(제작중)
                     </Button>
                   )}
                   {(selectedBatch.status as V2AdminProductionBatchStatus) === 'ACTIVE' && (
                     <Button onClick={handleCompleteBatch} disabled={isBusy}>
-                      제작 완료(COMPLETED)
+                      제작 완료 처리
                     </Button>
                   )}
                   {((selectedBatch.status as V2AdminProductionBatchStatus) === 'DRAFT' ||
