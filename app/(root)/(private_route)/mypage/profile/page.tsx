@@ -15,19 +15,16 @@ import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
 import { Loading } from "@/components/ui/loading";
 import { EmptyState } from "@/components/ui/empty-state";
-import { NameInput, PhoneInput, AddressInput } from "@/components/form";
-import {
-  useProfile,
-  useRequestPhoneVerification,
-  useUpdateProfile,
-  useVerifyPhoneVerification,
-} from "@/lib/client/hooks";
+import { NameInput, AddressInput } from "@/components/form";
+import { useProfile, useUpdateProfile } from "@/lib/client/hooks";
 import { useToast } from "@/src/components/toast";
 
-const PHONE_REGEX = /^010-\d{4}-\d{4}$/;
-
-function normalizePhoneForCompare(value: string | null | undefined): string {
-  return String(value || "").replace(/[^\d+]/g, "");
+function formatPhoneDisplay(value: string | null | undefined): string {
+  const numbers = String(value || "").replace(/[^0-9]/g, "");
+  if (numbers.length === 11 && numbers.startsWith("010")) {
+    return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
+  }
+  return String(value || "");
 }
 
 export default function ProfileEditPage() {
@@ -36,23 +33,12 @@ export default function ProfileEditPage() {
 
   const { data: profile, isLoading, error } = useProfile();
   const { mutate: updateProfile, isPending: isSaving } = useUpdateProfile();
-  const {
-    mutate: requestPhoneVerification,
-    isPending: isRequestingPhoneVerification,
-  } = useRequestPhoneVerification();
-  const {
-    mutate: verifyPhoneVerification,
-    isPending: isVerifyingPhoneVerification,
-  } = useVerifyPhoneVerification();
 
   const [formData, setFormData] = useState({
     name: "",
-    phone: "",
     main_address: "",
     detail_address: "",
   });
-  const [verificationCode, setVerificationCode] = useState("");
-  const [verificationHint, setVerificationHint] = useState<string | null>(null);
 
   const [validationErrors, setValidationErrors] = useState<
     Record<string, string>
@@ -62,32 +48,21 @@ export default function ProfileEditPage() {
   const profileFormData = useMemo(
     () => ({
       name: profile?.name || "",
-      phone: profile?.phone || "",
       main_address: profile?.main_address || "",
       detail_address: profile?.detail_address || "",
     }),
     [profile],
   );
   const effectiveFormData = isDirty ? formData : profileFormData;
-  const isPhoneChanged =
-    normalizePhoneForCompare(effectiveFormData.phone) !==
-    normalizePhoneForCompare(profile?.phone);
-  const isPhoneVerified =
-    !!profile?.is_phone_verified &&
-    !isPhoneChanged &&
-    normalizePhoneForCompare(effectiveFormData.phone).length > 0;
-  const verificationStatusText = !effectiveFormData.phone.trim()
-    ? "전화번호 미입력"
-    : isPhoneVerified
-      ? "인증 완료"
-      : isPhoneChanged
-        ? "전화번호 변경됨 (재인증 필요)"
-        : "미인증";
-  const verificationStatusClassName = !effectiveFormData.phone.trim()
-    ? "text-neutral-500"
-    : isPhoneVerified
-      ? "text-emerald-600"
-      : "text-amber-600";
+  const verifiedPhone = profile?.is_phone_verified
+    ? formatPhoneDisplay(profile?.phone)
+    : "";
+  const verificationStatusText = profile?.is_phone_verified
+    ? "인증 완료"
+    : "미인증 상태";
+  const verificationStatusClassName = profile?.is_phone_verified
+    ? "text-emerald-600"
+    : "text-amber-600";
 
   // 폼 변경 감지
   const handleChange = (field: keyof typeof formData, value: string) => {
@@ -119,27 +94,6 @@ export default function ProfileEditPage() {
     return Object.keys(errors).length === 0;
   };
 
-  const validatePhoneForVerification = (): boolean => {
-    const trimmedPhone = effectiveFormData.phone.trim();
-    if (!trimmedPhone) {
-      setValidationErrors((prev) => ({
-        ...prev,
-        phone: "전화번호를 입력해주세요",
-      }));
-      return false;
-    }
-
-    if (!PHONE_REGEX.test(trimmedPhone)) {
-      setValidationErrors((prev) => ({
-        ...prev,
-        phone: "올바른 전화번호 형식이 아닙니다 (예: 010-1234-5678)",
-      }));
-      return false;
-    }
-
-    return true;
-  };
-
   // 저장
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,7 +108,6 @@ export default function ProfileEditPage() {
     updateProfile(
       {
         name: effectiveFormData.name,
-        phone: effectiveFormData.phone || null,
         main_address: effectiveFormData.main_address || null,
         detail_address: effectiveFormData.detail_address || null,
       },
@@ -185,63 +138,6 @@ export default function ProfileEditPage() {
     } else {
       router.back();
     }
-  };
-
-  const handleRequestPhoneVerification = () => {
-    if (!validatePhoneForVerification()) {
-      return;
-    }
-
-    requestPhoneVerification(
-      {
-        phone: effectiveFormData.phone,
-      },
-      {
-        onSuccess: (result) => {
-          setVerificationHint(
-            `인증 코드를 발송했습니다. 5분 이내 입력해주세요. (오늘 남은 요청 ${result.remainingRequests}회)`,
-          );
-          showToast("휴대폰 인증 코드가 발송되었습니다", { type: "success" });
-        },
-        onError: (requestError) => {
-          showToast(
-            requestError.message || "휴대폰 인증 코드 발송에 실패했습니다",
-            { type: "error" },
-          );
-        },
-      },
-    );
-  };
-
-  const handleVerifyPhone = () => {
-    if (!validatePhoneForVerification()) {
-      return;
-    }
-
-    const code = verificationCode.trim();
-    if (!/^\d{6}$/.test(code)) {
-      showToast("6자리 인증 코드를 입력해주세요", { type: "error" });
-      return;
-    }
-
-    verifyPhoneVerification(
-      {
-        code,
-        phone: effectiveFormData.phone,
-      },
-      {
-        onSuccess: () => {
-          setVerificationCode("");
-          setVerificationHint(null);
-          showToast("휴대폰 인증이 완료되었습니다", { type: "success" });
-        },
-        onError: (verifyError) => {
-          showToast(verifyError.message || "휴대폰 인증에 실패했습니다", {
-            type: "error",
-          });
-        },
-      },
-    );
   };
 
   if (isLoading) {
@@ -321,72 +217,42 @@ export default function ProfileEditPage() {
               error={validationErrors.name}
             />
 
-            {/* 전화번호 */}
-            <PhoneInput
-              id="phone"
-              value={effectiveFormData.phone}
-              onChange={(value) => handleChange("phone", value)}
-              error={validationErrors.phone}
-            />
+            {/* 전화번호 (회원정보 화면에서는 직접 수정 불가) */}
+            <FormField
+              label="전화번호"
+              htmlFor="phone"
+              help={
+                profile?.is_phone_verified
+                  ? "인증된 전화번호입니다. 변경이 필요하면 다시 인증해주세요."
+                  : "미인증 상태입니다. 아래 버튼에서 전화번호 인증을 진행해주세요."
+              }
+            >
+              <Input
+                id="phone"
+                type="tel"
+                value={
+                  profile?.is_phone_verified ? verifiedPhone : "미인증 상태"
+                }
+                readOnly
+                disabled
+                className="bg-gray-50 cursor-not-allowed"
+              />
+            </FormField>
 
             <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-text-primary">
-                    휴대폰 인증 상태
-                  </p>
-                  <p className={`text-sm ${verificationStatusClassName}`}>
-                    {verificationStatusText}
-                  </p>
-                  {verificationHint && (
-                    <p className="mt-1 text-xs text-text-secondary">
-                      {verificationHint}
-                    </p>
-                  )}
-                </div>
-                <Button
-                  type="button"
-                  intent="secondary"
-                  size="md"
-                  onClick={handleRequestPhoneVerification}
-                  disabled={isRequestingPhoneVerification}
-                >
-                  {isRequestingPhoneVerification
-                    ? "발송 중..."
-                    : "인증코드 발송"}
-                </Button>
-              </div>
-              <div className="mt-3 flex flex-col gap-2 md:flex-row">
-                <Input
-                  id="phone-verification-code"
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="인증 코드 6자리"
-                  value={verificationCode}
-                  onChange={(event) =>
-                    setVerificationCode(
-                      event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
-                    )
-                  }
-                />
-                <Button
-                  type="button"
-                  intent="primary"
-                  size="md"
-                  onClick={handleVerifyPhone}
-                  disabled={
-                    isVerifyingPhoneVerification ||
-                    verificationCode.length !== 6
-                  }
-                >
-                  {isVerifyingPhoneVerification ? "확인 중..." : "인증 확인"}
-                </Button>
-              </div>
-              <p className="mt-2 text-xs text-text-secondary">
-                인증 코드는 발송 후 5분간 유효하며, 하루 최대 5회 요청할 수
-                있습니다.
+              <p className="text-sm font-semibold text-text-primary">
+                휴대폰 인증 상태
               </p>
+              <p className={`mt-1 text-sm ${verificationStatusClassName}`}>
+                {verificationStatusText}
+              </p>
+              <div className="mt-3">
+                <Link href="/mypage/profile/phone-verification">
+                  <Button type="button" intent="secondary" size="md">
+                    전화번호 인증
+                  </Button>
+                </Link>
+              </div>
             </div>
 
             {/* 주소 */}
