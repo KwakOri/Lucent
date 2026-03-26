@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -95,17 +95,97 @@ function resolveBatchStatusLabel(status: string | null | undefined): string {
   return status || '-';
 }
 
-function resolveTransitionIntent(status: V2AdminTransitionResult) {
-  if (status === 'SUCCEEDED') {
-    return 'success' as const;
-  }
+function resolveTransitionDescription(
+  status: V2AdminTransitionResult,
+  mode: 'activate' | 'complete',
+  errorMessage?: string | null,
+): string | null {
   if (status === 'FAILED') {
-    return 'error' as const;
+    return errorMessage || '상태 전이 중 오류가 발생했습니다.';
   }
-  if (status === 'PENDING') {
-    return 'warning' as const;
+  if (status === 'SKIPPED') {
+    if (mode === 'complete') {
+      return '이미 배송 대기 상태여서 변경 없이 처리되었습니다.';
+    }
+    return '이미 해당 단계가 반영되어 변경 없이 처리되었습니다.';
   }
-  return 'default' as const;
+  return null;
+}
+
+function resolveProductionOrderState(row: {
+  transition_activate_status: V2AdminTransitionResult;
+  transition_complete_status: V2AdminTransitionResult;
+  error_message: string | null;
+}): {
+  label: string;
+  intent: 'default' | 'warning' | 'success' | 'error';
+  description: string | null;
+} {
+  if (row.transition_complete_status === 'FAILED') {
+    return {
+      label: '제작 완료 실패',
+      intent: 'error',
+      description: resolveTransitionDescription(
+        row.transition_complete_status,
+        'complete',
+        row.error_message,
+      ),
+    };
+  }
+
+  if (row.transition_activate_status === 'FAILED') {
+    return {
+      label: '제작 시작 실패',
+      intent: 'error',
+      description: resolveTransitionDescription(
+        row.transition_activate_status,
+        'activate',
+        row.error_message,
+      ),
+    };
+  }
+
+  if (
+    row.transition_complete_status === 'SUCCEEDED' ||
+    row.transition_complete_status === 'SKIPPED'
+  ) {
+    return {
+      label: '제작 완료',
+      intent: 'success',
+      description:
+        row.transition_complete_status === 'SKIPPED'
+          ? resolveTransitionDescription(
+              row.transition_complete_status,
+              'complete',
+              row.error_message,
+            )
+          : null,
+    };
+  }
+
+  if (
+    row.transition_activate_status === 'SUCCEEDED' ||
+    row.transition_activate_status === 'SKIPPED'
+  ) {
+    return {
+      label: '제작중',
+      intent: 'warning',
+      description:
+        row.transition_activate_status === 'SKIPPED'
+          ? resolveTransitionDescription(
+              row.transition_activate_status,
+              'activate',
+              row.error_message,
+            )
+          : null,
+    };
+  }
+
+  return {
+    label: '제작 대기',
+    intent: 'default',
+    description: null,
+  };
 }
 
 function resolveComposition(row: {
@@ -144,6 +224,10 @@ function buildProjectSummary(projectNames: string[]): string {
     return unique[0];
   }
   return `${unique[0]} 외 ${unique.length - 1}`;
+}
+
+function buildSelectionKey(orderIds: string[]): string {
+  return orderIds.slice().sort().join(',');
 }
 
 type ProductionCandidateFilterValue = {
@@ -204,6 +288,9 @@ export default function AdminProductionPage() {
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [batchNotes, setBatchNotes] = useState('');
+  const [previewSelectionKey, setPreviewSelectionKey] = useState('');
+  const [previewErrorMessage, setPreviewErrorMessage] = useState<string | null>(null);
+  const autoPreviewRequestedKeyRef = useRef('');
 
   const [batchStatusFilter, setBatchStatusFilter] =
     useState<V2AdminProductionBatchStatus | ''>('');
@@ -237,6 +324,14 @@ export default function AdminProductionPage() {
   const deleteViewMutation = useV2AdminDeleteProductionView(ownerAdminId);
 
   const previewData = previewMutation.data;
+  const currentSelectionKey = useMemo(
+    () => buildSelectionKey(selectedOrderIds),
+    [selectedOrderIds],
+  );
+  const hasFreshPreview =
+    currentSelectionKey.length > 0 &&
+    previewSelectionKey.length > 0 &&
+    currentSelectionKey === previewSelectionKey;
   const candidateRows = useMemo(
     () => candidatesQuery.data?.items || [],
     [candidatesQuery.data?.items],
@@ -327,7 +422,6 @@ export default function AdminProductionPage() {
     selectedOrderIds.length === allCandidateIds.length;
 
   const isBusy =
-    previewMutation.isPending ||
     createBatchMutation.isPending ||
     activateBatchMutation.isPending ||
     completeBatchMutation.isPending ||
@@ -340,19 +434,27 @@ export default function AdminProductionPage() {
     return {
       candidateCount: candidateRows.length,
       selectedCount: selectedOrderIds.length,
-      previewValidCount: previewData?.valid_order_count || 0,
-      previewBlockedCount: previewData?.blocked_order_count || 0,
+      previewValidCount:
+        hasFreshPreview && previewData ? previewData.valid_order_count : 0,
+      previewBlockedCount:
+        hasFreshPreview && previewData ? previewData.blocked_order_count : 0,
       activeBatchCount:
         (batchesQuery.data?.items || []).filter((row) => row.status === 'ACTIVE')
           .length || 0,
     };
-  }, [candidateRows.length, selectedOrderIds.length, previewData, batchesQuery.data?.items]);
+  }, [
+    batchesQuery.data?.items,
+    candidateRows.length,
+    hasFreshPreview,
+    previewData,
+    selectedOrderIds.length,
+  ]);
 
   const workflowGuideSteps = useMemo(() => {
     const hasAppliedView =
       selectedViewId !== 'DEFAULT' || Boolean(projectId || campaignId);
     const hasOrderSelection = selectedOrderIds.length > 0;
-    const hasPreview = Boolean(previewData);
+    const hasBatchCreated = Boolean(selectedBatch?.id);
     const hasTransitionStarted =
       (selectedBatch?.status as V2AdminProductionBatchStatus | undefined) === 'ACTIVE' ||
       (selectedBatch?.status as V2AdminProductionBatchStatus | undefined) === 'COMPLETED';
@@ -377,13 +479,13 @@ export default function AdminProductionPage() {
           : '체크박스로 주문을 선택하세요.',
       },
       {
-        key: 'snapshot',
-        title: '3. 스냅샷 생성',
-        description: '미리보기로 수량을 점검한 뒤 배치(YYMMDD순번)를 생성합니다.',
-        done: hasPreview,
-        hint: hasPreview
-          ? '미리보기가 준비되어 수량 검증이 가능합니다.'
-          : '미리보기 생성을 먼저 실행하세요.',
+        key: 'batch',
+        title: '3. 배치 생성',
+        description: '선택한 주문을 스냅샷으로 저장해 DRAFT 배치를 생성합니다.',
+        done: hasBatchCreated,
+        hint: hasBatchCreated
+          ? '배치가 생성되어 상세 확인/전이가 가능합니다.'
+          : '주문을 선택한 뒤 배치 생성을 실행하세요.',
       },
       {
         key: 'transition',
@@ -397,12 +499,49 @@ export default function AdminProductionPage() {
     ] as const;
   }, [
     campaignId,
-    previewData,
     projectId,
+    selectedBatch?.id,
     selectedBatch?.status,
     selectedOrderIds.length,
     selectedViewId,
   ]);
+
+  useEffect(() => {
+    if (selectedOrderIds.length === 0) {
+      previewMutation.reset();
+      autoPreviewRequestedKeyRef.current = '';
+      return;
+    }
+
+    const requestSelectionKey = buildSelectionKey(selectedOrderIds);
+    if (!requestSelectionKey) {
+      previewMutation.reset();
+      autoPreviewRequestedKeyRef.current = '';
+      return;
+    }
+    if (autoPreviewRequestedKeyRef.current === requestSelectionKey) {
+      return;
+    }
+    autoPreviewRequestedKeyRef.current = requestSelectionKey;
+
+    const timeoutId = setTimeout(() => {
+      previewMutation.mutate(
+        { order_ids: selectedOrderIds },
+        {
+          onSuccess: () => {
+            setPreviewSelectionKey(requestSelectionKey);
+            setPreviewErrorMessage(null);
+          },
+          onError: (error) => {
+            setPreviewSelectionKey('');
+            setPreviewErrorMessage(getErrorMessage(error));
+          },
+        },
+      );
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [previewMutation, selectedOrderIds]);
 
   const currentFilterInputValue: ProductionCandidateFilterValue = {
     projectId: projectIdInput,
@@ -416,7 +555,8 @@ export default function AdminProductionPage() {
     setProjectId(values.projectId);
     setCampaignId(values.campaignId);
     setSelectedOrderIds([]);
-    previewMutation.reset();
+    setPreviewSelectionKey('');
+    setPreviewErrorMessage(null);
   };
 
   const buildFilterSummaryText = (values: ProductionCandidateFilterValue): string => {
@@ -445,6 +585,7 @@ export default function AdminProductionPage() {
   };
 
   const toggleOrderSelection = (orderId: string) => {
+    setPreviewErrorMessage(null);
     setSelectedOrderIds((prev) => {
       if (prev.includes(orderId)) {
         return prev.filter((id) => id !== orderId);
@@ -454,6 +595,7 @@ export default function AdminProductionPage() {
   };
 
   const toggleSelectAll = () => {
+    setPreviewErrorMessage(null);
     if (allChecked) {
       setSelectedOrderIds([]);
       return;
@@ -551,21 +693,6 @@ export default function AdminProductionPage() {
     }
   };
 
-  const handlePreview = async () => {
-    clearNotice();
-    if (selectedOrderIds.length === 0) {
-      setErrorMessage('미리보기할 주문을 먼저 선택해 주세요.');
-      return;
-    }
-
-    try {
-      await previewMutation.mutateAsync({ order_ids: selectedOrderIds });
-      setMessage('제작 배치 미리보기를 생성했습니다.');
-    } catch (error) {
-      setError(error);
-    }
-  };
-
   const handleCreateBatch = async () => {
     clearNotice();
     if (selectedOrderIds.length === 0) {
@@ -586,7 +713,6 @@ export default function AdminProductionPage() {
 
       setBatchNotes('');
       setSelectedOrderIds([]);
-      previewMutation.reset();
       const createdTitle =
         typeof created.batch?.title === 'string' ? created.batch.title : autoBatchTitle;
       setMessage(`제작 배치를 생성했습니다. (${createdTitle})`);
@@ -705,7 +831,7 @@ export default function AdminProductionPage() {
           </p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">미리보기 통과</p>
+          <p className="text-xs text-gray-500">자동 검증 통과</p>
           <p className="mt-1 text-2xl font-semibold text-gray-900">
             {summary.previewValidCount}
           </p>
@@ -722,8 +848,8 @@ export default function AdminProductionPage() {
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-gray-900">1) 제작 후보 주문 선택</h2>
           <p className="text-sm text-gray-600">
-            PAYMENT_CONFIRMED 주문만 표시됩니다. 선택한 주문으로 제작 배치 미리보기와
-            생성을 진행합니다.
+            PAYMENT_CONFIRMED 주문만 표시됩니다. 선택 즉시 자동 검증이 실행되며, 문제 없으면
+            바로 배치를 생성할 수 있습니다.
           </p>
         </div>
 
@@ -879,14 +1005,6 @@ export default function AdminProductionPage() {
             {allChecked ? '전체 해제' : '전체 선택'}
           </Button>
           <Button
-            intent="neutral"
-            size="sm"
-            onClick={handlePreview}
-            disabled={selectedOrderIds.length === 0 || isBusy}
-          >
-            미리보기 생성
-          </Button>
-          <Button
             size="sm"
             onClick={handleCreateBatch}
             disabled={selectedOrderIds.length === 0 || isBusy}
@@ -895,13 +1013,21 @@ export default function AdminProductionPage() {
           </Button>
         </div>
 
-        <div className="space-y-1 text-xs text-gray-500">
-          <p>
-            미리보기 생성: 선택 주문을 DB에 저장하지 않고, 차단 주문/수량 집계만 사전 검토합니다.
-          </p>
-          <p>
-            선택 주문으로 배치 생성: 실제 DRAFT 배치를 생성해 이후 제작중/제작 완료 전이의 기준으로 사용합니다.
-          </p>
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+          {selectedOrderIds.length === 0 ? (
+            <p>주문을 선택하면 수량/차단 조건을 자동으로 검증합니다.</p>
+          ) : previewMutation.isPending ? (
+            <p>선택 주문을 자동 검증 중입니다...</p>
+          ) : previewErrorMessage ? (
+            <p className="text-red-600">자동 검증 실패: {previewErrorMessage}</p>
+          ) : hasFreshPreview ? (
+            <p>
+              자동 검증 결과: 통과 {summary.previewValidCount}건 · 차단 {summary.previewBlockedCount}
+              건
+            </p>
+          ) : (
+            <p>자동 검증 결과를 준비하고 있습니다.</p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
@@ -1001,88 +1127,7 @@ export default function AdminProductionPage() {
 
       <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-gray-900">2) 배치 미리보기</h2>
-          <p className="text-sm text-gray-600">
-            옵션(variant) 단위 수량 집계를 확인하고, 차단 주문 여부를 먼저 확인하세요.
-          </p>
-        </div>
-
-        {!previewData ? (
-          <EmptyState
-            title="아직 미리보기가 없습니다."
-            description="후보 주문을 선택한 뒤 미리보기 생성을 실행해 주세요."
-          />
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <div className="rounded-lg border border-gray-200 p-3">
-                <p className="text-xs text-gray-500">요청 주문</p>
-                <p className="text-xl font-semibold text-gray-900">
-                  {previewData.requested_order_count}
-                </p>
-              </div>
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                <p className="text-xs text-emerald-600">통과 주문</p>
-                <p className="text-xl font-semibold text-emerald-700">
-                  {previewData.valid_order_count}
-                </p>
-              </div>
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                <p className="text-xs text-red-600">차단 주문</p>
-                <p className="text-xl font-semibold text-red-700">
-                  {previewData.blocked_order_count}
-                </p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">상품</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">옵션</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-600">수량 합</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-600">
-                      주문 건수
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {(previewData.aggregates || []).map((row, index) => (
-                    <tr key={`${row.variant_id || 'no-variant'}-${index}`}>
-                      <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.variant_name || '-'}</td>
-                      <td className="px-3 py-2 text-right text-gray-700">
-                        {row.quantity_total.toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 text-right text-gray-700">
-                        {row.order_count.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {(previewData.blocked_rows || []).length > 0 && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                <p className="text-sm font-medium text-red-700">차단 주문</p>
-                <ul className="mt-2 space-y-1 text-sm text-red-700">
-                  {previewData.blocked_rows.map((row) => (
-                    <li key={`${row.order_id}-${row.reason}`}>
-                      {row.order_no || row.order_id}: {row.reason}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-gray-900">3) 제작 배치 목록/상세</h2>
+          <h2 className="text-lg font-semibold text-gray-900">2) 제작 배치 목록/상세</h2>
           <p className="text-sm text-gray-600">
             준비중 - 제작중 - 제작 완료 흐름으로 관리하며, 상세에서 전이 결과를 확인할 수 있습니다.
           </p>
@@ -1224,30 +1269,41 @@ export default function AdminProductionPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium text-gray-600">주문번호</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">
-                      Activate
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">
-                      Complete
-                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">상태</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
-                  {(detail.orders || []).map((row) => (
-                    <tr key={row.id}>
-                      <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
-                      <td className="px-3 py-2">
-                        <Badge intent={resolveTransitionIntent(row.transition_activate_status)}>
-                          {row.transition_activate_status}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge intent={resolveTransitionIntent(row.transition_complete_status)}>
-                          {row.transition_complete_status}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
+                  {(detail.orders || []).map((row) => {
+                    const productionState = resolveProductionOrderState({
+                      transition_activate_status: row.transition_activate_status,
+                      transition_complete_status: row.transition_complete_status,
+                      error_message: row.error_message,
+                    });
+
+                    return (
+                      <tr key={row.id}>
+                        <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex flex-col gap-1">
+                            <Badge intent={productionState.intent}>
+                              {productionState.label}
+                            </Badge>
+                            {productionState.description && (
+                              <p
+                                className={
+                                  productionState.intent === 'error'
+                                    ? 'text-xs text-red-600'
+                                    : 'text-xs text-gray-500'
+                                }
+                              >
+                                {productionState.description}
+                              </p>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

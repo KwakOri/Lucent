@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -115,9 +115,22 @@ function resolveTransitionLabel(status: V2AdminTransitionResult): string {
     return '실패';
   }
   if (status === 'SKIPPED') {
-    return '건너뜀';
+    return '이미 반영';
   }
   return '대기';
+}
+
+function resolveTransitionDescription(
+  status: V2AdminTransitionResult,
+  fallbackMessage?: string | null,
+): string | null {
+  if (status === 'FAILED') {
+    return fallbackMessage || '상태 전이 중 오류가 발생했습니다.';
+  }
+  if (status === 'SKIPPED') {
+    return '이미 해당 단계가 반영되어 변경 없이 처리되었습니다.';
+  }
+  return null;
 }
 
 function resolveComposition(row: {
@@ -151,12 +164,80 @@ function readSnapshotText(snapshot: Record<string, unknown> | null, key: string)
   return value.trim();
 }
 
+function readFirstSnapshotText(
+  snapshot: Record<string, unknown> | null,
+  keys: string[],
+): string {
+  for (const key of keys) {
+    const value = readSnapshotText(snapshot, key);
+    if (value.length > 0) {
+      return value;
+    }
+  }
+  return '';
+}
+
 function buildAddressText(snapshot: Record<string, unknown> | null): string {
   const keys = ['line1', 'line2', 'address', 'address1', 'address_1', 'road_address'];
   const values = keys
     .map((key) => readSnapshotText(snapshot, key))
     .filter((value) => value.length > 0);
   return values.join(' ').trim();
+}
+
+function resolvePostalCode(snapshot: Record<string, unknown> | null): string {
+  return readFirstSnapshotText(snapshot, [
+    'postal_code',
+    'postalCode',
+    'zipcode',
+    'zip_code',
+    'zip',
+  ]);
+}
+
+function resolveAddressLine1(snapshot: Record<string, unknown> | null): string {
+  const line1 = readFirstSnapshotText(snapshot, [
+    'road_address',
+    'address',
+    'address1',
+    'address_1',
+    'line1',
+  ]);
+  if (line1.length > 0) {
+    return line1;
+  }
+  return buildAddressText(snapshot);
+}
+
+function resolveAddressLine2(snapshot: Record<string, unknown> | null): string {
+  return readFirstSnapshotText(snapshot, [
+    'line2',
+    'address2',
+    'address_2',
+    'detail_address',
+    'detail',
+  ]);
+}
+
+function formatPhoneNumber(phone: string | null | undefined): string {
+  const raw = String(phone || '').trim();
+  if (!raw) {
+    return '';
+  }
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 11) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10 && digits.startsWith('02')) {
+    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 9 && digits.startsWith('02')) {
+    return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+  }
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return raw;
 }
 
 function formatAutoBatchTitleDate(date: Date): string {
@@ -175,6 +256,10 @@ function buildProjectSummary(projectNames: string[]): string {
     return unique[0];
   }
   return `${unique[0]} 외 ${unique.length - 1}`;
+}
+
+function buildSelectionKey(orderIds: string[]): string {
+  return orderIds.slice().sort().join(',');
 }
 
 function readLineItemText(item: Record<string, unknown>, keys: string[]): string {
@@ -293,6 +378,26 @@ type PackageDraftRow = {
   notes: string;
 };
 
+const POST_OFFICE_EXCEL_HEADERS = [
+  '받는 분',
+  '우편번호',
+  '주소(시도+시군구+도로명+건물번호)',
+  '상세주소(동, 호수, 洞명칭, 아파트, 건물명 등)',
+  '일반전화(02-1234-5678)',
+  '휴대전화(010-1234-5678)',
+  '중량(kg)',
+  '부피(cm)=가로+세로+높이',
+  '내용품코드',
+  '내용물',
+  '배달방식',
+  '배송시요청사항',
+  '분할접수 여부(Y/N)',
+  '분할접수 첫번째 중량(kg)',
+  '분할접수 첫번째 부피(cm)',
+  '분할접수 두번째 중량(kg)',
+  '분할접수 두번째 부피(cm)',
+] as const;
+
 function isSameFilterValues(
   left: ShippingCandidateFilterValue,
   right: ShippingCandidateFilterValue,
@@ -392,11 +497,15 @@ export default function AdminShippingPage() {
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [batchNotes, setBatchNotes] = useState('');
+  const [previewSelectionKey, setPreviewSelectionKey] = useState('');
+  const [previewErrorMessage, setPreviewErrorMessage] = useState<string | null>(null);
+  const autoPreviewRequestedKeyRef = useRef('');
 
   const [batchStatusFilter, setBatchStatusFilter] =
     useState<V2AdminShippingBatchStatus | ''>('');
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [batchActionReason, setBatchActionReason] = useState('');
+  const [isExcelDownloading, setIsExcelDownloading] = useState(false);
 
   const [packageDrafts, setPackageDrafts] = useState<Record<string, PackageDraftRow>>({});
 
@@ -446,6 +555,14 @@ export default function AdminShippingPage() {
     const candidateIdSet = new Set(allCandidateIds);
     return selectedOrderIds.filter((orderId) => candidateIdSet.has(orderId));
   }, [allCandidateIds, selectedOrderIds]);
+  const currentSelectionKey = useMemo(
+    () => buildSelectionKey(selectedOrderIdsInView),
+    [selectedOrderIdsInView],
+  );
+  const hasFreshPreview =
+    currentSelectionKey.length > 0 &&
+    previewSelectionKey.length > 0 &&
+    currentSelectionKey === previewSelectionKey;
   const detail = batchDetailQuery.data;
   const selectedBatch = detail?.batch || null;
 
@@ -527,7 +644,6 @@ export default function AdminShippingPage() {
     selectedOrderIdsInView.length === allCandidateIds.length;
 
   const isBusy =
-    previewMutation.isPending ||
     createBatchMutation.isPending ||
     activateBatchMutation.isPending ||
     savePackagesMutation.isPending ||
@@ -583,13 +699,22 @@ export default function AdminShippingPage() {
     return {
       candidateCount: candidateRows.length,
       selectedCount: selectedOrderIdsInView.length,
-      previewValidCount: previewData?.valid_order_count || 0,
+      previewValidCount:
+        hasFreshPreview && previewData ? previewData.valid_order_count : 0,
+      previewBlockedCount:
+        hasFreshPreview && previewData ? previewData.blocked_order_count : 0,
       activeBatchCount:
         (batchesQuery.data?.items || []).filter(
           (row) => row.status === 'ACTIVE' || row.status === 'DISPATCHED',
         ).length || 0,
     };
-  }, [candidateRows.length, selectedOrderIdsInView.length, previewData, batchesQuery.data?.items]);
+  }, [
+    batchesQuery.data?.items,
+    candidateRows.length,
+    hasFreshPreview,
+    previewData,
+    selectedOrderIdsInView.length,
+  ]);
 
   const workflowGuideSteps = useMemo(() => {
     const hasAppliedView =
@@ -666,6 +791,43 @@ export default function AdminShippingPage() {
     );
   }, [savedFilters]);
 
+  useEffect(() => {
+    if (selectedOrderIdsInView.length === 0) {
+      previewMutation.reset();
+      autoPreviewRequestedKeyRef.current = '';
+      return;
+    }
+
+    const requestSelectionKey = buildSelectionKey(selectedOrderIdsInView);
+    if (!requestSelectionKey) {
+      previewMutation.reset();
+      autoPreviewRequestedKeyRef.current = '';
+      return;
+    }
+    if (autoPreviewRequestedKeyRef.current === requestSelectionKey) {
+      return;
+    }
+    autoPreviewRequestedKeyRef.current = requestSelectionKey;
+
+    const timeoutId = setTimeout(() => {
+      previewMutation.mutate(
+        { order_ids: selectedOrderIdsInView },
+        {
+          onSuccess: () => {
+            setPreviewSelectionKey(requestSelectionKey);
+            setPreviewErrorMessage(null);
+          },
+          onError: (error) => {
+            setPreviewSelectionKey('');
+            setPreviewErrorMessage(getErrorMessage(error));
+          },
+        },
+      );
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [previewMutation, selectedOrderIdsInView]);
+
   const currentFilterInputValue: ShippingCandidateFilterValue = {
     keyword: keywordInput.trim(),
     projectId: projectIdInput,
@@ -687,7 +849,9 @@ export default function AdminShippingPage() {
     setDateFrom(values.dateFrom);
     setDateTo(values.dateTo);
     setSelectedOrderIds([]);
-    previewMutation.reset();
+    setPreviewSelectionKey('');
+    setPreviewErrorMessage(null);
+    autoPreviewRequestedKeyRef.current = '';
   };
 
   const persistLastFilter = (values: ShippingCandidateFilterValue) => {
@@ -712,6 +876,11 @@ export default function AdminShippingPage() {
     return `${projectLabel} · ${campaignLabel} · ${dateLabel} · 검색:${keywordLabel}`;
   };
 
+  const appliedFilterSummaryText =
+    !keyword && !projectId && !campaignId && !dateFrom && !dateTo
+      ? '설정된 필터 없음'
+      : buildFilterSummaryText({ keyword, projectId, campaignId, dateFrom, dateTo });
+
   const setError = (error: unknown) => {
     setMessage(null);
     setErrorMessage(getErrorMessage(error));
@@ -723,6 +892,7 @@ export default function AdminShippingPage() {
   };
 
   const toggleOrderSelection = (orderId: string) => {
+    setPreviewErrorMessage(null);
     setSelectedOrderIds((prev) => {
       if (prev.includes(orderId)) {
         return prev.filter((id) => id !== orderId);
@@ -732,6 +902,7 @@ export default function AdminShippingPage() {
   };
 
   const toggleSelectAll = () => {
+    setPreviewErrorMessage(null);
     if (allChecked) {
       setSelectedOrderIds([]);
       return;
@@ -778,8 +949,14 @@ export default function AdminShippingPage() {
       return;
     }
 
+    const usedIds = new Set(savedFilters.map((row) => row.id));
+    let nextSequence = savedFilters.length + 1;
+    while (usedIds.has(`view-${nextSequence}`)) {
+      nextSequence += 1;
+    }
+
     const nextFilter: SavedShippingCandidateFilter = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: `view-${nextSequence}`,
       name: viewNameDraft.trim(),
       createdAt: new Date().toISOString(),
       values: currentFilterInputValue,
@@ -821,25 +998,12 @@ export default function AdminShippingPage() {
   };
 
   const handleDeleteSavedFilter = (filterId: string) => {
+    clearNotice();
     setSavedFilters((prev) => prev.filter((row) => row.id !== filterId));
     if (selectedViewId === filterId) {
       setSelectedViewId('DEFAULT');
     }
-  };
-
-  const handlePreview = async () => {
-    clearNotice();
-    if (selectedOrderIdsInView.length === 0) {
-      setErrorMessage('미리보기할 주문을 먼저 선택해 주세요.');
-      return;
-    }
-
-    try {
-      await previewMutation.mutateAsync({ order_ids: selectedOrderIdsInView });
-      setMessage('출고 리스트 미리보기를 생성했습니다.');
-    } catch (error) {
-      setError(error);
-    }
+    setMessage('선택한 뷰를 삭제했습니다.');
   };
 
   const handleCreateBatch = async () => {
@@ -866,7 +1030,9 @@ export default function AdminShippingPage() {
 
       setBatchNotes('');
       setSelectedOrderIds([]);
-      previewMutation.reset();
+      setPreviewSelectionKey('');
+      setPreviewErrorMessage(null);
+      autoPreviewRequestedKeyRef.current = '';
 
       const createdTitle =
         typeof created.batch?.title === 'string' ? created.batch.title : autoBatchTitle;
@@ -1018,8 +1184,123 @@ export default function AdminShippingPage() {
   };
 
   const handlePrintShippingList = () => {
-    if (typeof window !== 'undefined') {
-      window.print();
+    if (!selectedBatchId || typeof window === 'undefined') {
+      return;
+    }
+
+    const previousIframe = document.getElementById(
+      'lucent-shipping-print-iframe',
+    ) as HTMLIFrameElement | null;
+    if (previousIframe) {
+      previousIframe.remove();
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'lucent-shipping-print-iframe';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+    iframe.src = `/admin/shipping/print/${selectedBatchId}?autoprint=1&embedded=1&t=${Date.now()}`;
+
+    iframe.onload = () => {
+      const cleanup = () => {
+        window.setTimeout(() => {
+          iframe.remove();
+        }, 300);
+      };
+      iframe.contentWindow?.addEventListener('afterprint', cleanup, { once: true });
+    };
+
+    document.body.appendChild(iframe);
+
+    window.setTimeout(() => {
+      iframe.remove();
+    }, 120000);
+  };
+
+  const handleDownloadPostOfficeExcel = async () => {
+    if (!detail || (detail.orders || []).length === 0) {
+      setErrorMessage('다운로드할 배송 스냅샷 주문이 없습니다.');
+      return;
+    }
+
+    setErrorMessage(null);
+    setMessage(null);
+    setIsExcelDownloading(true);
+    try {
+      const XLSX = await import('xlsx');
+      const rows = (detail.orders || []).map((order) => {
+        const snapshot = order.shipping_address_snapshot as Record<string, unknown> | null;
+        const phone = formatPhoneNumber(order.recipient_phone || '');
+        const isLandline = phone.startsWith('02-');
+        const lineItems = summarizeLineItems(
+          order.line_items_snapshot as Array<Record<string, unknown>> | null,
+        );
+        const contentText = lineItems.details === '-' ? '굿즈' : lineItems.details;
+
+        return [
+          order.recipient_name || '',
+          resolvePostalCode(snapshot),
+          resolveAddressLine1(snapshot),
+          resolveAddressLine2(snapshot),
+          isLandline ? phone : '',
+          isLandline ? '' : phone,
+          '3',
+          '80',
+          '의류/패션잡화',
+          contentText,
+          '',
+          '',
+          'N',
+          '',
+          '',
+          '',
+          '',
+        ];
+      });
+
+      const sheet = XLSX.utils.aoa_to_sheet([POST_OFFICE_EXCEL_HEADERS, ...rows]);
+      sheet['!cols'] = [
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 34 },
+        { wch: 32 },
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 10 },
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 50 },
+        { wch: 12 },
+        { wch: 24 },
+        { wch: 12 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 20 },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, sheet, '창구소포 파일접수양식');
+
+      const safeBatchNo = String(selectedBatch?.batch_no || 'shipping_batch').replace(
+        /[^A-Za-z0-9_-]/g,
+        '_',
+      );
+      XLSX.writeFile(workbook, `${safeBatchNo}_우체국접수양식.xls`, {
+        bookType: 'biff8',
+      });
+
+      setMessage(`우체국 접수 양식 엑셀을 생성했습니다. (${rows.length}건)`);
+    } catch (error) {
+      setError(error);
+    } finally {
+      setIsExcelDownloading(false);
     }
   };
 
@@ -1079,7 +1360,7 @@ export default function AdminShippingPage() {
           <p className="mt-1 text-2xl font-semibold text-gray-900">{summary.selectedCount}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">미리보기 통과</p>
+          <p className="text-xs text-gray-500">자동 검증 통과</p>
           <p className="mt-1 text-2xl font-semibold text-gray-900">
             {summary.previewValidCount}
           </p>
@@ -1096,158 +1377,163 @@ export default function AdminShippingPage() {
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-gray-900">1) 출고 후보 주문 선택</h2>
           <p className="text-sm text-gray-600">
-            배송 대기(READY_TO_SHIP) 주문만 표시됩니다. 반복 조건을 뷰로 저장해 빠르게 같은
-            목록을 다시 불러올 수 있습니다.
+            배송 대기(READY_TO_SHIP) 주문만 표시됩니다. 주문 선택 즉시 자동 검증이 실행되며,
+            반복 조건은 뷰로 저장해 재사용할 수 있습니다.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            intent={selectedViewId === 'DEFAULT' ? 'secondary' : 'neutral'}
-            onClick={() => {
-              const defaultFilter: ShippingCandidateFilterValue = {
-                keyword: '',
-                projectId: '',
-                campaignId: '',
-                dateFrom: '',
-                dateTo: '',
-              };
-              clearNotice();
-              applyFilterValues(defaultFilter);
-              persistLastFilter(defaultFilter);
-              setSelectedViewId('DEFAULT');
-            }}
-          >
-            전체 뷰
-          </Button>
-          {savedFilters.map((savedFilter) => (
-            <Button
-              key={savedFilter.id}
-              intent={selectedViewId === savedFilter.id ? 'secondary' : 'neutral'}
-              onClick={() => handleApplySavedFilter(savedFilter)}
-            >
-              {savedFilter.name}
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <p className="text-xs text-gray-500">설정된 뷰</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {selectedSavedView?.name || '설정된 뷰 없음'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">설정된 필터</p>
+                <p className="text-sm font-medium text-gray-900">{appliedFilterSummaryText}</p>
+              </div>
+            </div>
+            <Button intent="neutral" onClick={() => setIsViewManagerOpen((prev) => !prev)}>
+              {isViewManagerOpen ? '뷰 관리 닫기' : '뷰 관리 열기'}
             </Button>
-          ))}
-          <Button intent="neutral" onClick={() => setIsViewManagerOpen((prev) => !prev)}>
-            {isViewManagerOpen ? '뷰 관리 닫기' : '뷰 관리'}
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
-          <Input
-            value={keywordInput}
-            onChange={(event) => setKeywordInput(event.target.value)}
-            placeholder="주문번호/입금자명/프로젝트/캠페인"
-            className="md:col-span-2"
-          />
-          <select
-            className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-            value={projectIdInput}
-            disabled={projectsLoading}
-            onChange={(event) => setProjectIdInput(event.target.value)}
-          >
-            <option value="">전체 프로젝트</option>
-            {projectOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-            value={campaignIdInput}
-            disabled={campaignsLoading}
-            onChange={(event) => setCampaignIdInput(event.target.value)}
-          >
-            <option value="">전체 캠페인</option>
-            {campaignOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <Input
-            type="date"
-            value={dateFromInput}
-            onChange={(event) => setDateFromInput(event.target.value)}
-          />
-          <Input
-            type="date"
-            value={dateToInput}
-            onChange={(event) => setDateToInput(event.target.value)}
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button intent="neutral" onClick={handleSearchApply}>
-            검색 적용
-          </Button>
-          <Button intent="neutral" onClick={handleSearchReset}>
-            필터 초기화
-          </Button>
+          </div>
         </div>
 
         {isViewManagerOpen && (
           <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <p className="text-sm font-medium text-gray-800">뷰 관리</p>
-            <p className="text-xs text-gray-600">
-              반복되는 프로젝트/캠페인 조건을 저장해 두면, 다음 출고 묶음 생성 때 바로 재사용할
-              수 있습니다.
-            </p>
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
-              <Input
-                value={viewNameDraft}
-                onChange={(event) => setViewNameDraft(event.target.value)}
-                placeholder="새 뷰 이름 (예: 미루루-3월4주 출고)"
-              />
-              <Button intent="neutral" onClick={handleCreateViewFromCurrentFilter}>
-                새 뷰 저장
-              </Button>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-800">필터 관리</p>
+              <p className="text-xs text-gray-600">
+                배송 후보 조회는 키워드/프로젝트/캠페인/기간 필터를 함께 사용할 수 있습니다.
+              </p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
+                <Input
+                  value={keywordInput}
+                  onChange={(event) => setKeywordInput(event.target.value)}
+                  placeholder="주문번호/입금자명/프로젝트/캠페인"
+                  className="md:col-span-2"
+                />
+                <select
+                  className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
+                  value={projectIdInput}
+                  disabled={projectsLoading}
+                  onChange={(event) => setProjectIdInput(event.target.value)}
+                >
+                  <option value="">전체 프로젝트</option>
+                  {projectOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
+                  value={campaignIdInput}
+                  disabled={campaignsLoading}
+                  onChange={(event) => setCampaignIdInput(event.target.value)}
+                >
+                  <option value="">전체 캠페인</option>
+                  {campaignOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  type="date"
+                  value={dateFromInput}
+                  onChange={(event) => setDateFromInput(event.target.value)}
+                />
+                <Input
+                  type="date"
+                  value={dateToInput}
+                  onChange={(event) => setDateToInput(event.target.value)}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button intent="neutral" onClick={handleSearchApply}>
+                  필터 적용
+                </Button>
+                <Button intent="neutral" onClick={handleSearchReset}>
+                  필터 해제
+                </Button>
+              </div>
             </div>
 
-            {selectedSavedView && (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button intent="neutral" size="sm" onClick={handleUpdateSelectedView}>
-                  선택 뷰 업데이트
+            <div className="border-t border-gray-200" />
+
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-800">뷰 관리</p>
+              <p className="text-xs text-gray-600">
+                현재 필터를 뷰로 저장하면 반복 작업 시 바로 다시 적용할 수 있습니다.
+              </p>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+                <Input
+                  value={viewNameDraft}
+                  onChange={(event) => setViewNameDraft(event.target.value)}
+                  placeholder="새 뷰 이름 (예: 미루루-3월4주 출고)"
+                />
+                <Button intent="neutral" onClick={handleCreateViewFromCurrentFilter}>
+                  새 뷰 저장
                 </Button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  intent={selectedViewId === 'DEFAULT' ? 'secondary' : 'neutral'}
+                  size="sm"
+                  onClick={() => {
+                    clearNotice();
+                    setSelectedViewId('DEFAULT');
+                    setMessage('뷰 선택을 해제했습니다.');
+                  }}
+                >
+                  뷰 선택 해제
+                </Button>
+                {selectedSavedView && (
+                  <Button intent="neutral" size="sm" onClick={handleUpdateSelectedView}>
+                    선택 뷰 업데이트
+                  </Button>
+                )}
                 <Button
                   intent="danger"
                   size="sm"
-                  onClick={() => handleDeleteSavedFilter(selectedSavedView.id)}
+                  onClick={() =>
+                    selectedSavedView ? handleDeleteSavedFilter(selectedSavedView.id) : null
+                  }
+                  disabled={!selectedSavedView}
                 >
                   선택 뷰 삭제
                 </Button>
               </div>
-            )}
 
-            <div className="space-y-2">
-              {savedFilters.length === 0 ? (
-                <p className="text-xs text-gray-500">저장된 뷰가 없습니다.</p>
-              ) : (
-                savedFilters.map((savedFilter) => (
-                  <button
-                    key={savedFilter.id}
-                    type="button"
-                    onClick={() => handleApplySavedFilter(savedFilter)}
-                    className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
-                      selectedViewId === savedFilter.id
-                        ? 'border-blue-200 bg-blue-50 text-blue-900'
-                        : 'border-gray-200 bg-white text-gray-700'
-                    }`}
-                  >
-                    <p className="font-medium">{savedFilter.name}</p>
-                    <p className="mt-1 text-[11px]">{buildFilterSummaryText(savedFilter.values)}</p>
-                  </button>
-                ))
-              )}
+              <div className="space-y-2">
+                {savedFilters.length === 0 ? (
+                  <p className="text-xs text-gray-500">저장된 뷰가 없습니다.</p>
+                ) : (
+                  savedFilters.map((savedFilter) => (
+                    <button
+                      key={savedFilter.id}
+                      type="button"
+                      onClick={() => handleApplySavedFilter(savedFilter)}
+                      className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
+                        selectedViewId === savedFilter.id
+                          ? 'border-blue-200 bg-blue-50 text-blue-900'
+                          : 'border-gray-200 bg-white text-gray-700'
+                      }`}
+                    >
+                      <p className="font-medium">{savedFilter.name}</p>
+                      <p className="mt-1 text-[11px]">{buildFilterSummaryText(savedFilter.values)}</p>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}
-
-        <p className="text-xs text-gray-500">
-          마지막 적용 조건은 자동 저장되며, 다음 접속 시 동일 조건으로 복원됩니다.
-        </p>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -1259,20 +1545,29 @@ export default function AdminShippingPage() {
             {allChecked ? '전체 해제' : '전체 선택'}
           </Button>
           <Button
-            intent="neutral"
-            size="sm"
-            onClick={handlePreview}
-            disabled={selectedOrderIdsInView.length === 0 || isBusy}
-          >
-            미리보기 생성
-          </Button>
-          <Button
             size="sm"
             onClick={handleCreateBatch}
             disabled={selectedOrderIdsInView.length === 0 || isBusy}
           >
             선택 주문으로 배치 생성
           </Button>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+          {selectedOrderIdsInView.length === 0 ? (
+            <p>주문을 선택하면 주소/품목/차단 조건을 자동으로 검증합니다.</p>
+          ) : previewMutation.isPending ? (
+            <p>선택 주문을 자동 검증 중입니다...</p>
+          ) : previewErrorMessage ? (
+            <p className="text-red-600">자동 검증 실패: {previewErrorMessage}</p>
+          ) : hasFreshPreview ? (
+            <p>
+              자동 검증 결과: 통과 {summary.previewValidCount}건 · 차단 {summary.previewBlockedCount}
+              건
+            </p>
+          ) : (
+            <p>자동 검증 결과를 준비하고 있습니다.</p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
@@ -1350,86 +1645,7 @@ export default function AdminShippingPage() {
 
       <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-gray-900">2) 출고 리스트 미리보기</h2>
-          <p className="text-sm text-gray-600">
-            선택된 주문의 수취인/주소/품목 수량을 먼저 확인하고 배치를 생성하세요.
-          </p>
-        </div>
-
-        {!previewData ? (
-          <EmptyState
-            title="아직 미리보기가 없습니다."
-            description="후보 주문을 선택한 뒤 미리보기 생성을 실행해 주세요."
-          />
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <div className="rounded-lg border border-gray-200 p-3">
-                <p className="text-xs text-gray-500">요청 주문</p>
-                <p className="text-xl font-semibold text-gray-900">
-                  {previewData.requested_order_count}
-                </p>
-              </div>
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                <p className="text-xs text-emerald-600">통과 주문</p>
-                <p className="text-xl font-semibold text-emerald-700">
-                  {previewData.valid_order_count}
-                </p>
-              </div>
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                <p className="text-xs text-red-600">차단 주문</p>
-                <p className="text-xl font-semibold text-red-700">
-                  {previewData.blocked_order_count}
-                </p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">주문번호</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">수취인</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">주소</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-600">품목 수량</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {(previewData.packing_rows || []).map((row) => (
-                    <tr key={row.order_id}>
-                      <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {row.recipient_name || '-'} / {row.recipient_phone || '-'}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">{row.address_summary || '-'}</td>
-                      <td className="px-3 py-2 text-right text-gray-700">
-                        {row.item_count.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {(previewData.blocked_rows || []).length > 0 && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                <p className="text-sm font-medium text-red-700">차단 주문</p>
-                <ul className="mt-2 space-y-1 text-sm text-red-700">
-                  {previewData.blocked_rows.map((row) => (
-                    <li key={`${row.order_id}-${row.reason}`}>
-                      {row.order_no || row.order_id}: {row.reason}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-gray-900">3) 배송 배치 워크벤치</h2>
+          <h2 className="text-lg font-semibold text-gray-900">2) 배송 배치 워크벤치</h2>
           <p className="text-sm text-gray-600">
             배치 상태는 출고 준비 전 → 출고 준비중 → 배송중 → 배송 완료 흐름으로 관리합니다.
           </p>
@@ -1567,6 +1783,13 @@ export default function AdminShippingPage() {
                       배치 취소
                     </Button>
                   )}
+                  <Button
+                    intent="neutral"
+                    onClick={handleDownloadPostOfficeExcel}
+                    disabled={!detail || isBusy || isExcelDownloading}
+                  >
+                    {isExcelDownloading ? '우체국 엑셀 생성 중...' : '우체국 엑셀 다운로드'}
+                  </Button>
                   <Button intent="neutral" onClick={handlePrintShippingList} disabled={!detail}>
                     배송 리스트 인쇄
                   </Button>
@@ -1634,9 +1857,36 @@ export default function AdminShippingPage() {
                               완료 {resolveTransitionLabel(row.delivery_transition_status)}
                             </Badge>
                           </div>
-                          {row.error_message && (
-                            <p className="mt-1 text-xs text-red-600">{row.error_message}</p>
-                          )}
+                          {(() => {
+                            const hasDispatchFailed = row.dispatch_transition_status === 'FAILED';
+                            const hasDeliveryFailed = row.delivery_transition_status === 'FAILED';
+                            const hasFailed = hasDispatchFailed || hasDeliveryFailed;
+                            const note = resolveTransitionDescription(
+                              hasFailed
+                                ? 'FAILED'
+                                : row.delivery_transition_status === 'SKIPPED' ||
+                                    row.dispatch_transition_status === 'SKIPPED'
+                                  ? 'SKIPPED'
+                                  : 'SUCCEEDED',
+                              row.error_message,
+                            );
+
+                            if (!note) {
+                              return null;
+                            }
+
+                            return (
+                              <p
+                                className={
+                                  hasFailed
+                                    ? 'mt-1 text-xs text-red-600'
+                                    : 'mt-1 text-xs text-gray-500'
+                                }
+                              >
+                                {note}
+                              </p>
+                            );
+                          })()}
                         </td>
                       </tr>
                     );
