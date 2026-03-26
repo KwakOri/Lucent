@@ -46,6 +46,10 @@ export default function PhoneVerificationPage() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [hint, setHint] = useState<string | null>(null);
+  const [remainingRequests, setRemainingRequests] = useState<number | null>(
+    null,
+  );
+  const [isCodeRequested, setIsCodeRequested] = useState(false);
   const [phoneError, setPhoneError] = useState<string | undefined>(undefined);
   const [codeError, setCodeError] = useState<string | undefined>(undefined);
 
@@ -74,9 +78,9 @@ export default function PhoneVerificationPage() {
       { phone },
       {
         onSuccess: (result) => {
-          setHint(
-            `인증 코드를 발송했습니다. 5분 이내 입력해주세요. (오늘 남은 요청 ${result.remainingRequests}회)`,
-          );
+          setIsCodeRequested(true);
+          setRemainingRequests(result.remainingRequests);
+          setHint("인증 코드를 발송했습니다. 5분 이내 입력해주세요.");
           showToast("휴대폰 인증 코드가 발송되었습니다", { type: "success" });
         },
         onError: (requestError) => {
@@ -176,6 +180,10 @@ export default function PhoneVerificationPage() {
               value={phone}
               onChange={(event) => {
                 setPhone(formatPhoneValue(event.target.value));
+                setIsCodeRequested(false);
+                setCode("");
+                setCodeError(undefined);
+                setHint(null);
                 if (phoneError) {
                   setPhoneError(undefined);
                 }
@@ -198,51 +206,63 @@ export default function PhoneVerificationPage() {
               {isRequesting ? "발송 중..." : "인증코드 발송"}
             </Button>
 
-            <FormField
-              label="인증 코드"
-              htmlFor="verification-code"
-              required
-              error={codeError}
-              help={
-                !codeError
-                  ? "인증 코드는 발송 후 5분간 유효하며, 하루 최대 5회 요청할 수 있습니다."
-                  : undefined
-              }
-            >
-              <Input
-                id="verification-code"
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={code}
-                onChange={(event) => {
-                  setCode(
-                    event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
-                  );
-                  if (codeError) {
-                    setCodeError(undefined);
-                  }
-                }}
-                placeholder="인증 코드 6자리"
-                error={!!codeError}
-              />
-            </FormField>
+            {remainingRequests !== null && (
+              <p className="text-sm text-text-secondary">
+                오늘 남은 인증 요청 횟수: {remainingRequests}회
+              </p>
+            )}
 
             {hint && <p className="text-sm text-text-secondary">{hint}</p>}
+
+            {isCodeRequested && (
+              <>
+                <FormField
+                  label="인증 코드"
+                  htmlFor="verification-code"
+                  required
+                  error={codeError}
+                  help={
+                    !codeError
+                      ? "인증 코드는 발송 후 5분간 유효하며, 하루 최대 5회 요청할 수 있습니다."
+                      : undefined
+                  }
+                >
+                  <Input
+                    id="verification-code"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={code}
+                    onChange={(event) => {
+                      setCode(
+                        event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
+                      );
+                      if (codeError) {
+                        setCodeError(undefined);
+                      }
+                    }}
+                    placeholder="인증 코드 6자리"
+                    error={!!codeError}
+                  />
+                </FormField>
+              </>
+            )}
           </div>
 
-          <div className="mt-8">
-            <Button
-              type="button"
-              intent="primary"
-              size="md"
-              onClick={handleVerifyCode}
-              disabled={isVerifying || code.length !== 6}
-              fullWidth
-            >
-              {isVerifying ? "확인 중..." : "인증 완료"}
-            </Button>
-          </div>
+          {isCodeRequested && (
+            <div className="mt-8">
+              <Button
+                type="button"
+                intent="primary"
+                size="md"
+                onClick={handleVerifyCode}
+                disabled={isVerifying || code.length !== 6}
+                fullWidth
+              >
+                {isVerifying ? "확인 중..." : "인증 완료"}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

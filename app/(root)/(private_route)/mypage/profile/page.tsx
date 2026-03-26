@@ -12,6 +12,7 @@ import Link from "next/link";
 import { ArrowLeft, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { FormField } from "@/components/ui/form-field";
 import { Loading } from "@/components/ui/loading";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -57,12 +58,6 @@ export default function ProfileEditPage() {
   const verifiedPhone = profile?.is_phone_verified
     ? formatPhoneDisplay(profile?.phone)
     : "";
-  const verificationStatusText = profile?.is_phone_verified
-    ? "인증 완료"
-    : "미인증 상태";
-  const verificationStatusClassName = profile?.is_phone_verified
-    ? "text-emerald-600"
-    : "text-amber-600";
 
   // 폼 변경 감지
   const handleChange = (field: keyof typeof formData, value: string) => {
@@ -218,24 +213,32 @@ export default function ProfileEditPage() {
             />
 
             <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
-              <p className="text-sm font-semibold text-text-primary">
-                휴대폰 인증 상태
-              </p>
-              <p className={`mt-1 text-sm ${verificationStatusClassName}`}>
-                {verificationStatusText}
-              </p>
-              <div className="mt-3">
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={
-                    profile?.is_phone_verified ? verifiedPhone : "미인증 상태"
-                  }
-                  readOnly
-                  disabled
-                  className="bg-gray-50 cursor-not-allowed"
-                />
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-text-primary">
+                  휴대폰 번호
+                </p>
+                {profile?.is_phone_verified ? (
+                  <Badge intent="success" size="sm">
+                    인증 완료
+                  </Badge>
+                ) : (
+                  <Badge intent="warning" size="sm">
+                    미인증
+                  </Badge>
+                )}
               </div>
+              {profile?.is_phone_verified && (
+                <div className="mt-3">
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={verifiedPhone}
+                    readOnly
+                    disabled
+                    className="bg-gray-50 cursor-not-allowed"
+                  />
+                </div>
+              )}
               <div className="mt-3">
                 <Link
                   href="/mypage/profile/phone-verification"
