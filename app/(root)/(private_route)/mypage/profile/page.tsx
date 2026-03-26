@@ -217,28 +217,6 @@ export default function ProfileEditPage() {
               error={validationErrors.name}
             />
 
-            {/* 전화번호 (회원정보 화면에서는 직접 수정 불가) */}
-            <FormField
-              label="전화번호"
-              htmlFor="phone"
-              help={
-                profile?.is_phone_verified
-                  ? "인증된 전화번호입니다. 변경이 필요하면 다시 인증해주세요."
-                  : "미인증 상태입니다. 아래 버튼에서 전화번호 인증을 진행해주세요."
-              }
-            >
-              <Input
-                id="phone"
-                type="tel"
-                value={
-                  profile?.is_phone_verified ? verifiedPhone : "미인증 상태"
-                }
-                readOnly
-                disabled
-                className="bg-gray-50 cursor-not-allowed"
-              />
-            </FormField>
-
             <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
               <p className="text-sm font-semibold text-text-primary">
                 휴대폰 인증 상태
@@ -247,8 +225,23 @@ export default function ProfileEditPage() {
                 {verificationStatusText}
               </p>
               <div className="mt-3">
-                <Link href="/mypage/profile/phone-verification">
-                  <Button type="button" intent="secondary" size="md">
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={
+                    profile?.is_phone_verified ? verifiedPhone : "미인증 상태"
+                  }
+                  readOnly
+                  disabled
+                  className="bg-gray-50 cursor-not-allowed"
+                />
+              </div>
+              <div className="mt-3">
+                <Link
+                  href="/mypage/profile/phone-verification"
+                  className="block w-full"
+                >
+                  <Button type="button" intent="secondary" size="md" fullWidth>
                     전화번호 인증
                   </Button>
                 </Link>
