@@ -5,47 +5,52 @@
  */
 
 // API Clients
-export { AuthAPI } from './auth.api';
-export { ArtistsAPI } from './artists.api';
-export { ProjectsAPI } from './projects.api';
-export { ProductsAPI } from './products.api';
-export { ProfilesAPI } from './profiles.api';
-export { CartAPI } from './cart.api';
-export { LogsAPI } from './logs.api';
-export { V2CatalogAdminAPI } from './v2-catalog-admin.api';
-export { V2CheckoutAPI } from './v2-checkout.api';
-export { V2AdminProductionAPI } from './v2-admin-production.api';
-export { V2AdminShippingAPI } from './v2-admin-shipping.api';
+export { AuthAPI } from "./auth.api";
+export { ArtistsAPI } from "./artists.api";
+export { ProjectsAPI } from "./projects.api";
+export { ProductsAPI } from "./products.api";
+export { ProfilesAPI } from "./profiles.api";
+export { CartAPI } from "./cart.api";
+export { LogsAPI } from "./logs.api";
+export { V2CatalogAdminAPI } from "./v2-catalog-admin.api";
+export { V2CheckoutAPI } from "./v2-checkout.api";
+export { V2AdminProductionAPI } from "./v2-admin-production.api";
+export { V2AdminShippingAPI } from "./v2-admin-shipping.api";
 
 // Types
-export type { SendVerificationData } from './auth.api';
+export type { SendVerificationData } from "./auth.api";
 export type {
   ArtistWithDetails,
   GetArtistsParams,
   CreateArtistData,
   UpdateArtistData,
-} from './artists.api';
+} from "./artists.api";
 export type {
   ProjectWithDetails,
   GetProjectsParams,
   CreateProjectData,
   UpdateProjectData,
   ReorderProjectsData,
-} from './projects.api';
+} from "./projects.api";
 export type {
   ProductWithDetails,
   GetProductsParams,
   CreateProductData,
   UpdateProductData,
-} from './products.api';
-export type { UpdateProfileData } from './profiles.api';
-export type { GetLogsParams, LogStats, LogWithRelations } from './logs.api';
+} from "./products.api";
+export type {
+  UpdateProfileData,
+  RequestPhoneVerificationData,
+  RequestPhoneVerificationResult,
+  VerifyPhoneVerificationData,
+} from "./profiles.api";
+export type { GetLogsParams, LogStats, LogWithRelations } from "./logs.api";
 export type {
   AddToCartRequest,
   UpdateCartItemRequest,
   CartItemWithProduct,
   CartResponseData,
-} from './cart.api';
+} from "./cart.api";
 export type {
   V2Project,
   V2Artist,
@@ -75,7 +80,7 @@ export type {
   UpdateV2MediaData,
   CreateV2DigitalAssetData,
   UpdateV2DigitalAssetData,
-} from './v2-catalog-admin.api';
+} from "./v2-catalog-admin.api";
 export type {
   V2CartItem,
   V2CartSummary,
@@ -89,4 +94,4 @@ export type {
   PaymentCallbackData,
   CancelV2OrderData,
   RefundV2OrderData,
-} from './v2-checkout.api';
+} from "./v2-checkout.api";

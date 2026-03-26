@@ -4,9 +4,14 @@
  * 프로필 관련 React Query Hooks
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ProfilesAPI, type UpdateProfileData } from '@/lib/client/api/profiles.api';
-import { queryKeys } from './query-keys';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ProfilesAPI,
+  type RequestPhoneVerificationData,
+  type UpdateProfileData,
+  type VerifyPhoneVerificationData,
+} from "@/lib/client/api/profiles.api";
+import { queryKeys } from "./query-keys";
 
 /**
  * 내 프로필 조회 Hook
@@ -35,6 +40,45 @@ export function useUpdateProfile() {
     },
     onSuccess: () => {
       // 프로필 캐시 무효화
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.profile.my(),
+      });
+    },
+  });
+}
+
+/**
+ * 휴대폰 인증 코드 요청 Hook
+ */
+export function useRequestPhoneVerification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: RequestPhoneVerificationData) => {
+      const response = await ProfilesAPI.requestPhoneVerification(data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.profile.my(),
+      });
+    },
+  });
+}
+
+/**
+ * 휴대폰 인증 코드 검증 Hook
+ */
+export function useVerifyPhoneVerification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: VerifyPhoneVerificationData) => {
+      const response = await ProfilesAPI.verifyPhoneVerification(data);
+      return response.data;
+    },
+    onSuccess: (updatedProfile) => {
+      queryClient.setQueryData(queryKeys.profile.my(), updatedProfile);
       queryClient.invalidateQueries({
         queryKey: queryKeys.profile.my(),
       });
