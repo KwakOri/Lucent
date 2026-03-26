@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
 import { Loading } from "@/components/ui/loading";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PhoneInput } from "@/components/form";
 import {
   useProfile,
   useRequestPhoneVerification,
@@ -25,12 +24,14 @@ import { useToast } from "@/src/components/toast";
 
 const PHONE_REGEX = /^010-\d{4}-\d{4}$/;
 
-function formatPhoneInput(value: string | null | undefined): string {
-  const numbers = String(value || "").replace(/[^0-9]/g, "");
+function formatPhoneValue(value: string): string {
+  const numbers = value.replace(/[^0-9]/g, "");
+  if (numbers.length <= 3) return numbers;
+  if (numbers.length <= 7) return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
   if (numbers.length === 11 && numbers.startsWith("010")) {
     return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
   }
-  return String(value || "");
+  return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
 }
 
 export default function PhoneVerificationPage() {
@@ -42,27 +43,16 @@ export default function PhoneVerificationPage() {
   const { mutate: verifyPhoneVerification, isPending: isVerifying } =
     useVerifyPhoneVerification();
 
-  const [phoneDraft, setPhoneDraft] = useState("");
-  const [isPhoneTouched, setIsPhoneTouched] = useState(false);
+  const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [hint, setHint] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | undefined>(undefined);
   const [codeError, setCodeError] = useState<string | undefined>(undefined);
 
-  const effectivePhone = isPhoneTouched
-    ? phoneDraft
-    : formatPhoneInput(profile?.phone);
-  const statusText = profile?.is_phone_verified ? "인증 완료" : "미인증";
-  const statusClassName = profile?.is_phone_verified
-    ? "text-emerald-600"
-    : "text-amber-600";
-  const canSend = useMemo(
-    () => PHONE_REGEX.test(effectivePhone),
-    [effectivePhone],
-  );
+  const canSend = useMemo(() => PHONE_REGEX.test(phone), [phone]);
 
   const validatePhone = (): boolean => {
-    const trimmedPhone = effectivePhone.trim();
+    const trimmedPhone = phone.trim();
     if (!trimmedPhone) {
       setPhoneError("전화번호를 입력해주세요");
       return false;
@@ -81,7 +71,7 @@ export default function PhoneVerificationPage() {
     }
 
     requestPhoneVerification(
-      { phone: effectivePhone },
+      { phone },
       {
         onSuccess: (result) => {
           setHint(
@@ -113,7 +103,7 @@ export default function PhoneVerificationPage() {
 
     verifyPhoneVerification(
       {
-        phone: effectivePhone,
+        phone,
         code: trimmedCode,
       },
       {
@@ -174,50 +164,39 @@ export default function PhoneVerificationPage() {
             전화번호 인증
           </h1>
           <p className="mt-2 text-text-secondary">
-            인증할 전화번호를 입력하고 인증 코드를 확인해주세요
+            전화번호와 인증 코드를 입력해주세요
           </p>
         </div>
 
         <div className="bg-white rounded-xl border border-neutral-200 p-6 md:p-8">
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
-            <p className="text-sm font-semibold text-text-primary">
-              현재 인증 상태
-            </p>
-            <p className={`mt-1 text-sm ${statusClassName}`}>{statusText}</p>
-            {profile.is_phone_verified && profile.phone && (
-              <p className="mt-1 text-sm text-text-secondary">
-                인증된 번호: {formatPhoneInput(profile.phone)}
-              </p>
-            )}
-          </div>
-
-          <div className="mt-6 space-y-4">
-            <PhoneInput
+          <div className="space-y-4">
+            <Input
               id="phone"
-              value={effectivePhone}
-              onChange={(value) => {
-                setPhoneDraft(value);
-                setIsPhoneTouched(true);
+              type="tel"
+              value={phone}
+              onChange={(event) => {
+                setPhone(formatPhoneValue(event.target.value));
                 if (phoneError) {
                   setPhoneError(undefined);
                 }
               }}
-              error={phoneError}
-              required
-              help="전화번호를 입력한 뒤 인증코드를 발송해주세요"
+              placeholder="전화번호를 입력해주세요 (예: 010-0000-0000)"
+              error={!!phoneError}
             />
+            {phoneError && (
+              <p className="text-sm text-error-600">{phoneError}</p>
+            )}
 
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                intent="secondary"
-                size="md"
-                onClick={handleRequestCode}
-                disabled={isRequesting || !canSend}
-              >
-                {isRequesting ? "발송 중..." : "인증코드 발송"}
-              </Button>
-            </div>
+            <Button
+              type="button"
+              intent="secondary"
+              size="md"
+              onClick={handleRequestCode}
+              disabled={isRequesting || !canSend}
+              fullWidth
+            >
+              {isRequesting ? "발송 중..." : "인증코드 발송"}
+            </Button>
 
             <FormField
               label="인증 코드"
@@ -252,21 +231,14 @@ export default function PhoneVerificationPage() {
             {hint && <p className="text-sm text-text-secondary">{hint}</p>}
           </div>
 
-          <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:justify-end">
-            <Button
-              type="button"
-              intent="secondary"
-              size="lg"
-              onClick={() => router.push("/mypage/profile")}
-            >
-              취소
-            </Button>
+          <div className="mt-8">
             <Button
               type="button"
               intent="primary"
-              size="lg"
+              size="md"
               onClick={handleVerifyCode}
               disabled={isVerifying || code.length !== 6}
+              fullWidth
             >
               {isVerifying ? "확인 중..." : "인증 완료"}
             </Button>
