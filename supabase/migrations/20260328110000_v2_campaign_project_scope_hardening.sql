@@ -13,8 +13,8 @@ WITH target_project_candidates AS (
     t.campaign_id,
     CASE
       WHEN t.target_type = 'PROJECT'
-        AND t.target_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-      THEN t.target_id::uuid
+        AND t.target_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      THEN t.target_id
       WHEN t.target_type = 'PRODUCT'
       THEN p.project_id
       WHEN t.target_type = 'VARIANT'
@@ -26,7 +26,7 @@ WITH target_project_candidates AS (
   FROM public.v2_campaign_targets t
   LEFT JOIN public.v2_products p
     ON t.target_type = 'PRODUCT'
-   AND p.id::text = t.target_id
+   AND p.id = t.target_id
    AND p.deleted_at IS NULL
   LEFT JOIN (
     SELECT
@@ -39,7 +39,7 @@ WITH target_project_candidates AS (
     WHERE v.deleted_at IS NULL
   ) vp
     ON t.target_type = 'VARIANT'
-   AND vp.id::text = t.target_id
+   AND vp.id = t.target_id
   LEFT JOIN (
     SELECT
       bd.id,
@@ -51,18 +51,21 @@ WITH target_project_candidates AS (
     WHERE bd.deleted_at IS NULL
   ) bp
     ON t.target_type = 'BUNDLE_DEFINITION'
-   AND bp.id::text = t.target_id
+   AND bp.id = t.target_id
   WHERE t.deleted_at IS NULL
     AND COALESCE(t.is_excluded, false) = false
 ),
 single_target_project_campaigns AS (
   SELECT
-    campaign_id,
-    MIN(project_id) AS project_id
-  FROM target_project_candidates
-  WHERE project_id IS NOT NULL
-  GROUP BY campaign_id
-  HAVING COUNT(DISTINCT project_id) = 1
+    tpc.campaign_id,
+    MIN(tpc.project_id::text)::uuid AS project_id
+  FROM target_project_candidates tpc
+  JOIN public.v2_projects p
+    ON p.id = tpc.project_id
+   AND p.deleted_at IS NULL
+  WHERE tpc.project_id IS NOT NULL
+  GROUP BY tpc.campaign_id
+  HAVING COUNT(DISTINCT tpc.project_id) = 1
 )
 UPDATE public.v2_campaigns c
 SET
@@ -121,7 +124,7 @@ INSERT INTO public.v2_campaign_targets (
 SELECT
   c.id,
   'PROJECT',
-  c.project_id::text,
+  c.project_id,
   0,
   false,
   'system',
@@ -143,7 +146,7 @@ WHERE c.deleted_at IS NULL
     FROM public.v2_campaign_targets t
     WHERE t.campaign_id = c.id
       AND t.target_type = 'PROJECT'
-      AND t.target_id = c.project_id::text
+      AND t.target_id = c.project_id
       AND COALESCE(t.is_excluded, false) = false
       AND t.deleted_at IS NULL
   )
