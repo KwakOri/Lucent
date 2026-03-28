@@ -28,6 +28,10 @@ import { queryKeys } from '@/lib/client/hooks/query-keys';
 import { useV2AdminStockLocations } from '@/lib/client/hooks/useV2AdminOps';
 import { formatDateRange, getErrorMessage } from '@/lib/client/utils/v2-campaign-admin';
 import { resolveEligibleCampaignProducts } from '@/lib/client/utils/v2-campaign-targeting';
+import {
+  FULFILLMENT_TYPE_LABELS,
+  PRODUCT_KIND_LABELS,
+} from '@/lib/client/utils/v2-product-admin-form';
 
 type DiscountMode = 'FIXED' | 'PERCENT';
 
@@ -135,6 +139,34 @@ function findPriceItem(params: {
     return pickBestPriceItem(matched, params.priceListsById);
   }
   return matched[0];
+}
+
+function resolveProductFulfillmentLabel(params: {
+  fulfillmentType: 'DIGITAL' | 'PHYSICAL' | null;
+  variantFulfillmentTypes: Array<'DIGITAL' | 'PHYSICAL'>;
+}): string | null {
+  const variantTypes = new Set(params.variantFulfillmentTypes);
+  if (variantTypes.size > 1) {
+    return '디지털/실물 혼합';
+  }
+
+  if (variantTypes.has('DIGITAL')) {
+    return `${FULFILLMENT_TYPE_LABELS.DIGITAL} 상품`;
+  }
+
+  if (variantTypes.has('PHYSICAL')) {
+    return `${FULFILLMENT_TYPE_LABELS.PHYSICAL} 상품`;
+  }
+
+  if (params.fulfillmentType === 'DIGITAL') {
+    return `${FULFILLMENT_TYPE_LABELS.DIGITAL} 상품`;
+  }
+
+  if (params.fulfillmentType === 'PHYSICAL') {
+    return `${FULFILLMENT_TYPE_LABELS.PHYSICAL} 상품`;
+  }
+
+  return null;
 }
 
 export default function V2CatalogCampaignPricingPage() {
@@ -269,6 +301,23 @@ export default function V2CatalogCampaignPricingPage() {
     () => eligibleProducts.find((product) => product.id === selectedProductId) || null,
     [eligibleProducts, selectedProductId],
   );
+  const eligibleProductsById = useMemo(() => {
+    const map = new Map<string, (typeof eligibleProducts)[number]>();
+    eligibleProducts.forEach((product) => {
+      map.set(product.id, product);
+    });
+    return map;
+  }, [eligibleProducts]);
+
+  const selectedProductFulfillmentLabel = useMemo(() => {
+    if (!selectedProduct) {
+      return null;
+    }
+    return resolveProductFulfillmentLabel({
+      fulfillmentType: selectedProduct.fulfillment_type,
+      variantFulfillmentTypes: (variants || []).map((variant) => variant.fulfillment_type),
+    });
+  }, [selectedProduct, variants]);
   const selectedVariant = useMemo(
     () => (variants || []).find((variant) => variant.id === selectedVariantId) || null,
     [selectedVariantId, variants],
@@ -716,8 +765,16 @@ export default function V2CatalogCampaignPricingPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-semibold text-gray-900">{selectedProduct?.title || '-'}</p>
                 <Badge intent="default" size="sm">
-                  {selectedProduct?.product_kind === 'BUNDLE' ? '번들' : '일반'}
+                  {selectedProduct ? PRODUCT_KIND_LABELS[selectedProduct.product_kind] : '-'}
                 </Badge>
+                {selectedProductFulfillmentLabel && (
+                  <Badge
+                    intent={selectedProductFulfillmentLabel === '디지털/실물 혼합' ? 'warning' : 'info'}
+                    size="sm"
+                  >
+                    {selectedProductFulfillmentLabel}
+                  </Badge>
+                )}
                 {presetProductId && <Badge intent="info" size="sm">상위 페이지에서 선택됨</Badge>}
               </div>
             </div>
@@ -910,13 +967,38 @@ export default function V2CatalogCampaignPricingPage() {
             </div>
           ) : (
             configuredItems.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
-              >
+              <div key={item.id} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
                 <p className="text-sm font-medium text-gray-900">
-                  {item.product?.title || item.product_id} / {item.variant?.title || item.variant_id || '기본 옵션'}
+                  {item.product?.title || item.product_id} /{' '}
+                  {item.variant?.title || item.variant_id || '기본 옵션'}
                 </p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {item.product && (
+                    <Badge intent="default" size="sm">
+                      {PRODUCT_KIND_LABELS[item.product.product_kind]}
+                    </Badge>
+                  )}
+                  {(() => {
+                    const matchedProduct = eligibleProductsById.get(item.product?.id || item.product_id);
+                    if (!matchedProduct) {
+                      return null;
+                    }
+                    const label = resolveProductFulfillmentLabel({
+                      fulfillmentType: matchedProduct.fulfillment_type,
+                      variantFulfillmentTypes: item.variant?.fulfillment_type
+                        ? [item.variant.fulfillment_type]
+                        : [],
+                    });
+                    if (!label) {
+                      return null;
+                    }
+                    return (
+                      <Badge intent={label === '디지털/실물 혼합' ? 'warning' : 'info'} size="sm">
+                        {label}
+                      </Badge>
+                    );
+                  })()}
+                </div>
                 <p className="mt-1 text-xs text-gray-500">
                   판매가 {formatCurrency(item.unit_amount)}
                   {item.compare_at_amount !== null ? ` · 기준가 ${formatCurrency(item.compare_at_amount)}` : ''}
