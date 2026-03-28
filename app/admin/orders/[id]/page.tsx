@@ -78,6 +78,71 @@ function lineTypeLabel(lineType: string): string {
   return '일반';
 }
 
+function readSnapshotText(snapshot: Record<string, unknown> | null, key: string): string {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return '';
+  }
+  const value = snapshot[key];
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.trim();
+}
+
+function readFirstSnapshotText(
+  snapshot: Record<string, unknown> | null,
+  keys: string[],
+): string {
+  for (const key of keys) {
+    const value = readSnapshotText(snapshot, key);
+    if (value.length > 0) {
+      return value;
+    }
+  }
+  return '';
+}
+
+function resolveShippingPostalCode(snapshot: Record<string, unknown> | null): string {
+  return readFirstSnapshotText(snapshot, [
+    'postal_code',
+    'postalCode',
+    'zipcode',
+    'zip_code',
+    'zip',
+  ]);
+}
+
+function resolveShippingAddressLine1(snapshot: Record<string, unknown> | null): string {
+  return readFirstSnapshotText(snapshot, [
+    'road_address',
+    'address',
+    'address1',
+    'address_1',
+    'line1',
+  ]);
+}
+
+function resolveShippingAddressLine2(snapshot: Record<string, unknown> | null): string {
+  return readFirstSnapshotText(snapshot, [
+    'line2',
+    'address2',
+    'address_2',
+    'detail_address',
+    'detail',
+  ]);
+}
+
+function formatShippingAddress(snapshot: Record<string, unknown> | null): string {
+  const line1 = resolveShippingAddressLine1(snapshot);
+  const line2 = resolveShippingAddressLine2(snapshot);
+  const address = [line1, line2].filter((value) => value.length > 0).join(' ').trim();
+  if (!address) {
+    return '';
+  }
+  const postalCode = resolveShippingPostalCode(snapshot);
+  return postalCode ? `(${postalCode}) ${address}` : address;
+}
+
 export default function AdminOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = params.id;
@@ -95,6 +160,10 @@ export default function AdminOrderDetailPage() {
   const orderItemGroups = useMemo(
     () => groupV2OrderItems((detail?.items || []) as Array<Record<string, unknown>>),
     [detail?.items],
+  );
+  const orderItemsTotal = useMemo(
+    () => orderItemGroups.reduce((sum, group) => sum + group.lineTotal, 0),
+    [orderItemGroups],
   );
   const orderItemProductTitleById = useMemo(() => {
     const rows = (detail?.items || []) as Array<Record<string, unknown>>;
@@ -118,6 +187,21 @@ export default function AdminOrderDetailPage() {
 
     return titleById;
   }, [detail?.items]);
+  const shippingAddressSnapshot = useMemo(() => {
+    const raw = order?.shipping_address_snapshot;
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      return raw as Record<string, unknown>;
+    }
+    return null;
+  }, [order?.shipping_address_snapshot]);
+  const shippingAddressText = useMemo(
+    () => formatShippingAddress(shippingAddressSnapshot),
+    [shippingAddressSnapshot],
+  );
+  const shippingAmount = readNumber(order?.shipping_amount);
+  const shippingDiscountTotal = readNumber(order?.shipping_discount_total);
+  const netShippingAmount = Math.max(0, shippingAmount - shippingDiscountTotal);
+  const itemsAndShippingTotal = orderItemsTotal + netShippingAmount;
 
   async function handleRefundOrder() {
     if (!orderId) {
@@ -300,10 +384,7 @@ export default function AdminOrderDetailPage() {
                     </p>
                     <div className="mt-2 space-y-2">
                       {group.components.map((component, componentIndex) => (
-                        <div
-                          key={`${component.id}-${componentIndex}`}
-                          className="flex items-start justify-between gap-2"
-                        >
+                        <div key={`${component.id}-${componentIndex}`} className="flex items-start gap-2">
                           <div>
                             <p className="text-sm font-medium text-gray-800">
                               {orderItemProductTitleById.get(component.id) || component.title}
@@ -312,9 +393,6 @@ export default function AdminOrderDetailPage() {
                               수량 {component.quantity} · 상태 {component.lineStatus || '-'}
                             </p>
                           </div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            {formatCurrency(component.lineTotal)}
-                          </p>
                         </div>
                       ))}
                     </div>
@@ -323,6 +401,37 @@ export default function AdminOrderDetailPage() {
               </div>
             ))
           )}
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <p className="text-xs font-semibold text-gray-700">배송비 상세</p>
+          <dl className="mt-2 space-y-1 text-sm text-gray-700">
+            <div className="flex items-start justify-between gap-3">
+              <dt className="text-gray-500">배송지</dt>
+              <dd className="max-w-[75%] text-right text-gray-900">{shippingAddressText || '-'}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-gray-500">주문 아이템 합계</dt>
+              <dd className="text-gray-900">{formatCurrency(orderItemsTotal)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-gray-500">배송비</dt>
+              <dd className="text-gray-900">{formatCurrency(shippingAmount)}</dd>
+            </div>
+            {shippingDiscountTotal > 0 && (
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-gray-500">배송비 할인</dt>
+                <dd className="text-gray-900">-{formatCurrency(shippingDiscountTotal)}</dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-gray-500">최종 반영 배송비</dt>
+              <dd className="font-medium text-gray-900">{formatCurrency(netShippingAmount)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-2">
+              <dt className="text-gray-500">아이템+배송 합계</dt>
+              <dd className="font-semibold text-gray-900">{formatCurrency(itemsAndShippingTotal)}</dd>
+            </div>
+          </dl>
         </div>
       </section>
 
