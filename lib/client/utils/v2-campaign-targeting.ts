@@ -46,6 +46,9 @@ export function buildCampaignProjectIdSet(params: {
   productsById: Map<string, V2Product>;
 }): Set<string> {
   const includeProjectIds = new Set<string>();
+  if (params.campaign.project_id) {
+    includeProjectIds.add(params.campaign.project_id);
+  }
 
   params.targets
     .filter((target) => !target.is_excluded)
@@ -66,15 +69,12 @@ export function buildCampaignProjectIdSet(params: {
       }
     });
 
-  if (includeProjectIds.size === 0 && params.campaign.source_id) {
-    includeProjectIds.add(params.campaign.source_id);
-  }
-
   return includeProjectIds;
 }
 
 export function resolveEligibleCampaignProducts(params: {
   campaignType: V2CampaignType;
+  campaignProjectId?: string | null;
   targets: V2CampaignTarget[];
   products: V2Product[];
 }): V2Product[] {
@@ -86,7 +86,6 @@ export function resolveEligibleCampaignProducts(params: {
   const includeProductIds = new Set<string>();
   const excludeProjectIds = new Set<string>();
   const excludeProductIds = new Set<string>();
-  const productsById = new Map(activeProducts.map((product) => [product.id, product]));
 
   params.targets.forEach((target) => {
     const projectBucket = target.is_excluded ? excludeProjectIds : includeProjectIds;
@@ -104,6 +103,13 @@ export function resolveEligibleCampaignProducts(params: {
   });
 
   const hasIncludeTargets = includeProjectIds.size > 0 || includeProductIds.size > 0;
+  const normalizedCampaignProjectId =
+    typeof params.campaignProjectId === 'string' && params.campaignProjectId.trim().length > 0
+      ? params.campaignProjectId.trim()
+      : null;
+  const hasCampaignProjectMatch =
+    normalizedCampaignProjectId !== null &&
+    activeProducts.some((product) => product.project_id === normalizedCampaignProjectId);
 
   let candidates = activeProducts;
   if (params.campaignType === 'ALWAYS_ON') {
@@ -111,6 +117,12 @@ export function resolveEligibleCampaignProducts(params: {
       candidates = activeProducts.filter((product) => includeProjectIds.has(product.project_id));
     } else if (includeProductIds.size > 0) {
       candidates = activeProducts.filter((product) => includeProductIds.has(product.id));
+    } else if (hasCampaignProjectMatch && normalizedCampaignProjectId) {
+      candidates = activeProducts.filter(
+        (product) => product.project_id === normalizedCampaignProjectId,
+      );
+    } else {
+      candidates = [];
     }
   } else if (hasIncludeTargets) {
     candidates = activeProducts.filter(
