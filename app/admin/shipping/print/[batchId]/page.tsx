@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
+import type { V2AdminShippingBatchPackageRow } from '@/lib/client/api/v2-admin-shipping.api';
 import { useV2AdminShippingBatchDetail } from '@/lib/client/hooks/useV2AdminShipping';
 
 function formatDateTime(value: string | null | undefined): string {
@@ -128,10 +129,10 @@ export default function ShippingPrintPage() {
   const printedAt = useMemo(() => formatDateTime(new Date().toISOString()), []);
 
   const packageByBatchOrderId = useMemo(() => {
-    const map = new Map<string, Record<string, unknown>>();
+    const map = new Map<string, V2AdminShippingBatchPackageRow>();
     for (const row of detail?.packages || []) {
       if (typeof row.batch_order_id === 'string' && !map.has(row.batch_order_id)) {
-        map.set(row.batch_order_id, row as Record<string, unknown>);
+        map.set(row.batch_order_id, row);
       }
     }
     return map;

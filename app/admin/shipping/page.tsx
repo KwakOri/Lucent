@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Textarea } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import type {
+  V2AdminShippingBatchPackageRow,
   V2AdminShippingBatchStatus,
   V2AdminTransitionResult,
 } from '@/lib/client/api/v2-admin-shipping.api';
@@ -378,7 +379,7 @@ type PackageDraftRow = {
   notes: string;
 };
 
-const POST_OFFICE_EXCEL_HEADERS = [
+const POST_OFFICE_EXCEL_HEADERS: string[] = [
   '받는 분',
   '우편번호',
   '주소(시도+시군구+도로명+건물번호)',
@@ -396,7 +397,7 @@ const POST_OFFICE_EXCEL_HEADERS = [
   '분할접수 첫번째 부피(cm)',
   '분할접수 두번째 중량(kg)',
   '분할접수 두번째 부피(cm)',
-] as const;
+];
 
 function isSameFilterValues(
   left: ShippingCandidateFilterValue,
@@ -509,8 +510,8 @@ export default function AdminShippingPage() {
 
   const [packageDrafts, setPackageDrafts] = useState<Record<string, PackageDraftRow>>({});
 
-  const projectsQuery = useV2AdminProjects({ limit: 300 });
-  const campaignsQuery = useV2Campaigns({ limit: 300 });
+  const projectsQuery = useV2AdminProjects();
+  const campaignsQuery = useV2Campaigns();
 
   const candidatesQuery = useV2AdminShippingCandidates({
     limit: 300,
@@ -534,10 +535,10 @@ export default function AdminShippingPage() {
   const completeBatchMutation = useV2AdminCompleteShippingBatch();
   const cancelBatchMutation = useV2AdminCancelShippingBatch();
 
-  const projects = useMemo(() => projectsQuery.data?.items || [], [projectsQuery.data?.items]);
+  const projects = useMemo(() => projectsQuery.data || [], [projectsQuery.data]);
   const campaigns = useMemo(
-    () => campaignsQuery.data?.items || [],
-    [campaignsQuery.data?.items],
+    () => campaignsQuery.data || [],
+    [campaignsQuery.data],
   );
   const projectsLoading = projectsQuery.isLoading;
   const campaignsLoading = campaignsQuery.isLoading;
@@ -652,10 +653,10 @@ export default function AdminShippingPage() {
     cancelBatchMutation.isPending;
 
   const packageByBatchOrderId = useMemo(() => {
-    const map = new Map<string, Record<string, unknown>>();
+    const map = new Map<string, V2AdminShippingBatchPackageRow>();
     for (const row of detail?.packages || []) {
       if (typeof row.batch_order_id === 'string' && !map.has(row.batch_order_id)) {
-        map.set(row.batch_order_id, row as Record<string, unknown>);
+        map.set(row.batch_order_id, row);
       }
     }
     return map;
