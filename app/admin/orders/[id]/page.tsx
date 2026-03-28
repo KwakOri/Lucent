@@ -112,35 +112,56 @@ function resolveShippingPostalCode(snapshot: Record<string, unknown> | null): st
   ]);
 }
 
-function resolveShippingAddressLine1(snapshot: Record<string, unknown> | null): string {
-  return readFirstSnapshotText(snapshot, [
-    'road_address',
-    'address',
-    'address1',
-    'address_1',
-    'line1',
-  ]);
-}
+const BASE_SHIPPING_FEE = 3500;
 
-function resolveShippingAddressLine2(snapshot: Record<string, unknown> | null): string {
-  return readFirstSnapshotText(snapshot, [
-    'line2',
-    'address2',
-    'address_2',
-    'detail_address',
-    'detail',
-  ]);
-}
+const JEJU_POSTCODE_RANGES: ReadonlyArray<readonly [number, number]> = [[63000, 63644]];
 
-function formatShippingAddress(snapshot: Record<string, unknown> | null): string {
-  const line1 = resolveShippingAddressLine1(snapshot);
-  const line2 = resolveShippingAddressLine2(snapshot);
-  const address = [line1, line2].filter((value) => value.length > 0).join(' ').trim();
-  if (!address) {
-    return '';
+const ISLAND_POSTCODE_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [40200, 40240],
+  [22386, 22388],
+  [23004, 23010],
+  [23100, 23136],
+  [32133, 32133],
+  [33411, 33411],
+  [46768, 46771],
+  [52570, 52571],
+  [53031, 53033],
+  [53089, 53104],
+  [56347, 56349],
+  [57068, 57069],
+  [58760, 58762],
+  [58800, 58810],
+  [58816, 58818],
+  [58828, 58866],
+  [58953, 58958],
+  [59102, 59103],
+  [59106, 59106],
+];
+
+function isPostcodeInRanges(
+  postcode: string,
+  ranges: ReadonlyArray<readonly [number, number]>,
+): boolean {
+  const postcodeNumber = Number.parseInt(postcode, 10);
+  if (!Number.isInteger(postcodeNumber)) {
+    return false;
   }
-  const postalCode = resolveShippingPostalCode(snapshot);
-  return postalCode ? `(${postalCode}) ${address}` : address;
+  return ranges.some(([start, end]) => postcodeNumber >= start && postcodeNumber <= end);
+}
+
+function resolveShippingFeeTypeLabel(params: {
+  shippingAmount: number;
+  shippingPostcode: string;
+}): string {
+  const { shippingAmount, shippingPostcode } = params;
+
+  const isRemotePostcode =
+    shippingPostcode.length > 0 &&
+    (isPostcodeInRanges(shippingPostcode, JEJU_POSTCODE_RANGES) ||
+      isPostcodeInRanges(shippingPostcode, ISLAND_POSTCODE_RANGES));
+  const hasRemoteSurcharge = shippingAmount > BASE_SHIPPING_FEE;
+
+  return isRemotePostcode || hasRemoteSurcharge ? '산간지역 배송비' : '일반 배송비';
 }
 
 export default function AdminOrderDetailPage() {
@@ -160,10 +181,6 @@ export default function AdminOrderDetailPage() {
   const orderItemGroups = useMemo(
     () => groupV2OrderItems((detail?.items || []) as Array<Record<string, unknown>>),
     [detail?.items],
-  );
-  const orderItemsTotal = useMemo(
-    () => orderItemGroups.reduce((sum, group) => sum + group.lineTotal, 0),
-    [orderItemGroups],
   );
   const orderItemProductTitleById = useMemo(() => {
     const rows = (detail?.items || []) as Array<Record<string, unknown>>;
@@ -194,14 +211,16 @@ export default function AdminOrderDetailPage() {
     }
     return null;
   }, [order?.shipping_address_snapshot]);
-  const shippingAddressText = useMemo(
-    () => formatShippingAddress(shippingAddressSnapshot),
-    [shippingAddressSnapshot],
-  );
+  const shippingPostcode = resolveShippingPostalCode(shippingAddressSnapshot);
   const shippingAmount = readNumber(order?.shipping_amount);
   const shippingDiscountTotal = readNumber(order?.shipping_discount_total);
   const netShippingAmount = Math.max(0, shippingAmount - shippingDiscountTotal);
-  const itemsAndShippingTotal = orderItemsTotal + netShippingAmount;
+  const shippingFeeTypeLabel = resolveShippingFeeTypeLabel({
+    shippingAmount,
+    shippingPostcode,
+  });
+  const hasShippingFeeLine = shippingAmount > 0 || shippingDiscountTotal > 0;
+  const grandTotalAmount = readNumber(order?.grand_total);
 
   async function handleRefundOrder() {
     if (!orderId) {
@@ -402,36 +421,19 @@ export default function AdminOrderDetailPage() {
             ))
           )}
         </div>
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <p className="text-xs font-semibold text-gray-700">배송비 상세</p>
-          <dl className="mt-2 space-y-1 text-sm text-gray-700">
-            <div className="flex items-start justify-between gap-3">
-              <dt className="text-gray-500">배송지</dt>
-              <dd className="max-w-[75%] text-right text-gray-900">{shippingAddressText || '-'}</dd>
+        {hasShippingFeeLine && (
+          <div className="rounded-lg border border-gray-200 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-medium text-gray-900">{shippingFeeTypeLabel}</p>
+              <p className="font-semibold text-gray-900">{formatCurrency(netShippingAmount)}</p>
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-gray-500">주문 아이템 합계</dt>
-              <dd className="text-gray-900">{formatCurrency(orderItemsTotal)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-gray-500">배송비</dt>
-              <dd className="text-gray-900">{formatCurrency(shippingAmount)}</dd>
-            </div>
-            {shippingDiscountTotal > 0 && (
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-gray-500">배송비 할인</dt>
-                <dd className="text-gray-900">-{formatCurrency(shippingDiscountTotal)}</dd>
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-gray-500">최종 반영 배송비</dt>
-              <dd className="font-medium text-gray-900">{formatCurrency(netShippingAmount)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-2">
-              <dt className="text-gray-500">아이템+배송 합계</dt>
-              <dd className="font-semibold text-gray-900">{formatCurrency(itemsAndShippingTotal)}</dd>
-            </div>
-          </dl>
+          </div>
+        )}
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-end justify-between gap-3">
+            <p className="text-sm font-semibold text-blue-700">총 결제 금액</p>
+            <p className="text-2xl font-extrabold text-blue-900">{formatCurrency(grandTotalAmount)}</p>
+          </div>
         </div>
       </section>
 
