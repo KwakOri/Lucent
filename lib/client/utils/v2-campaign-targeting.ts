@@ -75,6 +75,7 @@ export function buildCampaignProjectIdSet(params: {
 
 export function resolveEligibleCampaignProducts(params: {
   campaignType: V2CampaignType;
+  campaignSourceId?: string | null;
   targets: V2CampaignTarget[];
   products: V2Product[];
 }): V2Product[] {
@@ -86,7 +87,6 @@ export function resolveEligibleCampaignProducts(params: {
   const includeProductIds = new Set<string>();
   const excludeProjectIds = new Set<string>();
   const excludeProductIds = new Set<string>();
-  const productsById = new Map(activeProducts.map((product) => [product.id, product]));
 
   params.targets.forEach((target) => {
     const projectBucket = target.is_excluded ? excludeProjectIds : includeProjectIds;
@@ -104,6 +104,13 @@ export function resolveEligibleCampaignProducts(params: {
   });
 
   const hasIncludeTargets = includeProjectIds.size > 0 || includeProductIds.size > 0;
+  const normalizedCampaignSourceId =
+    typeof params.campaignSourceId === 'string' && params.campaignSourceId.trim().length > 0
+      ? params.campaignSourceId.trim()
+      : null;
+  const hasSourceProjectMatch =
+    normalizedCampaignSourceId !== null &&
+    activeProducts.some((product) => product.project_id === normalizedCampaignSourceId);
 
   let candidates = activeProducts;
   if (params.campaignType === 'ALWAYS_ON') {
@@ -111,6 +118,12 @@ export function resolveEligibleCampaignProducts(params: {
       candidates = activeProducts.filter((product) => includeProjectIds.has(product.project_id));
     } else if (includeProductIds.size > 0) {
       candidates = activeProducts.filter((product) => includeProductIds.has(product.id));
+    } else if (hasSourceProjectMatch && normalizedCampaignSourceId) {
+      candidates = activeProducts.filter(
+        (product) => product.project_id === normalizedCampaignSourceId,
+      );
+    } else {
+      candidates = [];
     }
   } else if (hasIncludeTargets) {
     candidates = activeProducts.filter(

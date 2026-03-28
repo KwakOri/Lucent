@@ -221,10 +221,11 @@ export default function V2CatalogCampaignPricingPage() {
   const eligibleProducts = useMemo(() => {
     return resolveEligibleCampaignProducts({
       campaignType: campaign?.campaign_type || 'SALE',
+      campaignSourceId: campaign?.source_id || null,
       targets: targets || [],
       products: products || [],
     });
-  }, [campaign?.campaign_type, products, targets]);
+  }, [campaign?.campaign_type, campaign?.source_id, products, targets]);
 
   const presetProduct = useMemo(
     () => eligibleProducts.find((product) => product.id === presetProductId) || null,

@@ -148,6 +148,7 @@ export default function V2CatalogCampaignDetailPage() {
     }
     return resolveEligibleCampaignProducts({
       campaignType: campaign.campaign_type,
+      campaignSourceId: campaign.source_id,
       targets: targets || [],
       products: products || [],
     });
