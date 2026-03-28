@@ -14,6 +14,7 @@ import { useUpdateV2Variant, useV2AdminVariantsMap } from '@/lib/client/hooks/us
 import { useV2AdminUpsertInventoryLevel } from '@/lib/client/hooks/useV2AdminOps';
 import {
   FULFILLMENT_TYPE_LABELS,
+  PRODUCT_KIND_LABELS,
   VARIANT_STATUS_LABELS,
 } from '@/lib/client/utils/v2-product-admin-form';
 
@@ -44,6 +45,8 @@ type VariantPricingRow = {
   campaignItem: V2PriceListItem | null;
   configured: boolean;
 };
+
+type ProductFulfillmentSummary = 'DIGITAL' | 'PHYSICAL' | 'MIXED' | 'UNKNOWN';
 
 type DirtyMap = Record<string, true>;
 
@@ -154,6 +157,67 @@ function setDirtyFlag(previous: DirtyMap, id: string, isDirty: boolean): DirtyMa
   };
   delete next[id];
   return next;
+}
+
+function resolveProductFulfillmentSummary(
+  product: V2Product,
+  rows: VariantPricingRow[],
+): ProductFulfillmentSummary {
+  const fulfillmentTypes = new Set(rows.map((row) => row.variant.fulfillment_type));
+
+  if (fulfillmentTypes.size > 1) {
+    return 'MIXED';
+  }
+
+  if (fulfillmentTypes.has('DIGITAL')) {
+    return 'DIGITAL';
+  }
+
+  if (fulfillmentTypes.has('PHYSICAL')) {
+    return 'PHYSICAL';
+  }
+
+  if (product.fulfillment_type === 'DIGITAL') {
+    return 'DIGITAL';
+  }
+
+  if (product.fulfillment_type === 'PHYSICAL') {
+    return 'PHYSICAL';
+  }
+
+  return 'UNKNOWN';
+}
+
+function getProductFulfillmentLabel(summary: ProductFulfillmentSummary): string | null {
+  if (summary === 'DIGITAL') {
+    return `${FULFILLMENT_TYPE_LABELS.DIGITAL} 상품`;
+  }
+
+  if (summary === 'PHYSICAL') {
+    return `${FULFILLMENT_TYPE_LABELS.PHYSICAL} 상품`;
+  }
+
+  if (summary === 'MIXED') {
+    return '디지털/실물 혼합';
+  }
+
+  return null;
+}
+
+function getProductFulfillmentIntent(summary: ProductFulfillmentSummary): 'default' | 'success' | 'info' | 'warning' {
+  if (summary === 'DIGITAL') {
+    return 'success';
+  }
+
+  if (summary === 'PHYSICAL') {
+    return 'info';
+  }
+
+  if (summary === 'MIXED') {
+    return 'warning';
+  }
+
+  return 'default';
 }
 
 export function CampaignPricingBulkTable({
@@ -501,6 +565,8 @@ export function CampaignPricingBulkTable({
                   dirtyTrackVariantIds[row.variant.id],
               ).length;
               const isExpanded = Boolean(expandedProducts[product.id]);
+              const fulfillmentSummary = resolveProductFulfillmentSummary(product, rows);
+              const productFulfillmentLabel = getProductFulfillmentLabel(fulfillmentSummary);
 
               return (
                 <Fragment key={product.id}>
@@ -510,9 +576,16 @@ export function CampaignPricingBulkTable({
                       <p className="mt-1 text-xs text-gray-500">/{product.slug}</p>
                     </td>
                     <td className="px-3 py-3">
-                      <Badge intent="default" size="sm">
-                        {product.product_kind === 'BUNDLE' ? '번들' : '일반'}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge intent="default" size="sm">
+                          {PRODUCT_KIND_LABELS[product.product_kind]}
+                        </Badge>
+                        {productFulfillmentLabel && (
+                          <Badge intent={getProductFulfillmentIntent(fulfillmentSummary)} size="sm">
+                            {productFulfillmentLabel}
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-3">
                       <Badge intent="info" size="sm">{rows.length}개</Badge>
