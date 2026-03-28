@@ -520,6 +520,7 @@ export interface V2Campaign {
   shop_banner_alt_text: string | null;
   channel_scope_json: unknown[];
   purchase_limit_json: Record<string, unknown>;
+  project_id: string | null;
   source_type: string | null;
   source_id: string | null;
   source_snapshot_json: Record<string, unknown>;
