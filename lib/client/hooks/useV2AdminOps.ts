@@ -40,9 +40,11 @@ import { queryKeys } from './query-keys';
 async function invalidateV2AdminOps(queryClient: ReturnType<typeof useQueryClient>) {
   await queryClient.invalidateQueries({
     queryKey: queryKeys.v2AdminOps.all,
+    refetchType: 'all',
   });
   await queryClient.invalidateQueries({
     queryKey: queryKeys.v2Checkout.all,
+    refetchType: 'all',
   });
 }
 

@@ -757,7 +757,7 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={stageBadgeClassName}>
-                          단계 {orderStageTabLabel(currentStageTab)}
+                          {orderStageTabLabel(currentStageTab)}
                         </span>
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-900">
