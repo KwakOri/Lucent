@@ -17,8 +17,10 @@ import type {
 import { ApiError } from "@/lib/client/utils/api-error";
 import { ShoppingCart } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/src/components/toast";
+
+const SHOP_SECTION_PAGE_SIZE = 6;
 
 function formatDisplayPrice(item: V2ShopListItem): string {
   if (!item.display_price) {
@@ -72,6 +74,48 @@ function getErrorMessage(error: unknown): string {
   return "요청 처리 중 오류가 발생했습니다.";
 }
 
+interface SectionPaginationProps {
+  page: number;
+  totalPages: number;
+  ariaLabel: string;
+  onPageChange: (nextPage: number) => void;
+}
+
+function SectionPagination({
+  page,
+  totalPages,
+  ariaLabel,
+  onPageChange,
+}: SectionPaginationProps) {
+  if (totalPages <= 1) {
+    return null;
+  }
+
+  return (
+    <nav aria-label={ariaLabel} className="mt-8 flex items-center justify-center gap-3">
+      <Button
+        intent="secondary"
+        size="sm"
+        disabled={page <= 1}
+        onClick={() => onPageChange(page - 1)}
+      >
+        이전
+      </Button>
+      <span className="min-w-20 text-center text-sm font-semibold text-text-secondary">
+        {page} / {totalPages}
+      </span>
+      <Button
+        intent="secondary"
+        size="sm"
+        disabled={page >= totalPages}
+        onClick={() => onPageChange(page + 1)}
+      >
+        다음
+      </Button>
+    </nav>
+  );
+}
+
 function ShopPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -79,6 +123,8 @@ function ShopPageContent() {
   const { showToast } = useToast();
   const addCartItem = useV2AddCartItem();
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
+  const [voicePackPage, setVoicePackPage] = useState(1);
+  const [goodsPage, setGoodsPage] = useState(1);
   const selectedCampaignId = searchParams.get("campaign_id")?.trim() || "";
   const { data: campaigns = [] } = useV2ShopCampaigns({
     channel: "WEB",
@@ -128,6 +174,45 @@ function ShopPageContent() {
     () => exposedProducts.filter((item) => item.fulfillment_type !== "DIGITAL"),
     [exposedProducts],
   );
+  const voicePackTotalPages = Math.max(
+    1,
+    Math.ceil(voicePacks.length / SHOP_SECTION_PAGE_SIZE),
+  );
+  const goodsTotalPages = Math.max(
+    1,
+    Math.ceil(physicalGoods.length / SHOP_SECTION_PAGE_SIZE),
+  );
+  const voicePackPageStartIndex = (voicePackPage - 1) * SHOP_SECTION_PAGE_SIZE;
+  const goodsPageStartIndex = (goodsPage - 1) * SHOP_SECTION_PAGE_SIZE;
+  const paginatedVoicePacks = useMemo(
+    () =>
+      voicePacks.slice(
+        voicePackPageStartIndex,
+        voicePackPageStartIndex + SHOP_SECTION_PAGE_SIZE,
+      ),
+    [voicePacks, voicePackPageStartIndex],
+  );
+  const paginatedPhysicalGoods = useMemo(
+    () =>
+      physicalGoods.slice(
+        goodsPageStartIndex,
+        goodsPageStartIndex + SHOP_SECTION_PAGE_SIZE,
+      ),
+    [physicalGoods, goodsPageStartIndex],
+  );
+
+  useEffect(() => {
+    setVoicePackPage(1);
+    setGoodsPage(1);
+  }, [selectedCampaignId]);
+
+  useEffect(() => {
+    setVoicePackPage((current) => Math.min(current, voicePackTotalPages));
+  }, [voicePackTotalPages]);
+
+  useEffect(() => {
+    setGoodsPage((current) => Math.min(current, goodsTotalPages));
+  }, [goodsTotalPages]);
 
   const getShopPath = (campaignId: string | null | undefined) =>
     campaignId ? `/shop?campaign_id=${encodeURIComponent(campaignId)}` : "/shop";
@@ -279,14 +364,14 @@ function ShopPageContent() {
             </div>
 
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {voicePacks.map((pack, index) => (
+              {paginatedVoicePacks.map((pack, index) => (
                 <div
                   key={pack.product_id}
                   className="cursor-pointer overflow-hidden rounded-2xl border-2 border-primary-200 bg-white transition-all duration-300 hover:scale-105 hover:shadow-xl"
                   onClick={() => handleProductClick(pack.product_id)}
                 >
                   <VoicePackCover
-                    index={index}
+                    index={voicePackPageStartIndex + index}
                     name={pack.title}
                     thumbnail={pack.thumbnail_url}
                   />
@@ -330,6 +415,12 @@ function ShopPageContent() {
                 </div>
               ))}
             </div>
+            <SectionPagination
+              page={voicePackPage}
+              totalPages={voicePackTotalPages}
+              ariaLabel="Voice Packs 페이지네이션"
+              onPageChange={setVoicePackPage}
+            />
           </div>
         </section>
       ) : null}
@@ -345,7 +436,7 @@ function ShopPageContent() {
             </div>
 
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {physicalGoods.map((goods) => {
+              {paginatedPhysicalGoods.map((goods) => {
                 const soldOut = goods.availability.reason === "OUT_OF_STOCK";
                 const canAdd = canAddToCart(goods);
                 return (
@@ -415,6 +506,12 @@ function ShopPageContent() {
                 );
               })}
             </div>
+            <SectionPagination
+              page={goodsPage}
+              totalPages={goodsTotalPages}
+              ariaLabel="Goods 페이지네이션"
+              onPageChange={setGoodsPage}
+            />
           </div>
         </section>
       ) : null}
