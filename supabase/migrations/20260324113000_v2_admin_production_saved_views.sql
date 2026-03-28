@@ -3,9 +3,10 @@
 -- Description: Persist production candidate filter views per admin account
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE IF NOT EXISTS public.v2_admin_production_saved_views (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_admin_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name VARCHAR(120) NOT NULL,
   filter_json JSONB NOT NULL DEFAULT '{}'::jsonb,

@@ -3,13 +3,14 @@
 -- Description: Add production/shipping batch snapshot tables for admin operations
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- =====================================================
 -- 1) Production batch
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.v2_admin_production_batches (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_no VARCHAR(40) NOT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
   title VARCHAR(255) NOT NULL,
@@ -42,7 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_v2_admin_production_batches_created_by
   ON public.v2_admin_production_batches(created_by, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS public.v2_admin_production_batch_orders (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id UUID NOT NULL REFERENCES public.v2_admin_production_batches(id) ON DELETE CASCADE,
   order_id UUID NOT NULL REFERENCES public.v2_orders(id) ON DELETE RESTRICT,
   order_no VARCHAR(80) NOT NULL,
@@ -71,7 +72,7 @@ CREATE INDEX IF NOT EXISTS idx_v2_admin_production_batch_orders_order
   ON public.v2_admin_production_batch_orders(order_id);
 
 CREATE TABLE IF NOT EXISTS public.v2_admin_production_batch_item_aggregates (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id UUID NOT NULL REFERENCES public.v2_admin_production_batches(id) ON DELETE CASCADE,
   product_id UUID REFERENCES public.v2_products(id) ON DELETE SET NULL,
   variant_id UUID REFERENCES public.v2_product_variants(id) ON DELETE SET NULL,
@@ -95,7 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_v2_admin_production_batch_agg_batch
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.v2_admin_shipping_batches (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_no VARCHAR(40) NOT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
   title VARCHAR(255) NOT NULL,
@@ -126,7 +127,7 @@ CREATE INDEX IF NOT EXISTS idx_v2_admin_shipping_batches_status
   ON public.v2_admin_shipping_batches(status, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS public.v2_admin_shipping_batch_orders (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id UUID NOT NULL REFERENCES public.v2_admin_shipping_batches(id) ON DELETE CASCADE,
   order_id UUID NOT NULL REFERENCES public.v2_orders(id) ON DELETE RESTRICT,
   order_no VARCHAR(80) NOT NULL,
@@ -156,7 +157,7 @@ CREATE INDEX IF NOT EXISTS idx_v2_admin_shipping_batch_orders_order
   ON public.v2_admin_shipping_batch_orders(order_id);
 
 CREATE TABLE IF NOT EXISTS public.v2_admin_shipping_batch_packages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id UUID NOT NULL REFERENCES public.v2_admin_shipping_batches(id) ON DELETE CASCADE,
   batch_order_id UUID NOT NULL REFERENCES public.v2_admin_shipping_batch_orders(id) ON DELETE CASCADE,
   shipment_id UUID REFERENCES public.v2_shipments(id) ON DELETE SET NULL,
