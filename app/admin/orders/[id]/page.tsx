@@ -431,7 +431,7 @@ export default function AdminOrderDetailPage() {
         )}
         <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="flex items-center font-medium text-blue-700">총 결제 금액</p>
+            <p className="flex items-center font-bold text-blue-700">총 결제 금액</p>
             <p className="font-semibold text-blue-900">{formatCurrency(grandTotalAmount)}</p>
           </div>
         </div>
