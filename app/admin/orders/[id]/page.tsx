@@ -161,7 +161,7 @@ function resolveShippingFeeTypeLabel(params: {
       isPostcodeInRanges(shippingPostcode, ISLAND_POSTCODE_RANGES));
   const hasRemoteSurcharge = shippingAmount > BASE_SHIPPING_FEE;
 
-  return isRemotePostcode || hasRemoteSurcharge ? '산간지역 배송비' : '일반 배송비';
+  return isRemotePostcode || hasRemoteSurcharge ? '산간지역 배송지' : '일반 배송비';
 }
 
 export default function AdminOrderDetailPage() {
