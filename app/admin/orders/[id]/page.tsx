@@ -78,6 +78,92 @@ function lineTypeLabel(lineType: string): string {
   return '일반';
 }
 
+function readSnapshotText(snapshot: Record<string, unknown> | null, key: string): string {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return '';
+  }
+  const value = snapshot[key];
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.trim();
+}
+
+function readFirstSnapshotText(
+  snapshot: Record<string, unknown> | null,
+  keys: string[],
+): string {
+  for (const key of keys) {
+    const value = readSnapshotText(snapshot, key);
+    if (value.length > 0) {
+      return value;
+    }
+  }
+  return '';
+}
+
+function resolveShippingPostalCode(snapshot: Record<string, unknown> | null): string {
+  return readFirstSnapshotText(snapshot, [
+    'postal_code',
+    'postalCode',
+    'zipcode',
+    'zip_code',
+    'zip',
+  ]);
+}
+
+const BASE_SHIPPING_FEE = 3500;
+
+const JEJU_POSTCODE_RANGES: ReadonlyArray<readonly [number, number]> = [[63000, 63644]];
+
+const ISLAND_POSTCODE_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [40200, 40240],
+  [22386, 22388],
+  [23004, 23010],
+  [23100, 23136],
+  [32133, 32133],
+  [33411, 33411],
+  [46768, 46771],
+  [52570, 52571],
+  [53031, 53033],
+  [53089, 53104],
+  [56347, 56349],
+  [57068, 57069],
+  [58760, 58762],
+  [58800, 58810],
+  [58816, 58818],
+  [58828, 58866],
+  [58953, 58958],
+  [59102, 59103],
+  [59106, 59106],
+];
+
+function isPostcodeInRanges(
+  postcode: string,
+  ranges: ReadonlyArray<readonly [number, number]>,
+): boolean {
+  const postcodeNumber = Number.parseInt(postcode, 10);
+  if (!Number.isInteger(postcodeNumber)) {
+    return false;
+  }
+  return ranges.some(([start, end]) => postcodeNumber >= start && postcodeNumber <= end);
+}
+
+function resolveShippingFeeTypeLabel(params: {
+  shippingAmount: number;
+  shippingPostcode: string;
+}): string {
+  const { shippingAmount, shippingPostcode } = params;
+
+  const isRemotePostcode =
+    shippingPostcode.length > 0 &&
+    (isPostcodeInRanges(shippingPostcode, JEJU_POSTCODE_RANGES) ||
+      isPostcodeInRanges(shippingPostcode, ISLAND_POSTCODE_RANGES));
+  const hasRemoteSurcharge = shippingAmount > BASE_SHIPPING_FEE;
+
+  return isRemotePostcode || hasRemoteSurcharge ? '산간지역 배송지' : '일반 배송비';
+}
+
 export default function AdminOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = params.id;
@@ -118,6 +204,23 @@ export default function AdminOrderDetailPage() {
 
     return titleById;
   }, [detail?.items]);
+  const shippingAddressSnapshot = useMemo(() => {
+    const raw = order?.shipping_address_snapshot;
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      return raw as Record<string, unknown>;
+    }
+    return null;
+  }, [order?.shipping_address_snapshot]);
+  const shippingPostcode = resolveShippingPostalCode(shippingAddressSnapshot);
+  const shippingAmount = readNumber(order?.shipping_amount);
+  const shippingDiscountTotal = readNumber(order?.shipping_discount_total);
+  const netShippingAmount = Math.max(0, shippingAmount - shippingDiscountTotal);
+  const shippingFeeTypeLabel = resolveShippingFeeTypeLabel({
+    shippingAmount,
+    shippingPostcode,
+  });
+  const hasShippingFeeLine = shippingAmount > 0 || shippingDiscountTotal > 0;
+  const grandTotalAmount = readNumber(order?.grand_total);
 
   async function handleRefundOrder() {
     if (!orderId) {
@@ -273,7 +376,7 @@ export default function AdminOrderDetailPage() {
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <h2 className="text-lg font-semibold text-gray-900">주문 아이템</h2>
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-4">
           {orderItemGroups.length === 0 ? (
             <p className="text-sm text-gray-500">주문 아이템이 없습니다.</p>
           ) : (
@@ -300,10 +403,7 @@ export default function AdminOrderDetailPage() {
                     </p>
                     <div className="mt-2 space-y-2">
                       {group.components.map((component, componentIndex) => (
-                        <div
-                          key={`${component.id}-${componentIndex}`}
-                          className="flex items-start justify-between gap-2"
-                        >
+                        <div key={`${component.id}-${componentIndex}`} className="flex items-start gap-2">
                           <div>
                             <p className="text-sm font-medium text-gray-800">
                               {orderItemProductTitleById.get(component.id) || component.title}
@@ -312,9 +412,6 @@ export default function AdminOrderDetailPage() {
                               수량 {component.quantity} · 상태 {component.lineStatus || '-'}
                             </p>
                           </div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            {formatCurrency(component.lineTotal)}
-                          </p>
                         </div>
                       ))}
                     </div>
@@ -323,6 +420,20 @@ export default function AdminOrderDetailPage() {
               </div>
             ))
           )}
+        </div>
+        {hasShippingFeeLine && (
+          <div className="mt-3 rounded-lg border border-gray-200 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-medium text-gray-900">{shippingFeeTypeLabel}</p>
+              <p className="font-semibold text-gray-900">{formatCurrency(netShippingAmount)}</p>
+            </div>
+          </div>
+        )}
+        <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="flex items-center font-bold text-blue-700">총 결제 금액</p>
+            <p className="font-semibold text-blue-900">{formatCurrency(grandTotalAmount)}</p>
+          </div>
         </div>
       </section>
 

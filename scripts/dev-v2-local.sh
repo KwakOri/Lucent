@@ -12,12 +12,18 @@ LOCAL_ADMIN_BYPASS_VALUE="${LOCAL_ADMIN_BYPASS:-true}"
 RESET_DB=0
 KEEP_BACKEND=0
 USE_LOCAL_SUPABASE=0
+SYNC_LINKED_DATA=0
 
 BACKEND_PID=""
 BACKEND_LOG="${FE_DIR}/.tmp/dev-v2-local-backend.log"
 BACKEND_LOG_TAIL_PID=""
 FRONTEND_ENV_FILE="${FE_DIR}/.env.local"
 BACKEND_ENV_FILE="${BE_DIR}/.env"
+SUPABASE_PROJECT_ID="$(
+  awk -F= '/^project_id[[:space:]]*=/{gsub(/[[:space:]"]/, "", $2); print $2; exit}' "${FE_DIR}/supabase/config.toml"
+)"
+LOCAL_DB_CONTAINER="supabase_db_${SUPABASE_PROJECT_ID:-frontend}"
+LOCAL_DB_URL_VALUE=""
 
 print_usage() {
   cat <<'EOF'
@@ -27,6 +33,7 @@ Usage:
 Options:
   --use-local-supabase  로컬 Supabase를 기동해서 연결 (기본: 원격 DB)
   --reset-db            --use-local-supabase 모드에서 supabase db reset 실행
+  --sync-linked-data    linked 원격 DB(public + auth.users/identities) 데이터를 덤프해 로컬 DB로 복원 (자동으로 --use-local-supabase + --reset-db 적용)
   --frontend-port <n>   프론트 포트 (default: 3000)
   --backend-port <n>    백엔드 포트 (default: 3001)
   --no-admin-bypass     LOCAL_ADMIN_BYPASS=false로 실행
@@ -120,6 +127,123 @@ wait_port_free() {
   return 1
 }
 
+run_local_db_sql_file() {
+  local sql_file="$1"
+
+  if command -v psql >/dev/null 2>&1; then
+    if [[ -z "${LOCAL_DB_URL_VALUE}" ]]; then
+      echo "failed to resolve local DB_URL from supabase status output" >&2
+      exit 1
+    fi
+    psql "${LOCAL_DB_URL_VALUE}" -v ON_ERROR_STOP=1 -f "${sql_file}"
+    return 0
+  fi
+
+  if ! docker ps --format '{{.Names}}' | grep -qx "${LOCAL_DB_CONTAINER}"; then
+    echo "local db container not found: ${LOCAL_DB_CONTAINER}" >&2
+    echo "install psql locally or ensure supabase local containers are running." >&2
+    exit 1
+  fi
+
+  docker exec -i "${LOCAL_DB_CONTAINER}" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "${sql_file}"
+}
+
+truncate_local_target_tables() {
+  local truncate_sql="${FE_DIR}/.tmp/dev-v2-local-truncate-target-tables.sql"
+  cat > "${truncate_sql}" <<'SQL'
+DO $$
+DECLARE
+  truncate_stmt text;
+BEGIN
+  SELECT
+    'TRUNCATE TABLE '
+    || string_agg(format('%I.%I', schemaname, tablename), ', ')
+    || ' CASCADE'
+  INTO truncate_stmt
+  FROM pg_tables
+  WHERE schemaname = 'public'
+     OR (
+      schemaname = 'auth'
+      AND tablename IN ('users', 'identities')
+    );
+
+  IF truncate_stmt IS NOT NULL THEN
+    EXECUTE truncate_stmt;
+  END IF;
+END $$;
+SQL
+
+  run_local_db_sql_file "${truncate_sql}"
+  rm -f "${truncate_sql}"
+}
+
+prepare_local_schema_for_linked_import() {
+  local compat_sql="${FE_DIR}/.tmp/dev-v2-local-linked-import-compat.sql"
+  cat > "${compat_sql}" <<'SQL'
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_type
+    WHERE typname = 'order_item_status'
+  ) THEN
+    ALTER TYPE order_item_status ADD VALUE IF NOT EXISTS 'PAID';
+    ALTER TYPE order_item_status ADD VALUE IF NOT EXISTS 'MAKING';
+    ALTER TYPE order_item_status ADD VALUE IF NOT EXISTS 'READY_TO_SHIP';
+    ALTER TYPE order_item_status ADD VALUE IF NOT EXISTS 'SHIPPING';
+    ALTER TYPE order_item_status ADD VALUE IF NOT EXISTS 'DONE';
+  END IF;
+END $$;
+SQL
+
+  run_local_db_sql_file "${compat_sql}"
+  rm -f "${compat_sql}"
+}
+
+sync_linked_data_to_local() {
+  local timestamp
+  local dump_file
+
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  mkdir -p "${FE_DIR}/supabase/backups"
+  dump_file="${FE_DIR}/supabase/backups/remote-data-copy-${timestamp}.sql"
+
+  log "dumping linked remote data to ${dump_file}"
+  cd "${FE_DIR}"
+  npx supabase db dump --linked --data-only --schema public,auth \
+    --exclude auth.schema_migrations \
+    --exclude auth.instances \
+    --exclude auth.audit_log_entries \
+    --exclude auth.flow_state \
+    --exclude auth.mfa_amr_claims \
+    --exclude auth.mfa_challenges \
+    --exclude auth.mfa_factors \
+    --exclude auth.oauth_authorizations \
+    --exclude auth.oauth_client_states \
+    --exclude auth.oauth_clients \
+    --exclude auth.oauth_consents \
+    --exclude auth.one_time_tokens \
+    --exclude auth.refresh_tokens \
+    --exclude auth.saml_providers \
+    --exclude auth.saml_relay_states \
+    --exclude auth.sessions \
+    --exclude auth.sso_domains \
+    --exclude auth.sso_providers \
+    --exclude auth.custom_oauth_providers \
+    --exclude auth.webauthn_challenges \
+    --exclude auth.webauthn_credentials \
+    --use-copy -f "${dump_file}"
+
+  log "clearing local public + auth.users/identities data before import"
+  truncate_local_target_tables
+
+  log "preparing local schema compatibility for linked data import"
+  prepare_local_schema_for_linked_import
+
+  log "importing linked remote dump into local DB"
+  run_local_db_sql_file "${dump_file}"
+}
+
 cleanup() {
   if [[ -n "${BACKEND_LOG_TAIL_PID}" ]] && kill -0 "${BACKEND_LOG_TAIL_PID}" >/dev/null 2>&1; then
     kill "${BACKEND_LOG_TAIL_PID}" >/dev/null 2>&1 || true
@@ -145,6 +269,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --reset-db)
       RESET_DB=1
+      shift
+      ;;
+    --sync-linked-data)
+      SYNC_LINKED_DATA=1
       shift
       ;;
     --frontend-port)
@@ -185,6 +313,16 @@ if [[ "${RESET_DB}" -eq 1 && "${USE_LOCAL_SUPABASE}" -eq 0 ]]; then
   USE_LOCAL_SUPABASE=1
 fi
 
+if [[ "${SYNC_LINKED_DATA}" -eq 1 && "${USE_LOCAL_SUPABASE}" -eq 0 ]]; then
+  log "--sync-linked-data requested, switching to --use-local-supabase mode"
+  USE_LOCAL_SUPABASE=1
+fi
+
+if [[ "${SYNC_LINKED_DATA}" -eq 1 && "${RESET_DB}" -eq 0 ]]; then
+  log "--sync-linked-data requested, enabling --reset-db"
+  RESET_DB=1
+fi
+
 SUPABASE_URL_VALUE=""
 SUPABASE_ANON_KEY_VALUE=""
 SUPABASE_SERVICE_ROLE_KEY_VALUE=""
@@ -200,6 +338,7 @@ if [[ "${USE_LOCAL_SUPABASE}" -eq 1 ]]; then
   fi
 
   SUPABASE_ENV_RAW="$(npx supabase status -o env | awk -F= '/^[A-Z_]+=/{print}')"
+  LOCAL_DB_URL_VALUE="$(extract_env_value "DB_URL" "${SUPABASE_ENV_RAW}")"
   SUPABASE_URL_VALUE="$(extract_env_value "API_URL" "${SUPABASE_ENV_RAW}")"
   SUPABASE_ANON_KEY_VALUE="$(extract_env_value "ANON_KEY" "${SUPABASE_ENV_RAW}")"
   SUPABASE_SERVICE_ROLE_KEY_VALUE="$(extract_env_value "SERVICE_ROLE_KEY" "${SUPABASE_ENV_RAW}")"
@@ -207,6 +346,10 @@ if [[ "${USE_LOCAL_SUPABASE}" -eq 1 ]]; then
   if [[ -z "${SUPABASE_URL_VALUE}" || -z "${SUPABASE_ANON_KEY_VALUE}" || -z "${SUPABASE_SERVICE_ROLE_KEY_VALUE}" ]]; then
     echo "failed to read local supabase env values from 'supabase status -o env'" >&2
     exit 1
+  fi
+
+  if [[ "${SYNC_LINKED_DATA}" -eq 1 ]]; then
+    sync_linked_data_to_local
   fi
 else
   log "using remote supabase settings (env -> .env.local -> backend/.env)"

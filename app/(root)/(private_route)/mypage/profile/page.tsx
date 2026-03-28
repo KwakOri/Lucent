@@ -4,20 +4,20 @@
  * 회원정보 수정 페이지
  */
 
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, Save, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { FormField } from '@/components/ui/form-field';
-import { Loading } from '@/components/ui/loading';
-import { EmptyState } from '@/components/ui/empty-state';
-import { NameInput, PhoneInput, AddressInput } from '@/components/form';
-import { useProfile, useUpdateProfile } from '@/lib/client/hooks';
-import { useToast } from '@/src/components/toast';
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Save, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { FormField } from "@/components/ui/form-field";
+import { Loading } from "@/components/ui/loading";
+import { EmptyState } from "@/components/ui/empty-state";
+import { NameInput, PhoneInput, AddressInput } from "@/components/form";
+import { useProfile, useUpdateProfile } from "@/lib/client/hooks";
+import { useToast } from "@/src/components/toast";
 
 export default function ProfileEditPage() {
   const router = useRouter();
@@ -27,21 +27,23 @@ export default function ProfileEditPage() {
   const { mutate: updateProfile, isPending: isSaving } = useUpdateProfile();
 
   const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    main_address: '',
-    detail_address: '',
+    name: "",
+    phone: "",
+    main_address: "",
+    detail_address: "",
   });
 
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
   const [isDirty, setIsDirty] = useState(false);
 
   const profileFormData = useMemo(
     () => ({
-      name: profile?.name || '',
-      phone: profile?.phone || '',
-      main_address: profile?.main_address || '',
-      detail_address: profile?.detail_address || '',
+      name: profile?.name || "",
+      phone: profile?.phone || "",
+      main_address: profile?.main_address || "",
+      detail_address: profile?.detail_address || "",
     }),
     [profile],
   );
@@ -70,7 +72,7 @@ export default function ProfileEditPage() {
 
     // 필수 필드 확인
     if (!effectiveFormData.name.trim()) {
-      errors.name = '이름을 입력해주세요';
+      errors.name = "이름을 입력해주세요";
     }
 
     setValidationErrors(errors);
@@ -97,22 +99,26 @@ export default function ProfileEditPage() {
       },
       {
         onSuccess: () => {
-          showToast('프로필이 업데이트되었습니다', { type: 'success' });
+          showToast("프로필이 업데이트되었습니다", { type: "success" });
           setIsDirty(false);
-          router.push('/mypage');
+          router.push("/mypage");
         },
         onError: (error) => {
-          console.error('Profile update failed:', error);
-          showToast(error.message || '프로필 수정에 실패했습니다', { type: 'error' });
+          console.error("Profile update failed:", error);
+          showToast(error.message || "프로필 수정에 실패했습니다", {
+            type: "error",
+          });
         },
-      }
+      },
     );
   };
 
   // 취소
   const handleCancel = () => {
     if (isDirty) {
-      if (confirm('저장하지 않은 변경사항이 있습니다. 페이지를 나가시겠습니까?')) {
+      if (
+        confirm("저장하지 않은 변경사항이 있습니다. 페이지를 나가시겠습니까?")
+      ) {
         router.back();
       }
     } else {
@@ -133,7 +139,11 @@ export default function ProfileEditPage() {
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
         <EmptyState
           title="프로필을 불러올 수 없습니다"
-          description={error instanceof Error ? error.message : '프로필 정보를 불러오는 중 오류가 발생했습니다'}
+          description={
+            error instanceof Error
+              ? error.message
+              : "프로필 정보를 불러오는 중 오류가 발생했습니다"
+          }
         >
           <Link href="/mypage">
             <Button intent="primary" size="md">
@@ -158,11 +168,16 @@ export default function ProfileEditPage() {
             뒤로 가기
           </button>
           <h1 className="text-3xl font-bold text-text-primary">프로필 설정</h1>
-          <p className="mt-2 text-text-secondary">회원정보를 수정할 수 있습니다</p>
+          <p className="mt-2 text-text-secondary">
+            회원정보를 수정할 수 있습니다
+          </p>
         </div>
 
         {/* Profile Form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-neutral-200 p-6 md:p-8">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white rounded-xl border border-neutral-200 p-6 md:p-8"
+        >
           <div className="space-y-6">
             {/* 이메일 (읽기 전용) */}
             <FormField
@@ -183,7 +198,7 @@ export default function ProfileEditPage() {
             <NameInput
               id="name"
               value={effectiveFormData.name}
-              onChange={(value) => handleChange('name', value)}
+              onChange={(value) => handleChange("name", value)}
               required
               error={validationErrors.name}
             />
@@ -192,7 +207,7 @@ export default function ProfileEditPage() {
             <PhoneInput
               id="phone"
               value={effectiveFormData.phone}
-              onChange={(value) => handleChange('phone', value)}
+              onChange={(value) => handleChange("phone", value)}
               error={validationErrors.phone}
             />
 
@@ -200,11 +215,15 @@ export default function ProfileEditPage() {
             <AddressInput
               mainAddressId="main_address"
               mainAddressValue={effectiveFormData.main_address}
-              onMainAddressChange={(value) => handleChange('main_address', value)}
+              onMainAddressChange={(value) =>
+                handleChange("main_address", value)
+              }
               mainAddressError={validationErrors.main_address}
               detailAddressId="detail_address"
               detailAddressValue={effectiveFormData.detail_address}
-              onDetailAddressChange={(value) => handleChange('detail_address', value)}
+              onDetailAddressChange={(value) =>
+                handleChange("detail_address", value)
+              }
               detailAddressError={validationErrors.detail_address}
               showDetailAlways
             />
@@ -231,7 +250,7 @@ export default function ProfileEditPage() {
               className="sm:order-2"
             >
               <Save className="w-4 h-4" />
-              {isSaving ? '저장 중...' : '저장'}
+              {isSaving ? "저장 중..." : "저장"}
             </Button>
           </div>
         </form>

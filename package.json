@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --webpack",
     "dev:turbo": "next dev",
-    "dev:v2-local": "bash scripts/dev-v2-local.sh",
+    "dev:v2-local": "bash scripts/dev-v2-local.sh --sync-linked-data",
+    "dev:v2-local:remote": "bash scripts/dev-v2-local.sh",
     "dev:v2-local:local-db": "bash scripts/dev-v2-local.sh --use-local-supabase",
     "dev:v2-local:reset": "bash scripts/dev-v2-local.sh --reset-db",
     "build": "next build",
@@ -51,7 +52,8 @@
     "nodemailer": "^7.0.12",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^4.1.3",
