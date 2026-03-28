@@ -15,9 +15,22 @@ import { queryKeys } from './query-keys';
 async function invalidateShippingQueries(
   queryClient: ReturnType<typeof useQueryClient>,
 ) {
-  await queryClient.invalidateQueries({ queryKey: queryKeys.v2AdminOps.shipping.all });
-  await queryClient.invalidateQueries({ queryKey: queryKeys.v2AdminOps.ops.orderQueue() });
-  await queryClient.invalidateQueries({ queryKey: queryKeys.v2Checkout.all });
+  await queryClient.invalidateQueries({
+    queryKey: queryKeys.v2AdminOps.shipping.all,
+    refetchType: 'all',
+  });
+  await queryClient.invalidateQueries({
+    queryKey: queryKeys.v2AdminOps.production.all,
+    refetchType: 'all',
+  });
+  await queryClient.invalidateQueries({
+    queryKey: queryKeys.v2AdminOps.ops.orderQueue(),
+    refetchType: 'all',
+  });
+  await queryClient.invalidateQueries({
+    queryKey: queryKeys.v2Checkout.all,
+    refetchType: 'all',
+  });
 }
 
 export function useV2AdminShippingCandidates(
