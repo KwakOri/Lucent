@@ -86,7 +86,7 @@ function ShopPageContent() {
   });
   const { data, isLoading, error } = useV2ShopProducts({
     limit: 60,
-    sort: "SORT_ORDER",
+    sort: "LATEST",
     channel: "WEB",
     campaign_id: selectedCampaignId || undefined,
   });
@@ -104,22 +104,8 @@ function ShopPageContent() {
 
   const products = useMemo(() => data?.items ?? [], [data?.items]);
   const exposedProducts = useMemo(() => {
-    const visibleProducts = products.filter((item) => item.display_price !== null);
-
-    if (!selectedCampaignId) {
-      return visibleProducts;
-    }
-
-    return [...visibleProducts].sort((left, right) => {
-      const leftAmount = left.display_price?.amount ?? 0;
-      const rightAmount = right.display_price?.amount ?? 0;
-      const amountDiff = rightAmount - leftAmount;
-      if (amountDiff !== 0) {
-        return amountDiff;
-      }
-      return left.product_id.localeCompare(right.product_id);
-    });
-  }, [products, selectedCampaignId]);
+    return products.filter((item) => item.display_price !== null);
+  }, [products]);
   const voicePacks = useMemo(
     () => exposedProducts.filter((item) => item.fulfillment_type === "DIGITAL"),
     [exposedProducts],
