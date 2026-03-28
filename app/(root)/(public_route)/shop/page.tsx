@@ -86,7 +86,7 @@ function ShopPageContent() {
   });
   const { data, isLoading, error } = useV2ShopProducts({
     limit: 60,
-    sort: "SORT_ORDER",
+    sort: "LATEST",
     channel: "WEB",
     campaign_id: selectedCampaignId || undefined,
   });
