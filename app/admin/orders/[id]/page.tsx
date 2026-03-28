@@ -376,7 +376,7 @@ export default function AdminOrderDetailPage() {
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <h2 className="text-lg font-semibold text-gray-900">주문 아이템</h2>
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-4">
           {orderItemGroups.length === 0 ? (
             <p className="text-sm text-gray-500">주문 아이템이 없습니다.</p>
           ) : (
@@ -422,17 +422,17 @@ export default function AdminOrderDetailPage() {
           )}
         </div>
         {hasShippingFeeLine && (
-          <div className="rounded-lg border border-gray-200 p-3">
+          <div className="mt-3 rounded-lg border border-gray-200 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="font-medium text-gray-900">{shippingFeeTypeLabel}</p>
               <p className="font-semibold text-gray-900">{formatCurrency(netShippingAmount)}</p>
             </div>
           </div>
         )}
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-          <div className="flex items-end justify-between gap-3">
-            <p className="text-sm font-semibold text-blue-700">총 결제 금액</p>
-            <p className="text-2xl font-extrabold text-blue-900">{formatCurrency(grandTotalAmount)}</p>
+        <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="flex items-center font-medium text-blue-700">총 결제 금액</p>
+            <p className="font-semibold text-blue-900">{formatCurrency(grandTotalAmount)}</p>
           </div>
         </div>
       </section>
