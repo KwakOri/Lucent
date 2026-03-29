@@ -89,11 +89,6 @@ export async function createAdminClient() {
 
 /**
  * 관리자 권한 확인
- *
- * TODO: 실제 프로덕션에서는 profiles 테이블에 role 컬럼을 추가하고,
- * 해당 컬럼을 확인하여 관리자 권한을 검증해야 합니다.
- *
- * 1차 MVP에서는 특정 이메일로 간단히 체크 (환경변수로 관리)
  */
 export async function isAdmin(): Promise<boolean> {
   const user = await getCurrentUser();
@@ -102,8 +97,68 @@ export async function isAdmin(): Promise<boolean> {
     return false;
   }
 
-  // 환경변수에 설정된 관리자 이메일 목록
-  const adminEmails = process.env.ADMIN_EMAILS?.split(',') || [];
+  const adminClient = await createAdminClient();
+  const { data: userRoles, error: userRolesError } = await adminClient
+    .from('v2_admin_user_roles')
+    .select('role_id, expires_at, role:v2_admin_roles(is_active)')
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE');
 
-  return adminEmails.includes(user.email || '');
+  if (!userRolesError && (userRoles || []).some((row) => isRoleAssignmentActive(row))) {
+    return true;
+  }
+
+  const normalizedEmail = normalizeEmail(user.email);
+  if (!normalizedEmail) {
+    return false;
+  }
+
+  const adminEmails = (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!adminEmails.includes(normalizedEmail)) {
+    return false;
+  }
+
+  const { data: activeRoles, error: activeRolesError } = await adminClient
+    .from('v2_admin_user_roles')
+    .select('role_id, expires_at, role:v2_admin_roles(is_active)')
+    .eq('status', 'ACTIVE')
+    .order('assigned_at', { ascending: false })
+    .limit(500);
+
+  if (activeRolesError) {
+    return false;
+  }
+
+  const hasAnyActiveDbAdmin = (activeRoles || []).some((row) => isRoleAssignmentActive(row));
+  return !hasAnyActiveDbAdmin;
+}
+
+function normalizeEmail(email?: string | null): string | null {
+  if (!email || typeof email !== 'string') {
+    return null;
+  }
+  const normalized = email.trim().toLowerCase();
+  return normalized || null;
+}
+
+type AdminRoleAssignmentRow = {
+  expires_at?: string | null;
+  role?: {
+    is_active?: boolean | null;
+  } | null;
+};
+
+function isRoleAssignmentActive(row: AdminRoleAssignmentRow): boolean {
+  if (!row?.role?.is_active) {
+    return false;
+  }
+  if (!row.expires_at) {
+    return true;
+  }
+  const expiresAt = Date.parse(String(row.expires_at));
+  return Number.isNaN(expiresAt) || expiresAt > Date.now();
 }
