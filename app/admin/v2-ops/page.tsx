@@ -46,6 +46,7 @@ import type {
   V2CutoverStageRunStatus,
   V2CutoverStatus,
 } from '@/lib/client/api/v2-admin-ops.api';
+import { V2OpsNavTabs } from '@/src/components/admin/v2-ops/V2OpsNavTabs';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -613,6 +614,8 @@ export default function V2AdminOpsPage() {
           Action 기반 운영 큐 조회와 고위험 액션 실행 화면입니다.
         </p>
       </div>
+
+      <V2OpsNavTabs />
 
       {message ? (
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">

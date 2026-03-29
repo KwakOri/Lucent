@@ -337,6 +337,33 @@ export interface V2AdminMyRbac {
   permissions: string[];
 }
 
+export interface V2AdminRbacAssignment {
+  id: string;
+  role_id: string;
+  role_code: string | null;
+  role_name: string | null;
+  scope_type: string;
+  scope_id: string | null;
+  status: string;
+  assigned_at: string;
+  expires_at: string | null;
+  assigned_reason: string | null;
+  assigned_by: string | null;
+}
+
+export interface V2AdminRbacUser {
+  user_id: string;
+  email: string | null;
+  name: string | null;
+  active_roles: V2AdminRbacAssignment[];
+}
+
+export interface V2AdminRbacUsersResponse {
+  items: V2AdminRbacUser[];
+  limit: number;
+  search: string | null;
+}
+
 export interface V2AdminActionLog {
   id: string;
   action_key: string;
@@ -604,6 +631,11 @@ export interface ListV2AdminActionLogsParams {
   limit?: number;
   status?: V2AdminActionStatus;
   domain?: string;
+}
+
+export interface ListV2AdminRbacUsersParams {
+  limit?: number;
+  search?: string;
 }
 
 export interface ListV2AdminUnifiedAuditLogsParams {
@@ -889,6 +921,23 @@ export interface SaveV2AdminCutoverStageIssueInput {
   metadata?: Record<string, unknown> | null;
 }
 
+export interface AssignV2AdminRbacRoleInput {
+  user_id?: string;
+  user_email?: string;
+  role_code: string;
+  scope_type?: string;
+  scope_id?: string | null;
+  expires_at?: string | null;
+  assigned_reason?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface RevokeV2AdminRbacRoleInput {
+  assignment_id: string;
+  reason?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
 export interface V2AdminListResponse<T> {
   items: T[];
   limit: number;
@@ -928,6 +977,37 @@ export const V2AdminOpsAPI = {
 
   async getRoles(): Promise<ApiResponse<V2AdminRoleWithPermissions[]>> {
     return apiClient.get('/api/v2/admin/rbac/roles');
+  },
+
+  async listRbacUsers(
+    params: ListV2AdminRbacUsersParams = {},
+  ): Promise<ApiResponse<V2AdminRbacUsersResponse>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/rbac/users${query}`);
+  },
+
+  async assignRbacRole(
+    data: AssignV2AdminRbacRoleInput,
+  ): Promise<
+    ApiResponse<{
+      user_id: string;
+      assignment: V2AdminRbacAssignment;
+      created: boolean;
+    }>
+  > {
+    return apiClient.post('/api/v2/admin/rbac/users/assign', data);
+  },
+
+  async revokeRbacRole(
+    data: RevokeV2AdminRbacRoleInput,
+  ): Promise<
+    ApiResponse<{
+      user_id: string;
+      assignment: V2AdminRbacAssignment;
+      revoked: boolean;
+    }>
+  > {
+    return apiClient.post('/api/v2/admin/rbac/users/revoke', data);
   },
 
   async listActionLogs(

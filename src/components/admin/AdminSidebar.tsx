@@ -68,6 +68,7 @@ const navigationSections: NavigationSection[] = [
       { name: 'v2 전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowsRightLeftIcon },
       { name: 'v2 미디어·에셋', href: '/admin/v2-catalog/assets', icon: PhotoIcon },
       { name: 'v2 Admin Ops', href: '/admin/v2-ops', icon: ShieldCheckIcon },
+      { name: 'v2 권한 관리', href: '/admin/v2-ops/rbac', icon: ShieldCheckIcon },
     ],
   },
 ];
@@ -79,6 +80,9 @@ function isNavItemActive(pathname: string, href: string): boolean {
 
   // 대시보드/운영 홈은 해당 경로에서만 활성화합니다.
   if (href === '/admin' || href === '/admin/v2-catalog') {
+    return false;
+  }
+  if (href === '/admin/v2-ops' && pathname.startsWith('/admin/v2-ops/rbac')) {
     return false;
   }
 
