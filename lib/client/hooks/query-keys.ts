@@ -38,6 +38,7 @@ import type {
   ListV2AdminInventoryHealthParams,
   ListV2AdminInventoryLevelsParams,
   ListV2AdminOrderQueueParams,
+  ListV2AdminRbacUsersParams,
   ListV2AdminSalesStatsParams,
   ListV2AdminUnifiedAuditLogsParams,
 } from '@/lib/client/api/v2-admin-ops.api';
@@ -354,6 +355,8 @@ export const queryKeys = {
       all: ['v2-admin-ops', 'rbac'] as const,
       me: () => [...queryKeys.v2AdminOps.rbac.all, 'me'] as const,
       roles: () => [...queryKeys.v2AdminOps.rbac.all, 'roles'] as const,
+      users: (params: ListV2AdminRbacUsersParams = {}) =>
+        [...queryKeys.v2AdminOps.rbac.all, 'users', params] as const,
     },
     audit: {
       all: ['v2-admin-ops', 'audit'] as const,

@@ -9,6 +9,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   V2AdminOpsAPI,
+  type AssignV2AdminRbacRoleInput,
   type BulkV2AdminOrderActionInput,
   type ListV2AdminActionLogsParams,
   type ListV2AdminApprovalsParams,
@@ -24,8 +25,10 @@ import {
   type ListV2AdminInventoryHealthParams,
   type ListV2AdminInventoryLevelsParams,
   type ListV2AdminOrderQueueParams,
+  type ListV2AdminRbacUsersParams,
   type ListV2AdminSalesStatsParams,
   type ListV2AdminUnifiedAuditLogsParams,
+  type RevokeV2AdminRbacRoleInput,
   type SaveV2AdminCutoverBatchInput,
   type SaveV2AdminCutoverGateReportInput,
   type SaveV2AdminCutoverRoutingFlagInput,
@@ -180,6 +183,48 @@ export function useV2AdminRoles() {
     queryFn: async () => {
       const response = await V2AdminOpsAPI.getRoles();
       return response.data;
+    },
+  });
+}
+
+export function useV2AdminRbacUsers(params: ListV2AdminRbacUsersParams = {}) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.rbac.users(params),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.listRbacUsers(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminAssignRbacRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: AssignV2AdminRbacRoleInput) => {
+      const response = await V2AdminOpsAPI.assignRbacRole(data);
+      return response.data;
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.v2AdminOps.rbac.all,
+        refetchType: 'all',
+      });
+    },
+  });
+}
+
+export function useV2AdminRevokeRbacRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: RevokeV2AdminRbacRoleInput) => {
+      const response = await V2AdminOpsAPI.revokeRbacRole(data);
+      return response.data;
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.v2AdminOps.rbac.all,
+        refetchType: 'all',
+      });
     },
   });
 }
