@@ -48,6 +48,7 @@ export interface V2AdminShippingBatchQueueRow {
   updated_at: string;
   dispatch_failed_count: number;
   delivery_failed_count: number;
+  excluded_count: number;
 }
 
 export interface V2AdminShippingBatchOrderRow {
@@ -62,6 +63,10 @@ export interface V2AdminShippingBatchOrderRow {
   line_items_snapshot: Array<Record<string, unknown>> | null;
   dispatch_transition_status: V2AdminTransitionResult;
   delivery_transition_status: V2AdminTransitionResult;
+  is_excluded: boolean;
+  excluded_reason: string | null;
+  excluded_at: string | null;
+  excluded_by: Record<string, unknown> | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;
