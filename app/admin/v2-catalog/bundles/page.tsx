@@ -147,7 +147,12 @@ export default function V2CatalogBundlesPage() {
     isLoading: definitionsLoading,
     error: definitionsError,
   } = useV2BundleDefinitions();
-  const activeDefinitionId = selectedDefinitionId ?? definitions?.[0]?.id ?? null;
+  const preferredDraftDefinitionId = useMemo(
+    () => (definitions || []).find((definition) => definition.status === 'DRAFT')?.id ?? null,
+    [definitions],
+  );
+  const activeDefinitionId =
+    selectedDefinitionId ?? preferredDraftDefinitionId ?? definitions?.[0]?.id ?? null;
   const { data: selectedDefinition } = useV2BundleDefinition(activeDefinitionId);
   const {
     data: components,
@@ -251,6 +256,11 @@ export default function V2CatalogBundlesPage() {
     return `${productTitle} · v${selectedDefinition.version_no}`;
   }, [productTitleById, selectedDefinition]);
 
+  const draftDefinitionCount = useMemo(
+    () => (definitions || []).filter((definition) => definition.status === 'DRAFT').length,
+    [definitions],
+  );
+
   const clearNotice = () => {
     setMessage(null);
     setErrorMessage(null);
@@ -272,10 +282,11 @@ export default function V2CatalogBundlesPage() {
       const response = await createDefinition.mutateAsync({
         bundle_product_id: resolvedNewBundleProductId,
         mode: newMode,
+        status: 'DRAFT',
         pricing_strategy: newPricingStrategy,
       });
       setSelectedDefinitionId(response.data.id);
-      setMessage('bundle definition을 생성했습니다.');
+      setMessage(`DRAFT bundle definition(v${response.data.version_no})을 생성했습니다.`);
     });
   };
 
@@ -570,9 +581,9 @@ export default function V2CatalogBundlesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">V2 Bundle Builder</h1>
+        <h1 className="text-2xl font-bold text-gray-900">번들 버전 관리 (DRAFT 중심)</h1>
         <p className="mt-1 text-sm text-gray-500">
-          번들 대표 상품과 포함 옵션을 선택해 definition/component를 구성하고 validate/preview/resolve를 실행합니다.
+          상품 관리 탭에서 기본 구성을 확정한 뒤, 이 화면에서는 버전별 미세 조정과 검증을 진행합니다.
         </p>
       </div>
 
@@ -587,12 +598,24 @@ export default function V2CatalogBundlesPage() {
         </div>
       )}
 
+      <section className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <h2 className="text-base font-semibold text-blue-900">운영 가이드</h2>
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-blue-900/90">
+          <li>대표 번들 상품을 선택해 새 DRAFT 버전을 만듭니다.</li>
+          <li>구성품/수량/옵션을 조정하고 Validate로 유효성을 확인합니다.</li>
+          <li>문제가 없으면 Publish로 ACTIVE 전환하고, 이전 ACTIVE는 자동으로 DRAFT로 내려갑니다.</li>
+        </ol>
+        <p className="mt-3 text-xs text-blue-900/80">
+          현재 DRAFT 버전 수: {draftDefinitionCount}개
+        </p>
+      </section>
+
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <form
           className="rounded-lg border border-gray-200 bg-white p-4 space-y-3"
           onSubmit={handleCreateDefinition}
         >
-          <h2 className="text-base font-semibold text-gray-900">새 Bundle Definition</h2>
+          <h2 className="text-base font-semibold text-gray-900">1) 새 DRAFT 버전 생성</h2>
           <Select
             value={resolvedNewBundleProductId}
             onChange={(event) => setNewBundleProductId(event.target.value)}
@@ -630,12 +653,12 @@ export default function V2CatalogBundlesPage() {
             loading={createDefinition.isPending}
             disabled={!resolvedNewBundleProductId}
           >
-            Definition 생성
+            DRAFT 생성
           </Button>
         </form>
 
         <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3 xl:col-span-2">
-          <h2 className="text-base font-semibold text-gray-900">선택된 Definition 액션</h2>
+          <h2 className="text-base font-semibold text-gray-900">2) 선택 버전 액션</h2>
           <p className="text-sm text-gray-500">현재 선택: {selectedDefinitionLabel}</p>
           {selectedDefinition && (
             <div className="flex flex-wrap items-center gap-2">
@@ -655,7 +678,7 @@ export default function V2CatalogBundlesPage() {
               loading={publishDefinition.isPending}
               disabled={!activeDefinitionId}
             >
-              Publish
+              ACTIVE Publish
             </Button>
             <Button
               size="sm"
@@ -664,7 +687,7 @@ export default function V2CatalogBundlesPage() {
               loading={cloneDefinition.isPending}
               disabled={!activeDefinitionId}
             >
-              Clone Version
+              DRAFT 복제
             </Button>
             <Button
               size="sm"
@@ -673,7 +696,7 @@ export default function V2CatalogBundlesPage() {
               loading={archiveDefinition.isPending}
               disabled={!activeDefinitionId}
             >
-              Archive
+              버전 보관
             </Button>
           </div>
         </div>
@@ -681,7 +704,10 @@ export default function V2CatalogBundlesPage() {
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <div className="rounded-lg border border-gray-200 bg-white p-4 xl:col-span-4">
-          <h2 className="text-base font-semibold text-gray-900">Bundle Definitions</h2>
+          <h2 className="text-base font-semibold text-gray-900">3) 버전 목록</h2>
+          <p className="mt-1 text-xs text-gray-500">
+            기본 선택은 DRAFT 우선입니다. 필요하면 ACTIVE/ARCHIVED 버전을 직접 선택해 수정 이력을 확인하세요.
+          </p>
           <div className="mt-3 space-y-2 max-h-[420px] overflow-y-auto">
             {(definitions || []).map((definition) => {
               const isSelected = activeDefinitionId === definition.id;
@@ -720,7 +746,10 @@ export default function V2CatalogBundlesPage() {
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-4 xl:col-span-8 space-y-4">
-          <h2 className="text-base font-semibold text-gray-900">Bundle Components</h2>
+          <h2 className="text-base font-semibold text-gray-900">4) 구성품 편집</h2>
+          <p className="text-xs text-gray-500">
+            상품 관리 탭에서 생성된 기본 구성을 여기서 버전별로 세밀하게 조정합니다.
+          </p>
           {componentsLoading && (
             <div className="py-8 flex justify-center">
               <Loading size="md" text="component를 조회하는 중입니다" />
@@ -1057,96 +1086,110 @@ export default function V2CatalogBundlesPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
-        <h2 className="text-base font-semibold text-gray-900">Validate / Preview / Resolve</h2>
-        <p className="text-xs text-gray-500">
-          selected_components 예시:{' '}
-          <code className="rounded bg-gray-100 px-1 py-0.5 text-gray-700">
-            [{`{"component_variant_id":"uuid","quantity":1}`}]
-          </code>
-        </p>
-        <Textarea
-          value={selectionJson}
-          onChange={(event) => setSelectionJson(event.target.value)}
-          placeholder='[{"component_variant_id":"...","quantity":1}]'
-          rows={4}
-        />
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-          <Input
-            value={parentQuantity}
-            onChange={(event) => setParentQuantity(event.target.value)}
-            type="number"
-            min={1}
-            placeholder="parent_quantity"
+      <details className="rounded-lg border border-gray-200 bg-white p-4" open={false}>
+        <summary className="cursor-pointer text-base font-semibold text-gray-900">
+          5) 고급 검증 도구 (Validate / Preview / Resolve)
+        </summary>
+        <div className="mt-3 space-y-3">
+          <p className="text-xs text-gray-500">
+            selected_components 예시:{' '}
+            <code className="rounded bg-gray-100 px-1 py-0.5 text-gray-700">
+              [{`{"component_variant_id":"uuid","quantity":1}`}]
+            </code>
+          </p>
+          <Textarea
+            value={selectionJson}
+            onChange={(event) => setSelectionJson(event.target.value)}
+            placeholder='[{"component_variant_id":"...","quantity":1}]'
+            rows={4}
           />
-          <Input
-            value={parentUnitAmount}
-            onChange={(event) => setParentUnitAmount(event.target.value)}
-            type="number"
-            min={0}
-            placeholder="parent_unit_amount (resolve only)"
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" intent="secondary" onClick={runValidation} loading={validateBundle.isPending}>
-              Validate
-            </Button>
-            <Button size="sm" intent="secondary" onClick={runPreview} loading={previewBundle.isPending}>
-              Preview
-            </Button>
-            <Button size="sm" intent="primary" onClick={runResolve} loading={resolveBundle.isPending}>
-              Resolve
-            </Button>
-            <Button
-              size="sm"
-              intent="primary"
-              onClick={runOpsContract}
-              loading={buildOpsContract.isPending}
-            >
-              Ops Contract
-            </Button>
-            <Button
-              size="sm"
-              intent="primary"
-              onClick={runCanaryReport}
-              loading={buildCanaryReport.isPending}
-            >
-              Canary Report
-            </Button>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+            <Input
+              value={parentQuantity}
+              onChange={(event) => setParentQuantity(event.target.value)}
+              type="number"
+              min={1}
+              placeholder="parent_quantity"
+            />
+            <Input
+              value={parentUnitAmount}
+              onChange={(event) => setParentUnitAmount(event.target.value)}
+              type="number"
+              min={0}
+              placeholder="parent_unit_amount (resolve only)"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                intent="secondary"
+                onClick={runValidation}
+                loading={validateBundle.isPending}
+              >
+                Validate
+              </Button>
+              <Button
+                size="sm"
+                intent="secondary"
+                onClick={runPreview}
+                loading={previewBundle.isPending}
+              >
+                Preview
+              </Button>
+              <Button size="sm" intent="primary" onClick={runResolve} loading={resolveBundle.isPending}>
+                Resolve
+              </Button>
+              <Button
+                size="sm"
+                intent="primary"
+                onClick={runOpsContract}
+                loading={buildOpsContract.isPending}
+              >
+                Ops Contract
+              </Button>
+              <Button
+                size="sm"
+                intent="primary"
+                onClick={runCanaryReport}
+                loading={buildCanaryReport.isPending}
+              >
+                Canary Report
+              </Button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+            <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+              <p className="text-sm font-semibold text-gray-700">Validation Result</p>
+              <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
+                {validationResult ? JSON.stringify(validationResult, null, 2) : '-'}
+              </pre>
+            </div>
+            <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+              <p className="text-sm font-semibold text-gray-700">Preview Result</p>
+              <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
+                {previewResult ? JSON.stringify(previewResult, null, 2) : '-'}
+              </pre>
+            </div>
+            <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+              <p className="text-sm font-semibold text-gray-700">Resolve Result</p>
+              <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
+                {resolveResult ? JSON.stringify(resolveResult, null, 2) : '-'}
+              </pre>
+            </div>
+            <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+              <p className="text-sm font-semibold text-gray-700">Ops Contract Result</p>
+              <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
+                {opsContractResult ? JSON.stringify(opsContractResult, null, 2) : '-'}
+              </pre>
+            </div>
+            <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+              <p className="text-sm font-semibold text-gray-700">Canary Report Result</p>
+              <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
+                {canaryReportResult ? JSON.stringify(canaryReportResult, null, 2) : '-'}
+              </pre>
+            </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-            <p className="text-sm font-semibold text-gray-700">Validation Result</p>
-            <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
-              {validationResult ? JSON.stringify(validationResult, null, 2) : '-'}
-            </pre>
-          </div>
-          <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-            <p className="text-sm font-semibold text-gray-700">Preview Result</p>
-            <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
-              {previewResult ? JSON.stringify(previewResult, null, 2) : '-'}
-            </pre>
-          </div>
-          <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-            <p className="text-sm font-semibold text-gray-700">Resolve Result</p>
-            <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
-              {resolveResult ? JSON.stringify(resolveResult, null, 2) : '-'}
-            </pre>
-          </div>
-          <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-            <p className="text-sm font-semibold text-gray-700">Ops Contract Result</p>
-            <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
-              {opsContractResult ? JSON.stringify(opsContractResult, null, 2) : '-'}
-            </pre>
-          </div>
-          <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-            <p className="text-sm font-semibold text-gray-700">Canary Report Result</p>
-            <pre className="mt-2 max-h-64 overflow-auto text-xs text-gray-700">
-              {canaryReportResult ? JSON.stringify(canaryReportResult, null, 2) : '-'}
-            </pre>
-          </div>
-        </div>
-      </section>
+      </details>
     </div>
   );
 }
