@@ -19,8 +19,12 @@ import {
   useV2AdminRefundOrder,
 } from '@/lib/client/hooks/useV2AdminOps';
 
-type V2OrderStageTab = 'ALL' | 'CANCELED' | V2AdminOrderLinearStage;
-type V2OrderRowStage = 'CANCELED' | V2AdminOrderLinearStage;
+type V2OrderStageTab =
+  | 'ALL'
+  | 'CANCELED'
+  | 'PAYMENT_PENDING'
+  | 'PAYMENT_CONFIRMED';
+type V2OrderRowStage = 'CANCELED' | 'PAYMENT_PENDING' | 'PAYMENT_CONFIRMED';
 
 type TransitionExecuteLog = Record<string, unknown>;
 type TransitionPlan = {
@@ -229,24 +233,16 @@ function resolveStageTabFromRow(row: V2AdminOrderQueueRow): V2OrderRowStage {
   if (isCanceledOrder(row)) {
     return 'CANCELED';
   }
-  return resolveLinearStageFromRow(row);
+  const linearStage = resolveLinearStageFromRow(row);
+  if (linearStage === 'PAYMENT_PENDING') {
+    return 'PAYMENT_PENDING';
+  }
+  return 'PAYMENT_CONFIRMED';
 }
 
-function getNextLinearStage(stage: V2AdminOrderLinearStage): V2AdminOrderLinearStage | null {
+function getNextLinearStage(stage: V2OrderStageTab): V2AdminOrderLinearStage | null {
   if (stage === 'PAYMENT_PENDING') {
     return 'PAYMENT_CONFIRMED';
-  }
-  if (stage === 'PAYMENT_CONFIRMED') {
-    return 'PRODUCTION';
-  }
-  if (stage === 'PRODUCTION') {
-    return 'READY_TO_SHIP';
-  }
-  if (stage === 'READY_TO_SHIP') {
-    return 'IN_TRANSIT';
-  }
-  if (stage === 'IN_TRANSIT') {
-    return 'DELIVERED';
   }
   return null;
 }
@@ -315,10 +311,6 @@ function isRefundableOrder(row: V2AdminOrderQueueRow): boolean {
 const LINEAR_STAGE_OPTIONS: V2AdminOrderLinearStage[] = [
   'PAYMENT_PENDING',
   'PAYMENT_CONFIRMED',
-  'PRODUCTION',
-  'READY_TO_SHIP',
-  'IN_TRANSIT',
-  'DELIVERED',
 ];
 
 const LINEAR_STAGE_TABS: Array<{
@@ -327,10 +319,6 @@ const LINEAR_STAGE_TABS: Array<{
 }> = [
   { key: 'PAYMENT_PENDING', label: orderStageTabLabel('PAYMENT_PENDING') },
   { key: 'PAYMENT_CONFIRMED', label: orderStageTabLabel('PAYMENT_CONFIRMED') },
-  { key: 'PRODUCTION', label: orderStageTabLabel('PRODUCTION') },
-  { key: 'READY_TO_SHIP', label: orderStageTabLabel('READY_TO_SHIP') },
-  { key: 'IN_TRANSIT', label: orderStageTabLabel('IN_TRANSIT') },
-  { key: 'DELIVERED', label: orderStageTabLabel('DELIVERED') },
   { key: 'CANCELED', label: orderStageTabLabel('CANCELED') },
   { key: 'ALL', label: orderStageTabLabel('ALL') },
 ];
@@ -342,7 +330,8 @@ export default function AdminOrdersPage() {
   const [showManualTransition, setShowManualTransition] = useState(false);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [targetStage, setTargetStage] = useState<V2AdminOrderLinearStage>('PRODUCTION');
+  const [targetStage, setTargetStage] =
+    useState<V2AdminOrderLinearStage>('PAYMENT_CONFIRMED');
   const [transitionReason, setTransitionReason] = useState('');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [transitionResult, setTransitionResult] =
@@ -367,10 +356,6 @@ export default function AdminOrdersPage() {
       CANCELED: 0,
       PAYMENT_PENDING: 0,
       PAYMENT_CONFIRMED: 0,
-      PRODUCTION: 0,
-      READY_TO_SHIP: 0,
-      IN_TRANSIT: 0,
-      DELIVERED: 0,
     };
 
     for (const item of data?.items || []) {

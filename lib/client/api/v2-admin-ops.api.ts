@@ -676,6 +676,7 @@ export interface BulkV2AdminOrderActionInput {
 export interface V2AdminOrderLinearTransitionInput {
   order_ids: string[];
   target_stage: V2AdminOrderLinearStage;
+  scope?: 'FULL' | 'ORDER_QUEUE';
   reason?: string | null;
   request_id?: string | null;
   metadata?: Record<string, unknown> | null;
