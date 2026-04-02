@@ -1210,7 +1210,7 @@ export const V2AdminOpsAPI = {
       metadata?: Record<string, unknown> | null;
     },
   ): Promise<ApiResponse<Record<string, unknown>>> {
-    return apiClient.post(`/api/v2/checkout/orders/${orderId}/refund`, data);
+    return apiClient.post(`/api/v2/admin/ops/orders/${orderId}/refund`, data);
   },
 
   async dispatchShipment(
