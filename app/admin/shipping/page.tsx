@@ -694,6 +694,7 @@ export default function AdminShippingPage() {
     deliveryFailed: (detail?.orders || []).filter(
       (row) => row.delivery_transition_status === 'FAILED',
     ).length,
+    excludedCount: (detail?.orders || []).filter((row) => row.is_excluded === true).length,
   };
 
   const summary = useMemo(() => {
@@ -1699,9 +1700,16 @@ export default function AdminShippingPage() {
                       <p className="text-xs text-gray-500">{row.title}</p>
                     </td>
                     <td className="px-3 py-2">
-                      <Badge intent={resolveBatchIntent(row.status)}>
-                        {resolveBatchStatusLabel(row.status)}
-                      </Badge>
+                      <div className="flex flex-col items-start gap-1">
+                        <Badge intent={resolveBatchIntent(row.status)}>
+                          {resolveBatchStatusLabel(row.status)}
+                        </Badge>
+                        {Number(row.excluded_count || 0) > 0 ? (
+                          <p className="text-xs text-amber-700">
+                            제외 {Number(row.excluded_count || 0).toLocaleString()}건
+                          </p>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-right text-gray-700">
                       {row.order_count.toLocaleString()}
@@ -1753,6 +1761,7 @@ export default function AdminShippingPage() {
                     운송장 입력: {trackingProgressWithStatus.filled} / {trackingProgressWithStatus.total}{' '}
                     {trackingProgressWithStatus.allFilled ? '(완료)' : ''}
                   </p>
+                  <p>배치 제외: {transitionFailures.excludedCount}건</p>
                   <p>출고 실패: {transitionFailures.dispatchFailed}건</p>
                   <p>배송 완료 실패: {transitionFailures.deliveryFailed}건</p>
                 </div>
@@ -1850,15 +1859,27 @@ export default function AdminShippingPage() {
                         </td>
                         <td className="px-3 py-2 text-gray-700">{trackingText}</td>
                         <td className="px-3 py-2">
-                          <div className="flex flex-wrap gap-1">
-                            <Badge intent={resolveTransitionIntent(row.dispatch_transition_status)}>
-                              출고 {resolveTransitionLabel(row.dispatch_transition_status)}
-                            </Badge>
-                            <Badge intent={resolveTransitionIntent(row.delivery_transition_status)}>
-                              완료 {resolveTransitionLabel(row.delivery_transition_status)}
-                            </Badge>
-                          </div>
+                          {row.is_excluded === true ? (
+                            <div className="flex flex-col gap-1">
+                              <Badge intent="warning">배치 제외</Badge>
+                              <p className="text-xs text-amber-700">
+                                {row.excluded_reason || '환불/취소 주문으로 배치 실행 대상에서 제외되었습니다.'}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              <Badge intent={resolveTransitionIntent(row.dispatch_transition_status)}>
+                                출고 {resolveTransitionLabel(row.dispatch_transition_status)}
+                              </Badge>
+                              <Badge intent={resolveTransitionIntent(row.delivery_transition_status)}>
+                                완료 {resolveTransitionLabel(row.delivery_transition_status)}
+                              </Badge>
+                            </div>
+                          )}
                           {(() => {
+                            if (row.is_excluded === true) {
+                              return null;
+                            }
                             const hasDispatchFailed = row.dispatch_transition_status === 'FAILED';
                             const hasDeliveryFailed = row.delivery_transition_status === 'FAILED';
                             const hasFailed = hasDispatchFailed || hasDeliveryFailed;

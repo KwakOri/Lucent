@@ -45,6 +45,7 @@ export interface V2AdminProductionBatchQueueRow {
   updated_at: string;
   activate_failed_count: number;
   complete_failed_count: number;
+  excluded_count: number;
 }
 
 export type V2AdminTransitionResult = 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'SKIPPED';
@@ -60,6 +61,10 @@ export interface V2AdminProductionBatchOrderRow {
   line_items_snapshot: Array<Record<string, unknown>> | null;
   transition_activate_status: V2AdminTransitionResult;
   transition_complete_status: V2AdminTransitionResult;
+  is_excluded: boolean;
+  excluded_reason: string | null;
+  excluded_at: string | null;
+  excluded_by: Record<string, unknown> | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;

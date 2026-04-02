@@ -115,12 +115,22 @@ function resolveTransitionDescription(
 function resolveProductionOrderState(row: {
   transition_activate_status: V2AdminTransitionResult;
   transition_complete_status: V2AdminTransitionResult;
+  is_excluded: boolean;
+  excluded_reason: string | null;
   error_message: string | null;
 }): {
   label: string;
   intent: 'default' | 'warning' | 'success' | 'error';
   description: string | null;
 } {
+  if (row.is_excluded) {
+    return {
+      label: '배치 제외',
+      intent: 'warning',
+      description: row.excluded_reason || '환불/취소 주문으로 배치 실행 대상에서 제외되었습니다.',
+    };
+  }
+
   if (row.transition_complete_status === 'FAILED') {
     return {
       label: '제작 완료 실패',
@@ -1167,7 +1177,7 @@ export default function AdminProductionPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
-                {(batchesQuery.data?.items || []).map((row) => (
+                  {(batchesQuery.data?.items || []).map((row) => (
                   <tr
                     key={row.id}
                     className={`cursor-pointer ${selectedBatchId === row.id ? 'bg-blue-50' : ''}`}
@@ -1178,9 +1188,16 @@ export default function AdminProductionPage() {
                       <p className="text-xs text-gray-500">{row.title}</p>
                     </td>
                     <td className="px-3 py-2">
-                      <Badge intent={resolveBatchIntent(row.status)}>
-                        {resolveBatchStatusLabel(row.status)}
-                      </Badge>
+                      <div className="flex flex-col items-start gap-1">
+                        <Badge intent={resolveBatchIntent(row.status)}>
+                          {resolveBatchStatusLabel(row.status)}
+                        </Badge>
+                        {Number(row.excluded_count || 0) > 0 ? (
+                          <p className="text-xs text-amber-700">
+                            제외 {Number(row.excluded_count || 0).toLocaleString()}건
+                          </p>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-right text-gray-700">
                       {row.order_count.toLocaleString()}
@@ -1256,6 +1273,10 @@ export default function AdminProductionPage() {
                   <p>생성일: {formatDate(String(selectedBatch.created_at || ''))}</p>
                   <p>활성화일: {formatDate(String(selectedBatch.activated_at || ''))}</p>
                   <p>완료일: {formatDate(String(selectedBatch.completed_at || ''))}</p>
+                  <p>
+                    제외 주문:{' '}
+                    {(detail?.orders || []).filter((row) => row.is_excluded === true).length}건
+                  </p>
                 </div>
               </>
             )}
@@ -1277,6 +1298,8 @@ export default function AdminProductionPage() {
                     const productionState = resolveProductionOrderState({
                       transition_activate_status: row.transition_activate_status,
                       transition_complete_status: row.transition_complete_status,
+                      is_excluded: row.is_excluded === true,
+                      excluded_reason: row.excluded_reason || null,
                       error_message: row.error_message,
                     });
 
@@ -1293,7 +1316,9 @@ export default function AdminProductionPage() {
                                 className={
                                   productionState.intent === 'error'
                                     ? 'text-xs text-red-600'
-                                    : 'text-xs text-gray-500'
+                                    : productionState.intent === 'warning'
+                                      ? 'text-xs text-amber-700'
+                                      : 'text-xs text-gray-500'
                                 }
                               >
                                 {productionState.description}
