@@ -8,6 +8,8 @@ BE_DIR="${ROOT_DIR}/backend"
 
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 BACKEND_PORT="${BACKEND_PORT:-3001}"
+BACKEND_PORT_EXPLICIT=0
+BACKEND_PORT_AUTO_FALLBACK_TRIES="${BACKEND_PORT_AUTO_FALLBACK_TRIES:-20}"
 LOCAL_ADMIN_BYPASS_VALUE="${LOCAL_ADMIN_BYPASS:-true}"
 RESET_DB=0
 KEEP_BACKEND=0
@@ -35,7 +37,7 @@ Options:
   --reset-db            --use-local-supabase 모드에서 supabase db reset 실행
   --sync-linked-data    linked 원격 DB(public + auth.users/identities) 데이터를 덤프해 로컬 DB로 복원 (자동으로 --use-local-supabase + --reset-db 적용)
   --frontend-port <n>   프론트 포트 (default: 3000)
-  --backend-port <n>    백엔드 포트 (default: 3001)
+  --backend-port <n>    백엔드 포트 (default: 3001, 직접 지정 시 점유되면 실패)
   --no-admin-bypass     LOCAL_ADMIN_BYPASS=false로 실행
   --keep-backend        스크립트 종료 시 백엔드 프로세스 유지
   --help, -h            도움말
@@ -123,6 +125,27 @@ wait_port_free() {
       return 0
     fi
     sleep 1
+  done
+  return 1
+}
+
+is_port_in_use() {
+  local port="$1"
+  lsof -ti "tcp:${port}" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+find_available_port() {
+  local start_port="$1"
+  local tries="${2:-20}"
+  local i
+  local candidate
+
+  for i in $(seq 0 "${tries}"); do
+    candidate=$((start_port + i))
+    if ! is_port_in_use "${candidate}"; then
+      printf '%s' "${candidate}"
+      return 0
+    fi
   done
   return 1
 }
@@ -281,6 +304,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --backend-port)
       BACKEND_PORT="$2"
+      BACKEND_PORT_EXPLICIT=1
       shift 2
       ;;
     --no-admin-bypass)
@@ -376,9 +400,25 @@ else
   )"
 fi
 
-if lsof -ti "tcp:${BACKEND_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
-  echo "backend port ${BACKEND_PORT} already in use. stop the process or use --backend-port." >&2
-  exit 1
+if is_port_in_use "${BACKEND_PORT}"; then
+  if [[ "${BACKEND_PORT_EXPLICIT}" -eq 1 ]]; then
+    echo "backend port ${BACKEND_PORT} already in use. stop the process or choose another --backend-port." >&2
+    exit 1
+  fi
+
+  original_backend_port="${BACKEND_PORT}"
+  fallback_start_port=$((BACKEND_PORT + 1))
+  fallback_backend_port="$(
+    find_available_port "${fallback_start_port}" "${BACKEND_PORT_AUTO_FALLBACK_TRIES}" || true
+  )"
+  if [[ -z "${fallback_backend_port}" ]]; then
+    echo "backend port ${BACKEND_PORT} already in use and no fallback port found near ${fallback_start_port}." >&2
+    echo "stop the process or use --backend-port." >&2
+    exit 1
+  fi
+
+  BACKEND_PORT="${fallback_backend_port}"
+  log "backend port ${original_backend_port} already in use, using fallback port ${BACKEND_PORT}"
 fi
 
 BACKEND_BASE_URL="http://127.0.0.1:${BACKEND_PORT}"
