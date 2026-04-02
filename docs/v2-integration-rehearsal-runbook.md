@@ -72,6 +72,9 @@ bash scripts/dev-v2-local.sh --backend-port 3002 --frontend-port 3010
 # admin bypass를 끄고 실행
 bash scripts/dev-v2-local.sh --no-admin-bypass
 
+# backend만 NODE_ENV=production으로 실행
+npm run dev:v2-local:backend-prod-env
+
 # 로컬 Supabase 연결 + admin bypass 끄기
 bash scripts/dev-v2-local.sh --use-local-supabase --no-admin-bypass
 ```
