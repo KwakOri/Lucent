@@ -7,6 +7,8 @@ ROOT_DIR="$(cd "${FE_DIR}/.." && pwd)"
 BE_DIR="${ROOT_DIR}/backend"
 
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+FRONTEND_PORT_EXPLICIT=0
+FRONTEND_PORT_AUTO_FALLBACK_TRIES="${FRONTEND_PORT_AUTO_FALLBACK_TRIES:-20}"
 BACKEND_PORT="${BACKEND_PORT:-3001}"
 BACKEND_PORT_EXPLICIT=0
 BACKEND_PORT_AUTO_FALLBACK_TRIES="${BACKEND_PORT_AUTO_FALLBACK_TRIES:-20}"
@@ -36,7 +38,7 @@ Options:
   --use-local-supabase  로컬 Supabase를 기동해서 연결 (기본: 원격 DB)
   --reset-db            --use-local-supabase 모드에서 supabase db reset 실행
   --sync-linked-data    linked 원격 DB(public + auth.users/identities) 데이터를 덤프해 로컬 DB로 복원 (자동으로 --use-local-supabase + --reset-db 적용)
-  --frontend-port <n>   프론트 포트 (default: 3000)
+  --frontend-port <n>   프론트 포트 (default: 3000, 직접 지정 시 점유되면 실패)
   --backend-port <n>    백엔드 포트 (default: 3001, 직접 지정 시 점유되면 실패)
   --no-admin-bypass     LOCAL_ADMIN_BYPASS=false로 실행
   --keep-backend        스크립트 종료 시 백엔드 프로세스 유지
@@ -300,6 +302,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --frontend-port)
       FRONTEND_PORT="$2"
+      FRONTEND_PORT_EXPLICIT=1
       shift 2
       ;;
     --backend-port)
@@ -449,6 +452,27 @@ if ! curl -fsS "${BACKEND_BASE_URL}/api/health" >/dev/null 2>&1; then
   echo "backend health check failed: ${BACKEND_BASE_URL}/api/health" >&2
   tail -n 120 "${BACKEND_LOG}" >&2 || true
   exit 1
+fi
+
+if is_port_in_use "${FRONTEND_PORT}"; then
+  if [[ "${FRONTEND_PORT_EXPLICIT}" -eq 1 ]]; then
+    echo "frontend port ${FRONTEND_PORT} already in use. stop the process or choose another --frontend-port." >&2
+    exit 1
+  fi
+
+  original_frontend_port="${FRONTEND_PORT}"
+  fallback_frontend_start_port=$((FRONTEND_PORT + 1))
+  fallback_frontend_port="$(
+    find_available_port "${fallback_frontend_start_port}" "${FRONTEND_PORT_AUTO_FALLBACK_TRIES}" || true
+  )"
+  if [[ -z "${fallback_frontend_port}" ]]; then
+    echo "frontend port ${FRONTEND_PORT} already in use and no fallback port found near ${fallback_frontend_start_port}." >&2
+    echo "stop the process or use --frontend-port." >&2
+    exit 1
+  fi
+
+  FRONTEND_PORT="${fallback_frontend_port}"
+  log "frontend port ${original_frontend_port} already in use, using fallback port ${FRONTEND_PORT}"
 fi
 
 log "starting frontend on http://127.0.0.1:${FRONTEND_PORT}"
