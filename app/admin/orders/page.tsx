@@ -12,9 +12,11 @@ import type {
   V2AdminOrderQueueRow,
 } from '@/lib/client/api/v2-admin-ops.api';
 import {
+  useV2AdminCutoverPolicyCheck,
   useV2AdminOrderLinearTransitionExecute,
   useV2AdminOrderLinearTransitionPreview,
   useV2AdminOrderQueue,
+  useV2AdminRefundOrder,
 } from '@/lib/client/hooks/useV2AdminOps';
 
 type V2OrderStageTab = 'ALL' | 'CANCELED' | V2AdminOrderLinearStage;
@@ -196,6 +198,48 @@ function summarizeFailedLog(log: TransitionExecuteLog): string {
   return `${errorCode}: ${errorMessage}`;
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object') {
+    const maybeError = error as {
+      message?: string;
+      response?: { data?: { message?: string } };
+    };
+    if (maybeError.response?.data?.message) {
+      return maybeError.response.data.message;
+    }
+    if (maybeError.message) {
+      return maybeError.message;
+    }
+  }
+  return '요청 처리 중 오류가 발생했습니다.';
+}
+
+function isApprovalRequiredError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const maybeError = error as { errorCode?: string; message?: string };
+  if (maybeError.errorCode === 'V2_ADMIN_APPROVAL_REQUIRED') {
+    return true;
+  }
+  if (typeof maybeError.message === 'string') {
+    return maybeError.message.includes('승인이 필요한 액션');
+  }
+  return false;
+}
+
+function isRefundableOrder(row: V2AdminOrderQueueRow): boolean {
+  if (isCanceledOrder(row)) {
+    return false;
+  }
+  const paymentStatus = String(row.payment_status || '').toUpperCase();
+  return (
+    paymentStatus === 'AUTHORIZED' ||
+    paymentStatus === 'CAPTURED' ||
+    paymentStatus === 'PARTIALLY_REFUNDED'
+  );
+}
+
 const LINEAR_STAGE_OPTIONS: V2AdminOrderLinearStage[] = [
   'PAYMENT_PENDING',
   'PAYMENT_CONFIRMED',
@@ -232,12 +276,18 @@ export default function AdminOrdersPage() {
   const [transitionResult, setTransitionResult] =
     useState<V2AdminOrderLinearTransitionResult | null>(null);
   const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
+  const [refundTargetOrder, setRefundTargetOrder] = useState<V2AdminOrderQueueRow | null>(null);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('운영자 수동 환불');
+  const [refundMessage, setRefundMessage] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch } = useV2AdminOrderQueue({
     limit: 1000,
   });
   const previewTransition = useV2AdminOrderLinearTransitionPreview();
   const executeTransition = useV2AdminOrderLinearTransitionExecute();
+  const refundOrder = useV2AdminRefundOrder();
+  const checkCutoverPolicy = useV2AdminCutoverPolicyCheck();
 
   const stageCounts = useMemo(() => {
     const counts: Record<V2OrderStageTab, number> = {
@@ -328,6 +378,7 @@ export default function AdminOrdersPage() {
     !previewTransition.isPending &&
     !executeTransition.isPending;
   const canRunNextStage = canSubmitTransition && recommendedNextStage !== null;
+  const canRunRefund = Boolean(refundTargetOrder) && !refundOrder.isPending;
 
   function buildTransitionPayload(stage: V2AdminOrderLinearStage) {
     return {
@@ -484,6 +535,68 @@ export default function AdminOrdersPage() {
     });
   }
 
+  function openRefundPanel(row: V2AdminOrderQueueRow) {
+    setRefundTargetOrder(row);
+    setRefundMessage(null);
+    setRefundAmount('');
+    setRefundReason('운영자 수동 환불');
+  }
+
+  async function handleRefundOrder() {
+    if (!refundTargetOrder) {
+      setRefundMessage('환불할 주문을 먼저 선택해 주세요.');
+      return;
+    }
+    const amount = refundAmount.trim() ? Number(refundAmount.trim()) : undefined;
+    if (amount !== undefined && (!Number.isFinite(amount) || amount <= 0)) {
+      setRefundMessage('환불 금액은 1 이상의 숫자여야 합니다.');
+      return;
+    }
+
+    try {
+      const policyCheck = await checkCutoverPolicy.mutateAsync({
+        action_key: 'ORDER_REFUND_EXECUTE',
+        requires_approval: true,
+      });
+
+      try {
+        await refundOrder.mutateAsync({
+          orderId: refundTargetOrder.order_id,
+          data: {
+            amount,
+            reason: refundReason.trim() || null,
+          },
+        });
+      } catch (refundError) {
+        if (
+          policyCheck.decision === 'APPROVAL_REQUIRED' &&
+          isApprovalRequiredError(refundError)
+        ) {
+          setRefundMessage(
+            `환불 승인 대기로 등록되었습니다. 주문 ${refundTargetOrder.order_no} 승인 큐를 확인해 주세요.`,
+          );
+          setRefundTargetOrder(null);
+          await refetch();
+          return;
+        }
+        throw refundError;
+      }
+
+      if (policyCheck.decision === 'APPROVAL_REQUIRED') {
+        setRefundMessage(
+          `환불 승인 대기로 등록되었습니다. 주문 ${refundTargetOrder.order_no} 승인 큐를 확인해 주세요.`,
+        );
+      } else {
+        setRefundMessage(`환불을 실행했습니다. 주문 ${refundTargetOrder.order_no} 상태를 확인해 주세요.`);
+      }
+
+      setRefundTargetOrder(null);
+      await refetch();
+    } catch (refundError) {
+      setRefundMessage(getErrorMessage(refundError));
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -637,6 +750,53 @@ export default function AdminOrdersPage() {
           ) : null}
           {transitionMessage ? (
             <p className="mt-2 text-xs font-medium text-gray-700">{transitionMessage}</p>
+          ) : null}
+        </div>
+
+        <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <p className="text-xs font-semibold text-gray-600">주문별 환불 처리</p>
+          {refundTargetOrder ? (
+            <>
+              <p className="mt-2 text-xs text-gray-600">
+                대상 주문: {refundTargetOrder.order_no} · 결제 상태 {refundTargetOrder.payment_status}
+              </p>
+              <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-[180px_1fr_auto_auto]">
+                <Input
+                  value={refundAmount}
+                  onChange={(event) => setRefundAmount(event.target.value)}
+                  placeholder="환불 금액(전체 환불은 비워두기)"
+                />
+                <Input
+                  value={refundReason}
+                  onChange={(event) => setRefundReason(event.target.value)}
+                  placeholder="환불 사유"
+                />
+                <Button
+                  intent="danger"
+                  size="sm"
+                  loading={refundOrder.isPending || checkCutoverPolicy.isPending}
+                  disabled={!canRunRefund}
+                  onClick={() => void handleRefundOrder()}
+                >
+                  환불 실행
+                </Button>
+                <Button
+                  intent="secondary"
+                  size="sm"
+                  disabled={refundOrder.isPending}
+                  onClick={() => setRefundTargetOrder(null)}
+                >
+                  대상 해제
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="mt-2 text-xs text-gray-500">
+              표에서 환불 버튼을 눌러 주문을 선택하세요. (입금 확인 이후 주문만 환불 가능)
+            </p>
+          )}
+          {refundMessage ? (
+            <p className="mt-2 text-xs font-medium text-gray-700">{refundMessage}</p>
           ) : null}
         </div>
       </section>
@@ -801,11 +961,23 @@ export default function AdminOrdersPage() {
                         {formatDate(row.placed_at || row.created_at)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Link href={`/admin/orders/${row.order_id}`}>
-                          <Button intent="secondary" size="sm">
-                            상세 보기
-                          </Button>
-                        </Link>
+                        <div className="flex justify-end gap-2">
+                          {isRefundableOrder(row) ? (
+                            <Button
+                              intent="danger"
+                              size="sm"
+                              disabled={refundOrder.isPending}
+                              onClick={() => openRefundPanel(row)}
+                            >
+                              환불
+                            </Button>
+                          ) : null}
+                          <Link href={`/admin/orders/${row.order_id}`}>
+                            <Button intent="secondary" size="sm">
+                              상세 보기
+                            </Button>
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );
