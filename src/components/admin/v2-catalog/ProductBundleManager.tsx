@@ -39,6 +39,8 @@ type DesiredBundleComponent = {
   sortOrder: number;
 };
 
+type BundleQuantityPolicy = 'INHERIT_PARENT' | 'FIXED_PER_PARENT';
+
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
     const maybeError = error as {
@@ -79,6 +81,14 @@ function sortProducts(left: V2Product, right: V2Product): number {
 
 function sortVariants(left: V2Variant, right: V2Variant): number {
   return left.title.localeCompare(right.title, 'ko-KR');
+}
+
+function parsePositiveInteger(value: string): number | null {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
 }
 
 export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProps) {
@@ -198,6 +208,49 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
     [draftSelectedProductIds, isSelectionDirty, selectedProductIdsFromDefinition],
   );
 
+  const inferredQuantityPolicy = useMemo<BundleQuantityPolicy>(() => {
+    const policy = activeDefinition?.metadata?.product_editor_policy;
+    if (!policy || typeof policy !== 'object') {
+      return 'INHERIT_PARENT';
+    }
+
+    const quantityPolicy = (policy as { quantity_policy?: unknown }).quantity_policy;
+    return quantityPolicy === 'FIXED_PER_PARENT'
+      ? 'FIXED_PER_PARENT'
+      : 'INHERIT_PARENT';
+  }, [activeDefinition?.metadata]);
+
+  const inferredFixedQuantity = useMemo(() => {
+    const policy = activeDefinition?.metadata?.product_editor_policy;
+    if (!policy || typeof policy !== 'object') {
+      return '1';
+    }
+
+    const quantityPerParent = (policy as { quantity_per_parent?: unknown })
+      .quantity_per_parent;
+    if (
+      typeof quantityPerParent !== 'number' ||
+      !Number.isInteger(quantityPerParent) ||
+      quantityPerParent <= 0
+    ) {
+      return '1';
+    }
+    return String(quantityPerParent);
+  }, [activeDefinition?.metadata]);
+
+  const [draftQuantityPolicy, setDraftQuantityPolicy] =
+    useState<BundleQuantityPolicy>('INHERIT_PARENT');
+  const [draftFixedQuantity, setDraftFixedQuantity] = useState('1');
+  const [isPolicyDirty, setIsPolicyDirty] = useState(false);
+
+  const selectedQuantityPolicy = isPolicyDirty
+    ? draftQuantityPolicy
+    : inferredQuantityPolicy;
+  const selectedFixedQuantity =
+    selectedQuantityPolicy === 'INHERIT_PARENT'
+      ? 1
+      : parsePositiveInteger(isPolicyDirty ? draftFixedQuantity : inferredFixedQuantity);
+
   const createDefinition = useCreateV2BundleDefinition();
   const updateDefinition = useUpdateV2BundleDefinition();
   const createComponent = useCreateV2BundleComponent();
@@ -239,6 +292,7 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
   const ensureEditableDefinition = async (): Promise<{
     definitionId: string;
     mode: V2BundleMode;
+    metadata: Record<string, unknown>;
     existingComponents: V2BundleComponent[];
     isNewVersion: boolean;
     versionNo: number;
@@ -247,6 +301,7 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
       return {
         definitionId: activeDefinition.id,
         mode: activeDefinition.mode,
+        metadata: activeDefinition.metadata || {},
         existingComponents: components || [],
         isNewVersion: false,
         versionNo: activeDefinition.version_no,
@@ -266,6 +321,7 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
     return {
       definitionId: response.data.id,
       mode: response.data.mode,
+      metadata: response.data.metadata || {},
       existingComponents: [],
       isNewVersion: true,
       versionNo: response.data.version_no,
@@ -321,8 +377,16 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
       return;
     }
 
+    if (selectedQuantityPolicy === 'FIXED_PER_PARENT' && !selectedFixedQuantity) {
+      setMessage(null);
+      setErrorMessage('고정 수량은 1 이상의 정수여야 합니다.');
+      return;
+    }
+
     await runWithNotice(async () => {
       const editableDefinition = await ensureEditableDefinition();
+      const quantityPerParent =
+        selectedQuantityPolicy === 'INHERIT_PARENT' ? 1 : selectedFixedQuantity!;
       const desiredComponents = buildDesiredComponents();
       const desiredByVariantId = new Map(
         desiredComponents.map((component) => [component.variantId, component]),
@@ -334,13 +398,22 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
         ]),
       );
 
-      if (editableDefinition.mode !== 'CUSTOMIZABLE') {
-        await updateDefinition.mutateAsync({
-          definitionId: editableDefinition.definitionId,
-          data: { mode: 'CUSTOMIZABLE' },
-          skipInvalidate: true,
-        });
-      }
+      await updateDefinition.mutateAsync({
+        definitionId: editableDefinition.definitionId,
+        data: {
+          mode: editableDefinition.mode === 'CUSTOMIZABLE' ? undefined : 'CUSTOMIZABLE',
+          metadata: {
+            ...editableDefinition.metadata,
+            product_editor_policy: {
+              variant_inclusion: 'MIXED',
+              quantity_policy: selectedQuantityPolicy,
+              quantity_per_parent: quantityPerParent,
+              configured_at: new Date().toISOString(),
+            },
+          },
+        },
+        skipInvalidate: true,
+      });
 
       const componentsToDelete = editableDefinition.existingComponents.filter(
         (component) =>
@@ -414,6 +487,9 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
 
       setIsSelectionDirty(false);
       setDraftSelectedProductIds(selectedProductIds);
+      setIsPolicyDirty(false);
+      setDraftQuantityPolicy(selectedQuantityPolicy);
+      setDraftFixedQuantity(String(quantityPerParent));
       setMessage(
         editableDefinition.isNewVersion
           ? `DRAFT v${editableDefinition.versionNo}을 생성하고 번들 구성 상품을 저장했습니다.`
@@ -424,6 +500,8 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
 
   const hasCriticalLoadError =
     Boolean(definitionsError) || Boolean(productsError) || variantsError;
+  const hasInvalidFixedQuantity =
+    selectedQuantityPolicy === 'FIXED_PER_PARENT' && !selectedFixedQuantity;
 
   return (
     <section className="rounded-2xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
@@ -457,7 +535,8 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
               componentsLoading ||
               productsLoading ||
               variantsLoading ||
-              hasCriticalLoadError
+              hasCriticalLoadError ||
+              hasInvalidFixedQuantity
             }
             onClick={handleSave}
           >
@@ -476,6 +555,70 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
           {errorMessage}
         </div>
       )}
+
+      <div className="mt-4 rounded-xl border border-blue-200 bg-white px-4 py-4">
+        <p className="text-sm font-semibold text-blue-900">수량 정책</p>
+        <p className="mt-1 text-xs text-blue-900/80">
+          번들 편집 시 사용한 수량 정책을 metadata에 기록합니다. 현재 화면의 구성 방식은 기존과 동일합니다.
+        </p>
+        <div className="mt-3 space-y-2">
+          <label className="flex items-start gap-2 rounded-lg border border-blue-100 px-3 py-2">
+            <input
+              type="radio"
+              name="bundle-quantity-policy"
+              checked={selectedQuantityPolicy === 'INHERIT_PARENT'}
+              onChange={() => {
+                setIsPolicyDirty(true);
+                setDraftQuantityPolicy('INHERIT_PARENT');
+              }}
+            />
+            <span className="text-sm text-gray-700">
+              부모 수량 상속(`INHERIT_PARENT`): 부모 1개당 기본 수량 정책을 사용합니다.
+            </span>
+          </label>
+          <label className="flex items-start gap-2 rounded-lg border border-blue-100 px-3 py-2">
+            <input
+              type="radio"
+              name="bundle-quantity-policy"
+              checked={selectedQuantityPolicy === 'FIXED_PER_PARENT'}
+              onChange={() => {
+                setIsPolicyDirty(true);
+                setDraftQuantityPolicy('FIXED_PER_PARENT');
+                setDraftFixedQuantity(inferredFixedQuantity);
+              }}
+            />
+            <span className="text-sm text-gray-700">
+              고정 수량(`FIXED_PER_PARENT`): 부모 1개당 고정 배수를 기록합니다.
+            </span>
+          </label>
+          {selectedQuantityPolicy === 'FIXED_PER_PARENT' && (
+            <div className="flex items-center gap-2 pl-6">
+              <label
+                htmlFor="bundle-fixed-quantity"
+                className="text-xs font-medium text-gray-600"
+              >
+                부모 1개당 고정 수량
+              </label>
+              <input
+                id="bundle-fixed-quantity"
+                type="number"
+                min={1}
+                className="h-9 w-24 rounded-md border border-gray-300 px-2 text-sm"
+                value={isPolicyDirty ? draftFixedQuantity : inferredFixedQuantity}
+                onChange={(event) => {
+                  setIsPolicyDirty(true);
+                  setDraftFixedQuantity(event.target.value);
+                }}
+              />
+            </div>
+          )}
+        </div>
+        {hasInvalidFixedQuantity && (
+          <p className="mt-3 text-xs text-red-600">
+            고정 수량은 1 이상의 정수만 입력할 수 있습니다.
+          </p>
+        )}
+      </div>
 
       {definitionsLoading || componentsLoading || productsLoading || variantsLoading ? (
         <div className="mt-5 rounded-2xl border border-blue-100 bg-white px-4 py-8">
