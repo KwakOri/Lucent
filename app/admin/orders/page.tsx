@@ -21,6 +21,78 @@ type V2OrderStageTab = 'ALL' | 'CANCELED' | V2AdminOrderLinearStage;
 type V2OrderRowStage = 'CANCELED' | V2AdminOrderLinearStage;
 
 type TransitionExecuteLog = Record<string, unknown>;
+type TransitionPlan = {
+  orderIds: string[];
+  targetStage: V2AdminOrderLinearStage;
+  reason: string | null;
+};
+
+function mergeTransitionResults(
+  results: V2AdminOrderLinearTransitionResult[],
+): V2AdminOrderLinearTransitionResult {
+  if (results.length === 0) {
+    throw new Error('전환 결과가 없습니다.');
+  }
+  if (results.length === 1) {
+    return results[0];
+  }
+
+  const mode = results[0].mode;
+  const merged: V2AdminOrderLinearTransitionResult = {
+    mode,
+    requested_at: new Date().toISOString(),
+    target_stage: results[results.length - 1].target_stage,
+    summary: {
+      requested_order_count: 0,
+      found_order_count: 0,
+      executable_order_count: 0,
+      blocked_order_count: 0,
+      total_action_count: 0,
+    },
+    rows: [],
+  };
+
+  for (const result of results) {
+    merged.summary.requested_order_count += Number(
+      result.summary.requested_order_count || 0,
+    );
+    merged.summary.found_order_count += Number(result.summary.found_order_count || 0);
+    merged.summary.executable_order_count += Number(
+      result.summary.executable_order_count || 0,
+    );
+    merged.summary.blocked_order_count += Number(
+      result.summary.blocked_order_count || 0,
+    );
+    merged.summary.total_action_count += Number(result.summary.total_action_count || 0);
+    merged.rows.push(...result.rows);
+  }
+
+  if (mode === 'EXECUTE') {
+    merged.execute = {
+      attempted_action_count: 0,
+      succeeded_count: 0,
+      pending_approval_count: 0,
+      failed_count: 0,
+      logs: [],
+    };
+    for (const result of results) {
+      if (!result.execute) {
+        continue;
+      }
+      merged.execute.attempted_action_count += Number(
+        result.execute.attempted_action_count || 0,
+      );
+      merged.execute.succeeded_count += Number(result.execute.succeeded_count || 0);
+      merged.execute.pending_approval_count += Number(
+        result.execute.pending_approval_count || 0,
+      );
+      merged.execute.failed_count += Number(result.execute.failed_count || 0);
+      merged.execute.logs.push(...(result.execute.logs || []));
+    }
+  }
+
+  return merged;
+}
 
 function formatCurrency(amount: number): string {
   return `${Math.max(0, amount).toLocaleString()}원`;
@@ -294,6 +366,10 @@ export default function AdminOrdersPage() {
   }, [currentPageClamped, filteredRows]);
 
   const visibleOrderIdSet = useMemo(() => new Set(pagedRows.map((row) => row.order_id)), [pagedRows]);
+  const visibleRowByOrderId = useMemo(
+    () => new Map(pagedRows.map((row) => [row.order_id, row])),
+    [pagedRows],
+  );
   const effectiveSelectedOrderIds = useMemo(
     () => selectedOrderIds.filter((id) => visibleOrderIdSet.has(id)),
     [selectedOrderIds, visibleOrderIdSet],
@@ -329,12 +405,95 @@ export default function AdminOrdersPage() {
     !executeTransition.isPending;
   const canRunNextStage = canSubmitTransition && recommendedNextStage !== null;
 
-  function buildTransitionPayload(stage: V2AdminOrderLinearStage) {
+  function buildTransitionPlans(stage: V2AdminOrderLinearStage): TransitionPlan[] {
+    const reason = transitionReason.trim() || null;
+    if (stage !== 'PAYMENT_CONFIRMED') {
+      return [
+        {
+          orderIds: effectiveSelectedOrderIds,
+          targetStage: stage,
+          reason,
+        },
+      ];
+    }
+
+    const paymentConfirmedOrderIds: string[] = [];
+    const deliveredOrderIds: string[] = [];
+    for (const orderId of effectiveSelectedOrderIds) {
+      const row = visibleRowByOrderId.get(orderId);
+      const isDigitalOnly = row?.has_digital === true && row?.has_physical !== true;
+      if (isDigitalOnly) {
+        deliveredOrderIds.push(orderId);
+        continue;
+      }
+      paymentConfirmedOrderIds.push(orderId);
+    }
+
+    const plans: TransitionPlan[] = [];
+    if (paymentConfirmedOrderIds.length > 0) {
+      plans.push({
+        orderIds: paymentConfirmedOrderIds,
+        targetStage: 'PAYMENT_CONFIRMED',
+        reason,
+      });
+    }
+    if (deliveredOrderIds.length > 0) {
+      plans.push({
+        orderIds: deliveredOrderIds,
+        targetStage: 'DELIVERED',
+        reason,
+      });
+    }
+    return plans;
+  }
+
+  function buildTransitionPayload(plan: TransitionPlan) {
     return {
-      order_ids: effectiveSelectedOrderIds,
-      target_stage: stage,
-      reason: transitionReason.trim() || null,
+      order_ids: plan.orderIds,
+      target_stage: plan.targetStage,
+      reason: plan.reason,
     };
+  }
+
+  function transitionIntentLabel(
+    stage: V2AdminOrderLinearStage,
+    plans: TransitionPlan[],
+  ): string {
+    if (
+      stage === 'PAYMENT_CONFIRMED' &&
+      plans.some((plan) => plan.targetStage === 'DELIVERED')
+    ) {
+      return '입금 확인 (디지털 주문은 배송 완료 처리)';
+    }
+    return linearStageLabel(stage);
+  }
+
+  async function previewTransitionByPlans(
+    plans: TransitionPlan[],
+  ): Promise<V2AdminOrderLinearTransitionResult> {
+    const results: V2AdminOrderLinearTransitionResult[] = [];
+    for (const plan of plans) {
+      if (plan.orderIds.length === 0) {
+        continue;
+      }
+      const result = await previewTransition.mutateAsync(buildTransitionPayload(plan));
+      results.push(result);
+    }
+    return mergeTransitionResults(results);
+  }
+
+  async function executeTransitionByPlans(
+    plans: TransitionPlan[],
+  ): Promise<V2AdminOrderLinearTransitionResult> {
+    const results: V2AdminOrderLinearTransitionResult[] = [];
+    for (const plan of plans) {
+      if (plan.orderIds.length === 0) {
+        continue;
+      }
+      const result = await executeTransition.mutateAsync(buildTransitionPayload(plan));
+      results.push(result);
+    }
+    return mergeTransitionResults(results);
   }
 
   async function handlePreviewTransition(stage: V2AdminOrderLinearStage = targetStage) {
@@ -344,10 +503,12 @@ export default function AdminOrdersPage() {
     }
 
     try {
-      const result = await previewTransition.mutateAsync(buildTransitionPayload(stage));
+      const plans = buildTransitionPlans(stage);
+      const result = await previewTransitionByPlans(plans);
+      const stageLabel = transitionIntentLabel(stage, plans);
       setTransitionResult(result);
       setTransitionMessage(
-        `미리보기 완료(${linearStageLabel(stage)}): 실행 가능 ${result.summary.executable_order_count}건 / 차단 ${result.summary.blocked_order_count}건`,
+        `미리보기 완료(${stageLabel}): 실행 가능 ${result.summary.executable_order_count}건 / 차단 ${result.summary.blocked_order_count}건`,
       );
     } catch (previewError) {
       setTransitionMessage(
@@ -365,7 +526,14 @@ export default function AdminOrdersPage() {
     }
 
     try {
-      const payload = buildTransitionPayload(stage);
+      const plans = buildTransitionPlans(stage);
+      const stageLabel = transitionIntentLabel(stage, plans);
+      const targetStageByOrderId = new Map<string, V2AdminOrderLinearStage>();
+      for (const plan of plans) {
+        for (const orderId of plan.orderIds) {
+          targetStageByOrderId.set(orderId, plan.targetStage);
+        }
+      }
       const hasBackwardSelection = pagedRows.some((row) => {
         if (!effectiveSelectedOrderIds.includes(row.order_id)) {
           return false;
@@ -374,11 +542,12 @@ export default function AdminOrdersPage() {
         if (currentStage === 'CANCELED') {
           return false;
         }
-        return linearStageIndex(stage) < linearStageIndex(currentStage);
+        const effectiveTargetStage = targetStageByOrderId.get(row.order_id) || stage;
+        return linearStageIndex(effectiveTargetStage) < linearStageIndex(currentStage);
       });
 
       if (hasBackwardSelection) {
-        const previewForWarning = await previewTransition.mutateAsync(payload);
+        const previewForWarning = await previewTransitionByPlans(plans);
         setTransitionResult(previewForWarning);
 
         const warningRows = previewForWarning.rows.filter(
@@ -397,17 +566,24 @@ export default function AdminOrdersPage() {
       }
 
       const confirmed = window.confirm(
-        `선택한 ${effectiveSelectedOrderIds.length}건 주문을 "${linearStageLabel(stage)}" 단계로 전환할까요?`,
+        `선택한 ${effectiveSelectedOrderIds.length}건 주문을 "${stageLabel}" 단계로 전환할까요?`,
       );
       if (!confirmed) {
         return;
       }
 
       if (process.env.NODE_ENV !== 'production') {
-        console.info('[admin/orders] transition execute payload', payload);
+        console.info('[admin/orders] transition execute payload', {
+          stage,
+          plans: plans.map((plan) => ({
+            target_stage: plan.targetStage,
+            order_count: plan.orderIds.length,
+            order_ids: plan.orderIds,
+          })),
+        });
       }
 
-      const result = await executeTransition.mutateAsync(payload);
+      const result = await executeTransitionByPlans(plans);
       setTransitionResult(result);
 
       const executeLogs = result.execute?.logs || [];
@@ -418,6 +594,10 @@ export default function AdminOrdersPage() {
       if (process.env.NODE_ENV !== 'production') {
         console.info('[admin/orders] transition execute result', {
           target_stage: stage,
+          plans: plans.map((plan) => ({
+            target_stage: plan.targetStage,
+            order_count: plan.orderIds.length,
+          })),
           summary: result.summary,
           execute: result.execute,
           failed_logs: failedLogs,
@@ -435,19 +615,19 @@ export default function AdminOrdersPage() {
 
       if (failedLogs.length > 0) {
         setTransitionMessage(
-          `실행 완료(${linearStageLabel(stage)}): 성공 ${result.execute?.succeeded_count ?? 0}건 / 실패 ${result.execute?.failed_count ?? 0}건 · 첫 실패 ${summarizeFailedLog(failedLogs[0])}`,
+          `실행 완료(${stageLabel}): 성공 ${result.execute?.succeeded_count ?? 0}건 / 실패 ${result.execute?.failed_count ?? 0}건 · 첫 실패 ${summarizeFailedLog(failedLogs[0])}`,
         );
       } else if (hasBlockedWithoutExecution) {
         setTransitionMessage(
-          `실행 대상 없음(${linearStageLabel(stage)}): 실행 가능 주문이 없습니다. ${firstBlockedReason ? `차단 사유: ${firstBlockedReason}` : ''}`,
+          `실행 대상 없음(${stageLabel}): 실행 가능 주문이 없습니다. ${firstBlockedReason ? `차단 사유: ${firstBlockedReason}` : ''}`,
         );
       } else if (hasNoopWithoutBlock) {
         setTransitionMessage(
-          `실행 대상 없음(${linearStageLabel(stage)}): 선택한 주문이 이미 목표 단계이거나 변경이 필요하지 않습니다.`,
+          `실행 대상 없음(${stageLabel}): 선택한 주문이 이미 목표 단계이거나 변경이 필요하지 않습니다.`,
         );
       } else {
         setTransitionMessage(
-          `실행 완료(${linearStageLabel(stage)}): 성공 ${result.execute?.succeeded_count ?? 0}건 / 실패 ${result.execute?.failed_count ?? 0}건`,
+          `실행 완료(${stageLabel}): 성공 ${result.execute?.succeeded_count ?? 0}건 / 실패 ${result.execute?.failed_count ?? 0}건`,
         );
       }
       await refetch();
