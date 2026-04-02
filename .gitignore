@@ -56,3 +56,4 @@ storybook-static
 /stories
 .claude/*
 .claude
+.envrc
