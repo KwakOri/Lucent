@@ -17,6 +17,7 @@ import {
   useCreateV2BundleComponent,
   useCreateV2BundleDefinition,
   useDeleteV2BundleComponent,
+  usePublishV2BundleDefinition,
   useUpdateV2BundleComponent,
   useUpdateV2BundleDefinition,
   useV2AdminProducts,
@@ -253,6 +254,7 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
 
   const createDefinition = useCreateV2BundleDefinition();
   const updateDefinition = useUpdateV2BundleDefinition();
+  const publishDefinition = usePublishV2BundleDefinition();
   const createComponent = useCreateV2BundleComponent();
   const updateComponent = useUpdateV2BundleComponent();
   const deleteComponent = useDeleteV2BundleComponent();
@@ -260,6 +262,7 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
   const isSaving =
     createDefinition.isPending ||
     updateDefinition.isPending ||
+    publishDefinition.isPending ||
     createComponent.isPending ||
     updateComponent.isPending ||
     deleteComponent.isPending;
@@ -377,6 +380,12 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
       return;
     }
 
+    if (selectedProductIds.length === 0) {
+      setMessage(null);
+      setErrorMessage('번들에 포함할 상품을 1개 이상 선택해 주세요.');
+      return;
+    }
+
     if (selectedQuantityPolicy === 'FIXED_PER_PARENT' && !selectedFixedQuantity) {
       setMessage(null);
       setErrorMessage('고정 수량은 1 이상의 정수여야 합니다.');
@@ -481,6 +490,12 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
         });
       }
 
+      const publishResponse = await publishDefinition.mutateAsync({
+        definitionId: editableDefinition.definitionId,
+        skipInvalidate: true,
+      });
+      setPreferredDefinitionId(publishResponse.data.id);
+
       await queryClient.invalidateQueries({
         queryKey: queryKeys.v2CatalogAdmin.bundles.definitions.all,
       });
@@ -492,8 +507,8 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
       setDraftFixedQuantity(String(quantityPerParent));
       setMessage(
         editableDefinition.isNewVersion
-          ? `DRAFT v${editableDefinition.versionNo}을 생성하고 번들 구성 상품을 저장했습니다.`
-          : '번들 구성 상품을 저장했습니다.',
+          ? `DRAFT v${editableDefinition.versionNo}을 생성하고 번들 구성을 ACTIVE로 확정했습니다.`
+          : '번들 구성을 저장하고 ACTIVE로 확정했습니다.',
       );
     });
   };
@@ -512,7 +527,8 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
             같은 프로젝트 상품을 고르면 번들 구성에 반영됩니다. 옵션은 구매 시점에 소비자가 선택합니다.
           </p>
           <p className="mt-2 text-xs text-blue-900/80">
-            옵션이 1개인 상품은 자동 포함되고, 옵션이 2개 이상인 상품은 선택형으로 저장됩니다.
+            옵션이 1개인 상품은 자동 포함되고, 옵션이 2개 이상인 상품은 선택형으로 저장됩니다. 저장 시
+            현재 구성을 ACTIVE로 자동 publish합니다.
           </p>
           {activeDefinition && (
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-blue-900/80">
@@ -540,7 +556,7 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
             }
             onClick={handleSave}
           >
-            번들 구성 저장
+            번들 구성 저장 후 ACTIVE 확정
           </Button>
         </div>
       </div>
