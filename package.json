@@ -18,6 +18,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "gen:types": "supabase gen types typescript --linked > types/database.ts",
+    "supabase:link:ensure": "bash -lc '[ -f supabase/.temp/project-ref ] || (test -n \"$SB_TOKEN_LUCENT\" && SUPABASE_ACCESS_TOKEN=\"$SB_TOKEN_LUCENT\" supabase link --project-ref zzckbomchrebuyetgvqv)'",
     "ops:v2-rehearsal": "tsx scripts/v2-read-switch-rehearsal.ts",
     "ops:v2-verify-0102": "tsx scripts/v2-verify-01-02.ts",
     "ops:v2-verify-04": "tsx scripts/v2-verify-04.ts",
