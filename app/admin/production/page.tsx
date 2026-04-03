@@ -716,16 +716,38 @@ export default function AdminProductionPage() {
         order_ids: selectedOrderIds,
         notes: batchNotes.trim() || null,
       });
-      const nextBatchId = typeof created.batch?.id === 'string' ? created.batch.id : null;
+      const createdBatches = Array.isArray(created.created_batches)
+        ? created.created_batches
+        : [];
+      const nextBatchId =
+        (typeof createdBatches[0]?.id === 'string' && createdBatches[0]?.id) ||
+        (typeof created.batch?.id === 'string' ? created.batch.id : null);
       if (nextBatchId) {
         setSelectedBatchId(nextBatchId);
       }
 
       setBatchNotes('');
       setSelectedOrderIds([]);
-      const createdTitle =
-        typeof created.batch?.title === 'string' ? created.batch.title : autoBatchTitle;
-      setMessage(`제작 배치를 생성했습니다. (${createdTitle})`);
+      const createdTitle = (
+        typeof createdBatches[0]?.title === 'string' && createdBatches[0]?.title
+          ? createdBatches[0]?.title
+          : typeof created.batch?.title === 'string'
+            ? created.batch.title
+            : autoBatchTitle
+      ) as string;
+      const createdBatchCount =
+        typeof created.created_batch_count === 'number'
+          ? created.created_batch_count
+          : createdBatches.length > 0
+            ? createdBatches.length
+            : 1;
+      if (createdBatchCount > 1) {
+        setMessage(
+          `캠페인 기준으로 제작 배치 ${createdBatchCount}개를 생성했습니다. (첫 배치: ${createdTitle})`,
+        );
+      } else {
+        setMessage(`제작 배치를 생성했습니다. (${createdTitle})`);
+      }
     } catch (error) {
       setError(error);
     }
@@ -759,7 +781,7 @@ export default function AdminProductionPage() {
         batchId: selectedBatchId,
         data: { reason: batchActionReason.trim() || null },
       });
-      setMessage('제작 완료 처리 후 주문을 배송 대기로 이동했습니다.');
+      setMessage('제작 완료 처리했습니다. 준비가 끝난 주문만 배송 대기로 이동됩니다.');
     } catch (error) {
       setError(error);
     }
@@ -787,8 +809,8 @@ export default function AdminProductionPage() {
       <header className="space-y-2">
         <h1 className="text-2xl font-bold text-gray-900">제작 관리</h1>
         <p className="text-sm text-gray-600">
-          입금 확인 주문을 배치로 묶어 제작 수량을 확정하고, 제작 완료 시 배송 대기 단계로
-          일괄 전이합니다.
+          입금 확인 주문을 캠페인 기준 배치로 묶어 제작 수량을 확정하고, 제작이 끝난 주문부터
+          배송 대기 단계로 전이합니다.
         </p>
       </header>
 

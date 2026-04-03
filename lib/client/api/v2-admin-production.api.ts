@@ -83,10 +83,51 @@ export interface V2AdminProductionBatchAggregateRow {
   updated_at: string;
 }
 
+export interface V2AdminProductionBatchItemRow {
+  id: string;
+  batch_id: string;
+  order_id: string;
+  order_item_id: string;
+  project_id_snapshot: string | null;
+  project_name_snapshot: string | null;
+  campaign_id_snapshot: string | null;
+  campaign_name_snapshot: string | null;
+  product_id: string | null;
+  variant_id: string | null;
+  product_name_snapshot: string | null;
+  variant_name_snapshot: string | null;
+  quantity: number;
+  production_status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED' | 'FAILED';
+  transition_activate_status: V2AdminTransitionResult;
+  transition_complete_status: V2AdminTransitionResult;
+  activated_at: string | null;
+  completed_at: string | null;
+  error_message: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface V2AdminCreatedProductionBatch {
+  id: string | null;
+  batch_no: string | null;
+  title: string | null;
+  project_id: string | null;
+  project_name: string | null;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  order_count: number;
+  item_quantity_total: number;
+}
+
 export interface V2AdminProductionBatchDetail {
   batch: V2AdminProductionBatchQueueRow & Record<string, unknown>;
   orders: V2AdminProductionBatchOrderRow[];
   aggregates: V2AdminProductionBatchAggregateRow[];
+  items?: V2AdminProductionBatchItemRow[];
+  created_batch_count?: number;
+  created_batches?: V2AdminCreatedProductionBatch[];
+  grouped_by?: string;
 }
 
 export interface V2AdminProductionSavedViewFilter {
