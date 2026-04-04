@@ -481,6 +481,35 @@ function buildPostOfficeContentText(
   return content || '굿즈';
 }
 
+function toPostOfficeExcelRowValues(row: string[]): string[] {
+  const normalized = row.slice(0, POST_OFFICE_EXCEL_TOTAL_COLUMNS);
+  while (normalized.length < POST_OFFICE_EXCEL_TOTAL_COLUMNS) {
+    normalized.push('');
+  }
+  return normalized;
+}
+
+function writePostOfficeTemplateCell(
+  sheet: Record<string, unknown>,
+  address: string,
+  value: string,
+): void {
+  const nextValue = String(value ?? '');
+  const existingCell = sheet[address];
+  if (existingCell && typeof existingCell === 'object' && !Array.isArray(existingCell)) {
+    const mutableCell = existingCell as { t?: string; v?: string; w?: unknown };
+    mutableCell.t = 's';
+    mutableCell.v = nextValue;
+    if ('w' in mutableCell) {
+      delete mutableCell.w;
+    }
+    return;
+  }
+  if (nextValue.length > 0) {
+    sheet[address] = { t: 's', v: nextValue };
+  }
+}
+
 const SHIPPING_CANDIDATE_FILTER_STORAGE_KEY =
   'lucent.admin.shipping.candidate.saved-filters.v1';
 const SHIPPING_CANDIDATE_LAST_FILTER_STORAGE_KEY =
@@ -511,26 +540,10 @@ type PackageDraftRow = {
 const FIXED_SHIPPING_CARRIER_CODE = 'POST_OFFICE';
 const FIXED_SHIPPING_CARRIER_LABEL = '우체국 택배';
 const POST_OFFICE_DEFAULT_LANDLINE = '02-1234-5678';
-
-const POST_OFFICE_EXCEL_HEADERS: string[] = [
-  '받는 분',
-  '우편번호',
-  '주소(시도+시군구+도로명+건물번호)',
-  '상세주소(동, 호수, 洞명칭, 아파트, 건물명 등)',
-  '일반전화(02-1234-5678)',
-  '휴대전화(010-1234-5678)',
-  '중량(kg)',
-  '부피(cm)=가로+세로+높이',
-  '내용품코드',
-  '내용물',
-  '배달방식',
-  '배송시요청사항',
-  '분할접수 여부(Y/N)',
-  '분할접수 첫번째 중량(kg)',
-  '분할접수 첫번째 부피(cm)',
-  '분할접수 두번째 중량(kg)',
-  '분할접수 두번째 부피(cm)',
-];
+const POST_OFFICE_EXCEL_TEMPLATE_PATH = '/templates/post-office-parcel-template.xls';
+const POST_OFFICE_EXCEL_TEMPLATE_SHEET_NAME = '창구소포 파일접수양식';
+const POST_OFFICE_EXCEL_TOTAL_COLUMNS = 19;
+const POST_OFFICE_EXCEL_DATA_START_ROW_INDEX = 1;
 
 function isSameFilterValues(
   left: ShippingCandidateFilterValue,
@@ -1314,30 +1327,51 @@ export function ShippingManagementContent({
           '',
         ];
       });
+      const templateResponse = await fetch(POST_OFFICE_EXCEL_TEMPLATE_PATH, {
+        cache: 'no-store',
+      });
+      if (!templateResponse.ok) {
+        throw new Error('우체국 접수 양식 템플릿을 불러오지 못했습니다.');
+      }
 
-      const sheet = XLSX.utils.aoa_to_sheet([POST_OFFICE_EXCEL_HEADERS, ...rows]);
-      sheet['!cols'] = [
-        { wch: 12 },
-        { wch: 12 },
-        { wch: 34 },
-        { wch: 32 },
-        { wch: 18 },
-        { wch: 18 },
-        { wch: 10 },
-        { wch: 18 },
-        { wch: 20 },
-        { wch: 50 },
-        { wch: 12 },
-        { wch: 24 },
-        { wch: 12 },
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 20 },
-      ];
+      const templateBuffer = await templateResponse.arrayBuffer();
+      const workbook = XLSX.read(templateBuffer, { type: 'array' });
+      const sheetName = workbook.SheetNames.includes(POST_OFFICE_EXCEL_TEMPLATE_SHEET_NAME)
+        ? POST_OFFICE_EXCEL_TEMPLATE_SHEET_NAME
+        : workbook.SheetNames[0];
+      if (!sheetName) {
+        throw new Error('우체국 접수 양식 템플릿에 시트가 없습니다.');
+      }
 
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, sheet, '창구소포 파일접수양식');
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet) {
+        throw new Error('우체국 접수 양식 템플릿 시트를 찾을 수 없습니다.');
+      }
+
+      const templateRange = XLSX.utils.decode_range(sheet['!ref'] || 'A1:S21');
+      const normalizedRows = rows.map((row) => toPostOfficeExcelRowValues(row));
+      const lastDataRowIndex = Math.max(
+        templateRange.e.r,
+        POST_OFFICE_EXCEL_DATA_START_ROW_INDEX + Math.max(normalizedRows.length, 1) - 1,
+      );
+
+      for (
+        let rowIndex = POST_OFFICE_EXCEL_DATA_START_ROW_INDEX;
+        rowIndex <= lastDataRowIndex;
+        rowIndex += 1
+      ) {
+        const rowValues = normalizedRows[rowIndex - POST_OFFICE_EXCEL_DATA_START_ROW_INDEX] || [];
+        for (let columnIndex = 0; columnIndex < POST_OFFICE_EXCEL_TOTAL_COLUMNS; columnIndex += 1) {
+          const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+          const value = String(rowValues[columnIndex] ?? '');
+          writePostOfficeTemplateCell(sheet, address, value);
+        }
+      }
+
+      sheet['!ref'] = XLSX.utils.encode_range({
+        s: { r: 0, c: 0 },
+        e: { r: lastDataRowIndex, c: POST_OFFICE_EXCEL_TOTAL_COLUMNS - 1 },
+      });
 
       const safeBatchNo = String(selectedBatch?.batch_no || 'shipping_batch').replace(
         /[^A-Za-z0-9_-]/g,
