@@ -196,6 +196,27 @@ function readFirstSnapshotText(
   return '';
 }
 
+function normalizePostalCodeText(value: string): string {
+  const raw = value.trim();
+  if (!raw) {
+    return '';
+  }
+  const digits = raw.replace(/\D/g, '');
+  if (/^\d{5}$/.test(digits)) {
+    return digits;
+  }
+  return raw;
+}
+
+function extractBracketPostalCode(value: string): string {
+  const match = value.match(/^\[(\d{5})\]/);
+  return match ? match[1] : '';
+}
+
+function stripBracketPostalCodePrefix(value: string): string {
+  return value.replace(/^\[\d{5}\]\s*/, '').trim();
+}
+
 function buildAddressText(snapshot: Record<string, unknown> | null): string {
   const keys = ['line1', 'line2', 'address', 'address1', 'address_1', 'road_address'];
   const values = keys
@@ -205,13 +226,21 @@ function buildAddressText(snapshot: Record<string, unknown> | null): string {
 }
 
 function resolvePostalCode(snapshot: Record<string, unknown> | null): string {
-  return readFirstSnapshotText(snapshot, [
+  const direct = readFirstSnapshotText(snapshot, [
+    'postcode',
     'postal_code',
     'postalCode',
     'zipcode',
     'zip_code',
     'zip',
   ]);
+  const normalizedDirect = normalizePostalCodeText(direct);
+  if (normalizedDirect.length > 0) {
+    return normalizedDirect;
+  }
+
+  const addressLine1 = resolveAddressLine1(snapshot);
+  return extractBracketPostalCode(addressLine1);
 }
 
 function resolveAddressLine1(snapshot: Record<string, unknown> | null): string {
@@ -1203,6 +1232,9 @@ export function ShippingManagementContent({
         const snapshot = order.shipping_address_snapshot as Record<string, unknown> | null;
         const phone = formatPhoneNumber(order.recipient_phone || '');
         const isLandline = phone.startsWith('02-');
+        const rawAddressLine1 = resolveAddressLine1(snapshot);
+        const postalCode = resolvePostalCode(snapshot);
+        const addressLine1 = stripBracketPostalCodePrefix(rawAddressLine1);
         const lineItems = summarizeLineItems(
           order.line_items_snapshot as Array<Record<string, unknown>> | null,
         );
@@ -1210,8 +1242,8 @@ export function ShippingManagementContent({
 
         return [
           order.recipient_name || '',
-          resolvePostalCode(snapshot),
-          resolveAddressLine1(snapshot),
+          postalCode,
+          addressLine1,
           resolveAddressLine2(snapshot),
           isLandline ? phone : '',
           isLandline ? '' : phone,
