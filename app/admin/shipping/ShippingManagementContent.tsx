@@ -266,6 +266,17 @@ function formatAutoBatchTitleDate(date: Date): string {
   return `${yy}${mm}${dd}`;
 }
 
+function resolveCarrierDisplayName(carrierCode: string | null | undefined): string {
+  const normalized = String(carrierCode || '').trim().toUpperCase();
+  if (!normalized) {
+    return '-';
+  }
+  if (normalized === FIXED_SHIPPING_CARRIER_CODE) {
+    return FIXED_SHIPPING_CARRIER_LABEL;
+  }
+  return normalized;
+}
+
 
 function buildSelectionKey(orderIds: string[]): string {
   return orderIds.slice().sort().join(',');
@@ -412,6 +423,9 @@ type PackageDraftRow = {
   tracking_no: string;
   notes: string;
 };
+
+const FIXED_SHIPPING_CARRIER_CODE = 'POST_OFFICE';
+const FIXED_SHIPPING_CARRIER_LABEL = '우체국 택배';
 
 const POST_OFFICE_EXCEL_HEADERS: string[] = [
   '받는 분',
@@ -1026,7 +1040,7 @@ export function ShippingManagementContent({
     setPackageDrafts((prev) => ({
       ...prev,
       [batchOrderId]: {
-        carrier_code: prev[batchOrderId]?.carrier_code || '',
+        carrier_code: prev[batchOrderId]?.carrier_code || FIXED_SHIPPING_CARRIER_CODE,
         tracking_no: prev[batchOrderId]?.tracking_no || '',
         notes: prev[batchOrderId]?.notes || '',
         [key]: value,
@@ -1044,7 +1058,7 @@ export function ShippingManagementContent({
           ? draft.carrier_code
           : typeof existing?.carrier_code === 'string'
             ? existing.carrier_code
-            : '',
+            : FIXED_SHIPPING_CARRIER_CODE,
       tracking_no:
         draft?.tracking_no !== undefined
           ? draft.tracking_no
@@ -1071,7 +1085,7 @@ export function ShippingManagementContent({
         const draft = resolvePackageDraft(order.id);
         return {
           batch_order_id: order.id,
-          carrier_code: draft.carrier_code.trim() || null,
+          carrier_code: FIXED_SHIPPING_CARRIER_CODE,
           tracking_no: draft.tracking_no.trim() || null,
           notes: draft.notes.trim() || null,
         };
@@ -1733,6 +1747,11 @@ export function ShippingManagementContent({
 
         {detail && (
           <div className="space-y-4">
+            {(selectedBatch?.status as V2AdminShippingBatchStatus) === 'ACTIVE' ? (
+              <p className="text-xs text-gray-500">
+                주문 목록 오른쪽에서 운송장 번호를 바로 입력하고 저장할 수 있습니다.
+              </p>
+            ) : null}
             <div className="overflow-x-auto rounded-lg border border-gray-200">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50">
@@ -1742,7 +1761,15 @@ export function ShippingManagementContent({
                     <th className="px-3 py-2 text-left font-medium text-gray-600">주소</th>
                     <th className="px-3 py-2 text-left font-medium text-gray-600">출고 품목</th>
                     <th className="px-3 py-2 text-right font-medium text-gray-600">수량합</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">운송장</th>
+                    {(selectedBatch?.status as V2AdminShippingBatchStatus) === 'ACTIVE' ? (
+                      <>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">택배사</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">운송장번호</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">메모</th>
+                      </>
+                    ) : (
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">운송장</th>
+                    )}
                     <th className="px-3 py-2 text-left font-medium text-gray-600">출고/완료</th>
                   </tr>
                 </thead>
@@ -1780,8 +1807,10 @@ export function ShippingManagementContent({
                     const packageRow = packageByBatchOrderId.get(row.id) || null;
                     const trackingText =
                       typeof packageRow?.tracking_no === 'string' && packageRow.tracking_no.trim().length > 0
-                        ? `${String(packageRow?.carrier_code || '-')} / ${packageRow.tracking_no}`
+                        ? `${resolveCarrierDisplayName(packageRow?.carrier_code)} / ${packageRow.tracking_no}`
                         : '-';
+                    const isActiveBatch =
+                      (selectedBatch?.status as V2AdminShippingBatchStatus) === 'ACTIVE';
 
                     return (
                       <tr key={row.id}>
@@ -1796,7 +1825,41 @@ export function ShippingManagementContent({
                         <td className="px-3 py-2 text-right text-gray-700">
                           {lineItems.quantity.toLocaleString()}
                         </td>
-                        <td className="px-3 py-2 text-gray-700">{trackingText}</td>
+                        {isActiveBatch ? (
+                          <>
+                            <td className="whitespace-nowrap px-3 py-2 text-gray-700">
+                              {FIXED_SHIPPING_CARRIER_LABEL}
+                            </td>
+                            <td className="min-w-[220px] px-3 py-2">
+                              <Input
+                                value={resolvePackageDraft(row.id).tracking_no}
+                                onChange={(event) =>
+                                  handlePackageDraftChange(
+                                    row.id,
+                                    'tracking_no',
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="운송장 번호"
+                              />
+                            </td>
+                            <td className="min-w-[220px] px-3 py-2">
+                              <Input
+                                value={resolvePackageDraft(row.id).notes}
+                                onChange={(event) =>
+                                  handlePackageDraftChange(
+                                    row.id,
+                                    'notes',
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="메모(선택)"
+                              />
+                            </td>
+                          </>
+                        ) : (
+                          <td className="px-3 py-2 text-gray-700">{trackingText}</td>
+                        )}
                         <td className="px-3 py-2">
                           {row.is_excluded === true ? (
                             <div className="flex flex-col gap-1">
@@ -1855,107 +1918,6 @@ export function ShippingManagementContent({
                 </tbody>
               </table>
             </div>
-
-            {(selectedBatch?.status as V2AdminShippingBatchStatus) === 'ACTIVE' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-gray-900">운송장 입력</h3>
-                  <p className="text-xs text-gray-500">
-                    입력 후 반드시 &quot;운송장 저장&quot;을 눌러야 출고 실행에 반영됩니다.
-                  </p>
-                </div>
-                <div className="overflow-x-auto rounded-lg border border-gray-200">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">주문번호</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">수취인</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">택배사</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">운송장번호</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">메모</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 bg-white">
-                      {(detail.orders || []).map((row) => {
-                        const snapshot =
-                          row.shipping_address_snapshot as Record<string, unknown> | null;
-                        const recipientName =
-                          (typeof row.recipient_name === 'string' &&
-                            row.recipient_name.trim().length > 0
-                            ? row.recipient_name.trim()
-                            : '') ||
-                          readFirstSnapshotText(snapshot, [
-                            'recipient_name',
-                            'receiver_name',
-                            'name',
-                          ]) ||
-                          '-';
-                        const recipientPhoneRaw =
-                          (typeof row.recipient_phone === 'string' &&
-                            row.recipient_phone.trim().length > 0
-                            ? row.recipient_phone.trim()
-                            : '') ||
-                          readFirstSnapshotText(snapshot, [
-                            'recipient_phone',
-                            'receiver_phone',
-                            'phone',
-                          ]) ||
-                          '';
-                        const recipientPhone =
-                          formatPhoneNumber(recipientPhoneRaw) || '-';
-                        return (
-                          <tr key={row.id}>
-                            <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
-                            <td className="px-3 py-2 text-gray-700">
-                              {recipientName} / {recipientPhone}
-                            </td>
-                            <td className="px-3 py-2">
-                              <Input
-                                value={resolvePackageDraft(row.id).carrier_code}
-                                onChange={(event) =>
-                                  handlePackageDraftChange(
-                                    row.id,
-                                    'carrier_code',
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="POST_OFFICE / CJ ..."
-                              />
-                            </td>
-                            <td className="px-3 py-2">
-                              <Input
-                                value={resolvePackageDraft(row.id).tracking_no}
-                                onChange={(event) =>
-                                  handlePackageDraftChange(
-                                    row.id,
-                                    'tracking_no',
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="운송장 번호"
-                              />
-                            </td>
-                            <td className="px-3 py-2">
-                              <Input
-                                value={resolvePackageDraft(row.id).notes}
-                                onChange={(event) =>
-                                  handlePackageDraftChange(
-                                    row.id,
-                                    'notes',
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="메모(선택)"
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
           </div>
         )}
         </section>
