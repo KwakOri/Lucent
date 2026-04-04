@@ -281,7 +281,7 @@ export default function AdminDashboardPage() {
       key: 'payment_pending_count',
       title: '입금 대기',
       value: formatNumber(data.kpis.payment_pending_count),
-      href: '/admin/orders',
+      href: '/admin/orders?stage=PAYMENT_PENDING',
       badge: alertBadge(
         resolveMetricAlert('payment_pending_count', data.kpis.payment_pending_count),
       ),
@@ -290,7 +290,7 @@ export default function AdminDashboardPage() {
       key: 'ready_to_ship_count',
       title: '배송 대기',
       value: formatNumber(data.kpis.ready_to_ship_count),
-      href: '/admin/orders',
+      href: '/admin/orders?stage=READY_TO_SHIP',
       badge: alertBadge(
         resolveMetricAlert('ready_to_ship_count', data.kpis.ready_to_ship_count),
       ),
@@ -503,7 +503,7 @@ export default function AdminDashboardPage() {
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">즉시 처리 주문</h2>
-            <Link href="/admin/orders" className="text-sm font-semibold text-blue-600">
+            <Link href="/admin/orders?stage=PAYMENT_PENDING" className="text-sm font-semibold text-blue-600">
               주문 운영 열기
             </Link>
           </div>
