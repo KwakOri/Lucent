@@ -1279,29 +1279,6 @@ export function ShippingManagementContent({
         </header>
       )}
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">출고 후보 주문</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{summary.candidateCount}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">선택 주문</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{summary.selectedCount}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">자동 검증 통과</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">
-            {summary.previewValidCount}
-          </p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">진행 중 배치</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">
-            {summary.activeBatchCount}
-          </p>
-        </div>
-      </section>
-
       {!forcedTab && (
         <section className="rounded-xl border border-gray-200 bg-white p-1">
           <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
@@ -1341,51 +1318,20 @@ export function ShippingManagementContent({
             </p>
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-gray-800">탭 현황 요약</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                intent="neutral"
+                onClick={toggleSelectAll}
+                disabled={candidateRows.length === 0}
+                className="h-11 px-5"
+              >
+                {allChecked ? '전체 해제' : '전체 선택'}
+              </Button>
               <Button intent="neutral" onClick={() => setIsViewManagerOpen(true)}>
                 뷰/필터 설정
               </Button>
             </div>
-            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
-              <div className="rounded-lg border border-gray-200 bg-white p-3">
-                <p className="text-xs text-gray-500">출고 후보 주문</p>
-                <p className="mt-1 text-lg font-semibold text-gray-900">
-                  {summary.candidateCount.toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-lg border border-gray-200 bg-white p-3">
-                <p className="text-xs text-gray-500">선택 주문</p>
-                <p className="mt-1 text-lg font-semibold text-gray-900">
-                  {summary.selectedCount.toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-lg border border-gray-200 bg-white p-3">
-                <p className="text-xs text-gray-500">자동 검증 통과</p>
-                <p className="mt-1 text-lg font-semibold text-gray-900">
-                  {summary.previewValidCount.toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-lg border border-gray-200 bg-white p-3">
-                <p className="text-xs text-gray-500">자동 검증 차단</p>
-                <p className="mt-1 text-lg font-semibold text-gray-900">
-                  {summary.previewBlockedCount.toLocaleString()}
-                </p>
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-gray-600">적용 필터: {appliedFilterSummaryText}</p>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button
-              intent="neutral"
-              onClick={toggleSelectAll}
-              disabled={candidateRows.length === 0}
-              className="h-11 px-5"
-            >
-              {allChecked ? '전체 해제' : '전체 선택'}
-            </Button>
             <Button
               onClick={handleCreateBatch}
               disabled={selectedOrderIdsInView.length === 0 || isBusy}
@@ -1394,6 +1340,7 @@ export function ShippingManagementContent({
               선택 주문으로 배치 생성
             </Button>
           </div>
+          <p className="text-xs text-gray-600">적용 필터: {appliedFilterSummaryText}</p>
 
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
             {selectedOrderIdsInView.length === 0 ? (

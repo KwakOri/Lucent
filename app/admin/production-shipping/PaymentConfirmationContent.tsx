@@ -213,15 +213,6 @@ export function PaymentConfirmationContent({
     !previewTransition.isPending &&
     !executeTransition.isPending;
 
-  const summary = useMemo(() => {
-    return {
-      pendingCount: pendingRows.length,
-      selectedCount: effectiveSelectedOrderIds.length,
-      executableCount: transitionResult?.summary.executable_order_count || 0,
-      blockedCount: transitionResult?.summary.blocked_order_count || 0,
-    };
-  }, [effectiveSelectedOrderIds.length, pendingRows.length, transitionResult]);
-
   function buildTransitionPlans(): TransitionPlan[] {
     const reason = transitionReason.trim() || null;
     const paymentConfirmedOrderIds: string[] = [];
@@ -414,25 +405,6 @@ export function PaymentConfirmationContent({
           </p>
         </header>
       )}
-
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">입금 대기 주문</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{summary.pendingCount}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">선택 주문</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{summary.selectedCount}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">실행 가능</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{summary.executableCount}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500">차단</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{summary.blockedCount}</p>
-        </div>
-      </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-4">
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto_auto]">

@@ -1,8 +1,19 @@
 'use client';
 
+import { useMemo } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ProductionManagementContent } from '@/app/admin/production/ProductionManagementContent';
 import { ShippingManagementContent } from '@/app/admin/shipping/ShippingManagementContent';
+import { isCanceledOrder, resolveLinearStageFromRow } from '@/app/admin/orders/order-stage';
+import { useV2AdminOrderQueue } from '@/lib/client/hooks/useV2AdminOps';
+import {
+  useV2AdminProductionBatches,
+  useV2AdminProductionCandidates,
+} from '@/lib/client/hooks/useV2AdminProduction';
+import {
+  useV2AdminShippingBatches,
+  useV2AdminShippingCandidates,
+} from '@/lib/client/hooks/useV2AdminShipping';
 import { PaymentConfirmationContent } from './PaymentConfirmationContent';
 
 type UnifiedManagementTab =
@@ -14,31 +25,26 @@ type UnifiedManagementTab =
 
 const DEFAULT_TAB: UnifiedManagementTab = 'payment-confirm';
 
-const TAB_OPTIONS: Array<{ key: UnifiedManagementTab; label: string; description: string }> = [
+const TAB_OPTIONS: Array<{ key: UnifiedManagementTab; label: string }> = [
   {
     key: 'payment-confirm',
     label: '입금 확인',
-    description: '입금 대기 주문 처리',
   },
   {
     key: 'production-candidates',
     label: '제작 후보 주문',
-    description: '제작 시작 전 주문 선별',
   },
   {
     key: 'production-batches',
     label: '제작 배치 목록',
-    description: '제작 진행/완료 관리',
   },
   {
     key: 'shipping-candidates',
     label: '배송 후보 주문',
-    description: '출고 대상 주문 선별',
   },
   {
     key: 'shipping-batches',
     label: '배송 배치 워크벤치',
-    description: '운송장/배송 상태 관리',
   },
 ];
 
@@ -53,9 +59,34 @@ export default function AdminProductionShippingPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const paymentQueueQuery = useV2AdminOrderQueue({ limit: 1000 });
+  const productionCandidatesQuery = useV2AdminProductionCandidates({ limit: 300 });
+  const productionBatchesQuery = useV2AdminProductionBatches({ limit: 100 });
+  const shippingCandidatesQuery = useV2AdminShippingCandidates({ limit: 300 });
+  const shippingBatchesQuery = useV2AdminShippingBatches({ limit: 100 });
 
   const rawTab = searchParams.get('tab');
   const activeTab: UnifiedManagementTab = isUnifiedTab(rawTab) ? rawTab : DEFAULT_TAB;
+
+  const tabCounts = useMemo<Record<UnifiedManagementTab, number>>(() => {
+    const paymentPendingCount = (paymentQueueQuery.data?.items || []).filter(
+      (row) => !isCanceledOrder(row) && resolveLinearStageFromRow(row) === 'PAYMENT_PENDING',
+    ).length;
+
+    return {
+      'payment-confirm': paymentPendingCount,
+      'production-candidates': (productionCandidatesQuery.data?.items || []).length,
+      'production-batches': (productionBatchesQuery.data?.items || []).length,
+      'shipping-candidates': (shippingCandidatesQuery.data?.items || []).length,
+      'shipping-batches': (shippingBatchesQuery.data?.items || []).length,
+    };
+  }, [
+    paymentQueueQuery.data?.items,
+    productionBatchesQuery.data?.items,
+    productionCandidatesQuery.data?.items,
+    shippingBatchesQuery.data?.items,
+    shippingCandidatesQuery.data?.items,
+  ]);
 
   const handleTabChange = (nextTab: UnifiedManagementTab) => {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -87,9 +118,11 @@ export default function AdminProductionShippingPage() {
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                <p>{option.label}</p>
-                <p className={`mt-1 text-xs ${isActive ? 'text-blue-100' : 'text-gray-500'}`}>
-                  {option.description}
+                <p className="flex items-center gap-2">
+                  <span>{option.label}</span>
+                  <span className={`${isActive ? 'text-blue-100' : 'text-gray-500'}`}>
+                    {tabCounts[option.key].toLocaleString()}
+                  </span>
                 </p>
               </button>
             );
