@@ -1720,6 +1720,8 @@ export default function AdminShippingPage() {
                     const address = buildAddressText(
                       row.shipping_address_snapshot as Record<string, unknown> | null,
                     );
+                    const recipientPhone =
+                      formatPhoneNumber(row.recipient_phone || '') || '-';
                     const lineItems = summarizeLineItems(
                       row.line_items_snapshot as Array<Record<string, unknown>> | null,
                     );
@@ -1733,7 +1735,7 @@ export default function AdminShippingPage() {
                       <tr key={row.id}>
                         <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
                         <td className="px-3 py-2 text-gray-700">
-                          {row.recipient_name || '-'} / {row.recipient_phone || '-'}
+                          {row.recipient_name || '-'} / {recipientPhone}
                         </td>
                         <td className="px-3 py-2 text-gray-700">{address || '-'}</td>
                         <td className="px-3 py-2 text-gray-700" title={lineItems.details}>
@@ -1822,49 +1824,57 @@ export default function AdminShippingPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 bg-white">
-                      {(detail.orders || []).map((row) => (
-                        <tr key={row.id}>
-                          <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
-                          <td className="px-3 py-2 text-gray-700">
-                            {row.recipient_name || '-'} / {row.recipient_phone || '-'}
-                          </td>
-                          <td className="px-3 py-2">
-                            <Input
-                              value={resolvePackageDraft(row.id).carrier_code}
-                              onChange={(event) =>
-                                handlePackageDraftChange(
-                                  row.id,
-                                  'carrier_code',
-                                  event.target.value,
-                                )
-                              }
-                              placeholder="POST_OFFICE / CJ ..."
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <Input
-                              value={resolvePackageDraft(row.id).tracking_no}
-                              onChange={(event) =>
-                                handlePackageDraftChange(
-                                  row.id,
-                                  'tracking_no',
-                                  event.target.value,
-                                )
-                              }
-                              placeholder="운송장 번호"
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <Input
-                              value={resolvePackageDraft(row.id).notes}
-                              onChange={(event) =>
-                                handlePackageDraftChange(row.id, 'notes', event.target.value)
-                              }
-                              placeholder="메모(선택)"
-                            />
-                          </td>
-                        </tr>
-                      ))}
+                      {(detail.orders || []).map((row) => {
+                        const recipientPhone =
+                          formatPhoneNumber(row.recipient_phone || '') || '-';
+                        return (
+                          <tr key={row.id}>
+                            <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
+                            <td className="px-3 py-2 text-gray-700">
+                              {row.recipient_name || '-'} / {recipientPhone}
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                value={resolvePackageDraft(row.id).carrier_code}
+                                onChange={(event) =>
+                                  handlePackageDraftChange(
+                                    row.id,
+                                    'carrier_code',
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="POST_OFFICE / CJ ..."
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                value={resolvePackageDraft(row.id).tracking_no}
+                                onChange={(event) =>
+                                  handlePackageDraftChange(
+                                    row.id,
+                                    'tracking_no',
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="운송장 번호"
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <Input
+                                value={resolvePackageDraft(row.id).notes}
+                                onChange={(event) =>
+                                  handlePackageDraftChange(
+                                    row.id,
+                                    'notes',
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="메모(선택)"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
