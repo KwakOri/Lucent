@@ -18,6 +18,7 @@ import {
   useV2AdminCompleteProductionBatch,
   useV2AdminCreateProductionBatch,
   useV2AdminCreateProductionView,
+  useV2AdminDownloadProductionBatchPdf,
   useV2AdminDeleteProductionView,
   useV2AdminPreviewProductionBatch,
   useV2AdminProductionBatchDetail,
@@ -341,6 +342,7 @@ export function ProductionManagementContent({
   const activateBatchMutation = useV2AdminActivateProductionBatch();
   const completeBatchMutation = useV2AdminCompleteProductionBatch();
   const cancelBatchMutation = useV2AdminCancelProductionBatch();
+  const downloadProductionPdfMutation = useV2AdminDownloadProductionBatchPdf();
   const productionViewsQuery = useV2AdminProductionViews(ownerAdminId, {
     enabled: !sessionLoading,
   });
@@ -755,6 +757,36 @@ export function ProductionManagementContent({
     }
   };
 
+  const handlePrintProductionRequest = async () => {
+    if (!selectedBatchId || typeof window === 'undefined') {
+      return;
+    }
+
+    clearNotice();
+    try {
+      const result = await downloadProductionPdfMutation.mutateAsync(
+        selectedBatchId,
+      );
+      const objectUrl = window.URL.createObjectURL(result.blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = result.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(objectUrl);
+      }, 1000);
+      showToast('제작 의뢰서를 다운로드했습니다.', { type: 'success' });
+    } catch (error) {
+      console.error('[ProductionManagementContent] 제작 의뢰서 PDF 다운로드 실패', {
+        batchId: selectedBatchId,
+        error,
+      });
+      setError(error);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {!embedded && (
@@ -1136,6 +1168,15 @@ export function ProductionManagementContent({
                         배치 취소
                       </Button>
                     )}
+                    <Button
+                      intent="neutral"
+                      onClick={handlePrintProductionRequest}
+                      disabled={!detail || downloadProductionPdfMutation.isPending}
+                    >
+                      {downloadProductionPdfMutation.isPending
+                        ? '제작 의뢰서 출력 준비 중...'
+                        : '제작 의뢰서 출력'}
+                    </Button>
                   </div>
 
                   <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">

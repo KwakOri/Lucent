@@ -205,6 +205,11 @@ export interface ActV2AdminProductionBatchInput {
   metadata?: Record<string, unknown> | null;
 }
 
+export interface DownloadV2AdminProductionBatchPdfResult {
+  blob: Blob;
+  filename: string;
+}
+
 export interface CreateV2AdminProductionSavedViewInput {
   name: string;
   filter: V2AdminProductionSavedViewFilter;
@@ -235,6 +240,68 @@ function toQueryString<T extends object>(params: T) {
   });
   const query = searchParams.toString();
   return query ? `?${query}` : '';
+}
+
+function resolveFilenameFromDisposition(
+  contentDisposition: string | null,
+): string | null {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]).trim();
+    } catch {
+      return utf8Match[1].trim();
+    }
+  }
+
+  const plainMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
+  if (!plainMatch?.[1]) {
+    return null;
+  }
+  return plainMatch[1].trim();
+}
+
+type ProductionPdfDownloadErrorPayload = {
+  message: string;
+  errorCode: string | null;
+  rawText: string;
+};
+
+async function readProductionPdfDownloadErrorPayload(
+  response: Response,
+): Promise<ProductionPdfDownloadErrorPayload> {
+  const rawText = (await response.text()).trim();
+  let parsed: Record<string, unknown> | null = null;
+
+  if (rawText) {
+    try {
+      parsed = JSON.parse(rawText) as Record<string, unknown>;
+    } catch {
+      parsed = null;
+    }
+  }
+
+  const messageFromJson =
+    parsed && typeof parsed.message === 'string' ? parsed.message.trim() : '';
+  const messageFromText =
+    rawText && !rawText.startsWith('<!DOCTYPE') && !rawText.startsWith('<html')
+      ? rawText
+      : '';
+  const errorCode =
+    parsed && typeof parsed.errorCode === 'string' && parsed.errorCode.trim()
+      ? parsed.errorCode.trim()
+      : null;
+
+  return {
+    message:
+      messageFromJson || messageFromText || '제작 의뢰서 PDF 생성에 실패했습니다.',
+    errorCode,
+    rawText,
+  };
 }
 
 export const V2AdminProductionAPI = {
@@ -323,5 +390,54 @@ export const V2AdminProductionAPI = {
     data: Pick<ActV2AdminProductionBatchInput, 'reason'> = {},
   ): Promise<ApiResponse<V2AdminProductionBatchDetail>> {
     return apiClient.post(`/api/v2/admin/ops/production/batches/${batchId}/cancel`, data);
+  },
+
+  async downloadBatchPrintPdf(
+    batchId: string,
+  ): Promise<DownloadV2AdminProductionBatchPdfResult> {
+    const response = await fetch(
+      `/api/v2/admin/ops/production/batches/${batchId}/print-pdf`,
+      {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      },
+    );
+
+    if (!response.ok) {
+      const errorPayload = await readProductionPdfDownloadErrorPayload(response);
+      const statusLabel = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+      const messageParts = [errorPayload.message, `status=${statusLabel}`];
+      if (errorPayload.errorCode) {
+        messageParts.push(`code=${errorPayload.errorCode}`);
+      }
+      const message = messageParts.join(' / ');
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[V2AdminProductionAPI] downloadBatchPrintPdf failed', {
+          batchId,
+          status: response.status,
+          statusText: response.statusText,
+          errorCode: errorPayload.errorCode,
+          responseBody: errorPayload.rawText,
+        });
+      }
+
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    if (!blob || blob.size === 0) {
+      throw new Error('생성된 PDF 파일이 비어 있습니다.');
+    }
+
+    const filename =
+      resolveFilenameFromDisposition(response.headers.get('content-disposition')) ||
+      `production_batch_${batchId}.pdf`;
+
+    return {
+      blob,
+      filename,
+    };
   },
 };

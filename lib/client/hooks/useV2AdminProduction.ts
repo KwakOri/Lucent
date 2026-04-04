@@ -6,6 +6,7 @@ import {
   type ActV2AdminProductionBatchInput,
   type CreateV2AdminProductionBatchInput,
   type CreateV2AdminProductionSavedViewInput,
+  type DownloadV2AdminProductionBatchPdfResult,
   type ListV2AdminProductionBatchesParams,
   type ListV2AdminProductionCandidatesParams,
   type PreviewV2AdminProductionBatchInput,
@@ -143,6 +144,16 @@ export function useV2AdminCancelProductionBatch() {
     },
     onSettled: async () => {
       await invalidateProductionQueries(queryClient);
+    },
+  });
+}
+
+export function useV2AdminDownloadProductionBatchPdf() {
+  return useMutation({
+    mutationFn: async (
+      batchId: string,
+    ): Promise<DownloadV2AdminProductionBatchPdfResult> => {
+      return V2AdminProductionAPI.downloadBatchPrintPdf(batchId);
     },
   });
 }
