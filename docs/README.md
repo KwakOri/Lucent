@@ -143,6 +143,48 @@
 
 ---
 
+### 10. [Admin Dashboard v2 사전 기획서](./admin-dashboard-v2-preimplementation-plan.md)
+**관리자 대시보드 개편 전 범위/구조/리스크를 고정하는 기획 문서**
+
+- 대시보드 역할 정의(요약/우선순위/드릴다운)
+- 카드/패널 레이아웃과 운영 임계치 초안
+- P0(기존 API 조합) / P1(집계 API) 단계 전략
+- 구현 착수 전 체크리스트
+
+**사용 시기:**
+- 대시보드 개편 구현에 착수하기 전
+- 운영팀과 KPI/레이아웃 합의를 먼저 고정할 때
+
+---
+
+### 11. [Admin Dashboard v2 지표 명세서](./admin-dashboard-v2-metrics-spec.md)
+**대시보드 KPI/차트/큐 지표의 수식과 데이터 소스 계약 문서**
+
+- KPI 정의/공식/데이터 소스 매핑
+- 차트/퍼널 지표 계산 기준
+- 경고/위험 임계치 초기안
+- 외부 벤치마크(Shopify/GA4/Stripe/APQC) 링크
+
+**사용 시기:**
+- 카드/차트 수치가 무엇을 의미하는지 확정할 때
+- 백엔드 집계 API 계약을 설계할 때
+
+---
+
+### 12. [Admin Dashboard v2 실행 계획](./admin-dashboard-v2-execution-plan.md)
+**구현 착수 전 단계별 작업 분해와 검증 계획 문서**
+
+- Phase 0~4 실행 순서
+- FE/BE 대상 파일과 완료 조건
+- 자동/수동 검증 시나리오
+- Go/No-Go 착수 게이트
+
+**사용 시기:**
+- 실제 작업 브랜치에서 구현 태스크를 나눌 때
+- QA/릴리즈 준비 범위를 사전에 합의할 때
+
+---
+
 ## 🚀 빠른 시작
 
 ### 1. 환경 설정
@@ -252,6 +294,9 @@ npx tsx scripts/test-email.ts your-email@example.com
 | V2 admin 액션 승인 강제를 전환하고 싶어요 | [V2 Admin/Ops Cutover Runbook](./v2-admin-ops-cutover-runbook.md) |
 | V2 migration gate 판정을 운영하고 싶어요 | [V2 Migration/Cutover Gate Runbook](./v2-migration-cutover-runbook.md) |
 | 01~07 전체 통합 리허설을 실행하고 싶어요 | [V2 Integration Rehearsal Runbook](./v2-integration-rehearsal-runbook.md) |
+| Admin 대시보드 개편 범위를 먼저 정하고 싶어요 | [Admin Dashboard v2 사전 기획서](./admin-dashboard-v2-preimplementation-plan.md) |
+| 대시보드 KPI 수식/데이터 소스를 확인하고 싶어요 | [Admin Dashboard v2 지표 명세서](./admin-dashboard-v2-metrics-spec.md) |
+| 구현 착수 전 단계별 실행 계획이 필요해요 | [Admin Dashboard v2 실행 계획](./admin-dashboard-v2-execution-plan.md) |
 | API 스펙을 확인하고 싶어요 | `/specs/api/` 폴더 |
 | UI 스펙을 확인하고 싶어요 | `/specs/ui/` 폴더 |
 | 자동화 테스트를 실행하고 싶어요 | `/tests/README.md` |
