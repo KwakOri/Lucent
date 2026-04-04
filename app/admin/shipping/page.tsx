@@ -18,6 +18,7 @@ import {
   useV2AdminCompleteShippingBatch,
   useV2AdminCreateShippingBatch,
   useV2AdminDispatchShippingBatch,
+  useV2AdminDownloadShippingBatchPdf,
   useV2AdminPreviewShippingBatch,
   useV2AdminSaveShippingBatchPackages,
   useV2AdminShippingBatchDetail,
@@ -565,6 +566,7 @@ export default function AdminShippingPage() {
   const dispatchBatchMutation = useV2AdminDispatchShippingBatch();
   const completeBatchMutation = useV2AdminCompleteShippingBatch();
   const cancelBatchMutation = useV2AdminCancelShippingBatch();
+  const downloadShippingPdfMutation = useV2AdminDownloadShippingBatchPdf();
 
   const projects = useMemo(() => projectsQuery.data || [], [projectsQuery.data]);
   const campaigns = useMemo(
@@ -1134,17 +1136,27 @@ export default function AdminShippingPage() {
     }
   };
 
-  const handlePrintShippingList = () => {
+  const handlePrintShippingList = async () => {
     if (!selectedBatchId || typeof window === 'undefined') {
       return;
     }
 
-    const printUrl = `/shipping/print/${selectedBatchId}?autoprint=1&t=${Date.now()}`;
-    const opened = window.open(printUrl, '_blank', 'noopener,noreferrer');
-    if (!opened) {
-      showToast('팝업이 차단되어 인쇄 화면을 열지 못했습니다. 팝업 허용 후 다시 시도해 주세요.', {
-        type: 'warning',
-      });
+    clearNotice();
+    try {
+      const result = await downloadShippingPdfMutation.mutateAsync(selectedBatchId);
+      const objectUrl = window.URL.createObjectURL(result.blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = result.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(objectUrl);
+      }, 1000);
+      showToast('배송 리스트 PDF를 다운로드했습니다.', { type: 'success' });
+    } catch (error) {
+      setError(error);
     }
   };
 
@@ -1667,8 +1679,14 @@ export default function AdminShippingPage() {
                   >
                     {isExcelDownloading ? '우체국 엑셀 생성 중...' : '우체국 엑셀 다운로드'}
                   </Button>
-                  <Button intent="neutral" onClick={handlePrintShippingList} disabled={!detail}>
-                    배송 리스트 인쇄
+                  <Button
+                    intent="neutral"
+                    onClick={handlePrintShippingList}
+                    disabled={!detail || downloadShippingPdfMutation.isPending}
+                  >
+                    {downloadShippingPdfMutation.isPending
+                      ? '배송 리스트 PDF 생성 중...'
+                      : '배송 리스트 PDF 다운로드'}
                   </Button>
                 </div>
 

@@ -164,6 +164,11 @@ export interface ActV2AdminShippingBatchInput {
   metadata?: Record<string, unknown> | null;
 }
 
+export interface DownloadV2AdminShippingBatchPdfResult {
+  blob: Blob;
+  filename: string;
+}
+
 function toQueryString<T extends object>(params: T) {
   const searchParams = new URLSearchParams();
   Object.entries(params as Record<string, unknown>).forEach(([key, value]) => {
@@ -174,6 +179,29 @@ function toQueryString<T extends object>(params: T) {
   });
   const query = searchParams.toString();
   return query ? `?${query}` : '';
+}
+
+function resolveFilenameFromDisposition(
+  contentDisposition: string | null,
+): string | null {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]).trim();
+    } catch {
+      return utf8Match[1].trim();
+    }
+  }
+
+  const plainMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
+  if (!plainMatch?.[1]) {
+    return null;
+  }
+  return plainMatch[1].trim();
 }
 
 export const V2AdminShippingAPI = {
@@ -237,5 +265,48 @@ export const V2AdminShippingAPI = {
     data: Pick<ActV2AdminShippingBatchInput, 'reason'> = {},
   ): Promise<ApiResponse<V2AdminShippingBatchDetail>> {
     return apiClient.post(`/api/v2/admin/ops/shipping/batches/${batchId}/cancel`, data);
+  },
+
+  async downloadBatchPrintPdf(
+    batchId: string,
+  ): Promise<DownloadV2AdminShippingBatchPdfResult> {
+    const response = await fetch(
+      `/api/v2/admin/ops/shipping/batches/${batchId}/print-pdf`,
+      {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      },
+    );
+
+    if (!response.ok) {
+      let message = '배송 리스트 PDF 생성에 실패했습니다.';
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        try {
+          const payload = await response.json();
+          if (typeof payload?.message === 'string' && payload.message.trim()) {
+            message = payload.message.trim();
+          }
+        } catch {
+          // ignore parse error
+        }
+      }
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    if (!blob || blob.size === 0) {
+      throw new Error('생성된 PDF 파일이 비어 있습니다.');
+    }
+
+    const filename =
+      resolveFilenameFromDisposition(response.headers.get('content-disposition')) ||
+      `shipping_batch_${batchId}.pdf`;
+
+    return {
+      blob,
+      filename,
+    };
   },
 };

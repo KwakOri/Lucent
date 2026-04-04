@@ -5,6 +5,7 @@ import {
   V2AdminShippingAPI,
   type ActV2AdminShippingBatchInput,
   type CreateV2AdminShippingBatchInput,
+  type DownloadV2AdminShippingBatchPdfResult,
   type ListV2AdminShippingBatchesParams,
   type ListV2AdminShippingCandidatesParams,
   type PreviewV2AdminShippingBatchInput,
@@ -151,6 +152,14 @@ export function useV2AdminCancelShippingBatch() {
     },
     onSettled: async () => {
       await invalidateShippingQueries(queryClient);
+    },
+  });
+}
+
+export function useV2AdminDownloadShippingBatchPdf() {
+  return useMutation({
+    mutationFn: async (batchId: string): Promise<DownloadV2AdminShippingBatchPdfResult> => {
+      return V2AdminShippingAPI.downloadBatchPrintPdf(batchId);
     },
   });
 }
