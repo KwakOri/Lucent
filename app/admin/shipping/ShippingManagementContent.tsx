@@ -1328,23 +1328,39 @@ export function ShippingManagementContent({
           </div>
 
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
-                  <p className="text-xs text-gray-500">설정된 뷰</p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {selectedSavedView?.name || '설정된 뷰 없음'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">설정된 필터</p>
-                  <p className="text-sm font-medium text-gray-900">{appliedFilterSummaryText}</p>
-                </div>
-              </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-gray-800">탭 현황 요약</p>
               <Button intent="neutral" onClick={() => setIsViewManagerOpen(true)}>
                 뷰/필터 설정
               </Button>
             </div>
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div className="rounded-lg border border-gray-200 bg-white p-3">
+                <p className="text-xs text-gray-500">출고 후보 주문</p>
+                <p className="mt-1 text-lg font-semibold text-gray-900">
+                  {summary.candidateCount.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white p-3">
+                <p className="text-xs text-gray-500">선택 주문</p>
+                <p className="mt-1 text-lg font-semibold text-gray-900">
+                  {summary.selectedCount.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white p-3">
+                <p className="text-xs text-gray-500">자동 검증 통과</p>
+                <p className="mt-1 text-lg font-semibold text-gray-900">
+                  {summary.previewValidCount.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white p-3">
+                <p className="text-xs text-gray-500">자동 검증 차단</p>
+                <p className="mt-1 text-lg font-semibold text-gray-900">
+                  {summary.previewBlockedCount.toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-gray-600">적용 필터: {appliedFilterSummaryText}</p>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
