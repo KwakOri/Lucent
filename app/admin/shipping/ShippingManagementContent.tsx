@@ -1179,9 +1179,9 @@ export function ShippingManagementContent({
       window.setTimeout(() => {
         window.URL.revokeObjectURL(objectUrl);
       }, 1000);
-      showToast('배송 리스트 PDF를 다운로드했습니다.', { type: 'success' });
+      showToast('배송 리스트를 다운로드했습니다.', { type: 'success' });
     } catch (error) {
-      console.error('[ShippingManagementContent] 배송 리스트 PDF 다운로드 실패', {
+      console.error('[ShippingManagementContent] 배송 리스트 출력 파일 다운로드 실패', {
         batchId: selectedBatchId,
         error,
       });
@@ -1681,8 +1681,8 @@ export function ShippingManagementContent({
                     disabled={!detail || downloadShippingPdfMutation.isPending}
                   >
                     {downloadShippingPdfMutation.isPending
-                      ? '배송 리스트 PDF 생성 중...'
-                      : '배송 리스트 PDF 다운로드'}
+                      ? '배송 리스트 출력 준비 중...'
+                      : '배송 리스트 출력'}
                   </Button>
                 </div>
 
