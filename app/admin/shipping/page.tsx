@@ -1717,11 +1717,32 @@ export default function AdminShippingPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
                   {(detail.orders || []).map((row) => {
-                    const address = buildAddressText(
-                      row.shipping_address_snapshot as Record<string, unknown> | null,
-                    );
-                    const recipientPhone =
-                      formatPhoneNumber(row.recipient_phone || '') || '-';
+                    const snapshot =
+                      row.shipping_address_snapshot as Record<string, unknown> | null;
+                    const address = buildAddressText(snapshot);
+                    const recipientName =
+                      (typeof row.recipient_name === 'string' &&
+                        row.recipient_name.trim().length > 0
+                        ? row.recipient_name.trim()
+                        : '') ||
+                      readFirstSnapshotText(snapshot, [
+                        'recipient_name',
+                        'receiver_name',
+                        'name',
+                      ]) ||
+                      '-';
+                    const recipientPhoneRaw =
+                      (typeof row.recipient_phone === 'string' &&
+                        row.recipient_phone.trim().length > 0
+                        ? row.recipient_phone.trim()
+                        : '') ||
+                      readFirstSnapshotText(snapshot, [
+                        'recipient_phone',
+                        'receiver_phone',
+                        'phone',
+                      ]) ||
+                      '';
+                    const recipientPhone = formatPhoneNumber(recipientPhoneRaw) || '-';
                     const lineItems = summarizeLineItems(
                       row.line_items_snapshot as Array<Record<string, unknown>> | null,
                     );
@@ -1735,7 +1756,7 @@ export default function AdminShippingPage() {
                       <tr key={row.id}>
                         <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
                         <td className="px-3 py-2 text-gray-700">
-                          {row.recipient_name || '-'} / {recipientPhone}
+                          {recipientName} / {recipientPhone}
                         </td>
                         <td className="px-3 py-2 text-gray-700">{address || '-'}</td>
                         <td className="px-3 py-2 text-gray-700" title={lineItems.details}>
@@ -1825,13 +1846,37 @@ export default function AdminShippingPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-100 bg-white">
                       {(detail.orders || []).map((row) => {
+                        const snapshot =
+                          row.shipping_address_snapshot as Record<string, unknown> | null;
+                        const recipientName =
+                          (typeof row.recipient_name === 'string' &&
+                            row.recipient_name.trim().length > 0
+                            ? row.recipient_name.trim()
+                            : '') ||
+                          readFirstSnapshotText(snapshot, [
+                            'recipient_name',
+                            'receiver_name',
+                            'name',
+                          ]) ||
+                          '-';
+                        const recipientPhoneRaw =
+                          (typeof row.recipient_phone === 'string' &&
+                            row.recipient_phone.trim().length > 0
+                            ? row.recipient_phone.trim()
+                            : '') ||
+                          readFirstSnapshotText(snapshot, [
+                            'recipient_phone',
+                            'receiver_phone',
+                            'phone',
+                          ]) ||
+                          '';
                         const recipientPhone =
-                          formatPhoneNumber(row.recipient_phone || '') || '-';
+                          formatPhoneNumber(recipientPhoneRaw) || '-';
                         return (
                           <tr key={row.id}>
                             <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
                             <td className="px-3 py-2 text-gray-700">
-                              {row.recipient_name || '-'} / {recipientPhone}
+                              {recipientName} / {recipientPhone}
                             </td>
                             <td className="px-3 py-2">
                               <Input
