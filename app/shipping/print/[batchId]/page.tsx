@@ -5,7 +5,6 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
-import type { V2AdminShippingBatchPackageRow } from '@/lib/client/api/v2-admin-shipping.api';
 import { useV2AdminShippingBatchDetail } from '@/lib/client/hooks/useV2AdminShipping';
 
 function formatDateTime(value: string | null | undefined): string {
@@ -154,29 +153,12 @@ export default function ShippingPrintPage() {
 
   const printedAt = useMemo(() => formatDateTime(new Date().toISOString()), []);
 
-  const packageByBatchOrderId = useMemo(() => {
-    const map = new Map<string, V2AdminShippingBatchPackageRow>();
-    for (const row of detail?.packages || []) {
-      if (typeof row.batch_order_id === 'string' && !map.has(row.batch_order_id)) {
-        map.set(row.batch_order_id, row);
-      }
-    }
-    return map;
-  }, [detail?.packages]);
-
   const rows = useMemo(() => {
     return (detail?.orders || []).map((order, index) => {
       const lineItems = buildLineItemRows(
         order.line_items_snapshot as Array<Record<string, unknown>> | null,
       );
       const quantityTotal = lineItems.reduce((sum, row) => sum + row.quantity, 0);
-      const packageRow = packageByBatchOrderId.get(order.id) || null;
-      const carrier =
-        typeof packageRow?.carrier_code === 'string' ? packageRow.carrier_code.trim() : '';
-      const trackingNo =
-        typeof packageRow?.tracking_no === 'string' ? packageRow.tracking_no.trim() : '';
-      const trackingDisplay =
-        trackingNo.length > 0 ? `${carrier || '-'} / ${trackingNo}` : '';
 
       return {
         sequence: index + 1,
@@ -186,18 +168,12 @@ export default function ShippingPrintPage() {
         address: buildAddressText(order.shipping_address_snapshot as Record<string, unknown> | null) || '-',
         items: lineItems,
         quantityTotal,
-        trackingDisplay,
       };
     });
-  }, [detail?.orders, packageByBatchOrderId]);
+  }, [detail?.orders]);
 
   const totalQuantity = useMemo(
     () => rows.reduce((sum, row) => sum + row.quantityTotal, 0),
-    [rows],
-  );
-
-  const trackingFilledCount = useMemo(
-    () => rows.filter((row) => row.trackingDisplay.length > 0).length,
     [rows],
   );
 
@@ -216,7 +192,7 @@ export default function ShippingPrintPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 px-4 py-6 print:bg-white print:p-0">
+    <div className="min-h-screen bg-gray-100 px-4 py-6 print:bg-white print:px-[2mm] print:py-0">
       <style jsx global>{`
         @page {
           size: A4 portrait;
@@ -235,7 +211,7 @@ export default function ShippingPrintPage() {
           .print-shell {
             max-width: none !important;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: 0 2mm !important;
           }
 
           .print-sheet {
@@ -262,7 +238,7 @@ export default function ShippingPrintPage() {
         <Button onClick={() => window.print()}>인쇄</Button>
       </div>
 
-      <div className="print-shell mx-auto w-full max-w-[210mm]">
+      <div className="print-shell mx-auto w-full max-w-[210mm] px-1">
         {detailQuery.isLoading ? (
           <div className="rounded-xl border border-gray-200 bg-white p-8">
             <Loading text="배송 인쇄 문서를 준비하는 중입니다." />
@@ -302,10 +278,6 @@ export default function ShippingPrintPage() {
                 {totalQuantity.toLocaleString()}개
               </p>
               <p>
-                <span className="font-semibold text-gray-900">운송장 입력</span>:{' '}
-                {trackingFilledCount}/{rows.length}
-              </p>
-              <p>
                 <span className="font-semibold text-gray-900">출력 기준</span>: A4 세로
               </p>
             </div>
@@ -330,8 +302,8 @@ export default function ShippingPrintPage() {
                       </p>
                     </div>
                     <div className="p-2">
-                      <p className="text-[11px] text-gray-500">운송장</p>
-                      <p className="mt-1">{row.trackingDisplay || '-'}</p>
+                      <p className="text-[11px] text-gray-500">운송장 / 메모</p>
+                      <div className="mt-1 h-5 rounded border border-dashed border-gray-300 bg-white" />
                     </div>
                   </div>
 
@@ -349,20 +321,31 @@ export default function ShippingPrintPage() {
                     <table className="print-table min-w-full border-collapse text-xs">
                       <thead>
                         <tr className="text-gray-700">
-                          <th className="border-t border-gray-300 px-2 py-1 text-left">상품명</th>
+                          <th className="w-12 border-t border-gray-300 px-2 py-1 text-center">
+                            체크
+                          </th>
+                          <th className="border-l border-t border-gray-300 px-2 py-1 text-left">
+                            상품명
+                          </th>
                           <th className="border-l border-t border-gray-300 px-2 py-1 text-right">수량</th>
                         </tr>
                       </thead>
                       <tbody>
                         {row.items.length === 0 ? (
                           <tr>
-                            <td className="border-t border-gray-300 px-2 py-1 text-gray-500" colSpan={2}>
+                            <td className="border-t border-gray-300 px-2 py-1 text-gray-500" colSpan={3}>
                               배송 대상 상품이 없습니다.
                             </td>
                           </tr>
                         ) : (
                           row.items.map((item) => (
                             <tr key={`${row.orderNo}-${item.label}`}>
+                              <td className="border-t border-gray-300 px-2 py-1 text-center align-middle">
+                                <span
+                                  aria-hidden
+                                  className="inline-block h-4 w-4 rounded-[2px] border border-gray-500 bg-white"
+                                />
+                              </td>
                               <td className="border-t border-gray-300 px-2 py-1 leading-relaxed text-gray-900">
                                 {item.label}
                               </td>
