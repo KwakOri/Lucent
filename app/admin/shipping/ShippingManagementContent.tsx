@@ -426,6 +426,61 @@ function summarizeLineItems(lineItemsSnapshot: Array<Record<string, unknown>> | 
   };
 }
 
+const POST_OFFICE_CONTENT_MAX_LENGTH = 30;
+
+function countGraphemes(value: string): number {
+  return Array.from(value).length;
+}
+
+function sliceByGraphemeLength(value: string, maxLength: number): string {
+  if (maxLength <= 0) {
+    return '';
+  }
+  const chars = Array.from(value);
+  if (chars.length <= maxLength) {
+    return value;
+  }
+  return chars.slice(0, maxLength).join('').trimEnd();
+}
+
+function buildPostOfficeContentText(
+  lineItemsSnapshot: Array<Record<string, unknown>> | null,
+): string {
+  const rows = buildLineItemRows(lineItemsSnapshot);
+  if (rows.length === 0) {
+    return '굿즈';
+  }
+
+  const representativeName = rows[0]?.label || '굿즈';
+  const restCount = Math.max(rows.length - 1, 0);
+  const suffix = restCount > 0 ? ` 외 ${restCount}건` : '';
+  let content = `${representativeName}${suffix}`;
+
+  if (countGraphemes(content) <= POST_OFFICE_CONTENT_MAX_LENGTH) {
+    return content;
+  }
+
+  if (suffix) {
+    const allowedRepresentativeLength = Math.max(
+      1,
+      POST_OFFICE_CONTENT_MAX_LENGTH - countGraphemes(suffix),
+    );
+    const trimmedRepresentative = sliceByGraphemeLength(
+      representativeName,
+      allowedRepresentativeLength,
+    );
+    content = `${trimmedRepresentative}${suffix}`;
+  } else {
+    content = sliceByGraphemeLength(content, POST_OFFICE_CONTENT_MAX_LENGTH);
+  }
+
+  if (countGraphemes(content) > POST_OFFICE_CONTENT_MAX_LENGTH) {
+    content = sliceByGraphemeLength(content, POST_OFFICE_CONTENT_MAX_LENGTH);
+  }
+
+  return content || '굿즈';
+}
+
 const SHIPPING_CANDIDATE_FILTER_STORAGE_KEY =
   'lucent.admin.shipping.candidate.saved-filters.v1';
 const SHIPPING_CANDIDATE_LAST_FILTER_STORAGE_KEY =
@@ -455,26 +510,6 @@ type PackageDraftRow = {
 
 const FIXED_SHIPPING_CARRIER_CODE = 'POST_OFFICE';
 const FIXED_SHIPPING_CARRIER_LABEL = '우체국 택배';
-
-const POST_OFFICE_EXCEL_HEADERS: string[] = [
-  '받는 분',
-  '우편번호',
-  '주소(시도+시군구+도로명+건물번호)',
-  '상세주소(동, 호수, 洞명칭, 아파트, 건물명 등)',
-  '일반전화(02-1234-5678)',
-  '휴대전화(010-1234-5678)',
-  '중량(kg)',
-  '부피(cm)=가로+세로+높이',
-  '내용품코드',
-  '내용물',
-  '배달방식',
-  '배송시요청사항',
-  '분할접수 여부(Y/N)',
-  '분할접수 첫번째 중량(kg)',
-  '분할접수 첫번째 부피(cm)',
-  '분할접수 두번째 중량(kg)',
-  '분할접수 두번째 부피(cm)',
-];
 
 function isSameFilterValues(
   left: ShippingCandidateFilterValue,
@@ -1235,10 +1270,9 @@ export function ShippingManagementContent({
         const rawAddressLine1 = resolveAddressLine1(snapshot);
         const postalCode = resolvePostalCode(snapshot);
         const addressLine1 = stripBracketPostalCodePrefix(rawAddressLine1);
-        const lineItems = summarizeLineItems(
+        const contentText = buildPostOfficeContentText(
           order.line_items_snapshot as Array<Record<string, unknown>> | null,
         );
-        const contentText = lineItems.details === '-' ? '굿즈' : lineItems.details;
 
         return [
           order.recipient_name || '',
@@ -1261,7 +1295,7 @@ export function ShippingManagementContent({
         ];
       });
 
-      const sheet = XLSX.utils.aoa_to_sheet([POST_OFFICE_EXCEL_HEADERS, ...rows]);
+      const sheet = XLSX.utils.aoa_to_sheet(rows);
       sheet['!cols'] = [
         { wch: 12 },
         { wch: 12 },
