@@ -1344,6 +1344,7 @@ export function ShippingManagementContent({
       );
       XLSX.writeFile(workbook, `${safeBatchNo}_우체국접수양식.xls`, {
         bookType: 'biff8',
+        bookSST: true,
       });
 
       showToast(`우체국 접수 양식 엑셀을 생성했습니다. (${rows.length}건)`, {
