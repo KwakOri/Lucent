@@ -219,9 +219,9 @@ export function AdminSidebar() {
         <Link
           href="/"
           className={`
-            flex h-14 items-center rounded-2xl bg-white text-sm font-semibold text-text-secondary
-            shadow-md ring-1 ring-neutral-200 transition-[width,color,padding] duration-300 hover:text-primary-700
-            ${desktopExpanded ? 'w-48 px-4' : 'w-14 justify-center px-0'}
+            flex h-14 items-center justify-start rounded-2xl bg-white pl-4 pr-4 text-sm font-semibold text-text-secondary
+            shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-primary-700
+            ${desktopExpanded ? 'w-48' : 'w-14'}
           `}
         >
           <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
@@ -257,8 +257,7 @@ export function AdminSidebar() {
                   <Link
                     href={item.href}
                     className={`
-                      flex items-center rounded-2xl py-3 text-sm font-semibold transition-colors
-                      ${desktopExpanded ? 'px-3' : 'justify-center px-0'}
+                      flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold transition-colors
                       ${isActive
                         ? 'bg-primary-600 text-white shadow-sm'
                         : 'text-neutral-500 hover:bg-primary-50 hover:text-primary-700'
