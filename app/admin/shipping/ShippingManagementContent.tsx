@@ -288,14 +288,6 @@ function formatPhoneNumber(phone: string | null | undefined): string {
   return raw;
 }
 
-function normalizePhoneDigits(phone: string | null | undefined): string {
-  const raw = String(phone || '').trim();
-  if (!raw) {
-    return '';
-  }
-  return raw.replace(/\D/g, '');
-}
-
 function formatAutoBatchTitleDate(date: Date): string {
   const yy = String(date.getFullYear()).slice(-2);
   const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -518,6 +510,7 @@ type PackageDraftRow = {
 
 const FIXED_SHIPPING_CARRIER_CODE = 'POST_OFFICE';
 const FIXED_SHIPPING_CARRIER_LABEL = '우체국 택배';
+const POST_OFFICE_DEFAULT_LANDLINE = '02-1234-5678';
 
 const POST_OFFICE_EXCEL_HEADERS: string[] = [
   '받는 분',
@@ -1293,7 +1286,7 @@ export function ShippingManagementContent({
       const XLSX = await import('xlsx');
       const rows = (detail.orders || []).map((order) => {
         const snapshot = order.shipping_address_snapshot as Record<string, unknown> | null;
-        const phoneDigits = normalizePhoneDigits(order.recipient_phone || '');
+        const mobilePhone = formatPhoneNumber(order.recipient_phone || '');
         const rawAddressLine1 = resolveAddressLine1(snapshot);
         const postalCode = resolvePostalCode(snapshot);
         const addressLine1 = stripBracketPostalCodePrefix(rawAddressLine1);
@@ -1306,8 +1299,8 @@ export function ShippingManagementContent({
           postalCode,
           addressLine1,
           resolveAddressLine2(snapshot),
-          phoneDigits,
-          phoneDigits,
+          POST_OFFICE_DEFAULT_LANDLINE,
+          mobilePhone,
           '3',
           '80',
           '의류/패션잡화',
