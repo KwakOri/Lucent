@@ -1139,39 +1139,13 @@ export default function AdminShippingPage() {
       return;
     }
 
-    const previousIframe = document.getElementById(
-      'lucent-shipping-print-iframe',
-    ) as HTMLIFrameElement | null;
-    if (previousIframe) {
-      previousIframe.remove();
+    const printUrl = `/shipping/print/${selectedBatchId}?autoprint=1&t=${Date.now()}`;
+    const opened = window.open(printUrl, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      showToast('팝업이 차단되어 인쇄 화면을 열지 못했습니다. 팝업 허용 후 다시 시도해 주세요.', {
+        type: 'warning',
+      });
     }
-
-    const iframe = document.createElement('iframe');
-    iframe.id = 'lucent-shipping-print-iframe';
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    iframe.style.opacity = '0';
-    iframe.style.pointerEvents = 'none';
-    iframe.src = `/shipping/print/${selectedBatchId}?autoprint=1&embedded=1&t=${Date.now()}`;
-
-    iframe.onload = () => {
-      const cleanup = () => {
-        window.setTimeout(() => {
-          iframe.remove();
-        }, 300);
-      };
-      iframe.contentWindow?.addEventListener('afterprint', cleanup, { once: true });
-    };
-
-    document.body.appendChild(iframe);
-
-    window.setTimeout(() => {
-      iframe.remove();
-    }, 120000);
   };
 
   const handleDownloadPostOfficeExcel = async () => {
