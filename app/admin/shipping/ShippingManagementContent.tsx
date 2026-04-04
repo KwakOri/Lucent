@@ -1704,24 +1704,23 @@ export function ShippingManagementContent({
               </p>
             ) : null}
             <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <table className="min-w-full table-fixed divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">주문번호</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">수취인/연락처</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">주소</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">출고 품목</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-600">수량합</th>
+                    <th className="w-[130px] px-3 py-2 text-left font-medium text-gray-600">주문번호</th>
+                    <th className="w-[190px] px-3 py-2 text-left font-medium text-gray-600">수취인/연락처</th>
+                    <th className="w-[260px] px-3 py-2 text-left font-medium text-gray-600">주소</th>
+                    <th className="w-[260px] px-3 py-2 text-left font-medium text-gray-600">출고 품목</th>
+                    <th className="w-[70px] px-3 py-2 text-right font-medium text-gray-600">수량합</th>
                     {(selectedBatch?.status as V2AdminShippingBatchStatus) === 'ACTIVE' ? (
                       <>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">택배사</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">운송장번호</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">메모</th>
+                        <th className="w-[120px] px-3 py-2 text-left font-medium text-gray-600">택배사</th>
+                        <th className="w-[240px] px-3 py-2 text-left font-medium text-gray-600">운송장번호</th>
                       </>
                     ) : (
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">운송장</th>
+                      <th className="w-[240px] px-3 py-2 text-left font-medium text-gray-600">운송장</th>
                     )}
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">출고/완료</th>
+                    <th className="w-[130px] px-3 py-2 text-left font-medium text-gray-600">출고/완료</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
@@ -1752,6 +1751,7 @@ export function ShippingManagementContent({
                       ]) ||
                       '';
                     const recipientPhone = formatPhoneNumber(recipientPhoneRaw) || '-';
+                    const recipientContact = `${recipientName} / ${recipientPhone}`;
                     const lineItems = summarizeLineItems(
                       row.line_items_snapshot as Array<Record<string, unknown>> | null,
                     );
@@ -1765,23 +1765,35 @@ export function ShippingManagementContent({
 
                     return (
                       <tr key={row.id}>
-                        <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
-                        <td className="px-3 py-2 text-gray-700">
-                          {recipientName} / {recipientPhone}
+                        <td className="px-3 py-2 text-gray-900" title={row.order_no || '-'}>
+                          <div className="truncate whitespace-nowrap">{row.order_no || '-'}</div>
                         </td>
-                        <td className="px-3 py-2 text-gray-700">{address || '-'}</td>
-                        <td className="px-3 py-2 text-gray-700" title={lineItems.details}>
-                          {lineItems.summary}
+                        <td className="px-3 py-2 text-gray-700" title={recipientContact}>
+                          <div className="truncate whitespace-nowrap">{recipientContact}</div>
+                        </td>
+                        <td className="px-3 py-2 text-gray-700" title={address || '-'}>
+                          <div className="truncate whitespace-nowrap">{address || '-'}</div>
+                        </td>
+                        <td
+                          className="px-3 py-2 text-gray-700"
+                          title={lineItems.details || lineItems.summary}
+                        >
+                          <div className="truncate whitespace-nowrap">{lineItems.summary}</div>
                         </td>
                         <td className="px-3 py-2 text-right text-gray-700">
                           {lineItems.quantity.toLocaleString()}
                         </td>
                         {isActiveBatch ? (
                           <>
-                            <td className="whitespace-nowrap px-3 py-2 text-gray-700">
-                              {FIXED_SHIPPING_CARRIER_LABEL}
+                            <td
+                              className="px-3 py-2 text-gray-700"
+                              title={FIXED_SHIPPING_CARRIER_LABEL}
+                            >
+                              <div className="truncate whitespace-nowrap">
+                                {FIXED_SHIPPING_CARRIER_LABEL}
+                              </div>
                             </td>
-                            <td className="min-w-[220px] px-3 py-2">
+                            <td className="px-3 py-2">
                               <Input
                                 value={resolvePackageDraft(row.id).tracking_no}
                                 onChange={(event) =>
@@ -1794,33 +1806,28 @@ export function ShippingManagementContent({
                                 placeholder="운송장 번호"
                               />
                             </td>
-                            <td className="min-w-[220px] px-3 py-2">
-                              <Input
-                                value={resolvePackageDraft(row.id).notes}
-                                onChange={(event) =>
-                                  handlePackageDraftChange(
-                                    row.id,
-                                    'notes',
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="메모(선택)"
-                              />
-                            </td>
                           </>
                         ) : (
-                          <td className="px-3 py-2 text-gray-700">{trackingText}</td>
+                          <td className="px-3 py-2 text-gray-700" title={trackingText}>
+                            <div className="truncate whitespace-nowrap">{trackingText}</div>
+                          </td>
                         )}
                         <td className="px-3 py-2">
                           {row.is_excluded === true ? (
                             <div className="flex flex-col gap-1">
                               <Badge intent="warning">배치 제외</Badge>
-                              <p className="text-xs text-amber-700">
+                              <p
+                                className="truncate whitespace-nowrap text-xs text-amber-700"
+                                title={
+                                  row.excluded_reason ||
+                                  '환불/취소 주문으로 배치 실행 대상에서 제외되었습니다.'
+                                }
+                              >
                                 {row.excluded_reason || '환불/취소 주문으로 배치 실행 대상에서 제외되었습니다.'}
                               </p>
                             </div>
                           ) : (
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-nowrap gap-1 overflow-hidden">
                               <Badge intent={resolveTransitionIntent(row.dispatch_transition_status)}>
                                 출고 {resolveTransitionLabel(row.dispatch_transition_status)}
                               </Badge>
@@ -1854,9 +1861,10 @@ export function ShippingManagementContent({
                               <p
                                 className={
                                   hasFailed
-                                    ? 'mt-1 text-xs text-red-600'
-                                    : 'mt-1 text-xs text-gray-500'
+                                    ? 'mt-1 truncate whitespace-nowrap text-xs text-red-600'
+                                    : 'mt-1 truncate whitespace-nowrap text-xs text-gray-500'
                                 }
+                                title={note}
                               >
                                 {note}
                               </p>
