@@ -288,6 +288,14 @@ function formatPhoneNumber(phone: string | null | undefined): string {
   return raw;
 }
 
+function normalizePhoneDigits(phone: string | null | undefined): string {
+  const raw = String(phone || '').trim();
+  if (!raw) {
+    return '';
+  }
+  return raw.replace(/\D/g, '');
+}
+
 function formatAutoBatchTitleDate(date: Date): string {
   const yy = String(date.getFullYear()).slice(-2);
   const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -510,6 +518,26 @@ type PackageDraftRow = {
 
 const FIXED_SHIPPING_CARRIER_CODE = 'POST_OFFICE';
 const FIXED_SHIPPING_CARRIER_LABEL = '우체국 택배';
+
+const POST_OFFICE_EXCEL_HEADERS: string[] = [
+  '받는 분',
+  '우편번호',
+  '주소(시도+시군구+도로명+건물번호)',
+  '상세주소(동, 호수, 洞명칭, 아파트, 건물명 등)',
+  '일반전화(02-1234-5678)',
+  '휴대전화(010-1234-5678)',
+  '중량(kg)',
+  '부피(cm)=가로+세로+높이',
+  '내용품코드',
+  '내용물',
+  '배달방식',
+  '배송시요청사항',
+  '분할접수 여부(Y/N)',
+  '분할접수 첫번째 중량(kg)',
+  '분할접수 첫번째 부피(cm)',
+  '분할접수 두번째 중량(kg)',
+  '분할접수 두번째 부피(cm)',
+];
 
 function isSameFilterValues(
   left: ShippingCandidateFilterValue,
@@ -1265,8 +1293,7 @@ export function ShippingManagementContent({
       const XLSX = await import('xlsx');
       const rows = (detail.orders || []).map((order) => {
         const snapshot = order.shipping_address_snapshot as Record<string, unknown> | null;
-        const phone = formatPhoneNumber(order.recipient_phone || '');
-        const isLandline = phone.startsWith('02-');
+        const phoneDigits = normalizePhoneDigits(order.recipient_phone || '');
         const rawAddressLine1 = resolveAddressLine1(snapshot);
         const postalCode = resolvePostalCode(snapshot);
         const addressLine1 = stripBracketPostalCodePrefix(rawAddressLine1);
@@ -1279,8 +1306,8 @@ export function ShippingManagementContent({
           postalCode,
           addressLine1,
           resolveAddressLine2(snapshot),
-          isLandline ? phone : '',
-          isLandline ? '' : phone,
+          phoneDigits,
+          phoneDigits,
           '3',
           '80',
           '의류/패션잡화',
@@ -1295,7 +1322,7 @@ export function ShippingManagementContent({
         ];
       });
 
-      const sheet = XLSX.utils.aoa_to_sheet(rows);
+      const sheet = XLSX.utils.aoa_to_sheet([POST_OFFICE_EXCEL_HEADERS, ...rows]);
       sheet['!cols'] = [
         { wch: 12 },
         { wch: 12 },
