@@ -1,19 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
-import {
-  useV2AdminCutoverPolicyCheck,
-  useV2AdminOrderDetail,
-  useV2AdminRefundOrder,
-} from '@/lib/client/hooks/useV2AdminOps';
+import { useV2AdminOrderDetail } from '@/lib/client/hooks/useV2AdminOps';
 import { groupV2OrderItems } from '@/lib/client/utils/v2-order-item-groups';
-import { useToast } from '@/src/components/toast';
 
 function asObject(value: unknown): Record<string, unknown> {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -167,13 +161,7 @@ function resolveShippingFeeTypeLabel(params: {
 export default function AdminOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = params.id;
-  const { showToast } = useToast();
   const orderDetailQuery = useV2AdminOrderDetail(orderId || null);
-  const refundOrderMutation = useV2AdminRefundOrder();
-  const policyCheckMutation = useV2AdminCutoverPolicyCheck();
-
-  const [refundAmount, setRefundAmount] = useState('');
-  const [refundReason, setRefundReason] = useState('운영자 수동 환불');
 
   const detail = orderDetailQuery.data;
   const order = detail?.order ? asObject(detail.order) : null;
@@ -222,47 +210,6 @@ export default function AdminOrderDetailPage() {
   const hasShippingFeeLine = shippingAmount > 0 || shippingDiscountTotal > 0;
   const grandTotalAmount = readNumber(order?.grand_total);
 
-  async function handleRefundOrder() {
-    if (!orderId) {
-      return;
-    }
-
-    const amount = refundAmount.trim() ? Number(refundAmount) : null;
-    if (amount !== null && (!Number.isFinite(amount) || amount <= 0)) {
-      showToast('환불 금액은 1 이상의 숫자여야 합니다.', { type: 'warning' });
-      return;
-    }
-
-    try {
-      const policy = await policyCheckMutation.mutateAsync({
-        action_key: 'ORDER_REFUND_EXECUTE',
-        requires_approval: true,
-      });
-
-      if (policy.decision === 'APPROVAL_REQUIRED') {
-        showToast(
-          '현재 정책상 환불은 승인 요청이 필요합니다. 승인 워크플로우를 먼저 진행하세요.',
-          { type: 'warning' },
-        );
-        return;
-      }
-
-      await refundOrderMutation.mutateAsync({
-        orderId,
-        data: {
-          amount,
-          reason: refundReason.trim() || null,
-        },
-      });
-      showToast('환불 요청을 실행했습니다.', { type: 'success' });
-      await orderDetailQuery.refetch();
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : '환불 처리 중 오류가 발생했습니다.', {
-        type: 'error',
-      });
-    }
-  }
-
   if (orderDetailQuery.isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -305,15 +252,22 @@ export default function AdminOrderDetailPage() {
           </h1>
           <p className="mt-1 text-sm text-gray-500">Order ID: {readString(order.id)}</p>
         </div>
-        <Button
-          intent="secondary"
-          size="sm"
-          onClick={() => {
-            void orderDetailQuery.refetch();
-          }}
-        >
-          새로고침
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link href={`/admin/refunds?orderId=${orderId}`}>
+            <Button intent="secondary" size="sm">
+              환불 관리로 이동
+            </Button>
+          </Link>
+          <Button
+            intent="secondary"
+            size="sm"
+            onClick={() => {
+              void orderDetailQuery.refetch();
+            }}
+          >
+            새로고침
+          </Button>
+        </div>
       </header>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
@@ -434,33 +388,6 @@ export default function AdminOrderDetailPage() {
             <p className="flex items-center font-bold text-blue-700">총 결제 금액</p>
             <p className="font-semibold text-blue-900">{formatCurrency(grandTotalAmount)}</p>
           </div>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
-        <h2 className="text-lg font-semibold text-gray-900">운영 액션</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          환불 실행 전에 cutover-policy를 확인해 승인 필요 여부를 판정합니다.
-        </p>
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto]">
-          <Input
-            value={refundAmount}
-            onChange={(event) => setRefundAmount(event.target.value)}
-            placeholder="환불 금액(전체 환불은 비워두기)"
-          />
-          <Input
-            value={refundReason}
-            onChange={(event) => setRefundReason(event.target.value)}
-            placeholder="환불 사유"
-          />
-          <Button
-            intent="danger"
-            size="md"
-            loading={refundOrderMutation.isPending || policyCheckMutation.isPending}
-            onClick={() => void handleRefundOrder()}
-          >
-            환불 실행
-          </Button>
         </div>
       </section>
 
