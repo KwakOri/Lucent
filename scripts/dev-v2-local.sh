@@ -18,6 +18,8 @@ RESET_DB=0
 KEEP_BACKEND=0
 USE_LOCAL_SUPABASE=0
 SYNC_LINKED_DATA=0
+SUPABASE_MINIMAL_SERVICES=1
+SUPABASE_MINIMAL_EXCLUDES="studio,logflare,realtime,storage-api,imgproxy,supavisor,edge-runtime,vector,postgres-meta,mailpit"
 
 BACKEND_PID=""
 BACKEND_LOG="${FE_DIR}/.tmp/dev-v2-local-backend.log"
@@ -39,6 +41,10 @@ Options:
   --use-local-supabase  로컬 Supabase를 기동해서 연결 (기본: 원격 DB)
   --reset-db            --use-local-supabase 모드에서 supabase db reset 실행
   --sync-linked-data    linked 원격 DB(public + auth.users/identities) 데이터를 덤프해 로컬 DB로 복원 (자동으로 --use-local-supabase + --reset-db 적용)
+  --full-supabase-services
+                      로컬 Supabase 전체 서비스 기동 (기본은 최소 서비스: db/kong/rest/auth)
+  --minimal-supabase-services
+                      로컬 Supabase 최소 서비스 기동 (기본값)
   --frontend-port <n>   프론트 포트 (default: 3000, 직접 지정 시 점유되면 실패)
   --backend-port <n>    백엔드 포트 (default: 3001, 직접 지정 시 점유되면 실패)
   --no-admin-bypass     LOCAL_ADMIN_BYPASS=false로 실행
@@ -301,6 +307,14 @@ while [[ $# -gt 0 ]]; do
       SYNC_LINKED_DATA=1
       shift
       ;;
+    --full-supabase-services)
+      SUPABASE_MINIMAL_SERVICES=0
+      shift
+      ;;
+    --minimal-supabase-services)
+      SUPABASE_MINIMAL_SERVICES=1
+      shift
+      ;;
     --frontend-port)
       FRONTEND_PORT="$2"
       FRONTEND_PORT_EXPLICIT=1
@@ -356,9 +370,19 @@ SUPABASE_ANON_KEY_VALUE=""
 SUPABASE_SERVICE_ROLE_KEY_VALUE=""
 
 if [[ "${USE_LOCAL_SUPABASE}" -eq 1 ]]; then
-  log "starting local supabase"
+  if [[ "${SUPABASE_MINIMAL_SERVICES}" -eq 1 ]]; then
+    log "starting local supabase (minimal services: db/kong/rest/auth)"
+  else
+    log "starting local supabase (full services)"
+  fi
   cd "${FE_DIR}"
-  npx supabase start
+  if [[ "${SUPABASE_MINIMAL_SERVICES}" -eq 1 ]]; then
+    npx supabase start \
+      -x "${SUPABASE_MINIMAL_EXCLUDES}" \
+      --ignore-health-check
+  else
+    npx supabase start
+  fi
 
   if [[ "${RESET_DB}" -eq 1 ]]; then
     log "running supabase db reset"

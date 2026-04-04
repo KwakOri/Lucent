@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Input, Textarea } from '@/components/ui/input';
+import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import { useToast } from '@/src/components/toast';
 import type {
   V2AdminProductionBatchStatus,
   V2AdminProductionSavedView,
@@ -59,6 +60,22 @@ function formatDate(value: string | null | undefined): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function formatDateCompact24(value: string | null | undefined): string {
+  if (!value) {
+    return '-';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${yy}.${mm}.${dd} ${hh}:${min}`;
 }
 
 function formatCurrency(amount: number | null | undefined): string {
@@ -225,17 +242,6 @@ function formatAutoBatchTitleDate(date: Date): string {
   return `${yy}${mm}${dd}`;
 }
 
-function buildProjectSummary(projectNames: string[]): string {
-  const unique = Array.from(new Set(projectNames.filter((name) => name.trim().length > 0)));
-  if (unique.length === 0) {
-    return '선택 주문 없음';
-  }
-  if (unique.length === 1) {
-    return unique[0];
-  }
-  return `${unique[0]} 외 ${unique.length - 1}`;
-}
-
 function buildSelectionKey(orderIds: string[]): string {
   return orderIds.slice().sort().join(',');
 }
@@ -277,15 +283,13 @@ function toFilterValueFromSavedView(
 
 export default function AdminProductionPage() {
   const { user, isLoading: sessionLoading } = useSession();
+  const { showToast } = useToast();
   const ownerAdminId = user?.id || null;
 
   const initialFilterValues = useMemo(
     () => normalizeProductionFilterValues(null),
     [],
   );
-
-  const [message, setMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [projectIdInput, setProjectIdInput] = useState(initialFilterValues.projectId);
   const [campaignIdInput, setCampaignIdInput] = useState(initialFilterValues.campaignId);
@@ -297,10 +301,10 @@ export default function AdminProductionPage() {
   const [campaignId, setCampaignId] = useState(initialFilterValues.campaignId);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
-  const [batchNotes, setBatchNotes] = useState('');
   const [previewSelectionKey, setPreviewSelectionKey] = useState('');
   const [previewErrorMessage, setPreviewErrorMessage] = useState<string | null>(null);
   const autoPreviewRequestedKeyRef = useRef('');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'batches'>('candidates');
 
   const [batchStatusFilter, setBatchStatusFilter] =
     useState<V2AdminProductionBatchStatus | ''>('');
@@ -351,16 +355,6 @@ export default function AdminProductionPage() {
   const savedFilters = useMemo(
     () => (productionViewsQuery.data?.items || []).slice(0, MAX_SAVED_PRODUCTION_FILTERS),
     [productionViewsQuery.data?.items],
-  );
-
-  const selectedCandidateRows = useMemo(() => {
-    const selectedIdSet = new Set(selectedOrderIds);
-    return candidateRows.filter((row) => selectedIdSet.has(row.order_id));
-  }, [candidateRows, selectedOrderIds]);
-
-  const selectedProjectSummary = useMemo(
-    () => buildProjectSummary(selectedCandidateRows.map((row) => row.project_name || '')),
-    [selectedCandidateRows],
   );
 
   const autoBatchTitle = useMemo(() => {
@@ -460,62 +454,6 @@ export default function AdminProductionPage() {
     selectedOrderIds.length,
   ]);
 
-  const workflowGuideSteps = useMemo(() => {
-    const hasAppliedView =
-      selectedViewId !== 'DEFAULT' || Boolean(projectId || campaignId);
-    const hasOrderSelection = selectedOrderIds.length > 0;
-    const hasBatchCreated = Boolean(selectedBatch?.id);
-    const hasTransitionStarted =
-      (selectedBatch?.status as V2AdminProductionBatchStatus | undefined) === 'ACTIVE' ||
-      (selectedBatch?.status as V2AdminProductionBatchStatus | undefined) === 'COMPLETED';
-
-    return [
-      {
-        key: 'view',
-        title: '1. 뷰/필터 선택',
-        description: '뷰 관리에서 프로젝트/캠페인 필터를 적용하거나 저장된 뷰를 불러옵니다.',
-        done: hasAppliedView,
-        hint: hasAppliedView
-          ? '현재 조건이 적용되어 있습니다.'
-          : '설정된 뷰/필터 없이 시작 중입니다.',
-      },
-      {
-        key: 'select',
-        title: '2. 주문 선택',
-        description: '후보 주문을 체크해 이번 제작 스냅샷 대상을 확정합니다.',
-        done: hasOrderSelection,
-        hint: hasOrderSelection
-          ? `${selectedOrderIds.length}건이 선택되었습니다.`
-          : '체크박스로 주문을 선택하세요.',
-      },
-      {
-        key: 'batch',
-        title: '3. 배치 생성',
-        description: '선택한 주문을 스냅샷으로 저장해 DRAFT 배치를 생성합니다.',
-        done: hasBatchCreated,
-        hint: hasBatchCreated
-          ? '배치가 생성되어 상세 확인/전이가 가능합니다.'
-          : '주문을 선택한 뒤 배치 생성을 실행하세요.',
-      },
-      {
-        key: 'transition',
-        title: '4. 배치 전이',
-        description: '준비중 → 제작중 → 제작 완료 순으로 배치를 전이합니다.',
-        done: hasTransitionStarted,
-        hint: hasTransitionStarted
-          ? '선택 배치가 전이 단계에 진입했습니다.'
-          : '생성된 배치를 선택해 액션을 실행하세요.',
-      },
-    ] as const;
-  }, [
-    campaignId,
-    projectId,
-    selectedBatch?.id,
-    selectedBatch?.status,
-    selectedOrderIds.length,
-    selectedViewId,
-  ]);
-
   useEffect(() => {
     if (selectedOrderIds.length === 0) {
       previewMutation.reset();
@@ -585,14 +523,10 @@ export default function AdminProductionPage() {
       : buildFilterSummaryText({ projectId, campaignId });
 
   const setError = (error: unknown) => {
-    setMessage(null);
-    setErrorMessage(getErrorMessage(error));
+    showToast(getErrorMessage(error), { type: 'error' });
   };
 
-  const clearNotice = () => {
-    setMessage(null);
-    setErrorMessage(null);
-  };
+  const clearNotice = () => {};
 
   const toggleOrderSelection = (orderId: string) => {
     setPreviewErrorMessage(null);
@@ -635,12 +569,12 @@ export default function AdminProductionPage() {
       (value) => value.trim().length > 0,
     );
     if (!hasAnyValue) {
-      setErrorMessage('저장할 뷰 조건이 없습니다.');
+      showToast('저장할 뷰 조건이 없습니다.', { type: 'warning' });
       return;
     }
 
     if (!viewNameDraft.trim()) {
-      setErrorMessage('뷰 이름을 입력해 주세요.');
+      showToast('뷰 이름을 입력해 주세요.', { type: 'warning' });
       return;
     }
 
@@ -654,7 +588,7 @@ export default function AdminProductionPage() {
       });
       setViewNameDraft('');
       setSelectedViewId(created.id);
-      setMessage('현재 조건을 새 뷰로 저장했습니다.');
+      showToast('현재 조건을 새 뷰로 저장했습니다.', { type: 'success' });
     } catch (error) {
       setError(error);
     }
@@ -664,13 +598,13 @@ export default function AdminProductionPage() {
     clearNotice();
     applyFilterValues(toFilterValueFromSavedView(savedFilter));
     setSelectedViewId(savedFilter.id);
-    setMessage(`"${savedFilter.name}" 뷰를 적용했습니다.`);
+    showToast(`"${savedFilter.name}" 뷰를 적용했습니다.`, { type: 'success' });
   };
 
   const handleUpdateSelectedView = async () => {
     clearNotice();
     if (!selectedSavedView) {
-      setErrorMessage('업데이트할 저장 뷰를 먼저 선택해 주세요.');
+      showToast('업데이트할 저장 뷰를 먼저 선택해 주세요.', { type: 'warning' });
       return;
     }
 
@@ -684,7 +618,9 @@ export default function AdminProductionPage() {
           },
         },
       });
-      setMessage(`"${selectedSavedView.name}" 뷰를 현재 조건으로 업데이트했습니다.`);
+      showToast(`"${selectedSavedView.name}" 뷰를 현재 조건으로 업데이트했습니다.`, {
+        type: 'success',
+      });
     } catch (error) {
       setError(error);
     }
@@ -697,7 +633,7 @@ export default function AdminProductionPage() {
       if (selectedViewId === filterId) {
         setSelectedViewId('DEFAULT');
       }
-      setMessage('선택한 뷰를 삭제했습니다.');
+      showToast('선택한 뷰를 삭제했습니다.', { type: 'success' });
     } catch (error) {
       setError(error);
     }
@@ -706,7 +642,7 @@ export default function AdminProductionPage() {
   const handleCreateBatch = async () => {
     clearNotice();
     if (selectedOrderIds.length === 0) {
-      setErrorMessage('배치에 포함할 주문을 먼저 선택해 주세요.');
+      showToast('배치에 포함할 주문을 먼저 선택해 주세요.', { type: 'warning' });
       return;
     }
 
@@ -714,7 +650,6 @@ export default function AdminProductionPage() {
       const created = await createBatchMutation.mutateAsync({
         title: autoBatchTitle,
         order_ids: selectedOrderIds,
-        notes: batchNotes.trim() || null,
       });
       const createdBatches = Array.isArray(created.created_batches)
         ? created.created_batches
@@ -726,8 +661,8 @@ export default function AdminProductionPage() {
         setSelectedBatchId(nextBatchId);
       }
 
-      setBatchNotes('');
       setSelectedOrderIds([]);
+      setActiveTab('batches');
       const createdTitle = (
         typeof createdBatches[0]?.title === 'string' && createdBatches[0]?.title
           ? createdBatches[0]?.title
@@ -742,11 +677,12 @@ export default function AdminProductionPage() {
             ? createdBatches.length
             : 1;
       if (createdBatchCount > 1) {
-        setMessage(
+        showToast(
           `캠페인 기준으로 제작 배치 ${createdBatchCount}개를 생성했습니다. (첫 배치: ${createdTitle})`,
+          { type: 'success' },
         );
       } else {
-        setMessage(`제작 배치를 생성했습니다. (${createdTitle})`);
+        showToast(`제작 배치를 생성했습니다. (${createdTitle})`, { type: 'success' });
       }
     } catch (error) {
       setError(error);
@@ -764,7 +700,9 @@ export default function AdminProductionPage() {
         batchId: selectedBatchId,
         data: { reason: batchActionReason.trim() || null },
       });
-      setMessage('배치를 제작중으로 전환하고 주문을 제작 단계로 이동했습니다.');
+      showToast('배치를 제작중으로 전환하고 주문을 제작 단계로 이동했습니다.', {
+        type: 'success',
+      });
     } catch (error) {
       setError(error);
     }
@@ -781,7 +719,9 @@ export default function AdminProductionPage() {
         batchId: selectedBatchId,
         data: { reason: batchActionReason.trim() || null },
       });
-      setMessage('제작 완료 처리했습니다. 준비가 끝난 주문만 배송 대기로 이동됩니다.');
+      showToast('제작 완료 처리했습니다. 준비가 끝난 주문만 배송 대기로 이동됩니다.', {
+        type: 'success',
+      });
     } catch (error) {
       setError(error);
     }
@@ -798,7 +738,7 @@ export default function AdminProductionPage() {
         batchId: selectedBatchId,
         reason: batchActionReason.trim() || null,
       });
-      setMessage('선택한 제작 배치를 취소했습니다.');
+      showToast('선택한 제작 배치를 취소했습니다.', { type: 'success' });
     } catch (error) {
       setError(error);
     }
@@ -813,41 +753,6 @@ export default function AdminProductionPage() {
           배송 대기 단계로 전이합니다.
         </p>
       </header>
-
-      {(message || errorMessage) && (
-        <div
-          className={`rounded-lg border px-4 py-3 text-sm ${
-            errorMessage
-              ? 'border-red-200 bg-red-50 text-red-700'
-              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-          }`}
-        >
-          {errorMessage || message}
-        </div>
-      )}
-
-      <section className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-5">
-        <div>
-          <h2 className="text-base font-semibold text-slate-900">작업 가이드</h2>
-          <p className="text-sm text-slate-600">
-            뷰 선택부터 배치 전이까지, 아래 순서대로 진행하면 누락 없이 처리할 수 있습니다.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
-          {workflowGuideSteps.map((step) => (
-            <div key={step.key} className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-slate-900">{step.title}</p>
-                <Badge intent={step.done ? 'success' : 'default'}>
-                  {step.done ? '완료' : '대기'}
-                </Badge>
-              </div>
-              <p className="mt-2 text-xs text-slate-600">{step.description}</p>
-              <p className="mt-2 text-xs text-slate-500">{step.hint}</p>
-            </div>
-          ))}
-        </div>
-      </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -876,45 +781,503 @@ export default function AdminProductionPage() {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-gray-900">1) 제작 후보 주문 선택</h2>
-          <p className="text-sm text-gray-600">
-            PAYMENT_CONFIRMED 주문만 표시됩니다. 선택 즉시 자동 검증이 실행되며, 문제 없으면
-            바로 배치를 생성할 수 있습니다.
-          </p>
+      <section className="rounded-xl border border-gray-200 bg-white p-1">
+        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('candidates')}
+            className={`rounded-lg px-4 py-3 text-left text-sm font-semibold transition ${
+              activeTab === 'candidates'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            제작 후보 주문 선택
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('batches')}
+            className={`rounded-lg px-4 py-3 text-left text-sm font-semibold transition ${
+              activeTab === 'batches'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            제작 배치 목록/상세
+          </button>
         </div>
+      </section>
 
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div>
-                <p className="text-xs text-gray-500">설정된 뷰</p>
-                <p className="text-sm font-medium text-gray-900">
-                  {selectedSavedView?.name || '설정된 뷰 없음'}
-                </p>
+      {activeTab === 'candidates' && (
+        <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-gray-900">제작 후보 주문 선택</h2>
+            <p className="text-sm text-gray-600">
+              PAYMENT_CONFIRMED 주문만 표시됩니다. 선택 즉시 자동 검증이 실행되며, 문제 없으면
+              바로 배치를 생성할 수 있습니다.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div>
+                  <p className="text-xs text-gray-500">설정된 뷰</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {selectedSavedView?.name || '설정된 뷰 없음'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">설정된 필터</p>
+                  <p className="text-sm font-medium text-gray-900">{appliedFilterSummaryText}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-gray-500">설정된 필터</p>
-                <p className="text-sm font-medium text-gray-900">{appliedFilterSummaryText}</p>
-              </div>
+              <Button intent="neutral" onClick={() => setIsViewManagerOpen(true)}>
+                뷰/필터 설정
+              </Button>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <Button
               intent="neutral"
-              onClick={() => setIsViewManagerOpen((prev) => !prev)}
+              onClick={toggleSelectAll}
+              disabled={candidateRows.length === 0}
+              className="h-11 px-5"
             >
-              {isViewManagerOpen ? '뷰 관리 닫기' : '뷰 관리 열기'}
+              {allChecked ? '전체 해제' : '전체 선택'}
+            </Button>
+            <Button
+              onClick={handleCreateBatch}
+              disabled={selectedOrderIds.length === 0 || isBusy}
+              className="h-11 px-5"
+            >
+              선택 주문으로 배치 생성
             </Button>
           </div>
-        </div>
 
-        {isViewManagerOpen && (
-          <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+            {selectedOrderIds.length === 0 ? (
+              <p>주문을 선택하면 수량/차단 조건을 자동으로 검증합니다.</p>
+            ) : previewMutation.isPending ? (
+              <p>선택 주문을 자동 검증 중입니다...</p>
+            ) : previewErrorMessage ? (
+              <p className="text-red-600">자동 검증 실패: {previewErrorMessage}</p>
+            ) : hasFreshPreview ? (
+              <p>
+                자동 검증 결과: 통과 {summary.previewValidCount}건 · 차단 {summary.previewBlockedCount}
+                건
+              </p>
+            ) : (
+              <p>자동 검증 결과를 준비하고 있습니다.</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div>
+              {candidatesQuery.isLoading ? (
+                <div className="py-8">
+                  <Loading text="제작 후보 주문을 불러오는 중입니다." />
+                </div>
+              ) : candidateRows.length === 0 ? (
+                <EmptyState
+                  title="선택 가능한 제작 후보 주문이 없습니다."
+                  description="필터를 변경하거나 주문 상태를 확인해 주세요."
+                />
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="min-w-[1100px] table-fixed divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="w-12 px-3 py-2 text-left">
+                          <input type="checkbox" checked={allChecked} onChange={toggleSelectAll} />
+                        </th>
+                        <th className="w-[240px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                          주문번호
+                        </th>
+                        <th className="w-[120px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                          입금자
+                        </th>
+                        <th className="w-[150px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                          프로젝트
+                        </th>
+                        <th className="w-[220px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                          캠페인
+                        </th>
+                        <th className="w-[90px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                          구성
+                        </th>
+                        <th className="w-[120px] px-3 py-2 text-right font-medium text-gray-600 whitespace-nowrap">
+                          주문금액
+                        </th>
+                        <th className="w-[120px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                          주문일시
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {candidateRows.map((row) => {
+                        const checked = selectedOrderIds.includes(row.order_id);
+                        return (
+                          <tr key={row.order_id} className={checked ? 'bg-blue-50/60' : ''}>
+                            <td className="px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleOrderSelection(row.order_id)}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <p
+                                className="max-w-[220px] truncate whitespace-nowrap font-medium text-gray-900"
+                                title={row.order_no}
+                              >
+                                {row.order_no}
+                              </p>
+                              <p
+                                className="max-w-[220px] truncate whitespace-nowrap text-xs text-gray-500"
+                                title={row.order_id}
+                              >
+                                {row.order_id}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 text-gray-700">
+                              <p className="max-w-[100px] truncate whitespace-nowrap" title={row.depositor_name || '-'}>
+                                {row.depositor_name || '-'}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 text-gray-700">
+                              <p className="max-w-[130px] truncate whitespace-nowrap" title={row.project_name || '-'}>
+                                {row.project_name || '-'}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 text-gray-700">
+                              <p className="max-w-[200px] truncate whitespace-nowrap" title={row.campaign_name || '-'}>
+                                {row.campaign_name || '-'}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{resolveComposition(row)}</td>
+                            <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">
+                              {formatCurrency(row.grand_total)}
+                            </td>
+                            <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                              {formatDateCompact24(row.placed_at || row.created_at)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+              <div className="flex items-end justify-between gap-2">
+                <p className="text-sm font-semibold text-gray-900">선택 주문 상품 미리보기</p>
+                <p className="text-xs text-gray-500">선택 주문 {selectedOrderIds.length}건</p>
+              </div>
+
+              {selectedOrderIds.length === 0 ? (
+                <EmptyState
+                  title="주문을 선택해 주세요."
+                  description="선택한 주문의 상품 집계를 오른쪽에서 미리 확인할 수 있습니다."
+                />
+              ) : previewMutation.isPending ? (
+                <div className="py-8">
+                  <Loading text="상품 미리보기를 준비하는 중입니다." />
+                </div>
+              ) : previewErrorMessage ? (
+                <p className="text-sm text-red-600">미리보기 생성 실패: {previewErrorMessage}</p>
+              ) : !hasFreshPreview || !previewData ? (
+                <p className="text-sm text-gray-500">미리보기 데이터를 불러오는 중입니다.</p>
+              ) : previewData.aggregates.length === 0 ? (
+                <EmptyState title="표시할 상품이 없습니다." description="집계 대상이 비어 있습니다." />
+              ) : (
+                <>
+                  {previewData.blocked_order_count > 0 ? (
+                    <p className="text-xs text-amber-700">
+                      차단 주문 {previewData.blocked_order_count}건은 미리보기 집계에서 제외되었습니다.
+                    </p>
+                  ) : null}
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium text-gray-600">상품</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-600">옵션</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-600">수량</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {previewData.aggregates.map((row) => (
+                          <tr
+                            key={`${row.product_id || 'none'}-${row.variant_id || 'none'}-${row.product_name}`}
+                          >
+                            <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
+                            <td className="px-3 py-2 text-gray-700">{row.variant_name || '-'}</td>
+                            <td className="px-3 py-2 text-right text-gray-700">
+                              {row.quantity_total.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'batches' && (
+        <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-gray-900">제작 배치 목록/상세</h2>
+            <p className="text-sm text-gray-600">
+              준비중 - 제작중 - 제작 완료 흐름으로 관리하며, 상세에서 전이 결과를 확인할 수 있습니다.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-sm text-gray-600" htmlFor="production-status-filter">
+              상태 필터
+            </label>
+            <select
+              id="production-status-filter"
+              className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
+              value={batchStatusFilter}
+              onChange={(event) =>
+                setBatchStatusFilter(
+                  (event.target.value as V2AdminProductionBatchStatus) || '',
+                )
+              }
+            >
+              <option value="">전체</option>
+              <option value="DRAFT">준비중</option>
+              <option value="ACTIVE">제작중</option>
+              <option value="COMPLETED">제작 완료</option>
+              <option value="CANCELED">취소됨</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">배치번호</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">상태</th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-600">주문수</th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-600">수량합</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {(batchesQuery.data?.items || []).map((row) => (
+                    <tr
+                      key={row.id}
+                      className={`cursor-pointer ${selectedBatchId === row.id ? 'bg-blue-50' : ''}`}
+                      onClick={() => setSelectedBatchId(row.id)}
+                    >
+                      <td className="px-3 py-2">
+                        <p className="font-medium text-gray-900">{row.batch_no}</p>
+                        <p className="text-xs text-gray-500">{row.title}</p>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge intent={resolveBatchIntent(row.status)}>
+                            {resolveBatchStatusLabel(row.status)}
+                          </Badge>
+                          {Number(row.excluded_count || 0) > 0 ? (
+                            <p className="text-xs text-amber-700">
+                              제외 {Number(row.excluded_count || 0).toLocaleString()}건
+                            </p>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right text-gray-700">
+                        {row.order_count.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-right text-gray-700">
+                        {row.item_quantity_total.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+              {!selectedBatchId ? (
+                <EmptyState
+                  title="배치를 선택해 주세요."
+                  description="좌측 목록에서 배치를 선택하면 주문 스냅샷과 집계를 확인할 수 있습니다."
+                />
+              ) : batchDetailQuery.isLoading ? (
+                <div className="py-8">
+                  <Loading text="배치 상세를 불러오는 중입니다." />
+                </div>
+              ) : !selectedBatch ? (
+                <EmptyState title="배치 상세를 불러오지 못했습니다." />
+              ) : (
+                <>
+                  <div>
+                    <p className="text-sm text-gray-500">선택 배치</p>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {String(selectedBatch.batch_no || '-')}
+                    </h3>
+                    <p className="text-sm text-gray-600">{String(selectedBatch.title || '-')}</p>
+                    <div className="mt-2">
+                      <Badge
+                        intent={resolveBatchIntent(
+                          selectedBatch.status as V2AdminProductionBatchStatus,
+                        )}
+                      >
+                        {resolveBatchStatusLabel(String(selectedBatch.status || '-'))}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <Input
+                    value={batchActionReason}
+                    onChange={(event) => setBatchActionReason(event.target.value)}
+                    placeholder="액션 사유(선택)"
+                  />
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(selectedBatch.status as V2AdminProductionBatchStatus) === 'DRAFT' && (
+                      <Button onClick={handleActivateBatch} disabled={isBusy}>
+                        배치 시작(제작중)
+                      </Button>
+                    )}
+                    {(selectedBatch.status as V2AdminProductionBatchStatus) === 'ACTIVE' && (
+                      <Button onClick={handleCompleteBatch} disabled={isBusy}>
+                        제작 완료 처리
+                      </Button>
+                    )}
+                    {((selectedBatch.status as V2AdminProductionBatchStatus) === 'DRAFT' ||
+                      (selectedBatch.status as V2AdminProductionBatchStatus) === 'ACTIVE') && (
+                      <Button intent="danger" onClick={handleCancelBatch} disabled={isBusy}>
+                        배치 취소
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">
+                    <p>생성일: {formatDate(String(selectedBatch.created_at || ''))}</p>
+                    <p>활성화일: {formatDate(String(selectedBatch.activated_at || ''))}</p>
+                    <p>완료일: {formatDate(String(selectedBatch.completed_at || ''))}</p>
+                    <p>
+                      제외 주문:{' '}
+                      {(detail?.orders || []).filter((row) => row.is_excluded === true).length}건
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {detail && (
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">주문번호</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {(detail.orders || []).map((row) => {
+                      const productionState = resolveProductionOrderState({
+                        transition_activate_status: row.transition_activate_status,
+                        transition_complete_status: row.transition_complete_status,
+                        is_excluded: row.is_excluded === true,
+                        excluded_reason: row.excluded_reason || null,
+                        error_message: row.error_message,
+                      });
+
+                      return (
+                        <tr key={row.id}>
+                          <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-col gap-1">
+                              <Badge intent={productionState.intent}>
+                                {productionState.label}
+                              </Badge>
+                              {productionState.description && (
+                                <p
+                                  className={
+                                    productionState.intent === 'error'
+                                      ? 'text-xs text-red-600'
+                                      : productionState.intent === 'warning'
+                                        ? 'text-xs text-amber-700'
+                                        : 'text-xs text-gray-500'
+                                  }
+                                >
+                                  {productionState.description}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">상품</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">옵션</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-600">수량</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {(detail.aggregates || []).map((row) => (
+                      <tr key={row.id}>
+                        <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
+                        <td className="px-3 py-2 text-gray-700">{row.variant_name || '-'}</td>
+                        <td className="px-3 py-2 text-right text-gray-700">
+                          {row.quantity_total.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {isViewManagerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setIsViewManagerOpen(false)}
+            aria-label="뷰/필터 모달 닫기"
+          />
+          <div className="relative z-10 flex max-h-[85vh] w-full max-w-3xl flex-col gap-4 overflow-y-auto rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">뷰/필터 설정</h3>
+                <p className="text-sm text-gray-600">
+                  제작 후보 조회는 프로젝트/캠페인 필터만 사용합니다.
+                </p>
+              </div>
+              <Button intent="neutral" size="sm" onClick={() => setIsViewManagerOpen(false)}>
+                닫기
+              </Button>
+            </div>
+
             <div className="space-y-3">
               <p className="text-sm font-medium text-gray-800">필터 관리</p>
-              <p className="text-xs text-gray-600">
-                제작 후보 조회는 프로젝트/캠페인 필터만 사용합니다.
-              </p>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <select
                   className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
@@ -944,10 +1307,22 @@ export default function AdminProductionPage() {
                 </select>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button intent="neutral" onClick={handleSearchApply}>
+                <Button
+                  intent="neutral"
+                  onClick={() => {
+                    handleSearchApply();
+                    setIsViewManagerOpen(false);
+                  }}
+                >
                   필터 적용
                 </Button>
-                <Button intent="neutral" onClick={handleSearchReset}>
+                <Button
+                  intent="neutral"
+                  onClick={() => {
+                    handleSearchReset();
+                    setIsViewManagerOpen(false);
+                  }}
+                >
                   필터 해제
                 </Button>
               </div>
@@ -978,7 +1353,7 @@ export default function AdminProductionPage() {
                   onClick={() => {
                     clearNotice();
                     setSelectedViewId('DEFAULT');
-                    setMessage('뷰 선택을 해제했습니다.');
+                    showToast('뷰 선택을 해제했습니다.', { type: 'success' });
                   }}
                 >
                   뷰 선택 해제
@@ -1008,7 +1383,10 @@ export default function AdminProductionPage() {
                     <button
                       key={savedFilter.id}
                       type="button"
-                      onClick={() => handleApplySavedFilter(savedFilter)}
+                      onClick={() => {
+                        handleApplySavedFilter(savedFilter);
+                        setIsViewManagerOpen(false);
+                      }}
                       className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
                         selectedViewId === savedFilter.id
                           ? 'border-blue-200 bg-blue-50 text-blue-900'
@@ -1025,361 +1403,8 @@ export default function AdminProductionPage() {
               </div>
             </div>
           </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            intent="neutral"
-            size="sm"
-            onClick={toggleSelectAll}
-            disabled={candidateRows.length === 0}
-          >
-            {allChecked ? '전체 해제' : '전체 선택'}
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleCreateBatch}
-            disabled={selectedOrderIds.length === 0 || isBusy}
-          >
-            선택 주문으로 배치 생성
-          </Button>
         </div>
-
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
-          {selectedOrderIds.length === 0 ? (
-            <p>주문을 선택하면 수량/차단 조건을 자동으로 검증합니다.</p>
-          ) : previewMutation.isPending ? (
-            <p>선택 주문을 자동 검증 중입니다...</p>
-          ) : previewErrorMessage ? (
-            <p className="text-red-600">자동 검증 실패: {previewErrorMessage}</p>
-          ) : hasFreshPreview ? (
-            <p>
-              자동 검증 결과: 통과 {summary.previewValidCount}건 · 차단 {summary.previewBlockedCount}
-              건
-            </p>
-          ) : (
-            <p>자동 검증 결과를 준비하고 있습니다.</p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <div className="space-y-1">
-            <p className="text-xs text-gray-500">자동 스냅샷 번호</p>
-            <Input
-              value={autoBatchTitle}
-              readOnly
-              placeholder="자동 생성 스냅샷 번호"
-            />
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs text-gray-500">선택 주문 프로젝트 요약(자동)</p>
-            <Input
-              value={selectedProjectSummary}
-              readOnly
-              placeholder="선택 주문 없음"
-            />
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs text-gray-500">배치 메모(선택)</p>
-            <Textarea
-              rows={2}
-              value={batchNotes}
-              onChange={(event) => setBatchNotes(event.target.value)}
-              placeholder="배치 메모(선택)"
-            />
-          </div>
-        </div>
-
-        <p className="text-xs text-gray-500">
-          스냅샷 번호는 `YYMMDD + 일일 순번` 형식으로 자동 부여됩니다. (예: 26032401)
-        </p>
-
-        {candidatesQuery.isLoading ? (
-          <div className="py-8">
-            <Loading text="제작 후보 주문을 불러오는 중입니다." />
-          </div>
-        ) : candidateRows.length === 0 ? (
-          <EmptyState
-            title="선택 가능한 제작 후보 주문이 없습니다."
-            description="필터를 변경하거나 주문 상태를 확인해 주세요."
-          />
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 py-2 text-left">
-                    <input type="checkbox" checked={allChecked} onChange={toggleSelectAll} />
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">주문번호</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">입금자</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">프로젝트</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">캠페인</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">구성</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">주문금액</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">주문일시</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
-                {candidateRows.map((row) => {
-                  const checked = selectedOrderIds.includes(row.order_id);
-                  return (
-                    <tr key={row.order_id} className={checked ? 'bg-blue-50/60' : ''}>
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleOrderSelection(row.order_id)}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <p className="font-medium text-gray-900">{row.order_no}</p>
-                        <p className="text-xs text-gray-500">{row.order_id}</p>
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {row.depositor_name || '-'}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">{row.project_name || '-'}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.campaign_name || '-'}</td>
-                      <td className="px-3 py-2 text-gray-700">{resolveComposition(row)}</td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {formatCurrency(row.grand_total)}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {formatDate(row.placed_at || row.created_at)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-gray-900">2) 제작 배치 목록/상세</h2>
-          <p className="text-sm text-gray-600">
-            준비중 - 제작중 - 제작 완료 흐름으로 관리하며, 상세에서 전이 결과를 확인할 수 있습니다.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-sm text-gray-600" htmlFor="production-status-filter">
-            상태 필터
-          </label>
-          <select
-            id="production-status-filter"
-            className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-            value={batchStatusFilter}
-            onChange={(event) =>
-              setBatchStatusFilter(
-                (event.target.value as V2AdminProductionBatchStatus) || '',
-              )
-            }
-          >
-            <option value="">전체</option>
-            <option value="DRAFT">준비중</option>
-            <option value="ACTIVE">제작중</option>
-            <option value="COMPLETED">제작 완료</option>
-            <option value="CANCELED">취소됨</option>
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">배치번호</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">상태</th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-600">주문수</th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-600">수량합</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
-                  {(batchesQuery.data?.items || []).map((row) => (
-                  <tr
-                    key={row.id}
-                    className={`cursor-pointer ${selectedBatchId === row.id ? 'bg-blue-50' : ''}`}
-                    onClick={() => setSelectedBatchId(row.id)}
-                  >
-                    <td className="px-3 py-2">
-                      <p className="font-medium text-gray-900">{row.batch_no}</p>
-                      <p className="text-xs text-gray-500">{row.title}</p>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col items-start gap-1">
-                        <Badge intent={resolveBatchIntent(row.status)}>
-                          {resolveBatchStatusLabel(row.status)}
-                        </Badge>
-                        {Number(row.excluded_count || 0) > 0 ? (
-                          <p className="text-xs text-amber-700">
-                            제외 {Number(row.excluded_count || 0).toLocaleString()}건
-                          </p>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right text-gray-700">
-                      {row.order_count.toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 text-right text-gray-700">
-                      {row.item_quantity_total.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="space-y-3 rounded-lg border border-gray-200 p-4">
-            {!selectedBatchId ? (
-              <EmptyState
-                title="배치를 선택해 주세요."
-                description="좌측 목록에서 배치를 선택하면 주문 스냅샷과 집계를 확인할 수 있습니다."
-              />
-            ) : batchDetailQuery.isLoading ? (
-              <div className="py-8">
-                <Loading text="배치 상세를 불러오는 중입니다." />
-              </div>
-            ) : !selectedBatch ? (
-              <EmptyState title="배치 상세를 불러오지 못했습니다." />
-            ) : (
-              <>
-                <div>
-                  <p className="text-sm text-gray-500">선택 배치</p>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {String(selectedBatch.batch_no || '-')}
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    {String(selectedBatch.title || '-')}
-                  </p>
-                  <div className="mt-2">
-                    <Badge
-                      intent={resolveBatchIntent(
-                        selectedBatch.status as V2AdminProductionBatchStatus,
-                      )}
-                    >
-                      {resolveBatchStatusLabel(String(selectedBatch.status || '-'))}
-                    </Badge>
-                  </div>
-                </div>
-
-                <Input
-                  value={batchActionReason}
-                  onChange={(event) => setBatchActionReason(event.target.value)}
-                  placeholder="액션 사유(선택)"
-                />
-
-                <div className="flex flex-wrap items-center gap-2">
-                  {(selectedBatch.status as V2AdminProductionBatchStatus) === 'DRAFT' && (
-                    <Button onClick={handleActivateBatch} disabled={isBusy}>
-                      배치 시작(제작중)
-                    </Button>
-                  )}
-                  {(selectedBatch.status as V2AdminProductionBatchStatus) === 'ACTIVE' && (
-                    <Button onClick={handleCompleteBatch} disabled={isBusy}>
-                      제작 완료 처리
-                    </Button>
-                  )}
-                  {((selectedBatch.status as V2AdminProductionBatchStatus) === 'DRAFT' ||
-                    (selectedBatch.status as V2AdminProductionBatchStatus) === 'ACTIVE') && (
-                    <Button intent="danger" onClick={handleCancelBatch} disabled={isBusy}>
-                      배치 취소
-                    </Button>
-                  )}
-                </div>
-
-                <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">
-                  <p>생성일: {formatDate(String(selectedBatch.created_at || ''))}</p>
-                  <p>활성화일: {formatDate(String(selectedBatch.activated_at || ''))}</p>
-                  <p>완료일: {formatDate(String(selectedBatch.completed_at || ''))}</p>
-                  <p>
-                    제외 주문:{' '}
-                    {(detail?.orders || []).filter((row) => row.is_excluded === true).length}건
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {detail && (
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">주문번호</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">상태</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {(detail.orders || []).map((row) => {
-                    const productionState = resolveProductionOrderState({
-                      transition_activate_status: row.transition_activate_status,
-                      transition_complete_status: row.transition_complete_status,
-                      is_excluded: row.is_excluded === true,
-                      excluded_reason: row.excluded_reason || null,
-                      error_message: row.error_message,
-                    });
-
-                    return (
-                      <tr key={row.id}>
-                        <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
-                        <td className="px-3 py-2">
-                          <div className="flex flex-col gap-1">
-                            <Badge intent={productionState.intent}>
-                              {productionState.label}
-                            </Badge>
-                            {productionState.description && (
-                              <p
-                                className={
-                                  productionState.intent === 'error'
-                                    ? 'text-xs text-red-600'
-                                    : productionState.intent === 'warning'
-                                      ? 'text-xs text-amber-700'
-                                      : 'text-xs text-gray-500'
-                                }
-                              >
-                                {productionState.description}
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">상품</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">옵션</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-600">수량</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {(detail.aggregates || []).map((row) => (
-                    <tr key={row.id}>
-                      <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.variant_name || '-'}</td>
-                      <td className="px-3 py-2 text-right text-gray-700">
-                        {row.quantity_total.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </section>
+      )}
     </div>
   );
 }

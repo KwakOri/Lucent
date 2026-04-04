@@ -89,6 +89,31 @@ function isCanceledLineItem(item: Record<string, unknown>): boolean {
   return status === 'CANCELED' || status === 'REFUNDED';
 }
 
+function isPhysicalShippingLineItem(item: Record<string, unknown>): boolean {
+  const lineType = String(item.line_type || '').toUpperCase();
+  if (lineType === 'BUNDLE_PARENT') {
+    return false;
+  }
+
+  const fulfillmentType = String(
+    item.fulfillment_type_snapshot || item.fulfillment_type || '',
+  ).toUpperCase();
+  if (fulfillmentType === 'DIGITAL') {
+    return false;
+  }
+  if (fulfillmentType === 'PHYSICAL') {
+    return true;
+  }
+
+  if (item.requires_shipping_snapshot === true || item.requires_shipping === true) {
+    return true;
+  }
+  const requiresShippingRaw = String(
+    item.requires_shipping_snapshot ?? item.requires_shipping ?? '',
+  ).toLowerCase();
+  return requiresShippingRaw === 'true';
+}
+
 function buildLineItemRows(
   lineItemsSnapshot: Array<Record<string, unknown>> | null,
 ): Array<{ label: string; quantity: number }> {
@@ -99,6 +124,7 @@ function buildLineItemRows(
   return lineItemsSnapshot
     .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
     .filter((item) => !isCanceledLineItem(item))
+    .filter((item) => isPhysicalShippingLineItem(item))
     .map((item) => {
       const productName =
         readLineItemText(item, ['product_name_snapshot', 'product_name', 'product_title']) ||

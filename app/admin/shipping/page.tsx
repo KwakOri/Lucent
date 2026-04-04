@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Input, Textarea } from '@/components/ui/input';
+import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import { useToast } from '@/src/components/toast';
 import type {
   V2AdminShippingBatchPackageRow,
   V2AdminShippingBatchStatus,
@@ -56,6 +57,22 @@ function formatDate(value: string | null | undefined): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function formatDateCompact24(value: string | null | undefined): string {
+  if (!value) {
+    return '-';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${yy}.${mm}.${dd} ${hh}:${min}`;
 }
 
 function formatCurrency(amount: number | null | undefined): string {
@@ -248,16 +265,6 @@ function formatAutoBatchTitleDate(date: Date): string {
   return `${yy}${mm}${dd}`;
 }
 
-function buildProjectSummary(projectNames: string[]): string {
-  const unique = Array.from(new Set(projectNames.filter((name) => name.trim().length > 0)));
-  if (unique.length === 0) {
-    return '선택 없음';
-  }
-  if (unique.length === 1) {
-    return unique[0];
-  }
-  return `${unique[0]} 외 ${unique.length - 1}`;
-}
 
 function buildSelectionKey(orderIds: string[]): string {
   return orderIds.slice().sort().join(',');
@@ -287,6 +294,31 @@ function isCanceledLineItem(item: Record<string, unknown>): boolean {
   return status === 'CANCELED' || status === 'REFUNDED';
 }
 
+function isPhysicalShippingLineItem(item: Record<string, unknown>): boolean {
+  const lineType = String(item.line_type || '').toUpperCase();
+  if (lineType === 'BUNDLE_PARENT') {
+    return false;
+  }
+
+  const fulfillmentType = String(
+    item.fulfillment_type_snapshot || item.fulfillment_type || '',
+  ).toUpperCase();
+  if (fulfillmentType === 'DIGITAL') {
+    return false;
+  }
+  if (fulfillmentType === 'PHYSICAL') {
+    return true;
+  }
+
+  if (item.requires_shipping_snapshot === true || item.requires_shipping === true) {
+    return true;
+  }
+  const requiresShippingRaw = String(
+    item.requires_shipping_snapshot ?? item.requires_shipping ?? '',
+  ).toLowerCase();
+  return requiresShippingRaw === 'true';
+}
+
 function buildLineItemRows(
   lineItemsSnapshot: Array<Record<string, unknown>> | null,
 ): Array<{ label: string; quantity: number }> {
@@ -297,6 +329,7 @@ function buildLineItemRows(
   return lineItemsSnapshot
     .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
     .filter((item) => !isCanceledLineItem(item))
+    .filter((item) => isPhysicalShippingLineItem(item))
     .map((item) => {
       const productName =
         readLineItemText(item, ['product_name_snapshot', 'product_name', 'product_title']) ||
@@ -472,10 +505,8 @@ function readLastShippingCandidateFilter(): ShippingCandidateFilterValue {
 }
 
 export default function AdminShippingPage() {
+  const { showToast } = useToast();
   const initialFilterValues = useMemo(() => readLastShippingCandidateFilter(), []);
-
-  const [message, setMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [keywordInput, setKeywordInput] = useState(initialFilterValues.keyword);
   const [projectIdInput, setProjectIdInput] = useState(initialFilterValues.projectId);
@@ -497,10 +528,10 @@ export default function AdminShippingPage() {
   const [dateTo, setDateTo] = useState(initialFilterValues.dateTo);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
-  const [batchNotes, setBatchNotes] = useState('');
   const [previewSelectionKey, setPreviewSelectionKey] = useState('');
   const [previewErrorMessage, setPreviewErrorMessage] = useState<string | null>(null);
   const autoPreviewRequestedKeyRef = useRef('');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'batches'>('candidates');
 
   const [batchStatusFilter, setBatchStatusFilter] =
     useState<V2AdminShippingBatchStatus | ''>('');
@@ -566,16 +597,6 @@ export default function AdminShippingPage() {
     currentSelectionKey === previewSelectionKey;
   const detail = batchDetailQuery.data;
   const selectedBatch = detail?.batch || null;
-
-  const selectedCandidateRows = useMemo(() => {
-    const selectedIdSet = new Set(selectedOrderIdsInView);
-    return candidateRows.filter((row) => selectedIdSet.has(row.order_id));
-  }, [candidateRows, selectedOrderIdsInView]);
-
-  const selectedProjectSummary = useMemo(
-    () => buildProjectSummary(selectedCandidateRows.map((row) => row.project_name || '')),
-    [selectedCandidateRows],
-  );
 
   const autoBatchTitle = useMemo(() => {
     const datePrefix = formatAutoBatchTitleDate(new Date());
@@ -718,74 +739,6 @@ export default function AdminShippingPage() {
     selectedOrderIdsInView.length,
   ]);
 
-  const workflowGuideSteps = useMemo(() => {
-    const hasAppliedView =
-      selectedViewId !== 'DEFAULT' ||
-      Boolean(keyword || projectId || campaignId || dateFrom || dateTo);
-    const hasOrderSelection = selectedOrderIdsInView.length > 0;
-    const hasBatchCreated = Boolean(selectedBatchId);
-    const hasDispatchStarted =
-      (selectedBatch?.status as V2AdminShippingBatchStatus | undefined) === 'DISPATCHED' ||
-      (selectedBatch?.status as V2AdminShippingBatchStatus | undefined) === 'COMPLETED';
-    const hasCompleted =
-      (selectedBatch?.status as V2AdminShippingBatchStatus | undefined) === 'COMPLETED';
-
-    return [
-      {
-        key: 'view',
-        title: '1. 뷰 선택',
-        description: '반복 작업 조건(프로젝트/캠페인)을 불러와 후보 주문을 좁힙니다.',
-        done: hasAppliedView,
-        hint: hasAppliedView
-          ? '현재 필터가 적용되어 있습니다.'
-          : '전체 뷰에서 시작해도 됩니다.',
-      },
-      {
-        key: 'snapshot',
-        title: '2. 배치 생성',
-        description: '출고할 주문을 선택해 스냅샷 배치를 생성합니다.',
-        done: hasOrderSelection || hasBatchCreated,
-        hint: hasOrderSelection
-          ? `${selectedOrderIdsInView.length}건 선택됨`
-          : hasBatchCreated
-            ? '배치가 생성되었습니다.'
-            : '체크박스로 주문을 먼저 선택하세요.',
-      },
-      {
-        key: 'dispatch',
-        title: '3. 운송장 등록/출고',
-        description: '운송장 저장 후 출고 실행으로 배송중 상태로 전이합니다.',
-        done: hasDispatchStarted,
-        hint: hasDispatchStarted
-          ? '선택 배치가 배송중 단계로 전환되었습니다.'
-          : trackingProgress.filled > 0
-            ? `운송장 ${trackingProgress.filled}/${trackingProgress.total} 입력됨`
-            : '운송장 입력을 먼저 진행하세요.',
-      },
-      {
-        key: 'complete',
-        title: '4. 배송 완료 처리',
-        description: '배송 완료 확인 후 배치 완료를 실행합니다.',
-        done: hasCompleted,
-        hint: hasCompleted
-          ? '배송 완료 처리까지 마무리되었습니다.'
-          : '배송중 상태에서 완료 액션을 실행하세요.',
-      },
-    ] as const;
-  }, [
-    campaignId,
-    dateFrom,
-    dateTo,
-    keyword,
-    projectId,
-    selectedBatch?.status,
-    selectedBatchId,
-    selectedOrderIdsInView.length,
-    selectedViewId,
-    trackingProgress.filled,
-    trackingProgress.total,
-  ]);
-
   useEffect(() => {
     window.localStorage.setItem(
       SHIPPING_CANDIDATE_FILTER_STORAGE_KEY,
@@ -884,14 +837,10 @@ export default function AdminShippingPage() {
       : buildFilterSummaryText({ keyword, projectId, campaignId, dateFrom, dateTo });
 
   const setError = (error: unknown) => {
-    setMessage(null);
-    setErrorMessage(getErrorMessage(error));
+    showToast(getErrorMessage(error), { type: 'error' });
   };
 
-  const clearNotice = () => {
-    setMessage(null);
-    setErrorMessage(null);
-  };
+  const clearNotice = () => {};
 
   const toggleOrderSelection = (orderId: string) => {
     setPreviewErrorMessage(null);
@@ -942,12 +891,12 @@ export default function AdminShippingPage() {
       (value) => value.trim().length > 0,
     );
     if (!hasAnyValue) {
-      setErrorMessage('저장할 뷰 조건이 없습니다.');
+      showToast('저장할 뷰 조건이 없습니다.', { type: 'warning' });
       return;
     }
 
     if (!viewNameDraft.trim()) {
-      setErrorMessage('뷰 이름을 입력해 주세요.');
+      showToast('뷰 이름을 입력해 주세요.', { type: 'warning' });
       return;
     }
 
@@ -967,7 +916,7 @@ export default function AdminShippingPage() {
     setSavedFilters((prev) => [nextFilter, ...prev].slice(0, MAX_SAVED_SHIPPING_FILTERS));
     setViewNameDraft('');
     setSelectedViewId(nextFilter.id);
-    setMessage('현재 조건을 새 뷰로 저장했습니다.');
+    showToast('현재 조건을 새 뷰로 저장했습니다.', { type: 'success' });
   };
 
   const handleApplySavedFilter = (savedFilter: SavedShippingCandidateFilter) => {
@@ -975,13 +924,13 @@ export default function AdminShippingPage() {
     applyFilterValues(savedFilter.values);
     persistLastFilter(savedFilter.values);
     setSelectedViewId(savedFilter.id);
-    setMessage(`"${savedFilter.name}" 뷰를 적용했습니다.`);
+    showToast(`"${savedFilter.name}" 뷰를 적용했습니다.`, { type: 'success' });
   };
 
   const handleUpdateSelectedView = () => {
     clearNotice();
     if (!selectedSavedView) {
-      setErrorMessage('업데이트할 저장 뷰를 먼저 선택해 주세요.');
+      showToast('업데이트할 저장 뷰를 먼저 선택해 주세요.', { type: 'warning' });
       return;
     }
 
@@ -996,7 +945,9 @@ export default function AdminShippingPage() {
           : row,
       ),
     );
-    setMessage(`"${selectedSavedView.name}" 뷰를 현재 조건으로 업데이트했습니다.`);
+    showToast(`"${selectedSavedView.name}" 뷰를 현재 조건으로 업데이트했습니다.`, {
+      type: 'success',
+    });
   };
 
   const handleDeleteSavedFilter = (filterId: string) => {
@@ -1005,13 +956,13 @@ export default function AdminShippingPage() {
     if (selectedViewId === filterId) {
       setSelectedViewId('DEFAULT');
     }
-    setMessage('선택한 뷰를 삭제했습니다.');
+    showToast('선택한 뷰를 삭제했습니다.', { type: 'success' });
   };
 
   const handleCreateBatch = async () => {
     clearNotice();
     if (selectedOrderIdsInView.length === 0) {
-      setErrorMessage('배치에 포함할 주문을 먼저 선택해 주세요.');
+      showToast('배치에 포함할 주문을 먼저 선택해 주세요.', { type: 'warning' });
       return;
     }
 
@@ -1019,10 +970,6 @@ export default function AdminShippingPage() {
       const created = await createBatchMutation.mutateAsync({
         title: autoBatchTitle,
         order_ids: selectedOrderIdsInView,
-        notes: batchNotes.trim() || null,
-        metadata: {
-          project_summary: selectedProjectSummary,
-        },
       });
       const nextBatchId = typeof created.batch?.id === 'string' ? created.batch.id : null;
       if (nextBatchId) {
@@ -1030,15 +977,15 @@ export default function AdminShippingPage() {
         setPackageDrafts({});
       }
 
-      setBatchNotes('');
       setSelectedOrderIds([]);
       setPreviewSelectionKey('');
       setPreviewErrorMessage(null);
       autoPreviewRequestedKeyRef.current = '';
+      setActiveTab('batches');
 
       const createdTitle =
         typeof created.batch?.title === 'string' ? created.batch.title : autoBatchTitle;
-      setMessage(`출고 배치를 생성했습니다. (${createdTitle})`);
+      showToast(`출고 배치를 생성했습니다. (${createdTitle})`, { type: 'success' });
     } catch (error) {
       setError(error);
     }
@@ -1052,7 +999,7 @@ export default function AdminShippingPage() {
     clearNotice();
     try {
       await activateBatchMutation.mutateAsync(selectedBatchId);
-      setMessage('배치를 출고 준비중으로 전환했습니다.');
+      showToast('배치를 출고 준비중으로 전환했습니다.', { type: 'success' });
     } catch (error) {
       setError(error);
     }
@@ -1119,7 +1066,7 @@ export default function AdminShippingPage() {
       .filter((row) => row.tracking_no);
 
     if (packagesPayload.length === 0) {
-      setErrorMessage('저장할 운송장 번호를 1개 이상 입력해 주세요.');
+      showToast('저장할 운송장 번호를 1개 이상 입력해 주세요.', { type: 'warning' });
       return;
     }
 
@@ -1128,7 +1075,7 @@ export default function AdminShippingPage() {
         batchId: selectedBatchId,
         data: { packages: packagesPayload },
       });
-      setMessage('운송장 정보를 저장했습니다.');
+      showToast('운송장 정보를 저장했습니다.', { type: 'success' });
     } catch (error) {
       setError(error);
     }
@@ -1145,7 +1092,9 @@ export default function AdminShippingPage() {
         batchId: selectedBatchId,
         data: { reason: batchActionReason.trim() || null },
       });
-      setMessage('출고 처리를 완료하고 주문을 배송중으로 이동했습니다.');
+      showToast('출고 처리를 완료하고 주문을 배송중으로 이동했습니다.', {
+        type: 'success',
+      });
     } catch (error) {
       setError(error);
     }
@@ -1162,7 +1111,7 @@ export default function AdminShippingPage() {
         batchId: selectedBatchId,
         data: { reason: batchActionReason.trim() || null },
       });
-      setMessage('배송 완료 처리 후 주문을 완료 단계로 이동했습니다.');
+      showToast('배송 완료 처리 후 주문을 완료 단계로 이동했습니다.', { type: 'success' });
     } catch (error) {
       setError(error);
     }
@@ -1179,7 +1128,7 @@ export default function AdminShippingPage() {
         batchId: selectedBatchId,
         reason: batchActionReason.trim() || null,
       });
-      setMessage('선택한 배송 배치를 취소했습니다.');
+      showToast('선택한 배송 배치를 취소했습니다.', { type: 'success' });
     } catch (error) {
       setError(error);
     }
@@ -1227,12 +1176,11 @@ export default function AdminShippingPage() {
 
   const handleDownloadPostOfficeExcel = async () => {
     if (!detail || (detail.orders || []).length === 0) {
-      setErrorMessage('다운로드할 배송 스냅샷 주문이 없습니다.');
+      showToast('다운로드할 배송 스냅샷 주문이 없습니다.', { type: 'warning' });
       return;
     }
 
-    setErrorMessage(null);
-    setMessage(null);
+    clearNotice();
     setIsExcelDownloading(true);
     try {
       const XLSX = await import('xlsx');
@@ -1298,7 +1246,9 @@ export default function AdminShippingPage() {
         bookType: 'biff8',
       });
 
-      setMessage(`우체국 접수 양식 엑셀을 생성했습니다. (${rows.length}건)`);
+      showToast(`우체국 접수 양식 엑셀을 생성했습니다. (${rows.length}건)`, {
+        type: 'success',
+      });
     } catch (error) {
       setError(error);
     } finally {
@@ -1315,42 +1265,6 @@ export default function AdminShippingPage() {
           관리합니다.
         </p>
       </header>
-
-      {(message || errorMessage) && (
-        <div
-          className={`rounded-lg border px-4 py-3 text-sm ${
-            errorMessage
-              ? 'border-red-200 bg-red-50 text-red-700'
-              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-          }`}
-        >
-          {errorMessage || message}
-        </div>
-      )}
-
-      <section className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-5">
-        <div>
-          <h2 className="text-base font-semibold text-slate-900">작업 가이드</h2>
-          <p className="text-sm text-slate-600">
-            반복 필터로 후보를 찾고, 출고 배치 스냅샷을 만든 뒤 운송장/배송 상태를 순서대로
-            처리하세요.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
-          {workflowGuideSteps.map((step) => (
-            <div key={step.key} className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-slate-900">{step.title}</p>
-                <Badge intent={step.done ? 'success' : 'default'}>
-                  {step.done ? '완료' : '대기'}
-                </Badge>
-              </div>
-              <p className="mt-2 text-xs text-slate-600">{step.description}</p>
-              <p className="mt-2 text-xs text-slate-500">{step.hint}</p>
-            </div>
-          ))}
-        </div>
-      </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -1375,277 +1289,256 @@ export default function AdminShippingPage() {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-gray-900">1) 출고 후보 주문 선택</h2>
-          <p className="text-sm text-gray-600">
-            배송 대기(READY_TO_SHIP) 주문만 표시됩니다. 주문 선택 즉시 자동 검증이 실행되며,
-            반복 조건은 뷰로 저장해 재사용할 수 있습니다.
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div>
-                <p className="text-xs text-gray-500">설정된 뷰</p>
-                <p className="text-sm font-medium text-gray-900">
-                  {selectedSavedView?.name || '설정된 뷰 없음'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">설정된 필터</p>
-                <p className="text-sm font-medium text-gray-900">{appliedFilterSummaryText}</p>
-              </div>
-            </div>
-            <Button intent="neutral" onClick={() => setIsViewManagerOpen((prev) => !prev)}>
-              {isViewManagerOpen ? '뷰 관리 닫기' : '뷰 관리 열기'}
-            </Button>
-          </div>
-        </div>
-
-        {isViewManagerOpen && (
-          <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-gray-800">필터 관리</p>
-              <p className="text-xs text-gray-600">
-                배송 후보 조회는 키워드/프로젝트/캠페인/기간 필터를 함께 사용할 수 있습니다.
-              </p>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
-                <Input
-                  value={keywordInput}
-                  onChange={(event) => setKeywordInput(event.target.value)}
-                  placeholder="주문번호/입금자명/프로젝트/캠페인"
-                  className="md:col-span-2"
-                />
-                <select
-                  className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-                  value={projectIdInput}
-                  disabled={projectsLoading}
-                  onChange={(event) => setProjectIdInput(event.target.value)}
-                >
-                  <option value="">전체 프로젝트</option>
-                  {projectOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-                  value={campaignIdInput}
-                  disabled={campaignsLoading}
-                  onChange={(event) => setCampaignIdInput(event.target.value)}
-                >
-                  <option value="">전체 캠페인</option>
-                  {campaignOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <Input
-                  type="date"
-                  value={dateFromInput}
-                  onChange={(event) => setDateFromInput(event.target.value)}
-                />
-                <Input
-                  type="date"
-                  value={dateToInput}
-                  onChange={(event) => setDateToInput(event.target.value)}
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button intent="neutral" onClick={handleSearchApply}>
-                  필터 적용
-                </Button>
-                <Button intent="neutral" onClick={handleSearchReset}>
-                  필터 해제
-                </Button>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-200" />
-
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-gray-800">뷰 관리</p>
-              <p className="text-xs text-gray-600">
-                현재 필터를 뷰로 저장하면 반복 작업 시 바로 다시 적용할 수 있습니다.
-              </p>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
-                <Input
-                  value={viewNameDraft}
-                  onChange={(event) => setViewNameDraft(event.target.value)}
-                  placeholder="새 뷰 이름 (예: 미루루-3월4주 출고)"
-                />
-                <Button intent="neutral" onClick={handleCreateViewFromCurrentFilter}>
-                  새 뷰 저장
-                </Button>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  intent={selectedViewId === 'DEFAULT' ? 'secondary' : 'neutral'}
-                  size="sm"
-                  onClick={() => {
-                    clearNotice();
-                    setSelectedViewId('DEFAULT');
-                    setMessage('뷰 선택을 해제했습니다.');
-                  }}
-                >
-                  뷰 선택 해제
-                </Button>
-                {selectedSavedView && (
-                  <Button intent="neutral" size="sm" onClick={handleUpdateSelectedView}>
-                    선택 뷰 업데이트
-                  </Button>
-                )}
-                <Button
-                  intent="danger"
-                  size="sm"
-                  onClick={() =>
-                    selectedSavedView ? handleDeleteSavedFilter(selectedSavedView.id) : null
-                  }
-                  disabled={!selectedSavedView}
-                >
-                  선택 뷰 삭제
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {savedFilters.length === 0 ? (
-                  <p className="text-xs text-gray-500">저장된 뷰가 없습니다.</p>
-                ) : (
-                  savedFilters.map((savedFilter) => (
-                    <button
-                      key={savedFilter.id}
-                      type="button"
-                      onClick={() => handleApplySavedFilter(savedFilter)}
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
-                        selectedViewId === savedFilter.id
-                          ? 'border-blue-200 bg-blue-50 text-blue-900'
-                          : 'border-gray-200 bg-white text-gray-700'
-                      }`}
-                    >
-                      <p className="font-medium">{savedFilter.name}</p>
-                      <p className="mt-1 text-[11px]">{buildFilterSummaryText(savedFilter.values)}</p>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            intent="neutral"
-            size="sm"
-            onClick={toggleSelectAll}
-            disabled={candidateRows.length === 0}
+      <section className="rounded-xl border border-gray-200 bg-white p-1">
+        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('candidates')}
+            className={`rounded-lg px-4 py-3 text-left text-sm font-semibold transition ${
+              activeTab === 'candidates'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
           >
-            {allChecked ? '전체 해제' : '전체 선택'}
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleCreateBatch}
-            disabled={selectedOrderIdsInView.length === 0 || isBusy}
+            출고 후보 주문 선택
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('batches')}
+            className={`rounded-lg px-4 py-3 text-left text-sm font-semibold transition ${
+              activeTab === 'batches'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
           >
-            선택 주문으로 배치 생성
-          </Button>
+            배송 배치 워크벤치
+          </button>
         </div>
-
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
-          {selectedOrderIdsInView.length === 0 ? (
-            <p>주문을 선택하면 주소/품목/차단 조건을 자동으로 검증합니다.</p>
-          ) : previewMutation.isPending ? (
-            <p>선택 주문을 자동 검증 중입니다...</p>
-          ) : previewErrorMessage ? (
-            <p className="text-red-600">자동 검증 실패: {previewErrorMessage}</p>
-          ) : hasFreshPreview ? (
-            <p>
-              자동 검증 결과: 통과 {summary.previewValidCount}건 · 차단 {summary.previewBlockedCount}
-              건
-            </p>
-          ) : (
-            <p>자동 검증 결과를 준비하고 있습니다.</p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <Input value={autoBatchTitle} readOnly placeholder="자동 생성 배치 번호" />
-          <Input value={selectedProjectSummary} readOnly placeholder="프로젝트 요약" />
-          <Textarea
-            rows={2}
-            value={batchNotes}
-            onChange={(event) => setBatchNotes(event.target.value)}
-            placeholder="배치 메모(선택)"
-          />
-        </div>
-
-        {candidatesQuery.isLoading ? (
-          <div className="py-8">
-            <Loading text="배송 후보 주문을 불러오는 중입니다." />
-          </div>
-        ) : candidateRows.length === 0 ? (
-          <EmptyState
-            title="선택 가능한 배송 후보 주문이 없습니다."
-            description="필터를 변경하거나 주문 상태를 확인해 주세요."
-          />
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 py-2 text-left">
-                    <input type="checkbox" checked={allChecked} onChange={toggleSelectAll} />
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">주문번호</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">프로젝트/캠페인</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">입금자</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">구성</th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-600">주문금액</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">주문일시</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
-                {candidateRows.map((row) => {
-                  const checked = selectedOrderIdsInView.includes(row.order_id);
-                  return (
-                    <tr key={row.order_id} className={checked ? 'bg-blue-50/60' : ''}>
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleOrderSelection(row.order_id)}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <p className="font-medium text-gray-900">{row.order_no}</p>
-                        <p className="text-xs text-gray-500">{row.order_id}</p>
-                      </td>
-                      <td className="px-3 py-2 text-xs text-gray-700">
-                        <p>{row.project_name || '-'}</p>
-                        <p className="text-gray-500">{row.campaign_name || '-'}</p>
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">{row.depositor_name || '-'}</td>
-                      <td className="px-3 py-2 text-gray-700">{resolveComposition(row)}</td>
-                      <td className="px-3 py-2 text-right text-gray-700">
-                        {formatCurrency(row.grand_total)}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {formatDate(row.placed_at || row.created_at)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
 
-      <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
+      {activeTab === 'candidates' && (
+        <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-gray-900">출고 후보 주문 선택</h2>
+            <p className="text-sm text-gray-600">
+              배송 대기(READY_TO_SHIP) 주문만 표시됩니다. 주문 선택 즉시 자동 검증이 실행되며,
+              반복 조건은 뷰로 저장해 재사용할 수 있습니다.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div>
+                  <p className="text-xs text-gray-500">설정된 뷰</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {selectedSavedView?.name || '설정된 뷰 없음'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">설정된 필터</p>
+                  <p className="text-sm font-medium text-gray-900">{appliedFilterSummaryText}</p>
+                </div>
+              </div>
+              <Button intent="neutral" onClick={() => setIsViewManagerOpen(true)}>
+                뷰/필터 설정
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button
+              intent="neutral"
+              onClick={toggleSelectAll}
+              disabled={candidateRows.length === 0}
+              className="h-11 px-5"
+            >
+              {allChecked ? '전체 해제' : '전체 선택'}
+            </Button>
+            <Button
+              onClick={handleCreateBatch}
+              disabled={selectedOrderIdsInView.length === 0 || isBusy}
+              className="h-11 px-5"
+            >
+              선택 주문으로 배치 생성
+            </Button>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+            {selectedOrderIdsInView.length === 0 ? (
+              <p>주문을 선택하면 주소/품목/차단 조건을 자동으로 검증합니다.</p>
+            ) : previewMutation.isPending ? (
+              <p>선택 주문을 자동 검증 중입니다...</p>
+            ) : previewErrorMessage ? (
+              <p className="text-red-600">자동 검증 실패: {previewErrorMessage}</p>
+            ) : hasFreshPreview ? (
+              <p>
+                자동 검증 결과: 통과 {summary.previewValidCount}건 · 차단 {summary.previewBlockedCount}
+                건
+              </p>
+            ) : (
+              <p>자동 검증 결과를 준비하고 있습니다.</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div>
+              {candidatesQuery.isLoading ? (
+                <div className="py-8">
+                  <Loading text="배송 후보 주문을 불러오는 중입니다." />
+                </div>
+              ) : candidateRows.length === 0 ? (
+                <EmptyState
+                  title="선택 가능한 배송 후보 주문이 없습니다."
+                  description="필터를 변경하거나 주문 상태를 확인해 주세요."
+                />
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="min-w-[1100px] table-fixed divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="w-12 px-3 py-2 text-left">
+                          <input type="checkbox" checked={allChecked} onChange={toggleSelectAll} />
+                        </th>
+                        <th className="w-[240px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                          주문번호
+                        </th>
+                        <th className="w-[150px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                          프로젝트
+                        </th>
+                        <th className="w-[220px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                          캠페인
+                        </th>
+                        <th className="w-[120px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                          입금자
+                        </th>
+                        <th className="w-[90px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                          구성
+                        </th>
+                        <th className="w-[120px] px-3 py-2 text-right font-medium text-gray-600 whitespace-nowrap">
+                          주문금액
+                        </th>
+                        <th className="w-[120px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                          주문일시
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {candidateRows.map((row) => {
+                        const checked = selectedOrderIdsInView.includes(row.order_id);
+                        return (
+                          <tr key={row.order_id} className={checked ? 'bg-blue-50/60' : ''}>
+                            <td className="px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleOrderSelection(row.order_id)}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <p
+                                className="max-w-[220px] truncate whitespace-nowrap font-medium text-gray-900"
+                                title={row.order_no}
+                              >
+                                {row.order_no}
+                              </p>
+                              <p
+                                className="max-w-[220px] truncate whitespace-nowrap text-xs text-gray-500"
+                                title={row.order_id}
+                              >
+                                {row.order_id}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 text-gray-700">
+                              <p className="max-w-[130px] truncate whitespace-nowrap" title={row.project_name || '-'}>
+                                {row.project_name || '-'}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 text-gray-700">
+                              <p className="max-w-[200px] truncate whitespace-nowrap" title={row.campaign_name || '-'}>
+                                {row.campaign_name || '-'}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 text-gray-700">
+                              <p className="max-w-[100px] truncate whitespace-nowrap" title={row.depositor_name || '-'}>
+                                {row.depositor_name || '-'}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{resolveComposition(row)}</td>
+                            <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">
+                              {formatCurrency(row.grand_total)}
+                            </td>
+                            <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                              {formatDateCompact24(row.placed_at || row.created_at)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+              <div className="flex items-end justify-between gap-2">
+                <p className="text-sm font-semibold text-gray-900">선택 주문 미리보기</p>
+                <p className="text-xs text-gray-500">선택 주문 {selectedOrderIdsInView.length}건</p>
+              </div>
+
+              {selectedOrderIdsInView.length === 0 ? (
+                <EmptyState
+                  title="주문을 선택해 주세요."
+                  description="선택한 주문의 출고 정보를 오른쪽에서 미리 확인할 수 있습니다."
+                />
+              ) : previewMutation.isPending ? (
+                <div className="py-8">
+                  <Loading text="미리보기를 준비하는 중입니다." />
+                </div>
+              ) : previewErrorMessage ? (
+                <p className="text-sm text-red-600">미리보기 생성 실패: {previewErrorMessage}</p>
+              ) : !hasFreshPreview || !previewData ? (
+                <p className="text-sm text-gray-500">미리보기 데이터를 불러오는 중입니다.</p>
+              ) : previewData.packing_rows.length === 0 ? (
+                <EmptyState title="표시할 정보가 없습니다." description="미리보기 대상이 비어 있습니다." />
+              ) : (
+                <>
+                  {previewData.blocked_order_count > 0 ? (
+                    <p className="text-xs text-amber-700">
+                      차단 주문 {previewData.blocked_order_count}건은 미리보기에서 제외되었습니다.
+                    </p>
+                  ) : null}
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium text-gray-600">주문번호</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-600">수취인</th>
+                          <th className="px-3 py-2 text-right font-medium text-gray-600">품목수</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {previewData.packing_rows.map((row) => (
+                          <tr key={`${row.order_id}-${row.order_no}`}>
+                            <td className="px-3 py-2 text-gray-900">{row.order_no}</td>
+                            <td className="px-3 py-2 text-gray-700">{row.recipient_name || '-'}</td>
+                            <td className="px-3 py-2 text-right text-gray-700">
+                              {row.item_count.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'batches' && (
+        <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-gray-900">2) 배송 배치 워크벤치</h2>
           <p className="text-sm text-gray-600">
@@ -1987,7 +1880,173 @@ export default function AdminShippingPage() {
             )}
           </div>
         )}
-      </section>
+        </section>
+      )}
+
+      {isViewManagerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setIsViewManagerOpen(false)}
+            aria-label="뷰/필터 모달 닫기"
+          />
+          <div className="relative z-10 flex max-h-[85vh] w-full max-w-4xl flex-col gap-4 overflow-y-auto rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">뷰/필터 설정</h3>
+                <p className="text-sm text-gray-600">
+                  배송 후보 조회는 키워드/프로젝트/캠페인/기간 필터를 함께 사용할 수 있습니다.
+                </p>
+              </div>
+              <Button intent="neutral" size="sm" onClick={() => setIsViewManagerOpen(false)}>
+                닫기
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-800">필터 관리</p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
+                <Input
+                  value={keywordInput}
+                  onChange={(event) => setKeywordInput(event.target.value)}
+                  placeholder="주문번호/입금자명/프로젝트/캠페인"
+                  className="md:col-span-2"
+                />
+                <select
+                  className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
+                  value={projectIdInput}
+                  disabled={projectsLoading}
+                  onChange={(event) => setProjectIdInput(event.target.value)}
+                >
+                  <option value="">전체 프로젝트</option>
+                  {projectOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
+                  value={campaignIdInput}
+                  disabled={campaignsLoading}
+                  onChange={(event) => setCampaignIdInput(event.target.value)}
+                >
+                  <option value="">전체 캠페인</option>
+                  {campaignOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  type="date"
+                  value={dateFromInput}
+                  onChange={(event) => setDateFromInput(event.target.value)}
+                />
+                <Input
+                  type="date"
+                  value={dateToInput}
+                  onChange={(event) => setDateToInput(event.target.value)}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  intent="neutral"
+                  onClick={() => {
+                    handleSearchApply();
+                    setIsViewManagerOpen(false);
+                  }}
+                >
+                  필터 적용
+                </Button>
+                <Button
+                  intent="neutral"
+                  onClick={() => {
+                    handleSearchReset();
+                    setIsViewManagerOpen(false);
+                  }}
+                >
+                  필터 해제
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200" />
+
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-800">뷰 관리</p>
+              <p className="text-xs text-gray-600">
+                현재 필터를 뷰로 저장하면 반복 작업 시 바로 다시 적용할 수 있습니다.
+              </p>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+                <Input
+                  value={viewNameDraft}
+                  onChange={(event) => setViewNameDraft(event.target.value)}
+                  placeholder="새 뷰 이름 (예: 미루루-3월4주 출고)"
+                />
+                <Button intent="neutral" onClick={handleCreateViewFromCurrentFilter}>
+                  새 뷰 저장
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  intent={selectedViewId === 'DEFAULT' ? 'secondary' : 'neutral'}
+                  size="sm"
+                  onClick={() => {
+                    clearNotice();
+                    setSelectedViewId('DEFAULT');
+                    showToast('뷰 선택을 해제했습니다.', { type: 'success' });
+                  }}
+                >
+                  뷰 선택 해제
+                </Button>
+                {selectedSavedView && (
+                  <Button intent="neutral" size="sm" onClick={handleUpdateSelectedView}>
+                    선택 뷰 업데이트
+                  </Button>
+                )}
+                <Button
+                  intent="danger"
+                  size="sm"
+                  onClick={() =>
+                    selectedSavedView ? handleDeleteSavedFilter(selectedSavedView.id) : null
+                  }
+                  disabled={!selectedSavedView}
+                >
+                  선택 뷰 삭제
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {savedFilters.length === 0 ? (
+                  <p className="text-xs text-gray-500">저장된 뷰가 없습니다.</p>
+                ) : (
+                  savedFilters.map((savedFilter) => (
+                    <button
+                      key={savedFilter.id}
+                      type="button"
+                      onClick={() => {
+                        handleApplySavedFilter(savedFilter);
+                        setIsViewManagerOpen(false);
+                      }}
+                      className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
+                        selectedViewId === savedFilter.id
+                          ? 'border-blue-200 bg-blue-50 text-blue-900'
+                          : 'border-gray-200 bg-white text-gray-700'
+                      }`}
+                    >
+                      <p className="font-medium">{savedFilter.name}</p>
+                      <p className="mt-1 text-[11px]">{buildFilterSummaryText(savedFilter.values)}</p>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
