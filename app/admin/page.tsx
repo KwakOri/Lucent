@@ -239,10 +239,54 @@ export default function AdminDashboardPage() {
   }
 
   const currencyCode = data.metadata.currency_code || 'KRW';
-  const maxTrendNet = Math.max(
+  const trendRows = data.trends.daily || [];
+  const trendMaxValue = Math.max(
     1,
-    ...data.trends.daily.map((row) => Math.max(0, Number(row.net_settlement_amount || 0))),
+    ...trendRows.flatMap((row) => [
+      Math.max(0, Number(row.order_gross_amount || 0)),
+      Math.max(0, Number(row.captured_amount || 0)),
+      Math.max(0, Number(row.refund_amount || 0)),
+      Math.max(0, Number(row.net_settlement_amount || 0)),
+    ]),
   );
+  const chartWidth = 720;
+  const chartHeight = 220;
+  const chartPaddingX = 24;
+  const chartPaddingY = 16;
+  const chartBodyWidth = chartWidth - chartPaddingX * 2;
+  const chartBodyHeight = chartHeight - chartPaddingY * 2;
+
+  const buildTrendPoints = (
+    valueSelector: (row: (typeof trendRows)[number]) => number,
+  ) => {
+    if (trendRows.length === 0) {
+      return '';
+    }
+    if (trendRows.length === 1) {
+      const value = Math.max(0, Number(valueSelector(trendRows[0]) || 0));
+      const x = chartWidth / 2;
+      const y = chartPaddingY + chartBodyHeight * (1 - value / trendMaxValue);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    }
+    return trendRows
+      .map((row, index) => {
+        const x = chartPaddingX + (chartBodyWidth * index) / (trendRows.length - 1);
+        const value = Math.max(0, Number(valueSelector(row) || 0));
+        const y = chartPaddingY + chartBodyHeight * (1 - value / trendMaxValue);
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(' ');
+  };
+
+  const orderGrossTrendPoints = buildTrendPoints((row) => row.order_gross_amount);
+  const capturedTrendPoints = buildTrendPoints((row) => row.captured_amount);
+  const refundTrendPoints = buildTrendPoints((row) => row.refund_amount);
+  const netTrendPoints = buildTrendPoints((row) => row.net_settlement_amount);
+  const firstTrendDate = trendRows[0]?.date || '-';
+  const middleTrendDate =
+    trendRows[Math.floor(Math.max(trendRows.length - 1, 0) / 2)]?.date || '-';
+  const lastTrendDate = trendRows[trendRows.length - 1]?.date || '-';
+
   const stageTotal = Object.values(data.pipeline.order_stage_counts).reduce(
     (sum, value) => sum + Number(value || 0),
     0,
@@ -407,35 +451,82 @@ export default function AdminDashboardPage() {
               상세 통계 보기
             </Link>
           </div>
-          <div className="space-y-2">
-            {data.trends.daily.length === 0 ? (
+          <div>
+            {trendRows.length === 0 ? (
               <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-5 text-center text-sm text-gray-500">
                 선택한 기간의 추세 데이터가 없습니다.
               </p>
             ) : (
-              data.trends.daily.map((row) => {
-                const barWidth = `${Math.max(
-                  2,
-                  Math.round((Math.max(0, row.net_settlement_amount) / maxTrendNet) * 100),
-                )}%`;
+              <div className="space-y-3">
+                <div className="overflow-hidden rounded-lg border border-gray-100 bg-gray-50 p-3">
+                  <svg
+                    viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                    className="h-56 w-full"
+                    role="img"
+                    aria-label="매출/정산 일별 추세 꺾은선 그래프"
+                  >
+                    {[0, 1, 2, 3, 4].map((index) => {
+                      const y = chartPaddingY + (chartBodyHeight * index) / 4;
+                      return (
+                        <line
+                          key={`grid-${index}`}
+                          x1={chartPaddingX}
+                          x2={chartWidth - chartPaddingX}
+                          y1={y}
+                          y2={y}
+                          stroke="#E5E7EB"
+                          strokeWidth="1"
+                        />
+                      );
+                    })}
 
-                return (
-                  <div key={row.date} className="rounded-lg border border-gray-100 px-3 py-2">
-                    <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
-                      <span>{row.date}</span>
-                      <span>{formatCurrency(row.net_settlement_amount, currencyCode)}</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-gray-100">
-                      <div className="h-2 rounded-full bg-blue-500" style={{ width: barWidth }} />
-                    </div>
-                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-gray-600">
-                      <span>매출 {formatNumber(row.order_gross_amount)}</span>
-                      <span>캡처 {formatNumber(row.captured_amount)}</span>
-                      <span>환불 {formatNumber(row.refund_amount)}</span>
-                    </div>
-                  </div>
-                );
-              })
+                    <polyline
+                      points={orderGrossTrendPoints}
+                      fill="none"
+                      stroke="#0EA5E9"
+                      strokeWidth="2.5"
+                    />
+                    <polyline
+                      points={capturedTrendPoints}
+                      fill="none"
+                      stroke="#2563EB"
+                      strokeWidth="2.5"
+                    />
+                    <polyline
+                      points={refundTrendPoints}
+                      fill="none"
+                      stroke="#EF4444"
+                      strokeWidth="2.5"
+                    />
+                    <polyline
+                      points={netTrendPoints}
+                      fill="none"
+                      stroke="#16A34A"
+                      strokeWidth="2.5"
+                    />
+                  </svg>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                  <p className="rounded-md bg-sky-50 px-2 py-1 text-sky-700">매출(주문총액)</p>
+                  <p className="rounded-md bg-blue-50 px-2 py-1 text-blue-700">캡처</p>
+                  <p className="rounded-md bg-red-50 px-2 py-1 text-red-700">환불</p>
+                  <p className="rounded-md bg-green-50 px-2 py-1 text-green-700">순정산</p>
+                </div>
+
+                <div className="grid grid-cols-3 text-xs text-gray-500">
+                  <span>{firstTrendDate}</span>
+                  <span className="text-center">{middleTrendDate}</span>
+                  <span className="text-right">{lastTrendDate}</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-4">
+                  <p>매출 {formatCurrency(data.kpis.order_gross_amount, currencyCode)}</p>
+                  <p>캡처 {formatCurrency(data.kpis.captured_amount, currencyCode)}</p>
+                  <p>환불 {formatCurrency(data.kpis.refund_amount, currencyCode)}</p>
+                  <p>순정산 {formatCurrency(data.kpis.net_settlement_amount, currencyCode)}</p>
+                </div>
+              </div>
             )}
           </div>
         </div>
