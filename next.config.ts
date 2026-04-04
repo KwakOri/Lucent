@@ -4,6 +4,15 @@ const nextConfig: NextConfig = {
   /* config options here */
   serverExternalPackages: ['ffmpeg-static', 'ffprobe-static', 'fluent-ffmpeg'],
 
+  async rewrites() {
+    return [
+      {
+        source: '/admin/shipping/print/:batchId',
+        destination: '/shipping/print/:batchId',
+      },
+    ];
+  },
+
   // API Route body size limit 증가 (보이스팩 업로드용)
   experimental: {
     serverActions: {
