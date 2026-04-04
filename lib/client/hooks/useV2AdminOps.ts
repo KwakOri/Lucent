@@ -21,6 +21,7 @@ import {
   type ListV2AdminCutoverRoutingFlagsParams,
   type ListV2AdminCutoverStageIssuesParams,
   type ListV2AdminCutoverStageRunsParams,
+  type ListV2AdminDashboardOverviewParams,
   type ListV2AdminFulfillmentQueueParams,
   type ListV2AdminInventoryHealthParams,
   type ListV2AdminInventoryLevelsParams,
@@ -276,6 +277,18 @@ export function useV2AdminSalesStats(params: ListV2AdminSalesStatsParams = {}) {
     queryKey: queryKeys.v2AdminOps.ops.salesStats(params),
     queryFn: async () => {
       const response = await V2AdminOpsAPI.listSalesStats(params);
+      return response.data;
+    },
+  });
+}
+
+export function useV2AdminDashboardOverview(
+  params: ListV2AdminDashboardOverviewParams = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.v2AdminOps.ops.dashboardOverview(params),
+    queryFn: async () => {
+      const response = await V2AdminOpsAPI.getDashboardOverview(params);
       return response.data;
     },
   });
