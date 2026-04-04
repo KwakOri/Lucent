@@ -30,7 +30,7 @@ export default async function AdminLayout({
       <AdminSidebar />
 
       {/* Main Content */}
-      <div className="lg:pl-64">
+      <div className="lg:pl-28">
         {/* Page Content */}
         <main className="py-8 px-4 sm:px-6 lg:px-8">
           {children}

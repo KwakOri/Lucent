@@ -48,6 +48,7 @@ export interface V2AdminShippingBatchQueueRow {
   updated_at: string;
   dispatch_failed_count: number;
   delivery_failed_count: number;
+  excluded_count: number;
 }
 
 export interface V2AdminShippingBatchOrderRow {
@@ -62,6 +63,10 @@ export interface V2AdminShippingBatchOrderRow {
   line_items_snapshot: Array<Record<string, unknown>> | null;
   dispatch_transition_status: V2AdminTransitionResult;
   delivery_transition_status: V2AdminTransitionResult;
+  is_excluded: boolean;
+  excluded_reason: string | null;
+  excluded_at: string | null;
+  excluded_by: Record<string, unknown> | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;
@@ -159,6 +164,11 @@ export interface ActV2AdminShippingBatchInput {
   metadata?: Record<string, unknown> | null;
 }
 
+export interface DownloadV2AdminShippingBatchPdfResult {
+  blob: Blob;
+  filename: string;
+}
+
 function toQueryString<T extends object>(params: T) {
   const searchParams = new URLSearchParams();
   Object.entries(params as Record<string, unknown>).forEach(([key, value]) => {
@@ -169,6 +179,70 @@ function toQueryString<T extends object>(params: T) {
   });
   const query = searchParams.toString();
   return query ? `?${query}` : '';
+}
+
+function resolveFilenameFromDisposition(
+  contentDisposition: string | null,
+): string | null {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]).trim();
+    } catch {
+      return utf8Match[1].trim();
+    }
+  }
+
+  const plainMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
+  if (!plainMatch?.[1]) {
+    return null;
+  }
+  return plainMatch[1].trim();
+}
+
+type ShippingPdfDownloadErrorPayload = {
+  message: string;
+  errorCode: string | null;
+  rawText: string;
+};
+
+async function readShippingPdfDownloadErrorPayload(
+  response: Response,
+): Promise<ShippingPdfDownloadErrorPayload> {
+  const rawText = (await response.text()).trim();
+  let parsed: Record<string, unknown> | null = null;
+
+  if (rawText) {
+    try {
+      parsed = JSON.parse(rawText) as Record<string, unknown>;
+    } catch {
+      parsed = null;
+    }
+  }
+
+  const messageFromJson =
+    parsed && typeof parsed.message === 'string' ? parsed.message.trim() : '';
+  const messageFromText =
+    rawText && !rawText.startsWith('<!DOCTYPE') && !rawText.startsWith('<html')
+      ? rawText
+      : '';
+  const errorCode =
+    parsed && typeof parsed.errorCode === 'string' && parsed.errorCode.trim()
+      ? parsed.errorCode.trim()
+      : null;
+
+  return {
+    message:
+      messageFromJson ||
+      messageFromText ||
+      '배송 리스트 PDF 생성에 실패했습니다.',
+    errorCode,
+    rawText,
+  };
 }
 
 export const V2AdminShippingAPI = {
@@ -232,5 +306,54 @@ export const V2AdminShippingAPI = {
     data: Pick<ActV2AdminShippingBatchInput, 'reason'> = {},
   ): Promise<ApiResponse<V2AdminShippingBatchDetail>> {
     return apiClient.post(`/api/v2/admin/ops/shipping/batches/${batchId}/cancel`, data);
+  },
+
+  async downloadBatchPrintPdf(
+    batchId: string,
+  ): Promise<DownloadV2AdminShippingBatchPdfResult> {
+    const response = await fetch(
+      `/api/v2/admin/ops/shipping/batches/${batchId}/print-pdf`,
+      {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      },
+    );
+
+    if (!response.ok) {
+      const errorPayload = await readShippingPdfDownloadErrorPayload(response);
+      const statusLabel = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+      const messageParts = [errorPayload.message, `status=${statusLabel}`];
+      if (errorPayload.errorCode) {
+        messageParts.push(`code=${errorPayload.errorCode}`);
+      }
+      const message = messageParts.join(' / ');
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[V2AdminShippingAPI] downloadBatchPrintPdf failed', {
+          batchId,
+          status: response.status,
+          statusText: response.statusText,
+          errorCode: errorPayload.errorCode,
+          responseBody: errorPayload.rawText,
+        });
+      }
+
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    if (!blob || blob.size === 0) {
+      throw new Error('생성된 PDF 파일이 비어 있습니다.');
+    }
+
+    const filename =
+      resolveFilenameFromDisposition(response.headers.get('content-disposition')) ||
+      `shipping_batch_${batchId}.pdf`;
+
+    return {
+      blob,
+      filename,
+    };
   },
 };

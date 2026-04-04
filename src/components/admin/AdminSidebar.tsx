@@ -1,29 +1,32 @@
 'use client';
 
-import { useState, type ComponentType } from 'react';
+import { useState, type FocusEvent } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  HomeIcon,
-  UserGroupIcon,
-  FolderIcon,
-  ShoppingBagIcon,
-  ShoppingCartIcon,
-  DocumentTextIcon,
-  ArrowsRightLeftIcon,
-  CubeIcon,
-  ShieldCheckIcon,
-  MegaphoneIcon,
-  PhotoIcon,
-  ChartBarIcon,
-  Bars3Icon,
-  XMarkIcon,
-} from '@heroicons/react/24/outline';
+  ArrowLeft,
+  ArrowLeftRight,
+  BarChart3,
+  FileText,
+  FolderOpen,
+  House,
+  ImageIcon,
+  Menu,
+  Megaphone,
+  Package,
+  RotateCcw,
+  ShieldCheck,
+  ShoppingBag,
+  ShoppingCart,
+  Users,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 
 type NavigationItem = {
   name: string;
   href: string;
-  icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+  icon: LucideIcon;
 };
 
 type NavigationSection = {
@@ -35,43 +38,49 @@ const navigationSections: NavigationSection[] = [
   {
     title: '공통',
     items: [
-      { name: '대시보드', href: '/admin', icon: HomeIcon },
-      { name: '로그 조회', href: '/admin/logs', icon: DocumentTextIcon },
+      { name: '대시보드', href: '/admin', icon: House },
+      { name: '로그 조회', href: '/admin/logs', icon: FileText },
     ],
   },
   {
-    title: 'v1 카탈로그',
+    title: '주요 관리',
     items: [
-      { name: 'v1 아티스트 관리', href: '/admin/artists', icon: UserGroupIcon },
-      { name: 'v1 프로젝트 관리', href: '/admin/projects', icon: FolderIcon },
-      { name: 'v1 상품 관리', href: '/admin/products', icon: ShoppingBagIcon },
+      { name: '운영 홈', href: '/admin/v2-catalog', icon: House },
+      { name: '주문 조회', href: '/admin/orders', icon: ShoppingCart },
+      {
+        name: '주문 이행 관리',
+        href: '/admin/production-shipping',
+        icon: ArrowLeftRight,
+      },
+      { name: '환불 관리', href: '/admin/refunds', icon: RotateCcw },
+      { name: '프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderOpen },
+      { name: '아티스트 관리', href: '/admin/v2-catalog/artists', icon: Users },
+      { name: '상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBag },
+      { name: '캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: Megaphone },
+      { name: '통계', href: '/admin/v2-ops/stats', icon: BarChart3 },
     ],
   },
   {
-    title: 'v2 주요 관리',
+    title: '기타',
     items: [
-      { name: 'v2 운영 홈', href: '/admin/v2-catalog', icon: HomeIcon },
-      { name: 'v2 주문 관리', href: '/admin/orders', icon: ShoppingCartIcon },
-      { name: 'v2 제작 관리', href: '/admin/production', icon: CubeIcon },
-      { name: 'v2 배송 관리', href: '/admin/shipping', icon: ArrowsRightLeftIcon },
-      { name: 'v2 프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderIcon },
-      { name: 'v2 아티스트 관리', href: '/admin/v2-catalog/artists', icon: UserGroupIcon },
-      { name: 'v2 상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBagIcon },
-      { name: 'v2 캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: MegaphoneIcon },
-      { name: 'v2 통계', href: '/admin/v2-ops/stats', icon: ChartBarIcon },
+      { name: '번들 관리', href: '/admin/v2-catalog/bundles', icon: Package },
+      { name: '전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowLeftRight },
+      { name: '미디어·에셋', href: '/admin/v2-catalog/assets', icon: ImageIcon },
+      { name: 'Admin Ops', href: '/admin/v2-ops', icon: ShieldCheck },
+      { name: '권한 관리', href: '/admin/v2-ops/rbac', icon: ShieldCheck },
     ],
   },
   {
-    title: 'v2 기타',
+    title: '레거시',
     items: [
-      { name: 'v2 번들 관리', href: '/admin/v2-catalog/bundles', icon: CubeIcon },
-      { name: 'v2 전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowsRightLeftIcon },
-      { name: 'v2 미디어·에셋', href: '/admin/v2-catalog/assets', icon: PhotoIcon },
-      { name: 'v2 Admin Ops', href: '/admin/v2-ops', icon: ShieldCheckIcon },
-      { name: 'v2 권한 관리', href: '/admin/v2-ops/rbac', icon: ShieldCheckIcon },
+      { name: '[LEGACY] 아티스트 관리', href: '/admin/artists', icon: Users },
+      { name: '[LEGACY] 프로젝트 관리', href: '/admin/projects', icon: FolderOpen },
+      { name: '[LEGACY] 상품 관리', href: '/admin/products', icon: ShoppingBag },
     ],
   },
 ];
+
+const desktopNavigationItems = navigationSections.flatMap((section) => section.items);
 
 function isNavItemActive(pathname: string, href: string): boolean {
   if (pathname === href) {
@@ -92,8 +101,17 @@ function isNavItemActive(pathname: string, href: string): boolean {
 export function AdminSidebar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopExpanded, setDesktopExpanded] = useState(false);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
+  const openDesktopMenu = () => setDesktopExpanded(true);
+  const closeDesktopMenu = () => setDesktopExpanded(false);
+
+  const handleDesktopBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      closeDesktopMenu();
+    }
+  };
 
   return (
     <>
@@ -105,14 +123,14 @@ export function AdminSidebar() {
           onClick={() => setMobileMenuOpen(true)}
         >
           <span className="sr-only">메뉴 열기</span>
-          <Bars3Icon className="h-6 w-6" aria-hidden />
+          <Menu className="h-6 w-6" aria-hidden />
         </button>
         <div className="flex-1 text-sm font-semibold leading-6 text-gray-900">
           Lucent Admin
         </div>
         <Link
           href="/"
-          className="text-sm font-semibold leading-6 text-gray-900 hover:text-blue-600"
+          className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600"
         >
           사이트로 돌아가기
         </Link>
@@ -139,7 +157,7 @@ export function AdminSidebar() {
                 onClick={closeMobileMenu}
               >
                 <span className="sr-only">메뉴 닫기</span>
-                <XMarkIcon className="h-6 w-6" aria-hidden />
+                <X className="h-6 w-6" aria-hidden />
               </button>
             </div>
             <nav className="mt-6">
@@ -161,14 +179,14 @@ export function AdminSidebar() {
                               className={`
                                 group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6
                                 ${isActive
-                                  ? 'bg-blue-50 text-blue-600'
-                                  : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'
+                                  ? 'bg-primary-50 text-primary-700'
+                                  : 'text-gray-700 hover:bg-gray-50 hover:text-primary-700'
                                 }
                               `}
                             >
                               <item.icon
                                 className={`h-6 w-6 shrink-0 ${
-                                  isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600'
+                                  isActive ? 'text-primary-700' : 'text-gray-400 group-hover:text-primary-700'
                                 }`}
                                 aria-hidden
                               />
@@ -185,7 +203,7 @@ export function AdminSidebar() {
                 <Link
                   href="/"
                   onClick={closeMobileMenu}
-                  className="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-700 hover:bg-gray-50 hover:text-blue-600"
+                  className="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-700 hover:bg-gray-50 hover:text-primary-700"
                 >
                   사이트로 돌아가기
                 </Link>
@@ -196,71 +214,82 @@ export function AdminSidebar() {
       )}
 
       {/* Desktop Sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
-        {/* Sidebar Container */}
-        <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 pb-4">
-          {/* Logo */}
-          <div className="flex h-16 shrink-0 items-center">
-            <Link href="/" className="text-xl font-bold text-gray-900">
-              Lucent Admin
-            </Link>
-          </div>
+      <div
+        className="hidden lg:fixed lg:left-6 lg:top-6 lg:z-50 lg:flex lg:flex-col lg:gap-4"
+        onMouseEnter={openDesktopMenu}
+        onMouseLeave={closeDesktopMenu}
+        onFocusCapture={openDesktopMenu}
+        onBlurCapture={handleDesktopBlur}
+      >
+        <Link
+          href="/"
+          className={`
+            flex h-14 items-center justify-start rounded-2xl bg-white pl-4 pr-4 text-sm font-semibold text-text-secondary
+            shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-primary-700
+            ${desktopExpanded ? 'w-48' : 'w-14'}
+          `}
+        >
+          <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
+          <span
+            className={`
+              overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
+              ${desktopExpanded ? 'ml-3 max-w-[9rem] opacity-100' : 'ml-0 max-w-0 opacity-0'}
+            `}
+          >
+            홈으로
+          </span>
+        </Link>
 
-          {/* Navigation */}
-          <nav className="flex flex-1 flex-col">
-            <ul role="list" className="flex flex-1 flex-col gap-y-7">
-              <li>
-                <div className="space-y-6">
-                  {navigationSections.map((section) => (
-                    <div key={section.title}>
-                      <p className="px-2 text-xs font-bold uppercase tracking-wide text-gray-400">
-                        {section.title}
-                      </p>
-                      <ul role="list" className="-mx-2 mt-2 space-y-1">
-                        {section.items.map((item) => {
-                          const isActive = isNavItemActive(pathname, item.href);
+        <nav
+          className={`
+            overflow-hidden rounded-[28px] bg-white p-3 shadow-lg ring-1 ring-neutral-200/90
+            transition-[width] duration-300 ease-out
+            ${desktopExpanded ? 'w-60' : 'w-[4.5rem]'}
+          `}
+        >
+          <ul
+            role="list"
+            className={`
+              max-h-[calc(100vh-12rem)] space-y-1 overflow-y-auto
+              ${desktopExpanded ? 'pr-1' : 'pr-0'}
+            `}
+          >
+            {desktopNavigationItems.map((item) => {
+              const isActive = isNavItemActive(pathname, item.href);
 
-                          return (
-                            <li key={item.name}>
-                              <Link
-                                href={item.href}
-                                className={`
-                                  group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6
-                                  ${isActive
-                                    ? 'bg-blue-50 text-blue-600'
-                                    : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'
-                                  }
-                                `}
-                              >
-                                <item.icon
-                                  className={`h-6 w-6 shrink-0 ${
-                                    isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600'
-                                  }`}
-                                  aria-hidden
-                                />
-                                {item.name}
-                              </Link>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </li>
-
-              {/* Spacer */}
-              <li className="mt-auto">
-                <Link
-                  href="/"
-                  className="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-700 hover:bg-gray-50 hover:text-blue-600"
-                >
-                  사이트로 돌아가기
-                </Link>
-              </li>
-            </ul>
-          </nav>
-        </div>
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={`
+                      flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold transition-colors
+                      ${isActive
+                        ? 'bg-primary-600 text-white shadow-sm'
+                        : 'text-neutral-500 hover:bg-primary-50 hover:text-primary-700'
+                      }
+                    `}
+                  >
+                    <item.icon
+                      className={`
+                        h-5 w-5 shrink-0
+                        ${isActive ? 'text-white' : 'text-neutral-500'}
+                      `}
+                      aria-hidden
+                    />
+                    <span
+                      className={`
+                        overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
+                        ${desktopExpanded ? 'ml-3 max-w-[11rem] opacity-100' : 'ml-0 max-w-0 opacity-0'}
+                      `}
+                    >
+                      {item.name}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
       </div>
     </>
   );

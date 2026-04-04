@@ -7,12 +7,19 @@ ROOT_DIR="$(cd "${FE_DIR}/.." && pwd)"
 BE_DIR="${ROOT_DIR}/backend"
 
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+FRONTEND_PORT_EXPLICIT=0
+FRONTEND_PORT_AUTO_FALLBACK_TRIES="${FRONTEND_PORT_AUTO_FALLBACK_TRIES:-20}"
 BACKEND_PORT="${BACKEND_PORT:-3001}"
+BACKEND_PORT_EXPLICIT=0
+BACKEND_PORT_AUTO_FALLBACK_TRIES="${BACKEND_PORT_AUTO_FALLBACK_TRIES:-20}"
 LOCAL_ADMIN_BYPASS_VALUE="${LOCAL_ADMIN_BYPASS:-true}"
+BACKEND_NODE_ENV_VALUE="${BACKEND_NODE_ENV:-}"
 RESET_DB=0
 KEEP_BACKEND=0
 USE_LOCAL_SUPABASE=0
 SYNC_LINKED_DATA=0
+SUPABASE_MINIMAL_SERVICES=1
+SUPABASE_MINIMAL_EXCLUDES="studio,logflare,realtime,storage-api,imgproxy,supavisor,edge-runtime,vector,postgres-meta,mailpit"
 
 BACKEND_PID=""
 BACKEND_LOG="${FE_DIR}/.tmp/dev-v2-local-backend.log"
@@ -34,8 +41,12 @@ Options:
   --use-local-supabase  로컬 Supabase를 기동해서 연결 (기본: 원격 DB)
   --reset-db            --use-local-supabase 모드에서 supabase db reset 실행
   --sync-linked-data    linked 원격 DB(public + auth.users/identities) 데이터를 덤프해 로컬 DB로 복원 (자동으로 --use-local-supabase + --reset-db 적용)
-  --frontend-port <n>   프론트 포트 (default: 3000)
-  --backend-port <n>    백엔드 포트 (default: 3001)
+  --full-supabase-services
+                      로컬 Supabase 전체 서비스 기동 (기본은 최소 서비스: db/kong/rest/auth)
+  --minimal-supabase-services
+                      로컬 Supabase 최소 서비스 기동 (기본값)
+  --frontend-port <n>   프론트 포트 (default: 3000, 직접 지정 시 점유되면 실패)
+  --backend-port <n>    백엔드 포트 (default: 3001, 직접 지정 시 점유되면 실패)
   --no-admin-bypass     LOCAL_ADMIN_BYPASS=false로 실행
   --keep-backend        스크립트 종료 시 백엔드 프로세스 유지
   --help, -h            도움말
@@ -123,6 +134,27 @@ wait_port_free() {
       return 0
     fi
     sleep 1
+  done
+  return 1
+}
+
+is_port_in_use() {
+  local port="$1"
+  lsof -ti "tcp:${port}" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+find_available_port() {
+  local start_port="$1"
+  local tries="${2:-20}"
+  local i
+  local candidate
+
+  for i in $(seq 0 "${tries}"); do
+    candidate=$((start_port + i))
+    if ! is_port_in_use "${candidate}"; then
+      printf '%s' "${candidate}"
+      return 0
+    fi
   done
   return 1
 }
@@ -275,12 +307,22 @@ while [[ $# -gt 0 ]]; do
       SYNC_LINKED_DATA=1
       shift
       ;;
+    --full-supabase-services)
+      SUPABASE_MINIMAL_SERVICES=0
+      shift
+      ;;
+    --minimal-supabase-services)
+      SUPABASE_MINIMAL_SERVICES=1
+      shift
+      ;;
     --frontend-port)
       FRONTEND_PORT="$2"
+      FRONTEND_PORT_EXPLICIT=1
       shift 2
       ;;
     --backend-port)
       BACKEND_PORT="$2"
+      BACKEND_PORT_EXPLICIT=1
       shift 2
       ;;
     --no-admin-bypass)
@@ -328,9 +370,19 @@ SUPABASE_ANON_KEY_VALUE=""
 SUPABASE_SERVICE_ROLE_KEY_VALUE=""
 
 if [[ "${USE_LOCAL_SUPABASE}" -eq 1 ]]; then
-  log "starting local supabase"
+  if [[ "${SUPABASE_MINIMAL_SERVICES}" -eq 1 ]]; then
+    log "starting local supabase (minimal services: db/kong/rest/auth)"
+  else
+    log "starting local supabase (full services)"
+  fi
   cd "${FE_DIR}"
-  npx supabase start
+  if [[ "${SUPABASE_MINIMAL_SERVICES}" -eq 1 ]]; then
+    npx supabase start \
+      -x "${SUPABASE_MINIMAL_EXCLUDES}" \
+      --ignore-health-check
+  else
+    npx supabase start
+  fi
 
   if [[ "${RESET_DB}" -eq 1 ]]; then
     log "running supabase db reset"
@@ -376,26 +428,55 @@ else
   )"
 fi
 
-if lsof -ti "tcp:${BACKEND_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
-  echo "backend port ${BACKEND_PORT} already in use. stop the process or use --backend-port." >&2
-  exit 1
+if is_port_in_use "${BACKEND_PORT}"; then
+  if [[ "${BACKEND_PORT_EXPLICIT}" -eq 1 ]]; then
+    echo "backend port ${BACKEND_PORT} already in use. stop the process or choose another --backend-port." >&2
+    exit 1
+  fi
+
+  original_backend_port="${BACKEND_PORT}"
+  fallback_start_port=$((BACKEND_PORT + 1))
+  fallback_backend_port="$(
+    find_available_port "${fallback_start_port}" "${BACKEND_PORT_AUTO_FALLBACK_TRIES}" || true
+  )"
+  if [[ -z "${fallback_backend_port}" ]]; then
+    echo "backend port ${BACKEND_PORT} already in use and no fallback port found near ${fallback_start_port}." >&2
+    echo "stop the process or use --backend-port." >&2
+    exit 1
+  fi
+
+  BACKEND_PORT="${fallback_backend_port}"
+  log "backend port ${original_backend_port} already in use, using fallback port ${BACKEND_PORT}"
 fi
 
 BACKEND_BASE_URL="http://127.0.0.1:${BACKEND_PORT}"
 
 log "starting backend on ${BACKEND_BASE_URL} (LOCAL_ADMIN_BYPASS=${LOCAL_ADMIN_BYPASS_VALUE})"
+if [[ -n "${BACKEND_NODE_ENV_VALUE}" ]]; then
+  log "backend NODE_ENV override=${BACKEND_NODE_ENV_VALUE}"
+fi
 cd "${BE_DIR}"
 (
   tail -n 0 -f "${BACKEND_LOG}" 2>/dev/null | sed -u 's/^/[backend] /'
 ) &
 BACKEND_LOG_TAIL_PID=$!
 
-SUPABASE_URL="${SUPABASE_URL_VALUE}" \
-SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY_VALUE}" \
-SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY_VALUE}" \
-LOCAL_ADMIN_BYPASS="${LOCAL_ADMIN_BYPASS_VALUE}" \
-PORT="${BACKEND_PORT}" \
-npm run start:dev >"${BACKEND_LOG}" 2>&1 &
+if [[ -n "${BACKEND_NODE_ENV_VALUE}" ]]; then
+  NODE_ENV="${BACKEND_NODE_ENV_VALUE}" \
+  SUPABASE_URL="${SUPABASE_URL_VALUE}" \
+  SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY_VALUE}" \
+  SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY_VALUE}" \
+  LOCAL_ADMIN_BYPASS="${LOCAL_ADMIN_BYPASS_VALUE}" \
+  PORT="${BACKEND_PORT}" \
+  npm run start:dev >"${BACKEND_LOG}" 2>&1 &
+else
+  SUPABASE_URL="${SUPABASE_URL_VALUE}" \
+  SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY_VALUE}" \
+  SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY_VALUE}" \
+  LOCAL_ADMIN_BYPASS="${LOCAL_ADMIN_BYPASS_VALUE}" \
+  PORT="${BACKEND_PORT}" \
+  npm run start:dev >"${BACKEND_LOG}" 2>&1 &
+fi
 BACKEND_PID=$!
 
 for _ in $(seq 1 60); do
@@ -409,6 +490,27 @@ if ! curl -fsS "${BACKEND_BASE_URL}/api/health" >/dev/null 2>&1; then
   echo "backend health check failed: ${BACKEND_BASE_URL}/api/health" >&2
   tail -n 120 "${BACKEND_LOG}" >&2 || true
   exit 1
+fi
+
+if is_port_in_use "${FRONTEND_PORT}"; then
+  if [[ "${FRONTEND_PORT_EXPLICIT}" -eq 1 ]]; then
+    echo "frontend port ${FRONTEND_PORT} already in use. stop the process or choose another --frontend-port." >&2
+    exit 1
+  fi
+
+  original_frontend_port="${FRONTEND_PORT}"
+  fallback_frontend_start_port=$((FRONTEND_PORT + 1))
+  fallback_frontend_port="$(
+    find_available_port "${fallback_frontend_start_port}" "${FRONTEND_PORT_AUTO_FALLBACK_TRIES}" || true
+  )"
+  if [[ -z "${fallback_frontend_port}" ]]; then
+    echo "frontend port ${FRONTEND_PORT} already in use and no fallback port found near ${fallback_frontend_start_port}." >&2
+    echo "stop the process or use --frontend-port." >&2
+    exit 1
+  fi
+
+  FRONTEND_PORT="${fallback_frontend_port}"
+  log "frontend port ${original_frontend_port} already in use, using fallback port ${FRONTEND_PORT}"
 fi
 
 log "starting frontend on http://127.0.0.1:${FRONTEND_PORT}"

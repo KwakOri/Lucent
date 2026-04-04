@@ -17,6 +17,7 @@ import {
   useCreateV2BundleComponent,
   useCreateV2BundleDefinition,
   useDeleteV2BundleComponent,
+  usePublishV2BundleDefinition,
   useUpdateV2BundleComponent,
   useUpdateV2BundleDefinition,
   useV2AdminProducts,
@@ -38,6 +39,8 @@ type DesiredBundleComponent = {
   defaultQuantity: number;
   sortOrder: number;
 };
+
+type BundleQuantityPolicy = 'INHERIT_PARENT' | 'FIXED_PER_PARENT';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -81,6 +84,14 @@ function sortVariants(left: V2Variant, right: V2Variant): number {
   return left.title.localeCompare(right.title, 'ko-KR');
 }
 
+function parsePositiveInteger(value: string): number | null {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
 export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProps) {
   const queryClient = useQueryClient();
   const [preferredDefinitionId, setPreferredDefinitionId] = useState<string | null>(
@@ -92,6 +103,8 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
   const [isSelectionDirty, setIsSelectionDirty] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [productSearch, setProductSearch] = useState('');
+  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
 
   const {
     data: definitions,
@@ -197,9 +210,57 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
     () => (isSelectionDirty ? draftSelectedProductIds : selectedProductIdsFromDefinition),
     [draftSelectedProductIds, isSelectionDirty, selectedProductIdsFromDefinition],
   );
+  const selectedProductIdSet = useMemo(
+    () => new Set(selectedProductIds),
+    [selectedProductIds],
+  );
+
+  const inferredQuantityPolicy = useMemo<BundleQuantityPolicy>(() => {
+    const policy = activeDefinition?.metadata?.product_editor_policy;
+    if (!policy || typeof policy !== 'object') {
+      return 'INHERIT_PARENT';
+    }
+
+    const quantityPolicy = (policy as { quantity_policy?: unknown }).quantity_policy;
+    return quantityPolicy === 'FIXED_PER_PARENT'
+      ? 'FIXED_PER_PARENT'
+      : 'INHERIT_PARENT';
+  }, [activeDefinition?.metadata]);
+
+  const inferredFixedQuantity = useMemo(() => {
+    const policy = activeDefinition?.metadata?.product_editor_policy;
+    if (!policy || typeof policy !== 'object') {
+      return '1';
+    }
+
+    const quantityPerParent = (policy as { quantity_per_parent?: unknown })
+      .quantity_per_parent;
+    if (
+      typeof quantityPerParent !== 'number' ||
+      !Number.isInteger(quantityPerParent) ||
+      quantityPerParent <= 0
+    ) {
+      return '1';
+    }
+    return String(quantityPerParent);
+  }, [activeDefinition?.metadata]);
+
+  const [draftQuantityPolicy, setDraftQuantityPolicy] =
+    useState<BundleQuantityPolicy>('INHERIT_PARENT');
+  const [draftFixedQuantity, setDraftFixedQuantity] = useState('1');
+  const [isPolicyDirty, setIsPolicyDirty] = useState(false);
+
+  const selectedQuantityPolicy = isPolicyDirty
+    ? draftQuantityPolicy
+    : inferredQuantityPolicy;
+  const selectedFixedQuantity =
+    selectedQuantityPolicy === 'INHERIT_PARENT'
+      ? 1
+      : parsePositiveInteger(isPolicyDirty ? draftFixedQuantity : inferredFixedQuantity);
 
   const createDefinition = useCreateV2BundleDefinition();
   const updateDefinition = useUpdateV2BundleDefinition();
+  const publishDefinition = usePublishV2BundleDefinition();
   const createComponent = useCreateV2BundleComponent();
   const updateComponent = useUpdateV2BundleComponent();
   const deleteComponent = useDeleteV2BundleComponent();
@@ -207,6 +268,7 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
   const isSaving =
     createDefinition.isPending ||
     updateDefinition.isPending ||
+    publishDefinition.isPending ||
     createComponent.isPending ||
     updateComponent.isPending ||
     deleteComponent.isPending;
@@ -222,6 +284,32 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
     }
   };
 
+  const availableSelectableProductIds = useMemo(
+    () =>
+      selectableProducts
+        .filter(
+          (product) => (selectableVariantsByProductId[product.id] || []).length > 0,
+        )
+        .map((product) => product.id),
+    [selectableProducts, selectableVariantsByProductId],
+  );
+
+  const filteredSelectableProducts = useMemo(() => {
+    const keyword = productSearch.trim().toLowerCase();
+    return selectableProducts.filter((product) => {
+      if (showSelectedOnly && !selectedProductIdSet.has(product.id)) {
+        return false;
+      }
+      if (!keyword) {
+        return true;
+      }
+      return (
+        product.title.toLowerCase().includes(keyword) ||
+        product.slug.toLowerCase().includes(keyword)
+      );
+    });
+  }, [productSearch, selectableProducts, selectedProductIdSet, showSelectedOnly]);
+
   const handleToggleProduct = (productId: string, checked: boolean) => {
     const baseSelectedProductIds = isSelectionDirty
       ? draftSelectedProductIds
@@ -236,9 +324,25 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
     });
   };
 
+  const handleSelectAllAvailable = () => {
+    const baseSelectedProductIds = isSelectionDirty
+      ? draftSelectedProductIds
+      : selectedProductIdsFromDefinition;
+    setIsSelectionDirty(true);
+    setDraftSelectedProductIds(
+      Array.from(new Set([...baseSelectedProductIds, ...availableSelectableProductIds])),
+    );
+  };
+
+  const handleClearSelected = () => {
+    setIsSelectionDirty(true);
+    setDraftSelectedProductIds([]);
+  };
+
   const ensureEditableDefinition = async (): Promise<{
     definitionId: string;
     mode: V2BundleMode;
+    metadata: Record<string, unknown>;
     existingComponents: V2BundleComponent[];
     isNewVersion: boolean;
     versionNo: number;
@@ -247,6 +351,7 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
       return {
         definitionId: activeDefinition.id,
         mode: activeDefinition.mode,
+        metadata: activeDefinition.metadata || {},
         existingComponents: components || [],
         isNewVersion: false,
         versionNo: activeDefinition.version_no,
@@ -266,6 +371,7 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
     return {
       definitionId: response.data.id,
       mode: response.data.mode,
+      metadata: response.data.metadata || {},
       existingComponents: [],
       isNewVersion: true,
       versionNo: response.data.version_no,
@@ -321,8 +427,22 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
       return;
     }
 
+    if (selectedProductIds.length === 0) {
+      setMessage(null);
+      setErrorMessage('번들에 포함할 상품을 1개 이상 선택해 주세요.');
+      return;
+    }
+
+    if (selectedQuantityPolicy === 'FIXED_PER_PARENT' && !selectedFixedQuantity) {
+      setMessage(null);
+      setErrorMessage('고정 수량은 1 이상의 정수여야 합니다.');
+      return;
+    }
+
     await runWithNotice(async () => {
       const editableDefinition = await ensureEditableDefinition();
+      const quantityPerParent =
+        selectedQuantityPolicy === 'INHERIT_PARENT' ? 1 : selectedFixedQuantity!;
       const desiredComponents = buildDesiredComponents();
       const desiredByVariantId = new Map(
         desiredComponents.map((component) => [component.variantId, component]),
@@ -334,13 +454,22 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
         ]),
       );
 
-      if (editableDefinition.mode !== 'CUSTOMIZABLE') {
-        await updateDefinition.mutateAsync({
-          definitionId: editableDefinition.definitionId,
-          data: { mode: 'CUSTOMIZABLE' },
-          skipInvalidate: true,
-        });
-      }
+      await updateDefinition.mutateAsync({
+        definitionId: editableDefinition.definitionId,
+        data: {
+          mode: editableDefinition.mode === 'CUSTOMIZABLE' ? undefined : 'CUSTOMIZABLE',
+          metadata: {
+            ...editableDefinition.metadata,
+            product_editor_policy: {
+              variant_inclusion: 'MIXED',
+              quantity_policy: selectedQuantityPolicy,
+              quantity_per_parent: quantityPerParent,
+              configured_at: new Date().toISOString(),
+            },
+          },
+        },
+        skipInvalidate: true,
+      });
 
       const componentsToDelete = editableDefinition.existingComponents.filter(
         (component) =>
@@ -408,61 +537,65 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
         });
       }
 
+      const publishResponse = await publishDefinition.mutateAsync({
+        definitionId: editableDefinition.definitionId,
+        skipInvalidate: true,
+      });
+      setPreferredDefinitionId(publishResponse.data.id);
+
       await queryClient.invalidateQueries({
         queryKey: queryKeys.v2CatalogAdmin.bundles.definitions.all,
       });
 
       setIsSelectionDirty(false);
       setDraftSelectedProductIds(selectedProductIds);
+      setIsPolicyDirty(false);
+      setDraftQuantityPolicy(selectedQuantityPolicy);
+      setDraftFixedQuantity(String(quantityPerParent));
       setMessage(
         editableDefinition.isNewVersion
-          ? `DRAFT v${editableDefinition.versionNo}을 생성하고 번들 구성 상품을 저장했습니다.`
-          : '번들 구성 상품을 저장했습니다.',
+          ? `DRAFT v${editableDefinition.versionNo}을 생성하고 번들 구성을 ACTIVE로 확정했습니다.`
+          : '번들 구성을 저장하고 ACTIVE로 확정했습니다.',
       );
     });
   };
 
   const hasCriticalLoadError =
     Boolean(definitionsError) || Boolean(productsError) || variantsError;
+  const hasInvalidFixedQuantity =
+    selectedQuantityPolicy === 'FIXED_PER_PARENT' && !selectedFixedQuantity;
+  const hasUnsavedChanges = isSelectionDirty || isPolicyDirty;
+  const currentPolicyMetadata = useMemo(() => {
+    const policy = activeDefinition?.metadata?.product_editor_policy;
+    if (!policy || typeof policy !== 'object') {
+      return null;
+    }
+    return policy as Record<string, unknown>;
+  }, [activeDefinition?.metadata]);
 
   return (
     <section className="rounded-2xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-blue-900">번들 구성 상품</h2>
+          <h2 className="text-lg font-semibold text-blue-900">번들 설정</h2>
           <p className="mt-1 text-sm text-blue-900/80">
-            같은 프로젝트 상품을 고르면 번들 구성에 반영됩니다. 옵션은 구매 시점에 소비자가 선택합니다.
+            상품 상세 화면에서 번들 구성을 완료하고 바로 ACTIVE로 반영할 수 있습니다.
           </p>
           <p className="mt-2 text-xs text-blue-900/80">
-            옵션이 1개인 상품은 자동 포함되고, 옵션이 2개 이상인 상품은 선택형으로 저장됩니다.
+            운영 흐름: 1) 구성 상품 선택 2) 수량 정책 확인 3) 저장 후 ACTIVE 확정
           </p>
-          {activeDefinition && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-blue-900/80">
-              <Badge intent={resolveDefinitionStatusIntent(activeDefinition.status)} size="sm">
-                v{activeDefinition.version_no} · {activeDefinition.status}
-              </Badge>
-              <span>
-                mode={activeDefinition.mode} / pricing={activeDefinition.pricing_strategy}
-              </span>
-            </div>
-          )}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Badge intent="info">{selectedProductIds.length}개 선택</Badge>
-          <Button
-            intent="neutral"
-            loading={isSaving}
-            disabled={
-              definitionsLoading ||
-              componentsLoading ||
-              productsLoading ||
-              variantsLoading ||
-              hasCriticalLoadError
-            }
-            onClick={handleSave}
-          >
-            번들 구성 저장
-          </Button>
+          {hasUnsavedChanges && <Badge intent="warning">변경됨</Badge>}
+          {activeDefinition && (
+            <Badge
+              intent={resolveDefinitionStatusIntent(activeDefinition.status)}
+              size="sm"
+            >
+              v{activeDefinition.version_no} · {activeDefinition.status}
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -477,83 +610,261 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
         </div>
       )}
 
-      {definitionsLoading || componentsLoading || productsLoading || variantsLoading ? (
-        <div className="mt-5 rounded-2xl border border-blue-100 bg-white px-4 py-8">
-          <Loading size="md" text="번들 구성 가능한 상품을 불러오는 중입니다." />
-        </div>
-      ) : (
-        <div className="mt-5 space-y-3">
-          {hasCriticalLoadError && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
-              번들 구성 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+      <div className="mt-4 space-y-4">
+        <section className="rounded-xl border border-blue-200 bg-white px-4 py-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-blue-900">1) 구성 상품 선택</p>
+              <p className="mt-1 text-xs text-blue-900/80">
+                같은 프로젝트의 STANDARD 상품을 선택해 번들 구성에 포함합니다.
+              </p>
             </div>
-          )}
-          {!hasCriticalLoadError && componentsError && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
-              기존 번들 구성 조회에 실패했습니다. 저장 시 새 구성으로 덮어씁니다.
+            <div className="flex flex-wrap gap-2">
+              <Button
+                intent="secondary"
+                size="sm"
+                disabled={availableSelectableProductIds.length === 0 || isSaving}
+                onClick={handleSelectAllAvailable}
+              >
+                전체 선택
+              </Button>
+              <Button
+                intent="neutral"
+                size="sm"
+                disabled={selectedProductIds.length === 0 || isSaving}
+                onClick={handleClearSelected}
+              >
+                선택 해제
+              </Button>
             </div>
-          )}
+          </div>
 
-          {!hasCriticalLoadError && selectableProducts.length === 0 && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
-              선택 가능한 일반 상품이 없습니다. 같은 프로젝트에 STANDARD 상품을 먼저 만들어 주세요.
+          <div className="mt-4 grid gap-2 lg:grid-cols-[1fr_auto] lg:items-center">
+            <input
+              type="text"
+              placeholder="상품명 또는 slug 검색"
+              className="h-9 rounded-md border border-gray-300 px-3 text-sm"
+              value={productSearch}
+              onChange={(event) => setProductSearch(event.target.value)}
+            />
+            <label className="inline-flex items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={showSelectedOnly}
+                onChange={(event) => setShowSelectedOnly(event.target.checked)}
+              />
+              선택한 상품만 보기
+            </label>
+          </div>
+
+          {definitionsLoading || componentsLoading || productsLoading || variantsLoading ? (
+            <div className="mt-4 rounded-2xl border border-blue-100 bg-white px-4 py-8">
+              <Loading size="md" text="번들 구성 가능한 상품을 불러오는 중입니다." />
             </div>
-          )}
+          ) : (
+            <div className="mt-4 space-y-3">
+              {hasCriticalLoadError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+                  번들 구성 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+                </div>
+              )}
+              {!hasCriticalLoadError && componentsError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+                  기존 번들 구성 조회에 실패했습니다. 저장 시 새 구성으로 덮어씁니다.
+                </div>
+              )}
 
-          {!hasCriticalLoadError &&
-            selectableProducts.map((product) => {
-              const variants = selectableVariantsByProductId[product.id] || [];
-              const variantCount = variants.length;
-              const checked = selectedProductIds.includes(product.id);
-              const disabled = variantCount === 0;
-              const optionSummary =
-                variantCount <= 1
-                  ? '옵션 1개(자동 포함)'
-                  : `옵션 ${variantCount}개(구매 시 소비자 선택)`;
+              {!hasCriticalLoadError && selectableProducts.length === 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                  선택 가능한 일반 상품이 없습니다. 같은 프로젝트에 STANDARD 상품을 먼저 만들어 주세요.
+                </div>
+              )}
 
-              return (
-                <label
-                  key={product.id}
-                  className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition ${
-                    checked
-                      ? 'border-blue-300 bg-white'
-                      : 'border-blue-100 bg-white/80 hover:border-blue-200'
-                  } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    className="mt-1 h-4 w-4"
-                    checked={checked}
-                    disabled={disabled}
-                    onChange={(event) =>
-                      handleToggleProduct(product.id, event.target.checked)
-                    }
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold text-gray-900">{product.title}</p>
-                      <Badge intent="default" size="sm">
-                        {optionSummary}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">/shop/{product.slug}</p>
-                    {disabled ? (
-                      <p className="mt-1 text-xs text-amber-700">
-                        선택 가능한 옵션이 없어 번들에 추가할 수 없습니다.
-                      </p>
-                    ) : (
-                      <p className="mt-1 text-xs text-gray-600">
-                        {variantCount === 1
-                          ? '관리자가 옵션을 고를 필요가 없습니다.'
-                          : '소비자가 구매 시 원하는 옵션을 선택합니다.'}
-                      </p>
-                    )}
+              {!hasCriticalLoadError &&
+                selectableProducts.length > 0 &&
+                filteredSelectableProducts.length === 0 && (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-700">
+                    검색/필터 조건에 맞는 상품이 없습니다.
                   </div>
+                )}
+
+              {!hasCriticalLoadError && filteredSelectableProducts.length > 0 && (
+                <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                  {filteredSelectableProducts.map((product) => {
+                    const variants = selectableVariantsByProductId[product.id] || [];
+                    const variantCount = variants.length;
+                    const checked = selectedProductIdSet.has(product.id);
+                    const disabled = variantCount === 0;
+                    const optionSummary =
+                      variantCount <= 1
+                        ? '옵션 1개(자동 포함)'
+                        : `옵션 ${variantCount}개(구매 시 소비자 선택)`;
+
+                    return (
+                      <label
+                        key={product.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition ${
+                          checked
+                            ? 'border-blue-300 bg-white'
+                            : 'border-blue-100 bg-white/80 hover:border-blue-200'
+                        } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4"
+                          checked={checked}
+                          disabled={disabled}
+                          onChange={(event) =>
+                            handleToggleProduct(product.id, event.target.checked)
+                          }
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {product.title}
+                            </p>
+                            <Badge intent="default" size="sm">
+                              {optionSummary}
+                            </Badge>
+                            {checked && (
+                              <Badge intent="success" size="sm">
+                                선택됨
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs text-gray-500">/shop/{product.slug}</p>
+                          {disabled ? (
+                            <p className="mt-1 text-xs text-amber-700">
+                              선택 가능한 옵션이 없어 번들에 추가할 수 없습니다.
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-xs text-gray-600">
+                              {variantCount === 1
+                                ? '관리자가 옵션을 고를 필요가 없습니다.'
+                                : '소비자가 구매 시 원하는 옵션을 선택합니다.'}
+                            </p>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-blue-200 bg-white px-4 py-4">
+          <p className="text-sm font-semibold text-blue-900">2) 수량 정책</p>
+          <p className="mt-1 text-xs text-blue-900/80">
+            번들 편집 시 사용한 수량 정책을 metadata에 기록합니다. 현재 구성 방식(선택형 옵션)은 유지됩니다.
+          </p>
+          <div className="mt-3 space-y-2">
+            <label className="flex items-start gap-2 rounded-lg border border-blue-100 px-3 py-2">
+              <input
+                type="radio"
+                name="bundle-quantity-policy"
+                checked={selectedQuantityPolicy === 'INHERIT_PARENT'}
+                onChange={() => {
+                  setIsPolicyDirty(true);
+                  setDraftQuantityPolicy('INHERIT_PARENT');
+                }}
+              />
+              <span className="text-sm text-gray-700">
+                부모 수량 상속(`INHERIT_PARENT`): 부모 1개당 기본 수량 정책을 사용합니다.
+              </span>
+            </label>
+            <label className="flex items-start gap-2 rounded-lg border border-blue-100 px-3 py-2">
+              <input
+                type="radio"
+                name="bundle-quantity-policy"
+                checked={selectedQuantityPolicy === 'FIXED_PER_PARENT'}
+                onChange={() => {
+                  setIsPolicyDirty(true);
+                  setDraftQuantityPolicy('FIXED_PER_PARENT');
+                  setDraftFixedQuantity(inferredFixedQuantity);
+                }}
+              />
+              <span className="text-sm text-gray-700">
+                고정 수량(`FIXED_PER_PARENT`): 부모 1개당 고정 배수를 기록합니다.
+              </span>
+            </label>
+            {selectedQuantityPolicy === 'FIXED_PER_PARENT' && (
+              <div className="flex items-center gap-2 pl-6">
+                <label
+                  htmlFor="bundle-fixed-quantity"
+                  className="text-xs font-medium text-gray-600"
+                >
+                  부모 1개당 고정 수량
                 </label>
-              );
-            })}
-        </div>
-      )}
+                <input
+                  id="bundle-fixed-quantity"
+                  type="number"
+                  min={1}
+                  className="h-9 w-24 rounded-md border border-gray-300 px-2 text-sm"
+                  value={isPolicyDirty ? draftFixedQuantity : inferredFixedQuantity}
+                  onChange={(event) => {
+                    setIsPolicyDirty(true);
+                    setDraftFixedQuantity(event.target.value);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+          {hasInvalidFixedQuantity && (
+            <p className="mt-3 text-xs text-red-600">
+              고정 수량은 1 이상의 정수만 입력할 수 있습니다.
+            </p>
+          )}
+        </section>
+
+        <details className="rounded-xl border border-blue-100 bg-white px-4 py-3">
+          <summary className="cursor-pointer text-sm font-semibold text-blue-900">
+            3) 고급 정보 (버전/메타데이터)
+          </summary>
+          <div className="mt-3 space-y-2 text-xs text-gray-700">
+            {activeDefinition ? (
+              <>
+                <p>
+                  version={activeDefinition.version_no} / status=
+                  {activeDefinition.status} / mode={activeDefinition.mode} / pricing=
+                  {activeDefinition.pricing_strategy}
+                </p>
+                <p>definition_id={activeDefinition.id}</p>
+                <p>metadata.product_editor_policy</p>
+                <pre className="overflow-x-auto rounded-md bg-gray-50 p-3 text-[11px] text-gray-700">
+                  {JSON.stringify(currentPolicyMetadata || {}, null, 2)}
+                </pre>
+              </>
+            ) : (
+              <p>선택된 definition이 없습니다.</p>
+            )}
+          </div>
+        </details>
+
+        <section className="rounded-xl border border-blue-200 bg-white px-4 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-gray-600">
+              저장 시 현재 번들 구성을 ACTIVE로 자동 publish합니다.
+            </p>
+            <Button
+              intent="neutral"
+              loading={isSaving}
+              disabled={
+                definitionsLoading ||
+                componentsLoading ||
+                productsLoading ||
+                variantsLoading ||
+                hasCriticalLoadError ||
+                hasInvalidFixedQuantity
+              }
+              onClick={handleSave}
+            >
+              번들 구성 저장 후 ACTIVE 확정
+            </Button>
+          </div>
+        </section>
+      </div>
     </section>
   );
 }

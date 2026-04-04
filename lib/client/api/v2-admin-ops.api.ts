@@ -676,6 +676,7 @@ export interface BulkV2AdminOrderActionInput {
 export interface V2AdminOrderLinearTransitionInput {
   order_ids: string[];
   target_stage: V2AdminOrderLinearStage;
+  scope?: 'FULL' | 'ORDER_QUEUE';
   reason?: string | null;
   request_id?: string | null;
   metadata?: Record<string, unknown> | null;
@@ -1210,7 +1211,7 @@ export const V2AdminOpsAPI = {
       metadata?: Record<string, unknown> | null;
     },
   ): Promise<ApiResponse<Record<string, unknown>>> {
-    return apiClient.post(`/api/v2/checkout/orders/${orderId}/refund`, data);
+    return apiClient.post(`/api/v2/admin/ops/orders/${orderId}/refund`, data);
   },
 
   async dispatchShipment(
