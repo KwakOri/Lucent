@@ -302,8 +302,15 @@ export default function AdminDashboardPage() {
     },
     {
       key: 'order_gross_amount',
-      title: '총 매출',
+      title: '총 매출(주문총액)',
       value: formatCurrency(data.kpis.order_gross_amount, currencyCode),
+      href: '/admin/v2-ops/stats',
+      badge: null,
+    },
+    {
+      key: 'item_gross_amount',
+      title: '상품 매출(아이템합)',
+      value: formatCurrency(data.kpis.item_gross_amount, currencyCode),
       href: '/admin/v2-ops/stats',
       badge: null,
     },
@@ -520,8 +527,9 @@ export default function AdminDashboardPage() {
                   <span className="text-right">{lastTrendDate}</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-4">
-                  <p>매출 {formatCurrency(data.kpis.order_gross_amount, currencyCode)}</p>
+                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-5">
+                  <p>매출(주문총액) {formatCurrency(data.kpis.order_gross_amount, currencyCode)}</p>
+                  <p>상품매출(아이템합) {formatCurrency(data.kpis.item_gross_amount, currencyCode)}</p>
                   <p>캡처 {formatCurrency(data.kpis.captured_amount, currencyCode)}</p>
                   <p>환불 {formatCurrency(data.kpis.refund_amount, currencyCode)}</p>
                   <p>순정산 {formatCurrency(data.kpis.net_settlement_amount, currencyCode)}</p>

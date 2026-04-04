@@ -739,6 +739,7 @@ export interface ListV2AdminDashboardOverviewParams {
 export interface V2AdminSalesStatsSummary {
   orders_count: number;
   units_sold: number;
+  item_gross_amount: number;
   order_gross_amount: number;
   captured_amount: number;
   refund_amount: number;
@@ -750,6 +751,7 @@ export interface V2AdminSalesStatsDailyRow {
   date: string;
   orders_count: number;
   units_sold: number;
+  item_gross_amount: number;
   order_gross_amount: number;
   captured_amount: number;
   refund_amount: number;
@@ -832,6 +834,7 @@ export interface V2AdminDashboardOverview {
   filters: V2AdminSalesStats['filters'];
   kpis: {
     orders_count: number;
+    item_gross_amount: number;
     order_gross_amount: number;
     captured_amount: number;
     refund_amount: number;
