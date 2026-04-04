@@ -1181,6 +1181,10 @@ export function ShippingManagementContent({
       }, 1000);
       showToast('배송 리스트 PDF를 다운로드했습니다.', { type: 'success' });
     } catch (error) {
+      console.error('[ShippingManagementContent] 배송 리스트 PDF 다운로드 실패', {
+        batchId: selectedBatchId,
+        error,
+      });
       setError(error);
     }
   };

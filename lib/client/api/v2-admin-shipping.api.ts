@@ -204,6 +204,47 @@ function resolveFilenameFromDisposition(
   return plainMatch[1].trim();
 }
 
+type ShippingPdfDownloadErrorPayload = {
+  message: string;
+  errorCode: string | null;
+  rawText: string;
+};
+
+async function readShippingPdfDownloadErrorPayload(
+  response: Response,
+): Promise<ShippingPdfDownloadErrorPayload> {
+  const rawText = (await response.text()).trim();
+  let parsed: Record<string, unknown> | null = null;
+
+  if (rawText) {
+    try {
+      parsed = JSON.parse(rawText) as Record<string, unknown>;
+    } catch {
+      parsed = null;
+    }
+  }
+
+  const messageFromJson =
+    parsed && typeof parsed.message === 'string' ? parsed.message.trim() : '';
+  const messageFromText =
+    rawText && !rawText.startsWith('<!DOCTYPE') && !rawText.startsWith('<html')
+      ? rawText
+      : '';
+  const errorCode =
+    parsed && typeof parsed.errorCode === 'string' && parsed.errorCode.trim()
+      ? parsed.errorCode.trim()
+      : null;
+
+  return {
+    message:
+      messageFromJson ||
+      messageFromText ||
+      '배송 리스트 PDF 생성에 실패했습니다.',
+    errorCode,
+    rawText,
+  };
+}
+
 export const V2AdminShippingAPI = {
   async listCandidates(
     params: ListV2AdminShippingCandidatesParams = {},
@@ -280,18 +321,24 @@ export const V2AdminShippingAPI = {
     );
 
     if (!response.ok) {
-      let message = '배송 리스트 PDF 생성에 실패했습니다.';
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        try {
-          const payload = await response.json();
-          if (typeof payload?.message === 'string' && payload.message.trim()) {
-            message = payload.message.trim();
-          }
-        } catch {
-          // ignore parse error
-        }
+      const errorPayload = await readShippingPdfDownloadErrorPayload(response);
+      const statusLabel = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+      const messageParts = [errorPayload.message, `status=${statusLabel}`];
+      if (errorPayload.errorCode) {
+        messageParts.push(`code=${errorPayload.errorCode}`);
       }
+      const message = messageParts.join(' / ');
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[V2AdminShippingAPI] downloadBatchPrintPdf failed', {
+          batchId,
+          status: response.status,
+          statusText: response.statusText,
+          errorCode: errorPayload.errorCode,
+          responseBody: errorPayload.rawText,
+        });
+      }
+
       throw new Error(message);
     }
 
