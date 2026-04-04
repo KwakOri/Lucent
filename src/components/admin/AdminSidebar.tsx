@@ -227,8 +227,8 @@ export function AdminSidebar() {
           <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
           <span
             className={`
-              ml-3 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300
-              ${desktopExpanded ? 'max-w-[9rem] opacity-100' : 'max-w-0 opacity-0'}
+              overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
+              ${desktopExpanded ? 'ml-3 max-w-[9rem] opacity-100' : 'ml-0 max-w-0 opacity-0'}
             `}
           >
             홈으로
@@ -242,7 +242,13 @@ export function AdminSidebar() {
             ${desktopExpanded ? 'w-60' : 'w-[4.5rem]'}
           `}
         >
-          <ul role="list" className="max-h-[calc(100vh-12rem)] space-y-1 overflow-y-auto pr-1">
+          <ul
+            role="list"
+            className={`
+              max-h-[calc(100vh-12rem)] space-y-1 overflow-y-auto
+              ${desktopExpanded ? 'pr-1' : 'pr-0'}
+            `}
+          >
             {desktopNavigationItems.map((item) => {
               const isActive = isNavItemActive(pathname, item.href);
 
@@ -268,8 +274,8 @@ export function AdminSidebar() {
                     />
                     <span
                       className={`
-                        ml-3 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300
-                        ${desktopExpanded ? 'max-w-[11rem] opacity-100' : 'max-w-0 opacity-0'}
+                        overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
+                        ${desktopExpanded ? 'ml-3 max-w-[11rem] opacity-100' : 'ml-0 max-w-0 opacity-0'}
                       `}
                     >
                       {item.name}
