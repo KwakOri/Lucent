@@ -1156,7 +1156,7 @@ export default function AdminShippingPage() {
     iframe.style.border = '0';
     iframe.style.opacity = '0';
     iframe.style.pointerEvents = 'none';
-    iframe.src = `/admin/shipping/print/${selectedBatchId}?autoprint=1&embedded=1&t=${Date.now()}`;
+    iframe.src = `/shipping/print/${selectedBatchId}?autoprint=1&embedded=1&t=${Date.now()}`;
 
     iframe.onload = () => {
       const cleanup = () => {
