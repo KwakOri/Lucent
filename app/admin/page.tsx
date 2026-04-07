@@ -251,10 +251,46 @@ export default function AdminDashboardPage() {
   );
   const chartWidth = 720;
   const chartHeight = 220;
-  const chartPaddingX = 24;
-  const chartPaddingY = 16;
-  const chartBodyWidth = chartWidth - chartPaddingX * 2;
-  const chartBodyHeight = chartHeight - chartPaddingY * 2;
+  const chartPaddingLeft = 24;
+  const chartPaddingRight = 24;
+  const chartPaddingTop = 16;
+  const chartPaddingBottom = 30;
+  const chartBodyWidth = chartWidth - chartPaddingLeft - chartPaddingRight;
+  const chartBodyHeight = chartHeight - chartPaddingTop - chartPaddingBottom;
+  const chartXAxisY = chartPaddingTop + chartBodyHeight;
+
+  const getTrendPointX = (index: number) => {
+    if (trendRows.length <= 1) {
+      return chartWidth / 2;
+    }
+    return chartPaddingLeft + (chartBodyWidth * index) / (trendRows.length - 1);
+  };
+
+  const trendTickIndices = (() => {
+    if (trendRows.length === 0) {
+      return [] as number[];
+    }
+    if (trendRows.length <= 8) {
+      return trendRows.map((_, index) => index);
+    }
+
+    const desiredTickCount = 8;
+    const step = (trendRows.length - 1) / (desiredTickCount - 1);
+    const tickSet = new Set<number>([0, trendRows.length - 1]);
+    for (let index = 1; index < desiredTickCount - 1; index += 1) {
+      tickSet.add(Math.round(step * index));
+    }
+
+    return Array.from(tickSet).sort((a, b) => a - b);
+  })();
+
+  const formatTrendDayLabel = (isoDate: string) => {
+    const day = isoDate.split('-')[2];
+    if (!day) {
+      return '-';
+    }
+    return String(Number(day));
+  };
 
   const buildTrendPoints = (
     valueSelector: (row: (typeof trendRows)[number]) => number,
@@ -262,17 +298,11 @@ export default function AdminDashboardPage() {
     if (trendRows.length === 0) {
       return '';
     }
-    if (trendRows.length === 1) {
-      const value = Math.max(0, Number(valueSelector(trendRows[0]) || 0));
-      const x = chartWidth / 2;
-      const y = chartPaddingY + chartBodyHeight * (1 - value / trendMaxValue);
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    }
     return trendRows
       .map((row, index) => {
-        const x = chartPaddingX + (chartBodyWidth * index) / (trendRows.length - 1);
+        const x = getTrendPointX(index);
         const value = Math.max(0, Number(valueSelector(row) || 0));
-        const y = chartPaddingY + chartBodyHeight * (1 - value / trendMaxValue);
+        const y = chartPaddingTop + chartBodyHeight * (1 - value / trendMaxValue);
         return `${x.toFixed(2)},${y.toFixed(2)}`;
       })
       .join(' ');
@@ -282,10 +312,6 @@ export default function AdminDashboardPage() {
   const capturedTrendPoints = buildTrendPoints((row) => row.captured_amount);
   const refundTrendPoints = buildTrendPoints((row) => row.refund_amount);
   const netTrendPoints = buildTrendPoints((row) => row.net_settlement_amount);
-  const firstTrendDate = trendRows[0]?.date || '-';
-  const middleTrendDate =
-    trendRows[Math.floor(Math.max(trendRows.length - 1, 0) / 2)]?.date || '-';
-  const lastTrendDate = trendRows[trendRows.length - 1]?.date || '-';
 
   const stageTotal = Object.values(data.pipeline.order_stage_counts).reduce(
     (sum, value) => sum + Number(value || 0),
@@ -473,12 +499,12 @@ export default function AdminDashboardPage() {
                     aria-label="매출/정산 일별 추세 꺾은선 그래프"
                   >
                     {[0, 1, 2, 3, 4].map((index) => {
-                      const y = chartPaddingY + (chartBodyHeight * index) / 4;
+                      const y = chartPaddingTop + (chartBodyHeight * index) / 4;
                       return (
                         <line
                           key={`grid-${index}`}
-                          x1={chartPaddingX}
-                          x2={chartWidth - chartPaddingX}
+                          x1={chartPaddingLeft}
+                          x2={chartWidth - chartPaddingRight}
                           y1={y}
                           y2={y}
                           stroke="#E5E7EB"
@@ -511,6 +537,35 @@ export default function AdminDashboardPage() {
                       stroke="#16A34A"
                       strokeWidth="2.5"
                     />
+
+                    {trendTickIndices.map((index) => {
+                      const row = trendRows[index];
+                      const x = getTrendPointX(index);
+                      const label = row?.date
+                        ? formatTrendDayLabel(row.date)
+                        : '-';
+                      return (
+                        <g key={`tick-${index}`}>
+                          <line
+                            x1={x}
+                            x2={x}
+                            y1={chartXAxisY}
+                            y2={chartXAxisY + 4}
+                            stroke="#9CA3AF"
+                            strokeWidth="1"
+                          />
+                          <text
+                            x={x}
+                            y={chartXAxisY + 18}
+                            fill="#6B7280"
+                            textAnchor="middle"
+                            fontSize="10"
+                          >
+                            {label}
+                          </text>
+                        </g>
+                      );
+                    })}
                   </svg>
                 </div>
 
@@ -519,12 +574,6 @@ export default function AdminDashboardPage() {
                   <p className="rounded-md bg-blue-50 px-2 py-1 text-blue-700">캡처</p>
                   <p className="rounded-md bg-red-50 px-2 py-1 text-red-700">환불</p>
                   <p className="rounded-md bg-green-50 px-2 py-1 text-green-700">순정산</p>
-                </div>
-
-                <div className="grid grid-cols-3 text-xs text-gray-500">
-                  <span>{firstTrendDate}</span>
-                  <span className="text-center">{middleTrendDate}</span>
-                  <span className="text-right">{lastTrendDate}</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-5">
