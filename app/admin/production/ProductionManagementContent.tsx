@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -1007,24 +1008,36 @@ export function ProductionManagementContent({
                     </p>
                   ) : null}
                   <div className="overflow-x-auto rounded-lg border border-gray-200">
-                    <table className="min-w-full divide-y divide-gray-200 text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium text-gray-600">상품</th>
-                          <th className="px-3 py-2 text-left font-medium text-gray-600">옵션</th>
-                          <th className="px-3 py-2 text-right font-medium text-gray-600">수량</th>
-                        </tr>
-                      </thead>
+	                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+	                      <thead className="bg-gray-50">
+	                        <tr>
+	                          <th className="w-20 px-3 py-2 text-left font-medium text-gray-600">이미지</th>
+	                          <th className="px-3 py-2 text-left font-medium text-gray-600">상품</th>
+	                          <th className="px-3 py-2 text-left font-medium text-gray-600">옵션</th>
+	                          <th className="px-3 py-2 text-right font-medium text-gray-600">수량</th>
+	                        </tr>
+	                      </thead>
                       <tbody className="divide-y divide-gray-100 bg-white">
                         {previewData.aggregates.map((row) => (
-                          <tr
-                            key={`${row.product_id || 'none'}-${row.variant_id || 'none'}-${row.product_name}`}
-                          >
-                            <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
-                            <td className="px-3 py-2 text-gray-700">{row.variant_name || '-'}</td>
-                            <td className="px-3 py-2 text-right text-gray-700">
-                              {row.quantity_total.toLocaleString()}
-                            </td>
+	                          <tr
+	                            key={`${row.product_id || 'none'}-${row.variant_id || 'none'}-${row.product_name}`}
+	                          >
+	                            <td className="px-3 py-2">
+	                              {row.thumbnail_url ? (
+	                                <img
+	                                  src={row.thumbnail_url}
+	                                  alt={row.product_name}
+	                                  className="h-12 w-12 rounded-md border border-gray-200 object-cover"
+	                                />
+	                              ) : (
+	                                <span className="text-xs text-gray-400">-</span>
+	                              )}
+	                            </td>
+	                            <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
+	                            <td className="px-3 py-2 text-gray-700">{row.variant_name || '-'}</td>
+	                            <td className="px-3 py-2 text-right text-gray-700">
+	                              {row.quantity_total.toLocaleString()}
+	                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1244,22 +1257,34 @@ export function ProductionManagementContent({
               </div>
 
               <div className="overflow-x-auto rounded-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">상품</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">옵션</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-600">수량</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {(detail.aggregates || []).map((row) => (
-                      <tr key={row.id}>
-                        <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
-                        <td className="px-3 py-2 text-gray-700">{row.variant_name || '-'}</td>
-                        <td className="px-3 py-2 text-right text-gray-700">
-                          {row.quantity_total.toLocaleString()}
-                        </td>
+	                <table className="min-w-full divide-y divide-gray-200 text-sm">
+	                  <thead className="bg-gray-50">
+	                    <tr>
+	                      <th className="w-20 px-3 py-2 text-left font-medium text-gray-600">이미지</th>
+	                      <th className="px-3 py-2 text-left font-medium text-gray-600">상품</th>
+	                      <th className="px-3 py-2 text-left font-medium text-gray-600">옵션</th>
+	                      <th className="px-3 py-2 text-right font-medium text-gray-600">수량</th>
+	                    </tr>
+	                  </thead>
+	                  <tbody className="divide-y divide-gray-100 bg-white">
+	                    {(detail.aggregates || []).map((row) => (
+	                      <tr key={row.id}>
+	                        <td className="px-3 py-2">
+	                          {row.thumbnail_url ? (
+	                            <img
+	                              src={row.thumbnail_url}
+	                              alt={row.product_name}
+	                              className="h-12 w-12 rounded-md border border-gray-200 object-cover"
+	                            />
+	                          ) : (
+	                            <span className="text-xs text-gray-400">-</span>
+	                          )}
+	                        </td>
+	                        <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
+	                        <td className="px-3 py-2 text-gray-700">{row.variant_name || '-'}</td>
+	                        <td className="px-3 py-2 text-right text-gray-700">
+	                          {row.quantity_total.toLocaleString()}
+	                        </td>
                       </tr>
                     ))}
                   </tbody>

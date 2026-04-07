@@ -75,6 +75,7 @@ export interface V2AdminProductionBatchAggregateRow {
   batch_id: string;
   product_id: string | null;
   variant_id: string | null;
+  thumbnail_url?: string | null;
   product_name: string;
   variant_name: string | null;
   quantity_total: number;
@@ -153,6 +154,7 @@ export interface V2AdminProductionBatchBlockedRow {
 export interface V2AdminProductionBatchPreviewAggregate {
   product_id: string | null;
   variant_id: string | null;
+  thumbnail_url?: string | null;
   product_name: string;
   variant_name: string | null;
   quantity_total: number;
