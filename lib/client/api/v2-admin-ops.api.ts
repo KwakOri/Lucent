@@ -722,9 +722,24 @@ export interface ListV2AdminSalesStatsParams {
   campaign_type?: string;
 }
 
+export interface ListV2AdminDashboardOverviewParams {
+  from?: string;
+  to?: string;
+  preset?: V2AdminSalesStatsPreset;
+  project_id?: string;
+  campaign_id?: string;
+  sales_channel_id?: string;
+  campaign_type?: string;
+  queue_limit?: number;
+  approval_limit?: number;
+  failed_action_limit?: number;
+  urgent_limit?: number;
+}
+
 export interface V2AdminSalesStatsSummary {
   orders_count: number;
   units_sold: number;
+  item_gross_amount: number;
   order_gross_amount: number;
   captured_amount: number;
   refund_amount: number;
@@ -736,6 +751,7 @@ export interface V2AdminSalesStatsDailyRow {
   date: string;
   orders_count: number;
   units_sold: number;
+  item_gross_amount: number;
   order_gross_amount: number;
   captured_amount: number;
   refund_amount: number;
@@ -791,6 +807,94 @@ export interface V2AdminSalesStats {
     allocation_policy_versions: string[];
     capture_policy_version: string;
     refund_policy_version: string;
+  };
+}
+
+export type V2AdminDashboardOrderStage = V2AdminOrderLinearStage | 'CANCELED';
+
+export interface V2AdminDashboardUrgentOrder {
+  order_id: string | null;
+  order_no: string | null;
+  stage: V2AdminDashboardOrderStage;
+  placed_at: string | null;
+  created_at: string | null;
+  order_status: string | null;
+  payment_status: string | null;
+  fulfillment_status: string | null;
+  grand_total: number;
+  depositor_name: string | null;
+  waiting_shipment_count: number;
+  in_transit_shipment_count: number;
+  age_hours: number | null;
+}
+
+export interface V2AdminDashboardOverview {
+  generated_at: string;
+  range: V2AdminSalesStats['range'];
+  filters: V2AdminSalesStats['filters'];
+  kpis: {
+    orders_count: number;
+    item_gross_amount: number;
+    order_gross_amount: number;
+    captured_amount: number;
+    refund_amount: number;
+    net_settlement_amount: number;
+    refund_rate: number;
+    payment_pending_count: number;
+    ready_to_ship_count: number;
+    inventory_risk_count: number;
+    approval_pending_count: number;
+  };
+  trends: {
+    daily: V2AdminSalesStatsDailyRow[];
+  };
+  pipeline: {
+    order_stage_counts: Record<V2AdminDashboardOrderStage, number>;
+    production_batch_status_counts: {
+      DRAFT: number;
+      ACTIVE: number;
+      COMPLETED: number;
+      CANCELED: number;
+      failed_count: number;
+      excluded_count: number;
+      total: number;
+    };
+    shipping_batch_status_counts: {
+      DRAFT: number;
+      ACTIVE: number;
+      DISPATCHED: number;
+      COMPLETED: number;
+      CANCELED: number;
+      failed_count: number;
+      excluded_count: number;
+      total: number;
+    };
+  };
+  risk: {
+    inventory: {
+      mismatch_count: number;
+      low_stock_count: number;
+    };
+    cutover: {
+      blocked_domains: number;
+    };
+    audit: {
+      failed_actions_24h: number;
+    };
+  };
+  queues: {
+    urgent_orders: V2AdminDashboardUrgentOrder[];
+    pending_approvals: V2AdminApprovalRequest[];
+    failed_actions: V2AdminActionLog[];
+  };
+  metadata: {
+    currency_code: string;
+    queue_limit: number;
+    approval_limit: number;
+    failed_action_limit: number;
+    urgent_limit: number;
+    failed_actions_since: string;
+    sales_stats_storage_mode: 'PERSISTED' | 'FALLBACK_IN_MEMORY' | 'UNKNOWN';
   };
 }
 
@@ -1044,6 +1148,13 @@ export const V2AdminOpsAPI = {
   ): Promise<ApiResponse<V2AdminSalesStats>> {
     const query = toQueryString(params);
     return apiClient.get(`/api/v2/admin/ops/sales-stats${query}`);
+  },
+
+  async getDashboardOverview(
+    params: ListV2AdminDashboardOverviewParams = {},
+  ): Promise<ApiResponse<V2AdminDashboardOverview>> {
+    const query = toQueryString(params);
+    return apiClient.get(`/api/v2/admin/ops/dashboard/overview${query}`);
   },
 
   async getOrderDetail(orderId: string): Promise<ApiResponse<V2AdminOrderDetail>> {

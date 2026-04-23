@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
@@ -53,8 +54,25 @@ function stageBadgeLabel(stage: V2OrderRowStage): string {
   return linearStageLabel(stage);
 }
 
+function normalizeStageTabFromQuery(value: string | null): V2OrderStageTab | null {
+  if (!value) {
+    return null;
+  }
+  const normalized = value.trim().toUpperCase().replace(/-/g, '_');
+  if (STAGE_TABS.some((tab) => tab.key === normalized)) {
+    return normalized as V2OrderStageTab;
+  }
+  return null;
+}
+
 export default function AdminOrdersPage() {
-  const [stageTab, setStageTab] = useState<V2OrderStageTab>('PAYMENT_PENDING');
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const stageTabFromQuery =
+    normalizeStageTabFromQuery(searchParams.get('stage')) || 'PAYMENT_PENDING';
+  const stageTab = stageTabFromQuery;
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -118,8 +136,14 @@ export default function AdminOrdersPage() {
   }, [currentPageClamped, filteredRows]);
 
   function handleStageTabChange(nextTab: V2OrderStageTab) {
-    setStageTab(nextTab);
     setCurrentPage(1);
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set('stage', nextTab);
+    const queryString = nextParams.toString();
+    router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
+      scroll: false,
+    });
   }
 
   if (isLoading) {

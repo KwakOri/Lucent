@@ -34,6 +34,7 @@ import type {
   ListV2AdminCutoverRoutingFlagsParams,
   ListV2AdminCutoverStageIssuesParams,
   ListV2AdminCutoverStageRunsParams,
+  ListV2AdminDashboardOverviewParams,
   ListV2AdminFulfillmentQueueParams,
   ListV2AdminInventoryHealthParams,
   ListV2AdminInventoryLevelsParams,
@@ -369,6 +370,8 @@ export const queryKeys = {
     },
     ops: {
       all: ['v2-admin-ops', 'ops'] as const,
+      dashboardOverview: (params: ListV2AdminDashboardOverviewParams = {}) =>
+        [...queryKeys.v2AdminOps.ops.all, 'dashboard-overview', params] as const,
       orderQueue: (params: ListV2AdminOrderQueueParams = {}) =>
         [...queryKeys.v2AdminOps.ops.all, 'order-queue', params] as const,
       salesStats: (params: ListV2AdminSalesStatsParams = {}) =>
