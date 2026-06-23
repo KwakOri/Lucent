@@ -12,6 +12,8 @@ import type {
   GetV2ShopCouponsParams,
   GetV2ShopProductsParams,
 } from '@/lib/client/api/v2-shop.api';
+import type { ListV2ContentPostsParams } from '@/lib/client/api/v2-content.api';
+import type { ListV2ContentAdminPostsParams } from '@/lib/client/api/v2-content-admin.api';
 import type {
   GetV2BundleDefinitionsParams,
   GetV2ArtistsParams,
@@ -121,6 +123,34 @@ export const queryKeys = {
       ) => [...queryKeys.v2Shop.products.all, 'detail', productId, params] as const,
     },
     pricePreview: () => [...queryKeys.v2Shop.all, 'price-preview'] as const,
+  },
+
+  /**
+   * V2 Content Query Keys
+   */
+  v2Content: {
+    all: ['v2-content'] as const,
+    posts: {
+      all: ['v2-content', 'posts'] as const,
+      list: (params: ListV2ContentPostsParams = {}) =>
+        [...queryKeys.v2Content.posts.all, 'list', params] as const,
+      detail: (slug: string) =>
+        [...queryKeys.v2Content.posts.all, 'detail', slug] as const,
+    },
+  },
+
+  /**
+   * V2 Content Admin Query Keys
+   */
+  v2ContentAdmin: {
+    all: ['v2-content-admin'] as const,
+    posts: {
+      all: ['v2-content-admin', 'posts'] as const,
+      list: (params: ListV2ContentAdminPostsParams = {}) =>
+        [...queryKeys.v2ContentAdmin.posts.all, 'list', params] as const,
+      detail: (id: string) =>
+        [...queryKeys.v2ContentAdmin.posts.all, 'detail', id] as const,
+    },
   },
 
   /**
