@@ -8,7 +8,20 @@
  */
 
 import { createServerClient } from '@supabase/ssr';
+import { resolveSupabaseAuthCookieName } from '@/src/utils/supabase/auth-cookie';
 import { NextResponse, type NextRequest } from 'next/server';
+
+function resolveServerSupabaseUrl(): string {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!url) {
+    throw new Error(
+      'SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL is required to initialize Supabase server client.',
+    );
+  }
+
+  return url;
+}
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -16,15 +29,18 @@ export async function proxy(request: NextRequest) {
   });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    resolveServerSupabaseUrl(),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: {
+        name: resolveSupabaseAuthCookieName(),
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
           supabaseResponse = NextResponse.next({
