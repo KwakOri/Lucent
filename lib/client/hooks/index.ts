@@ -143,6 +143,22 @@ export {
   useV2ShopPricePreview,
 } from "./useV2Shop";
 
+// V2 Content Hooks
+export {
+  useV2ContentPosts,
+  useV2ContentPostBySlug,
+} from "./useV2Content";
+
+// V2 Content Admin Hooks
+export {
+  useV2ContentAdminPosts,
+  useV2ContentAdminPost,
+  useCreateV2ContentAdminPost,
+  useUpdateV2ContentAdminPost,
+  usePublishV2ContentAdminPost,
+  useArchiveV2ContentAdminPost,
+} from "./useV2ContentAdmin";
+
 // V2 Admin Production/Shipping Hooks
 export {
   useV2AdminProductionCandidates,
