@@ -1,4 +1,4 @@
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 BEGIN;
 
@@ -33,7 +33,7 @@ BEGIN
 END $$;
 
 CREATE TABLE IF NOT EXISTS public.v2_content_posts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug VARCHAR(160) NOT NULL,
   title VARCHAR(255) NOT NULL,
   summary TEXT,
