@@ -7,6 +7,19 @@
 import { createServerClient as createSupabaseServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { Database } from '@/types/database';
+import { resolveSupabaseAuthCookieName } from '@/src/utils/supabase/auth-cookie';
+
+function resolveServerSupabaseUrl(): string {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!url) {
+    throw new Error(
+      'SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL is required to initialize Supabase server client.',
+    );
+  }
+
+  return url;
+}
 
 /**
  * Server-side Supabase 클라이언트 생성
@@ -17,9 +30,12 @@ export async function createServerClient() {
   const cookieStore = await cookies();
 
   return createSupabaseServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    resolveServerSupabaseUrl(),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: {
+        name: resolveSupabaseAuthCookieName(),
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -65,9 +81,12 @@ export async function createAdminClient() {
   const cookieStore = await cookies();
 
   return createSupabaseServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    resolveServerSupabaseUrl(),
     process.env.SUPABASE_SERVICE_ROLE_KEY!, // Service Role Key 사용
     {
+      cookieOptions: {
+        name: resolveSupabaseAuthCookieName(),
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();
