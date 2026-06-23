@@ -13,6 +13,7 @@ import {
   ImageIcon,
   Menu,
   Megaphone,
+  Newspaper,
   Package,
   RotateCcw,
   ShieldCheck,
@@ -57,6 +58,7 @@ const navigationSections: NavigationSection[] = [
       { name: '아티스트 관리', href: '/admin/v2-catalog/artists', icon: Users },
       { name: '상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBag },
       { name: '캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: Megaphone },
+      { name: '게시글 관리', href: '/admin/content/posts', icon: Newspaper },
       { name: '통계', href: '/admin/v2-ops/stats', icon: BarChart3 },
     ],
   },
@@ -250,7 +252,7 @@ export function AdminSidebar() {
           <ul
             role="list"
             className={`
-              max-h-[calc(100vh-12rem)] space-y-1 overflow-y-auto
+              scrollbar-none max-h-[calc(100vh-12rem)] space-y-1 overflow-y-auto
               ${desktopExpanded ? 'pr-1' : 'pr-0'}
             `}
           >

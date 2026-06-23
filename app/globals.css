@@ -191,3 +191,13 @@ body {
   /* iOS Safari 모바일 뷰포트 수정 */
   min-height: -webkit-fill-available;
 }
+
+/* Keep scrollable surfaces visually quiet where the container is self-evident. */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

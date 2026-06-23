@@ -2,35 +2,18 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-
-// 임시 뉴스 데이터
-const NEWS_DATA = [
-  {
-    id: 1,
-    title: "'시로우미 미루루' 재야의 종소리 보이스팩",
-    description: "시로우미 미루루의 2025년 마지막 보이스팩을 만나보세요!",
-    image: "/news3.png",
-    link: "/news/3",
-  },
-  {
-    id: 2,
-    title: "[재판매 공지] '시로우미 미루루' 할로윈 강시 보이스팩",
-    description:
-      "시로우미 미루루가 2026년도 1월1일 기점으로 루센트 프로젝트에 정식 등록 되었습니다.",
-    image: "/news1.png",
-    link: "/news/1",
-  },
-  {
-    id: 3,
-    title: "루센트 0th 프로젝트 시로우미 미루루 등장",
-    description:
-      "시로우미 미루루가 2026년도 1월1일 기점으로 루센트 프로젝트에 정식 등록 되었습니다.",
-    image: "/news2.png",
-    link: "/news/2",
-  },
-];
+import { useV2ContentPosts } from "@/lib/client/hooks";
+import { formatContentDate } from "@/lib/client/utils/v2-content";
 
 export function NewsSection() {
+  const { data, isLoading, isError } = useV2ContentPosts({
+    limit: 3,
+    featured_on_home: true,
+    post_type: "NEWS",
+    sort: "SORT_ORDER",
+  });
+  const posts = data?.data || [];
+
   return (
     <section id="news" className="py-12 md:py-20 px-4 bg-[#f9f9ed]">
       <div className="max-w-6xl mx-auto">
@@ -56,26 +39,53 @@ export function NewsSection() {
 
         {/* 뉴스 카드 리스트 */}
         <div className="flex flex-col gap-4 md:gap-6">
-          {NEWS_DATA.map((news) => (
-            <Link key={news.id} href={news.link} className="group block">
+          {isLoading ? (
+            <div className="rounded-3xl border border-[#d8e7f6] bg-white px-6 py-10 text-center text-[#1a1a2e]/60">
+              새소식을 불러오는 중입니다.
+            </div>
+          ) : null}
+
+          {!isLoading && isError ? (
+            <div className="rounded-3xl border border-[#ffd8d8] bg-[#fff7f7] px-6 py-10 text-center text-[#ad3f3f]">
+              새소식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+            </div>
+          ) : null}
+
+          {!isLoading && !isError && posts.length === 0 ? (
+            <div className="rounded-3xl border border-[#d8e7f6] bg-white px-6 py-10 text-center text-[#1a1a2e]/60">
+              공개된 새소식이 없습니다.
+            </div>
+          ) : null}
+
+          {posts.map((post) => (
+            <Link key={post.id} href={`/news/${post.slug}`} className="group block">
               <div className="relative bg-linear-to-r from-[#d4f1f9] to-[#e8f7fc] rounded-2xl md:rounded-3xl p-4 md:p-6 overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="relative flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
                   {/* 썸네일 이미지 */}
                   <div className="shrink-0 w-full md:w-52 h-40 md:h-44 bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-sm">
-                    <img
-                      src={news.image}
-                      alt={news.title}
-                      className="w-full h-full object-cover"
-                    />
+                    {post.cover_media_asset?.public_url ? (
+                      <img
+                        src={post.cover_media_asset.public_url}
+                        alt={post.cover_alt_text || post.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-4 text-center text-lg font-semibold text-[#1a1a2e]/50">
+                        LUCENT
+                      </div>
+                    )}
                   </div>
 
                   {/* 텍스트 콘텐츠 */}
                   <div className="flex-1 md:pr-16">
+                    <p className="mb-2 text-xs font-semibold text-[#4a88b9]">
+                      {formatContentDate(post.published_at)}
+                    </p>
                     <h3 className="text-lg md:text-2xl font-bold text-[#1a1a2e] mb-2 md:mb-3 group-hover:text-[#66B5F3] transition-colors">
-                      {news.title}
+                      {post.title}
                     </h3>
                     <p className="text-sm md:text-base text-[#1a1a2e]/60 leading-relaxed">
-                      {news.description}
+                      {post.summary || post.body_text}
                     </p>
                   </div>
 
