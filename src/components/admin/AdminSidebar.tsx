@@ -250,7 +250,7 @@ export function AdminSidebar() {
           <ul
             role="list"
             className={`
-              max-h-[calc(100vh-12rem)] space-y-1 overflow-y-auto
+              scrollbar-none max-h-[calc(100vh-12rem)] space-y-1 overflow-y-auto
               ${desktopExpanded ? 'pr-1' : 'pr-0'}
             `}
           >
