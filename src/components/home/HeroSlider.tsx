@@ -68,7 +68,7 @@ export function HeroSlider() {
     titleLines: (typeof HERO_SLIDES)[0]["titleLines"]
   ) => {
     return (
-      <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-none mb-8">
+      <h1 className="text-4xl font-bold leading-none mb-8 sm:text-5xl md:text-[3.25rem] lg:text-[3.4rem] xl:text-[3.45rem]">
         {(
           titleLines as Array<{
             segments: Array<{ text: string; color: string }>;
@@ -77,7 +77,9 @@ export function HeroSlider() {
         ).map((line, lineIndex) => (
           <span
             key={lineIndex}
-            className={`block py-1 ${line.indent ? "ml-4 sm:ml-8" : ""}`}
+            className={`block py-1 xl:whitespace-nowrap ${
+              line.indent ? "ml-4 sm:ml-8" : ""
+            }`}
           >
             {line.segments.map((segment, segIndex) => (
               <span key={segIndex} className={segment.color}>
@@ -133,7 +135,7 @@ export function HeroSlider() {
           <div className="h-full flex">
             {/* 텍스트 영역 - 슬로건과 동일한 구조 */}
             <div className="flex-1 flex items-center px-4 sm:px-6 lg:px-8">
-              <div className="max-w-xl mr-auto ml-8 lg:ml-60">
+              <div className="max-w-2xl mr-auto ml-8 lg:ml-60">
                 {slide.type === "slogan"
                   ? renderSloganTitle(slide.titleLines)
                   : renderShopTitle(slide.titleLines)}
