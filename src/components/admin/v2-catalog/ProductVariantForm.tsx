@@ -40,6 +40,7 @@ import {
   useV2AdminUpsertInventoryLevel,
 } from '@/lib/client/hooks/useV2AdminOps';
 import {
+  DEFAULT_VARIANT_STATUS,
   FULFILLMENT_TYPE_LABELS,
   VARIANT_STATUS_LABELS,
   buildVariantSku,
@@ -238,7 +239,7 @@ export function ProductVariantForm({
 
   const [title, setTitle] = useState('');
   const [fulfillmentType, setFulfillmentType] = useState<V2FulfillmentType>('DIGITAL');
-  const [status, setStatus] = useState<V2VariantStatus>('DRAFT');
+  const [status, setStatus] = useState<V2VariantStatus>(DEFAULT_VARIANT_STATUS);
   const [basePrice, setBasePrice] = useState('');
   const [basePriceTouched, setBasePriceTouched] = useState(false);
   const [trackInventory, setTrackInventory] = useState(false);
@@ -339,7 +340,11 @@ export function ProductVariantForm({
     if (mode === 'edit' && variant) {
       setTitle(variant.title);
       setFulfillmentType(lockedFulfillmentType || variant.fulfillment_type);
-      setStatus(variant.status);
+      setStatus(
+        isSingleDefaultVariant && variant.status === 'DRAFT'
+          ? DEFAULT_VARIANT_STATUS
+          : variant.status,
+      );
       setBasePrice('');
       setBasePriceTouched(false);
       setTrackInventory(variant.track_inventory);
@@ -356,7 +361,7 @@ export function ProductVariantForm({
 
     setTitle('');
     setFulfillmentType(lockedFulfillmentType || 'DIGITAL');
-    setStatus('DRAFT');
+    setStatus(DEFAULT_VARIANT_STATUS);
     setBasePrice('');
     setBasePriceTouched(false);
     setTrackInventory(false);
@@ -368,7 +373,7 @@ export function ProductVariantForm({
     setUploadState(null);
     setPersistedVariantId(null);
     setAbortUpload(null);
-  }, [lockedFulfillmentType, mode, variant]);
+  }, [isSingleDefaultVariant, lockedFulfillmentType, mode, variant]);
 
   useEffect(() => {
     if (basePriceTouched) {
