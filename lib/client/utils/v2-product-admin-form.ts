@@ -40,6 +40,8 @@ export const VARIANT_STATUS_LABELS: Record<V2VariantStatus, string> = {
   INACTIVE: '숨김',
 };
 
+export const DEFAULT_VARIANT_STATUS: V2VariantStatus = 'ACTIVE';
+
 export const FULFILLMENT_TYPE_LABELS: Record<V2FulfillmentType, string> = {
   DIGITAL: '디지털',
   PHYSICAL: '실물 배송',

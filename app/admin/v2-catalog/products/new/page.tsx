@@ -11,7 +11,10 @@ import {
   useCreateV2Variant,
   useV2AdminProjects,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
-import { buildVariantSku } from '@/lib/client/utils/v2-product-admin-form';
+import {
+  DEFAULT_VARIANT_STATUS,
+  buildVariantSku,
+} from '@/lib/client/utils/v2-product-admin-form';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -91,7 +94,7 @@ export default function V2CatalogProductCreatePage() {
               fulfillmentType: defaultFulfillmentType,
             }),
             fulfillment_type: defaultFulfillmentType,
-            status: 'DRAFT',
+            status: DEFAULT_VARIANT_STATUS,
             requires_shipping: defaultFulfillmentType === 'PHYSICAL',
             track_inventory: false,
             option_summary_json: {
