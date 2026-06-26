@@ -49,7 +49,6 @@ import {
   resolveTargetLabel,
   summarizeTargetGroups,
 } from '@/lib/client/utils/v2-campaign-admin';
-import { resolveEligibleCampaignProducts } from '@/lib/client/utils/v2-campaign-targeting';
 
 function formatCurrency(amount: number): string {
   return `${amount.toLocaleString('ko-KR')}원`;
@@ -156,7 +155,6 @@ function isVariantIncludedInCampaign(params: {
 
   const buckets = getTargetBuckets(params.targets);
   const included =
-    buckets.include.projectIds.has(params.product.project_id) ||
     buckets.include.productIds.has(params.product.id) ||
     buckets.include.variantIds.has(params.variant.id);
   if (!included) {
@@ -308,18 +306,6 @@ export default function V2CatalogCampaignDetailPage() {
     });
     return Array.from(map.entries());
   }, [targets]);
-
-  const eligibleProducts = useMemo(() => {
-    if (!campaign) {
-      return [];
-    }
-    return resolveEligibleCampaignProducts({
-      campaignType: campaign.campaign_type,
-      campaignProjectId: campaign.project_id,
-      targets: targets || [],
-      products: products || [],
-    });
-  }, [campaign, products, targets]);
 
   const candidateProducts = useMemo(() => {
     if (!campaign || !products) {
@@ -806,8 +792,8 @@ export default function V2CatalogCampaignDetailPage() {
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">대상 상품</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{eligibleProducts.length}</p>
+          <p className="text-sm font-medium text-gray-500">후보 상품</p>
+          <p className="mt-2 text-2xl font-bold text-gray-900">{candidateProducts.length}</p>
           <p className="mt-1 text-xs text-gray-500">{linkedTargetSummary}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
