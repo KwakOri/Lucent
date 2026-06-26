@@ -11,6 +11,7 @@ import type {
   V2BundlePricingStrategy,
   V2BundleStatus,
   V2Product,
+  V2ProductMedia,
   V2Variant,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
@@ -20,12 +21,14 @@ import {
   usePublishV2BundleDefinition,
   useUpdateV2BundleComponent,
   useUpdateV2BundleDefinition,
+  useV2AdminProductMediaMap,
   useV2AdminProducts,
   useV2AdminVariantsMap,
   useV2BundleComponents,
   useV2BundleDefinitions,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import { queryKeys } from '@/lib/client/hooks/query-keys';
+import { FULFILLMENT_TYPE_LABELS } from '@/lib/client/utils/v2-product-admin-form';
 
 type ProductBundleManagerProps = {
   bundleProduct: V2Product;
@@ -83,6 +86,37 @@ function sortProducts(left: V2Product, right: V2Product): number {
 
 function sortVariants(left: V2Variant, right: V2Variant): number {
   return left.title.localeCompare(right.title, 'ko-KR');
+}
+
+function getCoverMedia(mediaList: V2ProductMedia[]): V2ProductMedia | null {
+  const active = mediaList.filter((media) => media.status === 'ACTIVE');
+  return (
+    active.find((media) => media.is_primary) ||
+    active.find((media) => media.media_role === 'PRIMARY') ||
+    null
+  );
+}
+
+function resolveFulfillmentIntent(
+  fulfillmentType: V2Product['fulfillment_type'],
+): 'default' | 'success' | 'warning' | 'error' | 'info' {
+  if (fulfillmentType === 'DIGITAL') {
+    return 'success';
+  }
+  if (fulfillmentType === 'PHYSICAL') {
+    return 'info';
+  }
+  return 'warning';
+}
+
+function resolveFulfillmentLabel(fulfillmentType: V2Product['fulfillment_type']): string {
+  if (fulfillmentType === 'PHYSICAL') {
+    return '실물';
+  }
+  if (fulfillmentType === 'DIGITAL') {
+    return FULFILLMENT_TYPE_LABELS.DIGITAL;
+  }
+  return '미설정';
 }
 
 function parsePositiveInteger(value: string): number | null {
@@ -172,6 +206,10 @@ export function ProductBundleManager({
     isLoading: variantsLoading,
     isError: variantsError,
   } = useV2AdminVariantsMap(selectableProductIds);
+  const {
+    mediaByProductId,
+    isError: mediaError,
+  } = useV2AdminProductMediaMap(selectableProductIds);
 
   const selectableVariantsByProductId = useMemo(() => {
     return selectableProducts.reduce<Record<string, V2Variant[]>>((accumulator, product) => {
@@ -694,6 +732,11 @@ export function ProductBundleManager({
                   기존 번들 구성 조회에 실패했습니다. 저장 시 새 구성으로 덮어씁니다.
                 </div>
               )}
+              {!hasCriticalLoadError && mediaError && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                  상품 이미지 정보를 불러오지 못했습니다. 선택은 계속 진행할 수 있습니다.
+                </div>
+              )}
 
               {!hasCriticalLoadError && selectableProducts.length === 0 && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
@@ -713,6 +756,7 @@ export function ProductBundleManager({
                 <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
                   {filteredSelectableProducts.map((product) => {
                     const variants = selectableVariantsByProductId[product.id] || [];
+                    const coverMedia = getCoverMedia(mediaByProductId[product.id] || []);
                     const variantCount = variants.length;
                     const checked = selectedProductIdSet.has(product.id);
                     const disabled = variantCount === 0;
@@ -732,18 +776,38 @@ export function ProductBundleManager({
                       >
                         <input
                           type="checkbox"
-                          className="mt-1 h-4 w-4"
+                          className="mt-5 h-4 w-4"
                           checked={checked}
                           disabled={disabled}
                           onChange={(event) =>
                             handleToggleProduct(product.id, event.target.checked)
                           }
                         />
+                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                          {coverMedia?.public_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- project policy uses native img instead of next/image.
+                            <img
+                              src={coverMedia.public_url}
+                              alt={coverMedia.alt_text || `${product.title} 대표 이미지`}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-400">
+                              없음
+                            </div>
+                          )}
+                        </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-semibold text-gray-900">
+                            <p className="min-w-0 max-w-full truncate text-sm font-semibold text-gray-900">
                               {product.title}
                             </p>
+                            <Badge
+                              intent={resolveFulfillmentIntent(product.fulfillment_type)}
+                              size="sm"
+                            >
+                              {resolveFulfillmentLabel(product.fulfillment_type)}
+                            </Badge>
                             <Badge intent="default" size="sm">
                               {optionSummary}
                             </Badge>
