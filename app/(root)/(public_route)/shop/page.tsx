@@ -360,6 +360,7 @@ function ShopPageContent() {
                     index={voicePackPageStartIndex + index}
                     name={pack.title}
                     thumbnail={pack.thumbnail_url}
+                    appearance="media"
                   />
 
                   <div className="p-6">
