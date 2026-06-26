@@ -1836,6 +1836,14 @@ export const V2CatalogAdminAPI = {
     return apiClient.patch(`/api/v2/catalog/admin/projects/${id}/unpublish`, {});
   },
 
+  async archiveProject(id: string): Promise<ApiResponse<V2Project>> {
+    return apiClient.patch(`/api/v2/catalog/admin/projects/${id}/archive`, {});
+  },
+
+  async restoreProject(id: string): Promise<ApiResponse<V2Project>> {
+    return apiClient.patch(`/api/v2/catalog/admin/projects/${id}/restore`, {});
+  },
+
   async deleteProject(id: string): Promise<ApiResponse<{ message: string }>> {
     return apiClient.delete(`/api/v2/catalog/admin/projects/${id}`);
   },

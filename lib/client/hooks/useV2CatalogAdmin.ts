@@ -151,6 +151,26 @@ export function useUnpublishV2Project() {
   });
 }
 
+export function useArchiveV2Project() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => V2CatalogAdminAPI.archiveProject(id),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useRestoreV2Project() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => V2CatalogAdminAPI.restoreProject(id),
+    onSuccess: async () => {
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
 export function useDeleteV2Project() {
   const queryClient = useQueryClient();
   return useMutation({
