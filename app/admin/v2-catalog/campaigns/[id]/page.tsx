@@ -52,11 +52,6 @@ import {
   resolveTargetLabel,
   summarizeTargetGroups,
 } from '@/lib/client/utils/v2-campaign-admin';
-import {
-  FULFILLMENT_TYPE_LABELS,
-  PRODUCT_KIND_LABELS,
-} from '@/lib/client/utils/v2-product-admin-form';
-
 function formatCurrency(amount: number): string {
   return `${amount.toLocaleString('ko-KR')}원`;
 }
@@ -142,28 +137,28 @@ function getProductTypeBadge(product: V2Product): {
 } {
   if (product.product_kind === 'BUNDLE') {
     return {
-      label: PRODUCT_KIND_LABELS.BUNDLE,
+      label: '번들',
       intent: 'warning',
     };
   }
 
   if (product.fulfillment_type === 'DIGITAL') {
     return {
-      label: FULFILLMENT_TYPE_LABELS.DIGITAL,
+      label: '디지털',
       intent: 'success',
     };
   }
 
   if (product.fulfillment_type === 'PHYSICAL') {
     return {
-      label: FULFILLMENT_TYPE_LABELS.PHYSICAL,
+      label: '실물',
       intent: 'info',
     };
   }
 
   return {
-    label: PRODUCT_KIND_LABELS.STANDARD,
-    intent: 'default',
+    label: '실물',
+    intent: 'info',
   };
 }
 
@@ -1143,7 +1138,7 @@ export default function V2CatalogCampaignDetailPage() {
                   return (
                     <div key={row.product.id} className="rounded-lg border border-white bg-white shadow-sm">
                       <div className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
                           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
                             {coverMedia?.public_url ? (
                               // eslint-disable-next-line @next/next/no-img-element -- project policy uses native img instead of next/image.
@@ -1158,13 +1153,15 @@ export default function V2CatalogCampaignDetailPage() {
                               </div>
                             )}
                           </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate text-sm font-medium text-gray-900">{row.product.title}</p>
-                              <Badge intent={productTypeBadge.intent} size="sm">
-                                {productTypeBadge.label}
-                              </Badge>
-                            </div>
+                          <Badge
+                            intent={productTypeBadge.intent}
+                            size="sm"
+                            className="w-14 shrink-0"
+                          >
+                            {productTypeBadge.label}
+                          </Badge>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-gray-900">{row.product.title}</p>
                             <p className="mt-1 text-xs text-gray-500">
                               옵션 {row.variants.length}개 · 포함 {row.includedCount}개 · 할인 {row.overrideCount}개
                             </p>
@@ -1344,7 +1341,7 @@ export default function V2CatalogCampaignDetailPage() {
                   return (
                     <div key={row.product.id} className="rounded-lg border border-white bg-white shadow-sm">
                       <div className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
                           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
                             {coverMedia?.public_url ? (
                               // eslint-disable-next-line @next/next/no-img-element -- project policy uses native img instead of next/image.
@@ -1359,13 +1356,15 @@ export default function V2CatalogCampaignDetailPage() {
                               </div>
                             )}
                           </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate text-sm font-medium text-gray-900">{row.product.title}</p>
-                              <Badge intent={productTypeBadge.intent} size="sm">
-                                {productTypeBadge.label}
-                              </Badge>
-                            </div>
+                          <Badge
+                            intent={productTypeBadge.intent}
+                            size="sm"
+                            className="w-14 shrink-0"
+                          >
+                            {productTypeBadge.label}
+                          </Badge>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-gray-900">{row.product.title}</p>
                             <p className="mt-1 text-xs text-gray-500">
                               옵션 {row.variants.length}개 · 미포함 {row.notIncludedCount}개
                             </p>
