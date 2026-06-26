@@ -49,6 +49,8 @@ import { UploadProgressCard, type VariantUploadState } from './UploadProgressCar
 const VARIANT_STATUS_VALUES: V2VariantStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE'];
 const FULFILLMENT_TYPE_VALUES: V2FulfillmentType[] = ['DIGITAL', 'PHYSICAL'];
 
+type VariantSaveHandler = () => Promise<boolean>;
+
 type ProductVariantFormProps = {
   mode: 'create' | 'edit';
   product: V2Product;
@@ -56,6 +58,8 @@ type ProductVariantFormProps = {
   variantCount?: number;
   primaryAsset?: V2DigitalAsset | null;
   isAssetsLoading?: boolean;
+  hideActions?: boolean;
+  registerSaveHandler?: (handler: VariantSaveHandler | null) => void;
   onCancel: () => void;
   onSuccess: () => void | Promise<void>;
 };
@@ -215,6 +219,8 @@ export function ProductVariantForm({
   variantCount = 0,
   primaryAsset,
   isAssetsLoading = false,
+  hideActions = false,
+  registerSaveHandler,
   onCancel,
   onSuccess,
 }: ProductVariantFormProps) {
@@ -566,7 +572,7 @@ export function ProductVariantForm({
     setInventorySafetyStockQuantity(String(matchedLevel.safety_stock_quantity));
   };
 
-  const submitVariantForm = async () => {
+  const submitVariantForm = async (): Promise<boolean> => {
     setErrorMessage(null);
     setUploadState(null);
     setAbortUpload(null);
@@ -735,6 +741,7 @@ export function ProductVariantForm({
 
       setAbortUpload(null);
       await onSuccess();
+      return true;
     } catch (submitError) {
       setAbortUpload(null);
       const maybeUploadError = submitError as { code?: string; message?: string };
@@ -744,10 +751,10 @@ export function ProductVariantForm({
           setErrorMessage(
             '오디오 업로드를 취소했습니다. 옵션은 이미 저장되어 있으니 같은 옵션에 다시 업로드할 수 있습니다.',
           );
-          return;
+          return false;
         }
         setErrorMessage('오디오 업로드를 취소했습니다. 다시 시도하거나 파일을 바꿀 수 있습니다.');
-        return;
+        return false;
       }
 
       const nextErrorMessage = getErrorMessage(submitError);
@@ -756,11 +763,27 @@ export function ProductVariantForm({
         setErrorMessage(
           `${nextErrorMessage} 옵션은 이미 저장되어 있어 다시 제출해도 새 옵션이 추가되지는 않습니다.`,
         );
-        return;
+        return false;
       }
       setErrorMessage(nextErrorMessage);
+      return false;
     }
   };
+
+  const submitVariantFormRef = useRef(submitVariantForm);
+
+  useEffect(() => {
+    submitVariantFormRef.current = submitVariantForm;
+  });
+
+  useEffect(() => {
+    if (!registerSaveHandler) {
+      return;
+    }
+
+    registerSaveHandler(() => submitVariantFormRef.current());
+    return () => registerSaveHandler(null);
+  }, [registerSaveHandler]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1199,14 +1222,16 @@ export function ProductVariantForm({
         </section>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" loading={isSubmitting}>
-          {mode === 'create' ? '옵션 추가' : '옵션 저장'}
-        </Button>
-        <Button type="button" intent="neutral" onClick={onCancel}>
-          취소
-        </Button>
-      </div>
+      {!hideActions && (
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" loading={isSubmitting}>
+            {mode === 'create' ? '옵션 추가' : '옵션 저장'}
+          </Button>
+          <Button type="button" intent="neutral" onClick={onCancel}>
+            취소
+          </Button>
+        </div>
+      )}
     </form>
   );
 }

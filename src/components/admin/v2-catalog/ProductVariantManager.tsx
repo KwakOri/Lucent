@@ -169,6 +169,7 @@ type VariantInlineEditPanelProps = {
   product: V2Product;
   variant: V2Variant;
   variantCount: number;
+  registerSaveHandler?: (handler: (() => Promise<boolean>) | null) => void;
   onCancel: () => void;
   onSuccess: () => void;
 };
@@ -177,6 +178,7 @@ function VariantInlineEditPanel({
   product,
   variant,
   variantCount,
+  registerSaveHandler,
   onCancel,
   onSuccess,
 }: VariantInlineEditPanelProps) {
@@ -195,6 +197,8 @@ function VariantInlineEditPanel({
         variantCount={variantCount}
         primaryAsset={primaryAsset}
         isAssetsLoading={assetsLoading}
+        hideActions
+        registerSaveHandler={registerSaveHandler}
         onCancel={onCancel}
         onSuccess={onSuccess}
       />
@@ -204,9 +208,13 @@ function VariantInlineEditPanel({
 
 type ProductVariantManagerProps = {
   product: V2Product;
+  registerSaveHandler?: (handler: (() => Promise<boolean>) | null) => void;
 };
 
-export function ProductVariantManager({ product }: ProductVariantManagerProps) {
+export function ProductVariantManager({
+  product,
+  registerSaveHandler,
+}: ProductVariantManagerProps) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -387,6 +395,7 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
                     product={product}
                     variant={variant}
                     variantCount={variants?.length || 0}
+                    registerSaveHandler={registerSaveHandler}
                     onCancel={() => setExpandedVariantId(null)}
                     onSuccess={handleInlineEditSuccess}
                   />
