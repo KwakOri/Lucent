@@ -1,84 +1,28 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import type {
   V2Product,
   V2ProductMedia,
-  V2ProductStatus,
   V2Variant,
-  V2VariantStatus,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
-  useCreateV2ProductMedia,
-  useUpdateV2Product,
-  useUpdateV2ProductMedia,
-  useUpdateV2Variant,
-  useUploadV2MediaAssetFile,
   useV2AdminProductMediaMap,
   useV2AdminVariantsMap,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import {
   FULFILLMENT_TYPE_LABELS,
+  PRODUCT_KIND_LABELS,
   PRODUCT_STATUS_LABELS,
-  VARIANT_STATUS_LABELS,
 } from '@/lib/client/utils/v2-product-admin-form';
-import { queryKeys } from '@/lib/client/hooks/query-keys';
 
 type ProjectProductsBulkTableProps = {
   products: V2Product[];
   onOpenDetail: (productId: string) => void;
 };
-
-type ProductDraft = {
-  title: string;
-  shortDescription: string;
-  status: V2ProductStatus;
-};
-
-type VariantDraft = {
-  title: string;
-  status: V2VariantStatus;
-};
-
-type DirtyMap = Record<string, true>;
-
-const PRODUCT_STATUS_VALUES: V2ProductStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE', 'ARCHIVED'];
-const VARIANT_STATUS_VALUES: V2VariantStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE'];
-
-function getErrorMessage(error: unknown): string {
-  if (error && typeof error === 'object') {
-    const maybeError = error as {
-      message?: string;
-      response?: { data?: { message?: string } };
-    };
-    if (maybeError.response?.data?.message) {
-      return maybeError.response.data.message;
-    }
-    if (maybeError.message) {
-      return maybeError.message;
-    }
-  }
-  return '요청 처리 중 오류가 발생했습니다.';
-}
-
-function shouldHideVariantTitleInput(variants: V2Variant[], variant: V2Variant): boolean {
-  if (variants.length !== 1) {
-    return false;
-  }
-  return variant.title.trim().toLowerCase() === 'default';
-}
-
-function isImageFile(file: File): boolean {
-  if (file.type.toLowerCase().startsWith('image/')) {
-    return true;
-  }
-  return /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(file.name);
-}
 
 function getCoverMedia(mediaList: V2ProductMedia[]): V2ProductMedia | null {
   const active = mediaList.filter((media) => media.status === 'ACTIVE');
@@ -89,43 +33,52 @@ function getCoverMedia(mediaList: V2ProductMedia[]): V2ProductMedia | null {
   );
 }
 
-function setDirtyFlag(previous: DirtyMap, id: string, isDirty: boolean): DirtyMap {
-  if (isDirty) {
-    if (previous[id]) {
-      return previous;
-    }
-    return {
-      ...previous,
-      [id]: true,
-    };
+function resolveProductStatusIntent(status: V2Product['status']) {
+  if (status === 'ACTIVE') {
+    return 'success';
+  }
+  if (status === 'DRAFT') {
+    return 'warning';
+  }
+  if (status === 'ARCHIVED') {
+    return 'default';
+  }
+  return 'info';
+}
+
+function resolveProductKindIntent(kind: V2Product['product_kind']) {
+  return kind === 'BUNDLE' ? 'warning' : 'info';
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function summarizeVariants(variants: V2Variant[]): string {
+  if (variants.length === 0) {
+    return '옵션 없음';
   }
 
-  if (!previous[id]) {
-    return previous;
-  }
+  const fulfillmentCounts = variants.reduce<Record<string, number>>((accumulator, variant) => {
+    const label = FULFILLMENT_TYPE_LABELS[variant.fulfillment_type];
+    accumulator[label] = (accumulator[label] || 0) + 1;
+    return accumulator;
+  }, {});
 
-  const next = {
-    ...previous,
-  };
-  delete next[id];
-  return next;
+  return Object.entries(fulfillmentCounts)
+    .map(([label, count]) => `${label} ${count}개`)
+    .join(' · ');
 }
 
 export function ProjectProductsBulkTable({
   products,
   onOpenDetail,
 }: ProjectProductsBulkTableProps) {
-  const [expandedProducts, setExpandedProducts] = useState<DirtyMap>({});
-  const [productDrafts, setProductDrafts] = useState<Record<string, ProductDraft>>({});
-  const [variantDrafts, setVariantDrafts] = useState<Record<string, VariantDraft>>({});
-  const [dirtyProductIds, setDirtyProductIds] = useState<DirtyMap>({});
-  const [dirtyVariantIds, setDirtyVariantIds] = useState<DirtyMap>({});
-  const [message, setMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [updatingCoverProductId, setUpdatingCoverProductId] = useState<string | null>(null);
-  const queryClient = useQueryClient();
-
   const productIds = useMemo(() => products.map((product) => product.id), [products]);
   const {
     variantsByProductId,
@@ -138,341 +91,8 @@ export function ProjectProductsBulkTable({
     isError: mediaError,
   } = useV2AdminProductMediaMap(productIds);
 
-  const uploadMediaAssetFile = useUploadV2MediaAssetFile();
-  const createProductMedia = useCreateV2ProductMedia();
-  const updateProductMedia = useUpdateV2ProductMedia();
-  const updateProduct = useUpdateV2Product();
-  const updateVariant = useUpdateV2Variant();
-
-  const productsById = useMemo(() => {
-    const map = new Map<string, V2Product>();
-    products.forEach((product) => {
-      map.set(product.id, product);
-    });
-    return map;
-  }, [products]);
-
-  const variantMetaById = useMemo(() => {
-    const map = new Map<string, { variant: V2Variant; productId: string; siblings: V2Variant[] }>();
-    Object.entries(variantsByProductId).forEach(([productId, variants]) => {
-      variants.forEach((variant) => {
-        map.set(variant.id, {
-          variant,
-          productId,
-          siblings: variants,
-        });
-      });
-    });
-    return map;
-  }, [variantsByProductId]);
-
-  useEffect(() => {
-    if (products.length === 0) {
-      return;
-    }
-    setProductDrafts((previous) => {
-      let hasChanges = false;
-      const next = {
-        ...previous,
-      };
-      products.forEach((product) => {
-        if (next[product.id]) {
-          return;
-        }
-        hasChanges = true;
-        next[product.id] = {
-          title: product.title,
-          shortDescription: product.short_description || '',
-          status: product.status,
-        };
-      });
-      return hasChanges ? next : previous;
-    });
-  }, [products]);
-
-  useEffect(() => {
-    if (variantMetaById.size === 0) {
-      return;
-    }
-    setVariantDrafts((previous) => {
-      let hasChanges = false;
-      const next = {
-        ...previous,
-      };
-      variantMetaById.forEach(({ variant }) => {
-        if (next[variant.id]) {
-          return;
-        }
-        hasChanges = true;
-        next[variant.id] = {
-          title: variant.title,
-          status: variant.status,
-        };
-      });
-      return hasChanges ? next : previous;
-    });
-  }, [variantMetaById]);
-
-  const pendingProductCount = Object.keys(dirtyProductIds).length;
-  const pendingVariantCount = Object.keys(dirtyVariantIds).length;
-  const pendingCount = pendingProductCount + pendingVariantCount;
-
-  const handleProductDraftChange = (
-    product: V2Product,
-    patch: Partial<ProductDraft>,
-  ) => {
-    setMessage(null);
-    setErrorMessage(null);
-
-    setProductDrafts((previous) => {
-      const base = previous[product.id] || {
-        title: product.title,
-        shortDescription: product.short_description || '',
-        status: product.status,
-      };
-      const nextDraft: ProductDraft = {
-        ...base,
-        ...patch,
-      };
-
-      const normalizedTitle = nextDraft.title.trim();
-      const normalizedShortDescription = nextDraft.shortDescription.trim();
-      const originShortDescription = (product.short_description || '').trim();
-      const hasChanges =
-        normalizedTitle !== product.title ||
-        normalizedShortDescription !== originShortDescription ||
-        nextDraft.status !== product.status;
-
-      setDirtyProductIds((previousDirty) =>
-        setDirtyFlag(previousDirty, product.id, hasChanges),
-      );
-
-      return {
-        ...previous,
-        [product.id]: nextDraft,
-      };
-    });
-  };
-
-  const handleVariantDraftChange = (
-    variantId: string,
-    patch: Partial<VariantDraft>,
-  ) => {
-    const meta = variantMetaById.get(variantId);
-    if (!meta) {
-      return;
-    }
-
-    setMessage(null);
-    setErrorMessage(null);
-
-    setVariantDrafts((previous) => {
-      const base = previous[variantId] || {
-        title: meta.variant.title,
-        status: meta.variant.status,
-      };
-
-      const nextDraft: VariantDraft = {
-        ...base,
-        ...patch,
-      };
-
-      const hideTitleInput = shouldHideVariantTitleInput(meta.siblings, meta.variant);
-      const normalizedTitle = hideTitleInput ? 'default' : nextDraft.title.trim();
-      const hasChanges =
-        normalizedTitle !== meta.variant.title ||
-        nextDraft.status !== meta.variant.status;
-
-      setDirtyVariantIds((previousDirty) =>
-        setDirtyFlag(previousDirty, variantId, hasChanges),
-      );
-
-      return {
-        ...previous,
-        [variantId]: nextDraft,
-      };
-    });
-  };
-
-  const handleSaveAll = async () => {
-    const pendingProductIds = Object.keys(dirtyProductIds);
-    const pendingVariantIds = Object.keys(dirtyVariantIds);
-
-    if (pendingProductIds.length === 0 && pendingVariantIds.length === 0) {
-      return;
-    }
-
-    setMessage(null);
-    setErrorMessage(null);
-    setIsSaving(true);
-
-    try {
-      const touchedVariantProductIds = new Set<string>();
-
-      for (const productId of pendingProductIds) {
-        const product = productsById.get(productId);
-        const draft = productDrafts[productId];
-        if (!product || !draft) {
-          continue;
-        }
-
-        const nextTitle = draft.title.trim();
-        if (!nextTitle) {
-          throw new Error('상품명은 비워둘 수 없습니다.');
-        }
-
-        await updateProduct.mutateAsync({
-          id: product.id,
-          data: {
-            title: nextTitle,
-            short_description: draft.shortDescription.trim() || null,
-            status: draft.status,
-          },
-          skipInvalidate: true,
-        });
-      }
-
-      for (const variantId of pendingVariantIds) {
-        const meta = variantMetaById.get(variantId);
-        const draft = variantDrafts[variantId];
-        if (!meta || !draft) {
-          continue;
-        }
-
-        const hideTitleInput = shouldHideVariantTitleInput(meta.siblings, meta.variant);
-        const nextTitle = hideTitleInput ? 'default' : draft.title.trim();
-        if (!nextTitle) {
-          throw new Error('옵션 이름은 비워둘 수 없습니다.');
-        }
-
-        await updateVariant.mutateAsync({
-          variantId,
-          data: {
-            title: nextTitle,
-            status: draft.status,
-          },
-          skipInvalidate: true,
-        });
-        touchedVariantProductIds.add(meta.productId);
-      }
-
-      await queryClient.invalidateQueries({
-        predicate: (query) =>
-          query.queryKey[0] === 'v2-catalog-admin' &&
-          query.queryKey[1] === 'products' &&
-          query.queryKey[2] === 'list',
-      });
-      await Promise.all(
-        Array.from(touchedVariantProductIds).map((productId) =>
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.v2CatalogAdmin.products.variants(productId),
-          }),
-        ),
-      );
-
-      setDirtyProductIds({});
-      setDirtyVariantIds({});
-      setMessage(`상품 ${pendingProductIds.length}건, 옵션 ${pendingVariantIds.length}건을 저장했습니다.`);
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error));
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleCoverImageChange = async (product: V2Product, file: File) => {
-    setMessage(null);
-    setErrorMessage(null);
-
-    if (!isImageFile(file)) {
-      setErrorMessage('이미지 파일만 업로드할 수 있습니다.');
-      return;
-    }
-
-    setUpdatingCoverProductId(product.id);
-
-    try {
-      const uploaded = await uploadMediaAssetFile.mutateAsync({
-        data: {
-          file,
-          asset_kind: 'IMAGE',
-          status: 'ACTIVE',
-          metadata: {
-            source: 'v2-project-products-bulk-cover-upload',
-          },
-        },
-        skipInvalidate: true,
-      });
-
-      const currentCoverMedia = getCoverMedia(mediaByProductId[product.id] || []);
-      if (currentCoverMedia) {
-        await updateProductMedia.mutateAsync({
-          mediaId: currentCoverMedia.id,
-          data: {
-            media_asset_id: uploaded.data.id,
-            media_role: 'PRIMARY',
-            is_primary: true,
-            sort_order: 0,
-            status: 'ACTIVE',
-          },
-          skipInvalidate: true,
-        });
-      } else {
-        await createProductMedia.mutateAsync({
-          productId: product.id,
-          data: {
-            media_asset_id: uploaded.data.id,
-            media_role: 'PRIMARY',
-            is_primary: true,
-            sort_order: 0,
-            status: 'ACTIVE',
-          },
-          skipInvalidate: true,
-        });
-      }
-
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.v2CatalogAdmin.products.media(product.id),
-      });
-      setMessage(`${product.title} 대표 이미지를 저장했습니다.`);
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error));
-    } finally {
-      setUpdatingCoverProductId(null);
-    }
-  };
-
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-gray-900">일괄 편집 모드</p>
-            <p className="mt-1 text-xs text-gray-500">
-              표에서 여러 상품/옵션을 수정한 뒤 한 번에 저장합니다.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge intent={pendingCount > 0 ? 'warning' : 'info'}>
-              변경 {pendingCount}건
-            </Badge>
-            <Button onClick={handleSaveAll} disabled={pendingCount === 0} loading={isSaving}>
-              변경 일괄 저장
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {message && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {message}
-        </div>
-      )}
-      {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      )}
       {variantsError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           옵션 정보를 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
@@ -490,246 +110,81 @@ export function ProjectProductsBulkTable({
             <tr>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">커버</th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">상품</th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-700">상품명</th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">상태</th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">한 줄 설명</th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">옵션</th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-700">상세</th>
+              <th className="px-3 py-2 text-right font-semibold text-gray-700">편집</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
             {products.map((product) => {
               const productVariants = variantsByProductId[product.id] || [];
-              const productDraft = productDrafts[product.id] || {
-                title: product.title,
-                shortDescription: product.short_description || '',
-                status: product.status,
-              };
-              const isExpanded = Boolean(expandedProducts[product.id]);
-              const isProductDirty = Boolean(dirtyProductIds[product.id]);
-              const dirtyVariantCount = productVariants.filter((variant) => dirtyVariantIds[variant.id]).length;
               const coverMedia = getCoverMedia(mediaByProductId[product.id] || []);
-              const coverInputId = `bulk-product-cover-${product.id}`;
-              const isCoverUpdating =
-                updatingCoverProductId === product.id &&
-                (uploadMediaAssetFile.isPending ||
-                  createProductMedia.isPending ||
-                  updateProductMedia.isPending);
+              const isVariantSummaryLoading = variantsLoading || variantsFetching;
 
               return (
-                <Fragment key={product.id}>
-                  <tr className="align-top">
-                    <td className="px-3 py-3">
-                      <input
-                        id={coverInputId}
-                        type="file"
-                        accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
-                        className="hidden"
-                        disabled={isCoverUpdating}
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (file) {
-                            void handleCoverImageChange(product, file);
-                          }
-                          event.target.value = '';
-                        }}
-                      />
-                      <label
-                        htmlFor={coverInputId}
-                        className={`group relative block h-14 w-14 overflow-hidden rounded-lg border border-gray-200 ${
-                          isCoverUpdating ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
-                        }`}
-                      >
-                        {coverMedia?.public_url ? (
-                          <img
-                            src={coverMedia.public_url}
-                            alt={coverMedia.alt_text || `${product.title} 대표 이미지`}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-gray-50 text-[10px] text-gray-400">
-                            없음
-                          </div>
-                        )}
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-[10px] font-medium text-white opacity-0 transition group-hover:opacity-100">
-                          {isCoverUpdating ? '업로드 중' : '변경'}
+                <tr key={product.id} className="align-top">
+                  <td className="px-3 py-3">
+                    <div className="h-14 w-14 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                      {coverMedia?.public_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- project policy uses native img instead of next/image.
+                        <img
+                          src={coverMedia.public_url}
+                          alt={coverMedia.alt_text || `${product.title} 대표 이미지`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-400">
+                          없음
                         </div>
-                      </label>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="min-w-[220px]">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            className="text-xs font-medium text-primary-700 hover:underline"
-                            onClick={() =>
-                              setExpandedProducts((previous) => {
-                                const isOpen = Boolean(previous[product.id]);
-                                if (isOpen) {
-                                  const next = {
-                                    ...previous,
-                                  };
-                                  delete next[product.id];
-                                  return next;
-                                }
-                                return {
-                                  ...previous,
-                                  [product.id]: true,
-                                };
-                              })
-                            }
-                          >
-                            {isExpanded ? '옵션 접기' : '옵션 펼치기'}
-                          </button>
-                          {isProductDirty && <Badge intent="warning" size="sm">저장 대기</Badge>}
-                        </div>
-                        <p className="mt-1 font-semibold text-gray-900">{product.title}</p>
-                        <p className="mt-1 text-xs text-gray-500">/{product.slug}</p>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="min-w-[260px]">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge intent={resolveProductKindIntent(product.product_kind)}>
+                          {PRODUCT_KIND_LABELS[product.product_kind]}
+                        </Badge>
+                        <p className="font-semibold text-gray-900">{product.title}</p>
                       </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="min-w-[240px]">
-                        <Input
-                          value={productDraft.title}
-                          onChange={(event) =>
-                            handleProductDraftChange(product, {
-                              title: event.target.value,
-                            })
-                          }
-                          placeholder="상품명"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="min-w-[150px]">
-                        <Select
-                          value={productDraft.status}
-                          onChange={(event) =>
-                            handleProductDraftChange(product, {
-                              status: event.target.value as V2ProductStatus,
-                            })
-                          }
-                          options={PRODUCT_STATUS_VALUES.map((status) => ({
-                            value: status,
-                            label: PRODUCT_STATUS_LABELS[status],
-                          }))}
-                        />
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="min-w-[260px]">
-                        <Input
-                          value={productDraft.shortDescription}
-                          onChange={(event) =>
-                            handleProductDraftChange(product, {
-                              shortDescription: event.target.value,
-                            })
-                          }
-                          placeholder="한 줄 설명"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex min-w-[120px] items-center gap-2">
-                        <Badge intent="info" size="sm">{productVariants.length}개</Badge>
-                        {dirtyVariantCount > 0 && (
-                          <Badge intent="warning" size="sm">변경 {dirtyVariantCount}</Badge>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <Button size="sm" intent="neutral" onClick={() => onOpenDetail(product.id)}>
-                        고급 상세
-                      </Button>
-                    </td>
-                  </tr>
-
-                  {isExpanded && (
-                    <tr>
-                      <td colSpan={7} className="bg-gray-50 px-3 py-3">
-                        {variantsLoading || variantsFetching ? (
-                          <div className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-sm text-gray-500">
-                            옵션 정보를 불러오는 중입니다.
-                          </div>
-                        ) : productVariants.length === 0 ? (
-                          <div className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-sm text-gray-500">
-                            등록된 옵션이 없습니다. 고급 상세에서 옵션을 추가해 주세요.
-                          </div>
-                        ) : (
-                          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-                            <table className="min-w-full divide-y divide-gray-200 text-sm">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">옵션명</th>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">옵션 상태</th>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">SKU / 타입</th>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">변경</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100">
-                                {productVariants.map((variant) => {
-                                  const draft = variantDrafts[variant.id] || {
-                                    title: variant.title,
-                                    status: variant.status,
-                                  };
-                                  const hideTitleInput = shouldHideVariantTitleInput(productVariants, variant);
-                                  const isVariantDirty = Boolean(dirtyVariantIds[variant.id]);
-
-                                  return (
-                                    <tr key={variant.id}>
-                                      <td className="px-3 py-2">
-                                        {hideTitleInput ? (
-                                          <div className="flex h-10 items-center rounded-md border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-700">
-                                            default
-                                          </div>
-                                        ) : (
-                                          <Input
-                                            value={draft.title}
-                                            onChange={(event) =>
-                                              handleVariantDraftChange(variant.id, {
-                                                title: event.target.value,
-                                              })
-                                            }
-                                            placeholder="옵션명"
-                                          />
-                                        )}
-                                      </td>
-                                      <td className="px-3 py-2">
-                                        <Select
-                                          value={draft.status}
-                                          onChange={(event) =>
-                                            handleVariantDraftChange(variant.id, {
-                                              status: event.target.value as V2VariantStatus,
-                                            })
-                                          }
-                                          options={VARIANT_STATUS_VALUES.map((status) => ({
-                                            value: status,
-                                            label: VARIANT_STATUS_LABELS[status],
-                                          }))}
-                                        />
-                                      </td>
-                                      <td className="px-3 py-2 text-xs text-gray-600">
-                                        <p>{variant.sku}</p>
-                                        <p className="mt-1">{FULFILLMENT_TYPE_LABELS[variant.fulfillment_type]}</p>
-                                      </td>
-                                      <td className="px-3 py-2">
-                                        {isVariantDirty ? (
-                                          <Badge intent="warning" size="sm">저장 대기</Badge>
-                                        ) : (
-                                          <span className="text-xs text-gray-400">-</span>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
+                      <p className="mt-1 text-xs text-gray-500">/{product.slug}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        최근 수정 {formatDateTime(product.updated_at)}
+                      </p>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3">
+                    <Badge intent={resolveProductStatusIntent(product.status)}>
+                      {PRODUCT_STATUS_LABELS[product.status]}
+                    </Badge>
+                  </td>
+                  <td className="px-3 py-3">
+                    <p className="min-w-[240px] max-w-[360px] text-sm leading-6 text-gray-600">
+                      {product.short_description || '한 줄 설명이 없습니다.'}
+                    </p>
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="min-w-[160px]">
+                      <Badge intent="info" size="sm">{productVariants.length}개</Badge>
+                      <p className="mt-2 text-xs text-gray-500">
+                        {isVariantSummaryLoading ? '옵션 확인 중' : summarizeVariants(productVariants)}
+                      </p>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    <Button
+                      size="sm"
+                      intent="neutral"
+                      className="h-9 w-9 px-0"
+                      aria-label={`${product.title} 상세 편집`}
+                      title="상세 편집"
+                      onClick={() => onOpenDetail(product.id)}
+                    >
+                      <Pencil className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </td>
+                </tr>
               );
             })}
           </tbody>

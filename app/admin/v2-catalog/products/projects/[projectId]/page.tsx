@@ -147,7 +147,7 @@ export default function V2CatalogProjectProductsPage() {
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold text-gray-900">상품 찾기</h2>
           <p className="text-sm text-gray-500">
-            검색/필터로 대상을 줄인 뒤 커버, 상세 이미지, 옵션을 바로 편집할 수 있습니다.
+            검색/필터로 대상을 줄인 뒤 상품 상태와 옵션 구성을 빠르게 확인합니다.
           </p>
         </div>
 
@@ -185,7 +185,7 @@ export default function V2CatalogProjectProductsPage() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">상품 목록</h2>
             <p className="mt-1 text-sm text-gray-500">
-              표에서 여러 상품/옵션을 한 번에 편집하고 일괄 저장할 수 있습니다.
+              대략적인 상품 정보를 확인하고 편집 아이콘으로 상세 화면에 들어갑니다.
             </p>
           </div>
           <Badge intent="info">{filteredProducts.length}개 표시</Badge>
