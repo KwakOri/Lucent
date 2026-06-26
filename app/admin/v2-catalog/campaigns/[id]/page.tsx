@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { Minus, Plus, SlidersHorizontal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -70,6 +71,11 @@ type VariantCampaignRow = {
   included: boolean;
   state: VariantCampaignState;
   effectiveAmount: number | null;
+  variantIncludeTarget: V2CampaignTarget | null;
+  productIncludeTarget: V2CampaignTarget | null;
+  variantExcludeTarget: V2CampaignTarget | null;
+  productExcludeTarget: V2CampaignTarget | null;
+  projectExcludeTarget: V2CampaignTarget | null;
 };
 
 type ProductCampaignRow = {
@@ -113,6 +119,22 @@ function findVariantPriceItem(params: {
   );
   const exact = matched.filter((item) => item.variant_id === params.variantId);
   return pickBestPriceItem(exact.length > 0 ? exact : matched);
+}
+
+function findCampaignTarget(params: {
+  targets: V2CampaignTarget[];
+  targetType: V2CampaignTarget['target_type'];
+  targetId: string;
+  isExcluded: boolean;
+}): V2CampaignTarget | null {
+  return (
+    params.targets.find(
+      (target) =>
+        target.target_type === params.targetType &&
+        target.target_id === params.targetId &&
+        target.is_excluded === params.isExcluded,
+    ) || null
+  );
 }
 
 function getTargetBuckets(targets: V2CampaignTarget[]) {
@@ -231,8 +253,10 @@ export default function V2CatalogCampaignDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [expandedProductIds, setExpandedProductIds] = useState<Record<string, boolean>>({});
+  const [expandedPricingVariantIds, setExpandedPricingVariantIds] = useState<Record<string, boolean>>({});
   const [discountDrafts, setDiscountDrafts] = useState<Record<string, DiscountDraft>>({});
   const [savingVariantId, setSavingVariantId] = useState<string | null>(null);
+  const [savingProductId, setSavingProductId] = useState<string | null>(null);
 
   const campaignId = useMemo(() => {
     const raw = params?.id;
@@ -388,6 +412,36 @@ export default function V2CatalogCampaignDetailPage() {
     return candidateProducts.map((product) => {
       const variants = variantsByProductId[product.id] || [];
       const variantRows = variants.map((variant) => {
+        const variantIncludeTarget = findCampaignTarget({
+          targets: targets || [],
+          targetType: 'VARIANT',
+          targetId: variant.id,
+          isExcluded: false,
+        });
+        const productIncludeTarget = findCampaignTarget({
+          targets: targets || [],
+          targetType: 'PRODUCT',
+          targetId: product.id,
+          isExcluded: false,
+        });
+        const variantExcludeTarget = findCampaignTarget({
+          targets: targets || [],
+          targetType: 'VARIANT',
+          targetId: variant.id,
+          isExcluded: true,
+        });
+        const productExcludeTarget = findCampaignTarget({
+          targets: targets || [],
+          targetType: 'PRODUCT',
+          targetId: product.id,
+          isExcluded: true,
+        });
+        const projectExcludeTarget = findCampaignTarget({
+          targets: targets || [],
+          targetType: 'PROJECT',
+          targetId: product.project_id,
+          isExcluded: true,
+        });
         const baseItem = findVariantPriceItem({
           items: basePriceItemsByProductId.get(product.id) || [],
           productId: product.id,
@@ -419,6 +473,11 @@ export default function V2CatalogCampaignDetailPage() {
           included,
           state,
           effectiveAmount: campaignItem?.unit_amount ?? baseItem?.unit_amount ?? null,
+          variantIncludeTarget,
+          productIncludeTarget,
+          variantExcludeTarget,
+          productExcludeTarget,
+          projectExcludeTarget,
         };
       });
 
@@ -521,7 +580,15 @@ export default function V2CatalogCampaignDetailPage() {
     product: V2Product,
     row: VariantCampaignRow,
   ) => {
-    if (row.included || isAlwaysOnCampaign) {
+    if (row.productExcludeTarget || row.projectExcludeTarget) {
+      throw new Error('상위 제외 대상이 있어 바로 포함할 수 없습니다. 적용 대상 영역에서 제외 대상을 먼저 조정해 주세요.');
+    }
+
+    if (row.variantExcludeTarget) {
+      await deleteTarget.mutateAsync(row.variantExcludeTarget.id);
+    }
+
+    if (row.included || isAlwaysOnCampaign || row.productIncludeTarget || row.variantIncludeTarget) {
       return;
     }
 
@@ -540,6 +607,35 @@ export default function V2CatalogCampaignDetailPage() {
         },
         metadata: {
           inclusion_mode: 'VARIANT',
+        },
+      },
+    });
+  };
+
+  const createVariantExcludeTarget = async (
+    product: V2Product,
+    row: VariantCampaignRow,
+  ) => {
+    if (row.variantExcludeTarget) {
+      return;
+    }
+
+    await createTarget.mutateAsync({
+      campaignId,
+      data: {
+        target_type: 'VARIANT',
+        target_id: row.variant.id,
+        is_excluded: true,
+        source_type: 'ADMIN_CAMPAIGN_DETAIL',
+        source_id: product.id,
+        source_snapshot_json: {
+          product_id: product.id,
+          product_title: product.title,
+          variant_id: row.variant.id,
+          variant_title: row.variant.title,
+        },
+        metadata: {
+          exclusion_mode: 'VARIANT',
         },
       },
     });
@@ -565,76 +661,179 @@ export default function V2CatalogCampaignDetailPage() {
     });
   };
 
+  const includeVariantWithDraft = async (
+    product: V2Product,
+    row: VariantCampaignRow,
+    draft: DiscountDraft,
+  ) => {
+    if (!row.baseItem && !isAlwaysOnCampaign) {
+      throw new Error('기본가가 없는 옵션은 캠페인에 포함할 수 없습니다.');
+    }
+
+    await includeVariantTargetIfNeeded(product, row);
+
+    if (draft.mode !== 'NONE') {
+      if (!row.baseItem) {
+        throw new Error('할인을 적용하려면 먼저 기본가가 필요합니다.');
+      }
+      const finalAmount = computeEffectiveAmount(row.baseItem.unit_amount, draft);
+      const priceList = await ensureCampaignPriceList();
+      const metadata = getDiscountMetadata(row.baseItem.unit_amount, draft);
+
+      if (row.campaignItem) {
+        await updatePriceListItem.mutateAsync({
+          itemId: row.campaignItem.id,
+          data: {
+            product_id: product.id,
+            variant_id: row.variant.id,
+            unit_amount: finalAmount,
+            compare_at_amount: row.baseItem.unit_amount,
+            status: 'ACTIVE',
+            metadata,
+          },
+          skipInvalidate: true,
+        });
+      } else {
+        await createPriceListItem.mutateAsync({
+          priceListId: priceList.id,
+          data: {
+            product_id: product.id,
+            variant_id: row.variant.id,
+            unit_amount: finalAmount,
+            compare_at_amount: row.baseItem.unit_amount,
+            status: 'ACTIVE',
+            metadata,
+          },
+          skipInvalidate: true,
+        });
+      }
+
+      if (priceList.status !== 'PUBLISHED') {
+        await publishPriceList.mutateAsync({
+          id: priceList.id,
+          skipInvalidate: true,
+        });
+        campaignPriceListRef.current = {
+          ...priceList,
+          status: 'PUBLISHED',
+        };
+      }
+    }
+  };
+
   const handleIncludeVariant = async (
     product: V2Product,
     row: VariantCampaignRow,
+    draftOverride?: DiscountDraft,
   ) => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
     try {
-      if (!row.baseItem && !isAlwaysOnCampaign) {
-        throw new Error('기본가가 없는 옵션은 캠페인에 포함할 수 없습니다.');
-      }
-
       setSavingVariantId(row.variant.id);
-      const draft = getDraftForVariant(row.variant.id);
-      await includeVariantTargetIfNeeded(product, row);
-
-      if (draft.mode !== 'NONE') {
-        if (!row.baseItem) {
-          throw new Error('할인을 적용하려면 먼저 기본가가 필요합니다.');
-        }
-        const finalAmount = computeEffectiveAmount(row.baseItem.unit_amount, draft);
-        const priceList = await ensureCampaignPriceList();
-        const metadata = getDiscountMetadata(row.baseItem.unit_amount, draft);
-
-        if (row.campaignItem) {
-          await updatePriceListItem.mutateAsync({
-            itemId: row.campaignItem.id,
-            data: {
-              product_id: product.id,
-              variant_id: row.variant.id,
-              unit_amount: finalAmount,
-              compare_at_amount: row.baseItem.unit_amount,
-              status: 'ACTIVE',
-              metadata,
-            },
-            skipInvalidate: true,
-          });
-        } else {
-          await createPriceListItem.mutateAsync({
-            priceListId: priceList.id,
-            data: {
-              product_id: product.id,
-              variant_id: row.variant.id,
-              unit_amount: finalAmount,
-              compare_at_amount: row.baseItem.unit_amount,
-              status: 'ACTIVE',
-              metadata,
-            },
-            skipInvalidate: true,
-          });
-        }
-
-        if (priceList.status !== 'PUBLISHED') {
-          await publishPriceList.mutateAsync({
-            id: priceList.id,
-            skipInvalidate: true,
-          });
-          campaignPriceListRef.current = {
-            ...priceList,
-            status: 'PUBLISHED',
-          };
-        }
-      }
+      const draft = draftOverride || getDraftForVariant(row.variant.id);
+      await includeVariantWithDraft(product, row, draft);
 
       await refreshCampaignPricingQueries();
+      if (draft.mode === 'NONE') {
+        updateDiscountDraft(row.variant.id, { mode: 'NONE', value: '' });
+      }
       setSuccessMessage(`${product.title} / ${row.variant.title || '기본 옵션'} 설정을 저장했습니다.`);
     } catch (actionError) {
       setErrorMessage(getErrorMessage(actionError));
     } finally {
       setSavingVariantId(null);
+    }
+  };
+
+  const excludeVariantFromCampaign = async (
+    product: V2Product,
+    row: VariantCampaignRow,
+  ) => {
+    if (!row.included) {
+      return;
+    }
+
+    if (row.variantIncludeTarget) {
+      await deleteTarget.mutateAsync(row.variantIncludeTarget.id);
+    }
+
+    const needsExplicitExclude =
+      isAlwaysOnCampaign ||
+      Boolean(row.productIncludeTarget) ||
+      (!row.variantIncludeTarget && !row.productIncludeTarget);
+    if (needsExplicitExclude) {
+      await createVariantExcludeTarget(product, row);
+    }
+
+    if (row.campaignItem) {
+      await deactivatePriceListItem.mutateAsync(row.campaignItem.id);
+    }
+  };
+
+  const handleExcludeVariant = async (
+    product: V2Product,
+    row: VariantCampaignRow,
+  ) => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setSavingVariantId(row.variant.id);
+    try {
+      await excludeVariantFromCampaign(product, row);
+      await refreshCampaignPricingQueries();
+      setSuccessMessage(`${product.title} / ${row.variant.title || '기본 옵션'}을 캠페인에서 제외했습니다.`);
+    } catch (actionError) {
+      setErrorMessage(getErrorMessage(actionError));
+    } finally {
+      setSavingVariantId(null);
+    }
+  };
+
+  const handleIncludeProductBase = async (row: ProductCampaignRow) => {
+    const targetRows = row.variants.filter(
+      (variantRow) => variantRow.state === 'NOT_INCLUDED' && variantRow.baseItem,
+    );
+    if (targetRows.length === 0) {
+      setErrorMessage('기본가가 있는 미포함 옵션이 없습니다.');
+      return;
+    }
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setSavingProductId(row.product.id);
+    try {
+      for (const variantRow of targetRows) {
+        await includeVariantWithDraft(row.product, variantRow, { mode: 'NONE', value: '' });
+      }
+      await refreshCampaignPricingQueries();
+      setSuccessMessage(`${row.product.title}의 옵션 ${targetRows.length}개를 캠페인에 포함했습니다.`);
+    } catch (actionError) {
+      setErrorMessage(getErrorMessage(actionError));
+    } finally {
+      setSavingProductId(null);
+    }
+  };
+
+  const handleExcludeProductIncluded = async (row: ProductCampaignRow) => {
+    const targetRows = row.variants.filter((variantRow) => variantRow.included);
+    if (targetRows.length === 0) {
+      setErrorMessage('캠페인에 포함된 옵션이 없습니다.');
+      return;
+    }
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setSavingProductId(row.product.id);
+    try {
+      for (const variantRow of targetRows) {
+        await excludeVariantFromCampaign(row.product, variantRow);
+      }
+      await refreshCampaignPricingQueries();
+      setSuccessMessage(`${row.product.title}의 옵션 ${targetRows.length}개를 캠페인에서 제외했습니다.`);
+    } catch (actionError) {
+      setErrorMessage(getErrorMessage(actionError));
+    } finally {
+      setSavingProductId(null);
     }
   };
 
@@ -659,6 +858,13 @@ export default function V2CatalogCampaignDetailPage() {
     setExpandedProductIds((previous) => ({
       ...previous,
       [productId]: !previous[productId],
+    }));
+  };
+
+  const toggleVariantPricingExpanded = (variantId: string) => {
+    setExpandedPricingVariantIds((previous) => ({
+      ...previous,
+      [variantId]: !previous[variantId],
     }));
   };
 
@@ -883,30 +1089,48 @@ export default function V2CatalogCampaignDetailPage() {
               ) : (
                 includedProductRows.map((row) => {
                   const expanded = Boolean(expandedProductIds[row.product.id]);
+                  const includedVariants = row.variants.filter((variantRow) => variantRow.included);
+                  const isSavingProduct = savingProductId === row.product.id;
                   return (
                     <div key={row.product.id} className="rounded-lg border border-white bg-white shadow-sm">
-                      <button
-                        type="button"
-                        className="flex w-full flex-col gap-2 px-4 py-3 text-left lg:flex-row lg:items-center lg:justify-between"
-                        onClick={() => toggleProductExpanded(row.product.id)}
-                      >
+                      <div className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                           <p className="text-sm font-medium text-gray-900">{row.product.title}</p>
                           <p className="mt-1 text-xs text-gray-500">
                             {row.product.product_kind === 'BUNDLE' ? '번들' : '일반'} · 옵션 {row.variants.length}개 · 포함 {row.includedCount}개 · 할인 {row.overrideCount}개
                           </p>
                         </div>
-                        <span className="text-sm font-semibold text-gray-500">{expanded ? '접기' : '펼치기'}</span>
-                      </button>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <Button
+                            size="sm"
+                            intent="danger"
+                            className="h-9 w-9 px-0"
+                            aria-label={`${row.product.title} 포함 옵션 제외`}
+                            title="포함 옵션 제외"
+                            onClick={() => handleExcludeProductIncluded(row)}
+                            loading={isSavingProduct}
+                          >
+                            <Minus className="h-4 w-4" aria-hidden />
+                          </Button>
+                          <Button
+                            size="sm"
+                            intent="neutral"
+                            onClick={() => toggleProductExpanded(row.product.id)}
+                          >
+                            {expanded ? '접기' : '펼치기'}
+                          </Button>
+                        </div>
+                      </div>
                       {expanded && (
                         <div className="space-y-2 border-t border-gray-100 px-4 py-3">
-                          {row.variants.map((variantRow) => {
+                          {includedVariants.map((variantRow) => {
                             const draft = getDraftForVariant(variantRow.variant.id);
                             const previewAmount = getDraftPreviewAmount(
                               variantRow.baseItem?.unit_amount ?? null,
                               draft,
                             );
                             const isSavingRow = savingVariantId === variantRow.variant.id;
+                            const pricingExpanded = Boolean(expandedPricingVariantIds[variantRow.variant.id]);
                             return (
                               <div key={variantRow.variant.id} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                                 <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
@@ -942,6 +1166,39 @@ export default function V2CatalogCampaignDetailPage() {
                                     </p>
                                   </div>
                                   <div className="flex flex-wrap items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      intent="danger"
+                                      className="h-9 w-9 px-0"
+                                      aria-label={`${variantRow.variant.title || '기본 옵션'} 캠페인에서 제외`}
+                                      title="캠페인에서 제외"
+                                      onClick={() => handleExcludeVariant(row.product, variantRow)}
+                                      loading={isSavingRow}
+                                    >
+                                      <Minus className="h-4 w-4" aria-hidden />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      intent="neutral"
+                                      onClick={() => toggleVariantPricingExpanded(variantRow.variant.id)}
+                                    >
+                                      <SlidersHorizontal className="h-4 w-4" aria-hidden />
+                                      가격 설정
+                                    </Button>
+                                    {variantRow.campaignItem && !isAlwaysOnCampaign && (
+                                      <Button
+                                        size="sm"
+                                        intent="neutral"
+                                        onClick={() => handleUseBasePrice(variantRow)}
+                                        loading={isSavingRow}
+                                      >
+                                        기본가 사용
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                                {pricingExpanded && (
+                                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-gray-100 bg-white p-3">
                                     <select
                                       className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm text-gray-700"
                                       value={draft.mode}
@@ -972,16 +1229,6 @@ export default function V2CatalogCampaignDetailPage() {
                                     <span className="min-w-28 text-xs text-gray-500">
                                       예상 {previewAmount === null ? '-' : formatCurrency(previewAmount)}
                                     </span>
-                                    {variantRow.campaignItem && !isAlwaysOnCampaign && (
-                                      <Button
-                                        size="sm"
-                                        intent="neutral"
-                                        onClick={() => handleUseBasePrice(variantRow)}
-                                        loading={isSavingRow}
-                                      >
-                                        기본가 사용
-                                      </Button>
-                                    )}
                                     <Button
                                       size="sm"
                                       onClick={() => handleIncludeVariant(row.product, variantRow)}
@@ -991,7 +1238,7 @@ export default function V2CatalogCampaignDetailPage() {
                                       저장
                                     </Button>
                                   </div>
-                                </div>
+                                )}
                               </div>
                             );
                           })}
@@ -1017,25 +1264,44 @@ export default function V2CatalogCampaignDetailPage() {
               ) : (
                 notIncludedProductRows.map((row) => {
                   const expanded = Boolean(expandedProductIds[row.product.id]);
+                  const notIncludedVariants = row.variants.filter(
+                    (variantRow) => variantRow.state === 'NOT_INCLUDED',
+                  );
+                  const quickIncludeableCount = notIncludedVariants.filter((variantRow) => variantRow.baseItem).length;
+                  const isSavingProduct = savingProductId === row.product.id;
                   return (
                     <div key={row.product.id} className="rounded-lg border border-white bg-white shadow-sm">
-                      <button
-                        type="button"
-                        className="flex w-full flex-col gap-2 px-4 py-3 text-left lg:flex-row lg:items-center lg:justify-between"
-                        onClick={() => toggleProductExpanded(row.product.id)}
-                      >
+                      <div className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                           <p className="text-sm font-medium text-gray-900">{row.product.title}</p>
                           <p className="mt-1 text-xs text-gray-500">
                             {row.product.product_kind === 'BUNDLE' ? '번들' : '일반'} · 옵션 {row.variants.length}개 · 미포함 {row.notIncludedCount}개
                           </p>
                         </div>
-                        <span className="text-sm font-semibold text-gray-500">{expanded ? '접기' : '펼치기'}</span>
-                      </button>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <Button
+                            size="sm"
+                            className="h-9 w-9 px-0"
+                            aria-label={`${row.product.title} 미포함 옵션 캠페인에 포함`}
+                            title="기본가로 바로 포함"
+                            onClick={() => handleIncludeProductBase(row)}
+                            loading={isSavingProduct}
+                            disabled={quickIncludeableCount === 0}
+                          >
+                            <Plus className="h-4 w-4" aria-hidden />
+                          </Button>
+                          <Button
+                            size="sm"
+                            intent="neutral"
+                            onClick={() => toggleProductExpanded(row.product.id)}
+                          >
+                            {expanded ? '접기' : '펼치기'}
+                          </Button>
+                        </div>
+                      </div>
                       {expanded && (
                         <div className="space-y-2 border-t border-gray-100 px-4 py-3">
-                          {row.variants
-                            .filter((variantRow) => variantRow.state === 'NOT_INCLUDED')
+                          {notIncludedVariants
                             .map((variantRow) => {
                               const draft = getDraftForVariant(variantRow.variant.id);
                               const previewAmount = getDraftPreviewAmount(
@@ -1043,6 +1309,7 @@ export default function V2CatalogCampaignDetailPage() {
                                 draft,
                               );
                               const isSavingRow = savingVariantId === variantRow.variant.id;
+                              const pricingExpanded = Boolean(expandedPricingVariantIds[variantRow.variant.id]);
                               return (
                                 <div key={variantRow.variant.id} className="rounded-lg border border-blue-100 bg-blue-50 p-3">
                                   <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
@@ -1058,6 +1325,42 @@ export default function V2CatalogCampaignDetailPage() {
                                       )}
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2">
+                                      <Button
+                                        size="sm"
+                                        className="h-9 w-9 px-0"
+                                        aria-label={`${variantRow.variant.title || '기본 옵션'} 캠페인에 포함`}
+                                        title="기본가로 바로 포함"
+                                        onClick={() =>
+                                          handleIncludeVariant(row.product, variantRow, {
+                                            mode: 'NONE',
+                                            value: '',
+                                          })
+                                        }
+                                        loading={isSavingRow}
+                                        disabled={!variantRow.baseItem}
+                                      >
+                                        <Plus className="h-4 w-4" aria-hidden />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        intent="neutral"
+                                        onClick={() => toggleVariantPricingExpanded(variantRow.variant.id)}
+                                        disabled={!variantRow.baseItem}
+                                      >
+                                        <SlidersHorizontal className="h-4 w-4" aria-hidden />
+                                        가격 설정
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        intent="neutral"
+                                        onClick={() => openPricingForProduct(row.product.id, true)}
+                                      >
+                                        가격 상세
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  {pricingExpanded && (
+                                    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-blue-100 bg-white p-3">
                                       <select
                                         className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm text-gray-700"
                                         value={draft.mode}
@@ -1096,15 +1399,8 @@ export default function V2CatalogCampaignDetailPage() {
                                       >
                                         캠페인에 포함
                                       </Button>
-                                      <Button
-                                        size="sm"
-                                        intent="neutral"
-                                        onClick={() => openPricingForProduct(row.product.id, true)}
-                                      >
-                                        가격 상세
-                                      </Button>
                                     </div>
-                                  </div>
+                                  )}
                                 </div>
                               );
                             })}
