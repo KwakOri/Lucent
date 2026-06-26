@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ import { queryKeys } from '@/lib/client/hooks/query-keys';
 
 type ProductBundleManagerProps = {
   bundleProduct: V2Product;
+  registerSaveHandler?: (handler: (() => Promise<boolean>) | null) => void;
 };
 
 type DesiredBundleComponent = {
@@ -92,7 +93,10 @@ function parsePositiveInteger(value: string): number | null {
   return parsed;
 }
 
-export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProps) {
+export function ProductBundleManager({
+  bundleProduct,
+  registerSaveHandler,
+}: ProductBundleManagerProps) {
   const queryClient = useQueryClient();
   const [preferredDefinitionId, setPreferredDefinitionId] = useState<string | null>(
     null,
@@ -273,14 +277,16 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
     updateComponent.isPending ||
     deleteComponent.isPending;
 
-  const runWithNotice = async (task: () => Promise<void>) => {
+  const runWithNotice = async (task: () => Promise<void>): Promise<boolean> => {
     setMessage(null);
     setErrorMessage(null);
 
     try {
       await task();
+      return true;
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
+      return false;
     }
   };
 
@@ -422,24 +428,24 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
     });
   };
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<boolean> => {
     if (definitionsLoading || productsLoading || variantsLoading) {
-      return;
+      return false;
     }
 
     if (selectedProductIds.length === 0) {
       setMessage(null);
       setErrorMessage('번들에 포함할 상품을 1개 이상 선택해 주세요.');
-      return;
+      return false;
     }
 
     if (selectedQuantityPolicy === 'FIXED_PER_PARENT' && !selectedFixedQuantity) {
       setMessage(null);
       setErrorMessage('고정 수량은 1 이상의 정수여야 합니다.');
-      return;
+      return false;
     }
 
-    await runWithNotice(async () => {
+    return runWithNotice(async () => {
       const editableDefinition = await ensureEditableDefinition();
       const quantityPerParent =
         selectedQuantityPolicy === 'INHERIT_PARENT' ? 1 : selectedFixedQuantity!;
@@ -560,6 +566,21 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
     });
   };
 
+  const handleSaveRef = useRef(handleSave);
+
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  });
+
+  useEffect(() => {
+    if (!registerSaveHandler) {
+      return;
+    }
+
+    registerSaveHandler(() => handleSaveRef.current());
+    return () => registerSaveHandler(null);
+  }, [registerSaveHandler]);
+
   const hasCriticalLoadError =
     Boolean(definitionsError) || Boolean(productsError) || variantsError;
   const hasInvalidFixedQuantity =
@@ -579,10 +600,10 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
         <div>
           <h2 className="text-lg font-semibold text-blue-900">번들 설정</h2>
           <p className="mt-1 text-sm text-blue-900/80">
-            상품 상세 화면에서 번들 구성을 완료하고 바로 ACTIVE로 반영할 수 있습니다.
+            상품 상세 화면에서 번들 구성을 완료하고 하단 버튼으로 ACTIVE 반영과 목록 이동을 처리합니다.
           </p>
           <p className="mt-2 text-xs text-blue-900/80">
-            운영 흐름: 1) 구성 상품 선택 2) 수량 정책 확인 3) 저장 후 ACTIVE 확정
+            운영 흐름: 구성 상품 선택 후 저장하고 목록으로 이동을 누르면 현재 구성이 ACTIVE로 확정됩니다.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -754,75 +775,78 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
           )}
         </section>
 
-        <section className="rounded-xl border border-blue-200 bg-white px-4 py-4">
-          <p className="text-sm font-semibold text-blue-900">2) 수량 정책</p>
-          <p className="mt-1 text-xs text-blue-900/80">
-            번들 편집 시 사용한 수량 정책을 metadata에 기록합니다. 현재 구성 방식(선택형 옵션)은 유지됩니다.
-          </p>
-          <div className="mt-3 space-y-2">
-            <label className="flex items-start gap-2 rounded-lg border border-blue-100 px-3 py-2">
-              <input
-                type="radio"
-                name="bundle-quantity-policy"
-                checked={selectedQuantityPolicy === 'INHERIT_PARENT'}
-                onChange={() => {
-                  setIsPolicyDirty(true);
-                  setDraftQuantityPolicy('INHERIT_PARENT');
-                }}
-              />
-              <span className="text-sm text-gray-700">
-                부모 수량 상속(`INHERIT_PARENT`): 부모 1개당 기본 수량 정책을 사용합니다.
-              </span>
-            </label>
-            <label className="flex items-start gap-2 rounded-lg border border-blue-100 px-3 py-2">
-              <input
-                type="radio"
-                name="bundle-quantity-policy"
-                checked={selectedQuantityPolicy === 'FIXED_PER_PARENT'}
-                onChange={() => {
-                  setIsPolicyDirty(true);
-                  setDraftQuantityPolicy('FIXED_PER_PARENT');
-                  setDraftFixedQuantity(inferredFixedQuantity);
-                }}
-              />
-              <span className="text-sm text-gray-700">
-                고정 수량(`FIXED_PER_PARENT`): 부모 1개당 고정 배수를 기록합니다.
-              </span>
-            </label>
-            {selectedQuantityPolicy === 'FIXED_PER_PARENT' && (
-              <div className="flex items-center gap-2 pl-6">
-                <label
-                  htmlFor="bundle-fixed-quantity"
-                  className="text-xs font-medium text-gray-600"
-                >
-                  부모 1개당 고정 수량
-                </label>
-                <input
-                  id="bundle-fixed-quantity"
-                  type="number"
-                  min={1}
-                  className="h-9 w-24 rounded-md border border-gray-300 px-2 text-sm"
-                  value={isPolicyDirty ? draftFixedQuantity : inferredFixedQuantity}
-                  onChange={(event) => {
-                    setIsPolicyDirty(true);
-                    setDraftFixedQuantity(event.target.value);
-                  }}
-                />
-              </div>
-            )}
-          </div>
-          {hasInvalidFixedQuantity && (
-            <p className="mt-3 text-xs text-red-600">
-              고정 수량은 1 이상의 정수만 입력할 수 있습니다.
-            </p>
-          )}
-        </section>
-
         <details className="rounded-xl border border-blue-100 bg-white px-4 py-3">
           <summary className="cursor-pointer text-sm font-semibold text-blue-900">
-            3) 고급 정보 (버전/메타데이터)
+            2) 고급 설정 (수량 정책/버전/메타데이터)
           </summary>
-          <div className="mt-3 space-y-2 text-xs text-gray-700">
+          <div className="mt-4 space-y-4 text-xs text-gray-700">
+            <div>
+              <p className="text-sm font-semibold text-blue-900">수량 정책</p>
+              <p className="mt-1 text-xs text-blue-900/80">
+                번들 편집 시 사용한 수량 정책을 metadata에 기록합니다. 현재 구성 방식(선택형 옵션)은 유지됩니다.
+              </p>
+              <div className="mt-3 space-y-2">
+                <label className="flex items-start gap-2 rounded-lg border border-blue-100 px-3 py-2">
+                  <input
+                    type="radio"
+                    name="bundle-quantity-policy"
+                    checked={selectedQuantityPolicy === 'INHERIT_PARENT'}
+                    onChange={() => {
+                      setIsPolicyDirty(true);
+                      setDraftQuantityPolicy('INHERIT_PARENT');
+                    }}
+                  />
+                  <span className="text-sm text-gray-700">
+                    부모 수량 상속(`INHERIT_PARENT`): 부모 1개당 기본 수량 정책을 사용합니다.
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 rounded-lg border border-blue-100 px-3 py-2">
+                  <input
+                    type="radio"
+                    name="bundle-quantity-policy"
+                    checked={selectedQuantityPolicy === 'FIXED_PER_PARENT'}
+                    onChange={() => {
+                      setIsPolicyDirty(true);
+                      setDraftQuantityPolicy('FIXED_PER_PARENT');
+                      setDraftFixedQuantity(inferredFixedQuantity);
+                    }}
+                  />
+                  <span className="text-sm text-gray-700">
+                    고정 수량(`FIXED_PER_PARENT`): 부모 1개당 고정 배수를 기록합니다.
+                  </span>
+                </label>
+                {selectedQuantityPolicy === 'FIXED_PER_PARENT' && (
+                  <div className="flex items-center gap-2 pl-6">
+                    <label
+                      htmlFor="bundle-fixed-quantity"
+                      className="text-xs font-medium text-gray-600"
+                    >
+                      부모 1개당 고정 수량
+                    </label>
+                    <input
+                      id="bundle-fixed-quantity"
+                      type="number"
+                      min={1}
+                      className="h-9 w-24 rounded-md border border-gray-300 px-2 text-sm"
+                      value={isPolicyDirty ? draftFixedQuantity : inferredFixedQuantity}
+                      onChange={(event) => {
+                        setIsPolicyDirty(true);
+                        setDraftFixedQuantity(event.target.value);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              {hasInvalidFixedQuantity && (
+                <p className="mt-3 text-xs text-red-600">
+                  고정 수량은 1 이상의 정수만 입력할 수 있습니다.
+                </p>
+              )}
+            </div>
+
+            <div className="border-t border-blue-100 pt-4">
+              <p className="text-sm font-semibold text-blue-900">버전/메타데이터</p>
+            </div>
             {activeDefinition ? (
               <>
                 <p>
@@ -841,29 +865,6 @@ export function ProductBundleManager({ bundleProduct }: ProductBundleManagerProp
             )}
           </div>
         </details>
-
-        <section className="rounded-xl border border-blue-200 bg-white px-4 py-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-gray-600">
-              저장 시 현재 번들 구성을 ACTIVE로 자동 publish합니다.
-            </p>
-            <Button
-              intent="neutral"
-              loading={isSaving}
-              disabled={
-                definitionsLoading ||
-                componentsLoading ||
-                productsLoading ||
-                variantsLoading ||
-                hasCriticalLoadError ||
-                hasInvalidFixedQuantity
-              }
-              onClick={handleSave}
-            >
-              번들 구성 저장 후 ACTIVE 확정
-            </Button>
-          </div>
-        </section>
       </div>
     </section>
   );
