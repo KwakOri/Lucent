@@ -554,7 +554,11 @@ export function ProjectProductListItem({
                       </Badge>
                       <span>SKU {variant.sku}</span>
                       <span>·</span>
-                      <span>{FULFILLMENT_TYPE_LABELS[variant.fulfillment_type]}</span>
+                      <span>
+                        {product.product_kind === 'BUNDLE'
+                          ? '구성 기준'
+                          : FULFILLMENT_TYPE_LABELS[variant.fulfillment_type]}
+                      </span>
                     </div>
                   </div>
                 );
