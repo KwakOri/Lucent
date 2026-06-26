@@ -245,9 +245,11 @@ export function ProductVariantForm({
   const [uploadState, setUploadState] = useState<VariantUploadState | null>(null);
   const [persistedVariantId, setPersistedVariantId] = useState<string | null>(null);
   const [abortUpload, setAbortUpload] = useState<(() => void) | null>(null);
+  const isBundleProduct = product.product_kind === 'BUNDLE';
   const lockedFulfillmentType =
     product.product_kind === 'STANDARD' ? product.fulfillment_type : null;
   const isFulfillmentLocked = Boolean(lockedFulfillmentType);
+  const canEditFulfillmentType = !isFulfillmentLocked && !isBundleProduct;
   const isSingleDefaultVariant =
     mode === 'edit' &&
     variantCount === 1 &&
@@ -533,7 +535,7 @@ export function ProductVariantForm({
   };
 
   const handleFulfillmentTypeChange = (value: V2FulfillmentType) => {
-    if (isFulfillmentLocked) {
+    if (!canEditFulfillmentType) {
       return;
     }
     setFulfillmentType(value);
@@ -575,7 +577,9 @@ export function ProductVariantForm({
       if (!trimmedTitle) {
         throw new Error('옵션 이름을 입력해 주세요.');
       }
-      const resolvedFulfillmentType = lockedFulfillmentType || fulfillmentType;
+      const resolvedFulfillmentType = isBundleProduct
+        ? variant?.fulfillment_type || 'PHYSICAL'
+        : lockedFulfillmentType || fulfillmentType;
       if (!resolvedFulfillmentType) {
         throw new Error('상품 제공 방식이 설정되어 있지 않습니다. 상품 정보를 먼저 확인해 주세요.');
       }
@@ -588,10 +592,11 @@ export function ProductVariantForm({
         title: trimmedTitle,
         fulfillment_type: resolvedFulfillmentType,
         status,
-        requires_shipping: resolvedFulfillmentType === 'PHYSICAL',
-        track_inventory: resolvedFulfillmentType === 'PHYSICAL' ? trackInventory : false,
+        requires_shipping: isBundleProduct ? false : resolvedFulfillmentType === 'PHYSICAL',
+        track_inventory:
+          !isBundleProduct && resolvedFulfillmentType === 'PHYSICAL' ? trackInventory : false,
         weight_grams:
-          resolvedFulfillmentType === 'PHYSICAL'
+          !isBundleProduct && resolvedFulfillmentType === 'PHYSICAL'
             ? parseNullableNonNegativeInteger(weightGrams, '무게')
             : null,
       };
@@ -631,7 +636,7 @@ export function ProductVariantForm({
         await upsertVariantBasePrice(savedVariantId, parsedBasePrice);
       }
 
-      if (resolvedFulfillmentType === 'PHYSICAL' && trackInventory) {
+      if (!isBundleProduct && resolvedFulfillmentType === 'PHYSICAL' && trackInventory) {
         if (!savedVariantId) {
           throw new Error('옵션 저장 후 재고를 반영할 수 없습니다.');
         }
@@ -656,7 +661,7 @@ export function ProductVariantForm({
         });
       }
 
-      if (resolvedFulfillmentType === 'DIGITAL' && audioFile) {
+      if (!isBundleProduct && resolvedFulfillmentType === 'DIGITAL' && audioFile) {
         if (!isAudioFile(audioFile)) {
           throw new Error('오디오 파일 형식(mp3/wav/flac/m4a 또는 audio/*)만 업로드할 수 있습니다.');
         }
@@ -839,12 +844,17 @@ export function ProductVariantForm({
                 제공 방식: {FULFILLMENT_TYPE_LABELS[lockedFulfillmentType]} (상품 기준 고정)
               </p>
             )}
+            {isBundleProduct && (
+              <p className="mt-2 text-xs font-medium text-gray-600">
+                제공 방식: 번들 구성 상품 기준 자동 적용
+              </p>
+            )}
             <p className="mt-1 text-xs text-gray-500">
               상품 상세 페이지에서 언제든 옵션을 추가/수정할 수 있습니다.
             </p>
           </div>
 
-          {!isFulfillmentLocked && (
+          {canEditFulfillmentType && (
             <div className="space-y-3 lg:col-span-7">
               <div>
                 <p className="text-sm font-medium text-gray-900">판매 방식</p>
@@ -874,7 +884,7 @@ export function ProductVariantForm({
 
           <div
             className={`space-y-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 ${
-              isFulfillmentLocked ? 'lg:col-span-12' : 'lg:col-span-5'
+              canEditFulfillmentType ? 'lg:col-span-5' : 'lg:col-span-12'
             }`}
           >
             <div>
@@ -958,7 +968,25 @@ export function ProductVariantForm({
         </div>
       </section>
 
-      {fulfillmentType === 'PHYSICAL' ? (
+      {isBundleProduct && (
+        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">번들 이행 방식</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                배송/디지털 제공 여부는 활성 번들 구성에 포함된 옵션 기준으로 자동 계산됩니다.
+              </p>
+            </div>
+            <Badge intent="default">구성 기준</Badge>
+          </div>
+          <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+            부모 옵션에는 대표 판매가와 노출 상태만 저장하고, 오디오 파일/재고/배송 세부 정보는 구성 상품의
+            옵션에서 관리합니다.
+          </div>
+        </section>
+      )}
+
+      {!isBundleProduct && fulfillmentType === 'PHYSICAL' ? (
         <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="grid gap-4 lg:grid-cols-12">
             <div className="lg:col-span-4">
@@ -1090,7 +1118,7 @@ export function ProductVariantForm({
             </div>
           </div>
         </section>
-      ) : (
+      ) : !isBundleProduct ? (
         <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -1173,7 +1201,7 @@ export function ProductVariantForm({
             </div>
           )}
         </section>
-      )}
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         <Button type="submit" loading={isSubmitting}>

@@ -108,7 +108,11 @@ function formatOptionSummary(optionSummary: Record<string, unknown> | null): str
     .filter((value): value is string => Boolean(value));
 }
 
-function formatVariantDetails(variant: V2Variant): string[] {
+function formatVariantDetails(product: V2Product, variant: V2Variant): string[] {
+  if (product.product_kind === 'BUNDLE') {
+    return ['구성 상품 옵션 기준으로 이행 방식이 자동 계산됩니다.'];
+  }
+
   if (variant.fulfillment_type === 'PHYSICAL') {
     return [
       variant.track_inventory
@@ -301,7 +305,7 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
           !variantsError &&
           (variants || []).map((variant) => {
             const optionSummary = formatOptionSummary(variant.option_summary_json);
-            const variantDetails = formatVariantDetails(variant);
+            const variantDetails = formatVariantDetails(product, variant);
             const isExpanded = expandedVariantId === variant.id;
 
             return (
@@ -312,9 +316,13 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap gap-2">
-                      <Badge intent={resolveFulfillmentIntent(variant.fulfillment_type)}>
-                        {FULFILLMENT_TYPE_LABELS[variant.fulfillment_type]}
-                      </Badge>
+                      {product.product_kind === 'BUNDLE' ? (
+                        <Badge intent="default">구성 기준</Badge>
+                      ) : (
+                        <Badge intent={resolveFulfillmentIntent(variant.fulfillment_type)}>
+                          {FULFILLMENT_TYPE_LABELS[variant.fulfillment_type]}
+                        </Badge>
+                      )}
                       <Badge intent={resolveVariantStatusIntent(variant.status)}>
                         {VARIANT_STATUS_LABELS[variant.status]}
                       </Badge>
@@ -346,7 +354,7 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
                       ))}
                     </div>
 
-                    {variant.fulfillment_type === 'DIGITAL' && (
+                    {product.product_kind !== 'BUNDLE' && variant.fulfillment_type === 'DIGITAL' && (
                       <div className="mt-4">
                         <VariantAudioSummary variantId={variant.id} />
                       </div>
