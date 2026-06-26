@@ -1103,6 +1103,13 @@ export default function V2CatalogCampaignDetailPage() {
                         <div className="flex shrink-0 items-center gap-2">
                           <Button
                             size="sm"
+                            intent="neutral"
+                            onClick={() => toggleProductExpanded(row.product.id)}
+                          >
+                            {expanded ? '접기' : '펼치기'}
+                          </Button>
+                          <Button
+                            size="sm"
                             intent="danger"
                             className="h-9 w-9 px-0"
                             aria-label={`${row.product.title} 포함 옵션 제외`}
@@ -1111,13 +1118,6 @@ export default function V2CatalogCampaignDetailPage() {
                             loading={isSavingProduct}
                           >
                             <Minus className="h-4 w-4" aria-hidden />
-                          </Button>
-                          <Button
-                            size="sm"
-                            intent="neutral"
-                            onClick={() => toggleProductExpanded(row.product.id)}
-                          >
-                            {expanded ? '접기' : '펼치기'}
                           </Button>
                         </div>
                       </div>
@@ -1281,6 +1281,13 @@ export default function V2CatalogCampaignDetailPage() {
                         <div className="flex shrink-0 items-center gap-2">
                           <Button
                             size="sm"
+                            intent="neutral"
+                            onClick={() => toggleProductExpanded(row.product.id)}
+                          >
+                            {expanded ? '접기' : '펼치기'}
+                          </Button>
+                          <Button
+                            size="sm"
                             className="h-9 w-9 px-0"
                             aria-label={`${row.product.title} 미포함 옵션 캠페인에 포함`}
                             title="기본가로 바로 포함"
@@ -1289,13 +1296,6 @@ export default function V2CatalogCampaignDetailPage() {
                             disabled={quickIncludeableCount === 0}
                           >
                             <Plus className="h-4 w-4" aria-hidden />
-                          </Button>
-                          <Button
-                            size="sm"
-                            intent="neutral"
-                            onClick={() => toggleProductExpanded(row.product.id)}
-                          >
-                            {expanded ? '접기' : '펼치기'}
                           </Button>
                         </div>
                       </div>
