@@ -107,6 +107,7 @@ export default function V2CatalogProductDetailPage() {
   const [pageErrorMessage, setPageErrorMessage] = useState<string | null>(null);
   const [isBottomSavePending, setIsBottomSavePending] = useState(false);
   const bundleSaveHandlerRef = useRef<(() => Promise<boolean>) | null>(null);
+  const variantSaveHandlerRef = useRef<(() => Promise<boolean>) | null>(null);
 
   const productId = useMemo(() => {
     const raw = params?.id;
@@ -167,20 +168,34 @@ export default function V2CatalogProductDetailPage() {
     [],
   );
 
+  const registerVariantSaveHandler = useCallback(
+    (handler: (() => Promise<boolean>) | null) => {
+      variantSaveHandlerRef.current = handler;
+    },
+    [],
+  );
+
   const handleSaveAndBack = async () => {
-    if (product?.product_kind === 'BUNDLE' && bundleSaveHandlerRef.current) {
-      setIsBottomSavePending(true);
-      try {
+    setIsBottomSavePending(true);
+    try {
+      if (variantSaveHandlerRef.current) {
+        const saved = await variantSaveHandlerRef.current();
+        if (!saved) {
+          return;
+        }
+      }
+
+      if (product?.product_kind === 'BUNDLE' && bundleSaveHandlerRef.current) {
         const saved = await bundleSaveHandlerRef.current();
         if (!saved) {
           return;
         }
-      } finally {
-        setIsBottomSavePending(false);
       }
-    }
 
-    router.push(listPath);
+      router.push(listPath);
+    } finally {
+      setIsBottomSavePending(false);
+    }
   };
 
   if (isLoading || projectsLoading) {
@@ -311,7 +326,10 @@ export default function V2CatalogProductDetailPage() {
 
       <ProductMediaManager product={product} />
 
-      <ProductVariantManager product={product} />
+      <ProductVariantManager
+        product={product}
+        registerSaveHandler={registerVariantSaveHandler}
+      />
 
       <div className="flex justify-start border-t border-gray-200 pt-6">
         <Button loading={isBottomSavePending} onClick={handleSaveAndBack}>
