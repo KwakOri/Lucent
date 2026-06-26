@@ -340,11 +340,7 @@ export function ProductVariantForm({
     if (mode === 'edit' && variant) {
       setTitle(variant.title);
       setFulfillmentType(lockedFulfillmentType || variant.fulfillment_type);
-      setStatus(
-        isSingleDefaultVariant && variant.status === 'DRAFT'
-          ? DEFAULT_VARIANT_STATUS
-          : variant.status,
-      );
+      setStatus(variant.status);
       setBasePrice('');
       setBasePriceTouched(false);
       setTrackInventory(variant.track_inventory);
@@ -373,7 +369,7 @@ export function ProductVariantForm({
     setUploadState(null);
     setPersistedVariantId(null);
     setAbortUpload(null);
-  }, [isSingleDefaultVariant, lockedFulfillmentType, mode, variant]);
+  }, [lockedFulfillmentType, mode, variant]);
 
   useEffect(() => {
     if (basePriceTouched) {
