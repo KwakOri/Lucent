@@ -48,7 +48,7 @@ export default function V2CatalogProductVariantCreatePage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">옵션 추가</h1>
           <p className="mt-1 text-sm text-gray-500">
-            옵션 정보와 오디오 파일을 등록합니다. 판매 가격은 캠페인 화면에서 설정합니다.
+            옵션 정보와 기본 판매가를 등록합니다. 캠페인 할인/특가는 캠페인 화면에서 관리합니다.
           </p>
         </div>
         <div className="mt-3 sm:mt-0">

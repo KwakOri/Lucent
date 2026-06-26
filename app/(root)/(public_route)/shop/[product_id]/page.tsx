@@ -260,13 +260,21 @@ export default function ProductDetailPage() {
 
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
           <div className="space-y-4">
-            <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+            <div className="relative aspect-square overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100">
               {coverMedia?.public_url ? (
-                <img
-                  src={coverMedia.public_url}
-                  alt={coverMedia.alt_text || data.product.title}
-                  className="aspect-square h-full w-full object-cover"
-                />
+                <>
+                  <img
+                    src={coverMedia.public_url}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute inset-0 h-full w-full scale-105 object-cover opacity-75 blur-sm saturate-90"
+                  />
+                  <img
+                    src={coverMedia.public_url}
+                    alt={coverMedia.alt_text || data.product.title}
+                    className="relative z-10 h-full w-full object-contain"
+                  />
+                </>
               ) : (
                 <div className="flex aspect-square items-center justify-center bg-neutral-100 text-neutral-400">
                   {data.product.product_kind === "BUNDLE" ||
