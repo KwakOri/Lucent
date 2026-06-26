@@ -6,7 +6,13 @@ import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
-import { useV2AdminOrderDetail } from '@/lib/client/hooks/useV2AdminOps';
+import { useToast } from '@/src/components/toast';
+import {
+  useV2AdminCancelOrder,
+  useV2AdminCutoverPolicyCheck,
+  useV2AdminOrderDetail,
+  useV2AdminRefundOrder,
+} from '@/lib/client/hooks/useV2AdminOps';
 import { groupV2OrderItems } from '@/lib/client/utils/v2-order-item-groups';
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -29,6 +35,33 @@ function readNumber(value: unknown): number {
     return Number.isFinite(parsed) ? parsed : 0;
   }
   return 0;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object') {
+    const maybeError = error as {
+      message?: string;
+      response?: { data?: { message?: string } };
+    };
+    if (maybeError.response?.data?.message) {
+      return maybeError.response.data.message;
+    }
+    if (maybeError.message) {
+      return maybeError.message;
+    }
+  }
+  return '요청 처리 중 오류가 발생했습니다.';
+}
+
+function isApprovalRequiredError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const maybeError = error as { errorCode?: string; message?: string };
+  if (maybeError.errorCode === 'V2_ADMIN_APPROVAL_REQUIRED') {
+    return true;
+  }
+  return typeof maybeError.message === 'string' && maybeError.message.includes('승인이 필요한 액션');
 }
 
 function formatCurrency(amount: number): string {
@@ -161,7 +194,11 @@ function resolveShippingFeeTypeLabel(params: {
 export default function AdminOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = params.id;
+  const { showToast } = useToast();
   const orderDetailQuery = useV2AdminOrderDetail(orderId || null);
+  const cancelOrderMutation = useV2AdminCancelOrder();
+  const refundOrderMutation = useV2AdminRefundOrder();
+  const checkCutoverPolicy = useV2AdminCutoverPolicyCheck();
 
   const detail = orderDetailQuery.data;
   const order = detail?.order ? asObject(detail.order) : null;
@@ -209,6 +246,95 @@ export default function AdminOrderDetailPage() {
   });
   const hasShippingFeeLine = shippingAmount > 0 || shippingDiscountTotal > 0;
   const grandTotalAmount = readNumber(order?.grand_total);
+  const orderStatus = readString(order?.order_status).toUpperCase();
+  const paymentStatus = readString(order?.payment_status).toUpperCase();
+  const fulfillmentStatus = readString(order?.fulfillment_status).toUpperCase();
+  const isCanceled =
+    orderStatus.includes('CANCELED') ||
+    paymentStatus.includes('CANCELED') ||
+    fulfillmentStatus.includes('CANCELED');
+  const isActionPending =
+    cancelOrderMutation.isPending ||
+    refundOrderMutation.isPending ||
+    checkCutoverPolicy.isPending;
+  const canCancelOrder =
+    !isCanceled &&
+    orderStatus === 'PENDING' &&
+    !['AUTHORIZED', 'CAPTURED', 'PARTIALLY_REFUNDED', 'REFUNDED', 'CANCELED'].includes(
+      paymentStatus,
+    );
+  const canRefundOrder =
+    !isCanceled &&
+    grandTotalAmount > 0 &&
+    ['AUTHORIZED', 'CAPTURED', 'PARTIALLY_REFUNDED'].includes(paymentStatus);
+
+  async function handleCancelOrder() {
+    if (!orderId || !canCancelOrder) {
+      return;
+    }
+    const orderNo = readString(order?.order_no) || orderId;
+    if (!confirm(`주문 ${orderNo}를 취소하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      await cancelOrderMutation.mutateAsync({
+        orderId,
+        data: { reason: 'ADMIN_ORDER_DETAIL_CANCEL' },
+      });
+      showToast('주문을 취소했습니다.', { type: 'success' });
+      await orderDetailQuery.refetch();
+    } catch (error) {
+      showToast(getErrorMessage(error), { type: 'error' });
+    }
+  }
+
+  async function handleRefundOrder() {
+    if (!orderId || !canRefundOrder) {
+      return;
+    }
+    const orderNo = readString(order?.order_no) || orderId;
+    if (!confirm(`주문 ${orderNo}의 전체 결제 금액을 환불하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const policyCheck = await checkCutoverPolicy.mutateAsync({
+        action_key: 'ORDER_REFUND_EXECUTE',
+        requires_approval: true,
+      });
+
+      try {
+        await refundOrderMutation.mutateAsync({
+          orderId,
+          data: {
+            amount: null,
+            reason: '주문 상세 전체 환불',
+          },
+        });
+      } catch (error) {
+        if (
+          policyCheck.decision === 'APPROVAL_REQUIRED' &&
+          isApprovalRequiredError(error)
+        ) {
+          showToast('환불 승인 대기로 등록되었습니다.', { type: 'success' });
+          await orderDetailQuery.refetch();
+          return;
+        }
+        throw error;
+      }
+
+      showToast(
+        policyCheck.decision === 'APPROVAL_REQUIRED'
+          ? '환불 승인 대기로 등록되었습니다.'
+          : '전체 환불을 실행했습니다.',
+        { type: 'success' },
+      );
+      await orderDetailQuery.refetch();
+    } catch (error) {
+      showToast(getErrorMessage(error), { type: 'error' });
+    }
+  }
 
   if (orderDetailQuery.isLoading) {
     return (
@@ -253,6 +379,28 @@ export default function AdminOrderDetailPage() {
           <p className="mt-1 text-sm text-gray-500">Order ID: {readString(order.id)}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            intent="secondary"
+            size="sm"
+            loading={cancelOrderMutation.isPending}
+            disabled={!canCancelOrder || isActionPending}
+            onClick={() => {
+              void handleCancelOrder();
+            }}
+          >
+            주문 취소
+          </Button>
+          <Button
+            intent="danger"
+            size="sm"
+            loading={refundOrderMutation.isPending || checkCutoverPolicy.isPending}
+            disabled={!canRefundOrder || isActionPending}
+            onClick={() => {
+              void handleRefundOrder();
+            }}
+          >
+            전체 환불
+          </Button>
           <Link href={`/admin/refunds?orderId=${orderId}`}>
             <Button intent="secondary" size="sm">
               환불 관리로 이동

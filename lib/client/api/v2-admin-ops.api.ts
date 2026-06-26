@@ -1325,6 +1325,15 @@ export const V2AdminOpsAPI = {
     return apiClient.post(`/api/v2/admin/ops/orders/${orderId}/refund`, data);
   },
 
+  async cancelOrder(
+    orderId: string,
+    data: {
+      reason?: string | null;
+    },
+  ): Promise<ApiResponse<Record<string, unknown>>> {
+    return apiClient.post(`/api/v2/admin/ops/orders/${orderId}/cancel`, data);
+  },
+
   async dispatchShipment(
     shipmentId: string,
     data: {
