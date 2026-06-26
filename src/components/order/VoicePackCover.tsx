@@ -41,12 +41,13 @@ export function VoicePackCover({
               src={thumbnail}
               alt=""
               aria-hidden="true"
-              className="absolute inset-0 h-full w-full scale-125 object-cover opacity-90 blur-2xl"
+              className="absolute inset-0 h-full w-full scale-110 object-cover opacity-85 blur-xl saturate-50"
             />
           ) : null}
-          <div className="absolute inset-0 bg-[#070711]/80" />
+          <div className="absolute inset-0 bg-[#070711]/68" />
+          <div className="absolute inset-0 bg-linear-to-br from-black/10 via-black/35 to-black/55" />
           <div
-            className="absolute inset-0 opacity-70 mix-blend-screen"
+            className="absolute inset-0 opacity-55 mix-blend-screen"
             style={{
               background:
                 "radial-gradient(circle at 55% 45%, rgba(255,255,255,0.32), rgba(255,255,255,0.08) 20%, rgba(255,255,255,0) 44%), linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.03) 38%, rgba(80,160,255,0.16) 68%, rgba(255,255,255,0.06))",
@@ -112,7 +113,7 @@ export function VoicePackCover({
       </div>
 
       {/* 썸네일 이미지 (있을 경우) */}
-      {thumbnail && (
+      {thumbnail && !usesMediaBackground && (
         <div className="absolute left-11 top-12 h-14 w-14 overflow-hidden rounded-md border border-white/50 shadow-lg">
           <img
             src={thumbnail}
