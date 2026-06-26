@@ -13,6 +13,7 @@ import type {
   V2PriceList,
   V2PriceListItem,
   V2Product,
+  V2ProductMedia,
   V2Variant,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
@@ -35,6 +36,7 @@ import {
   useV2Promotions,
   useV2AdminProducts,
   useV2AdminProjects,
+  useV2AdminProductMediaMap,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import { queryKeys } from '@/lib/client/hooks/query-keys';
 import {
@@ -50,6 +52,10 @@ import {
   resolveTargetLabel,
   summarizeTargetGroups,
 } from '@/lib/client/utils/v2-campaign-admin';
+import {
+  FULFILLMENT_TYPE_LABELS,
+  PRODUCT_KIND_LABELS,
+} from '@/lib/client/utils/v2-product-admin-form';
 
 function formatCurrency(amount: number): string {
   return `${amount.toLocaleString('ko-KR')}원`;
@@ -119,6 +125,46 @@ function findVariantPriceItem(params: {
   );
   const exact = matched.filter((item) => item.variant_id === params.variantId);
   return pickBestPriceItem(exact.length > 0 ? exact : matched);
+}
+
+function getCoverMedia(mediaList: V2ProductMedia[]): V2ProductMedia | null {
+  const active = mediaList.filter((media) => media.status === 'ACTIVE');
+  return (
+    active.find((media) => media.is_primary) ||
+    active.find((media) => media.media_role === 'PRIMARY') ||
+    null
+  );
+}
+
+function getProductTypeBadge(product: V2Product): {
+  label: string;
+  intent: 'default' | 'success' | 'warning' | 'error' | 'info';
+} {
+  if (product.product_kind === 'BUNDLE') {
+    return {
+      label: PRODUCT_KIND_LABELS.BUNDLE,
+      intent: 'warning',
+    };
+  }
+
+  if (product.fulfillment_type === 'DIGITAL') {
+    return {
+      label: FULFILLMENT_TYPE_LABELS.DIGITAL,
+      intent: 'success',
+    };
+  }
+
+  if (product.fulfillment_type === 'PHYSICAL') {
+    return {
+      label: FULFILLMENT_TYPE_LABELS.PHYSICAL,
+      intent: 'info',
+    };
+  }
+
+  return {
+    label: PRODUCT_KIND_LABELS.STANDARD,
+    intent: 'default',
+  };
 }
 
 function findCampaignTarget(params: {
@@ -360,6 +406,7 @@ export default function V2CatalogCampaignDetailPage() {
     () => candidateProducts.map((product) => product.id),
     [candidateProducts],
   );
+  const { mediaByProductId } = useV2AdminProductMediaMap(productIdsForVariants);
   const {
     variantsByProductId,
     isLoading: variantsMapLoading,
@@ -1091,14 +1138,37 @@ export default function V2CatalogCampaignDetailPage() {
                   const expanded = Boolean(expandedProductIds[row.product.id]);
                   const includedVariants = row.variants.filter((variantRow) => variantRow.included);
                   const isSavingProduct = savingProductId === row.product.id;
+                  const coverMedia = getCoverMedia(mediaByProductId[row.product.id] || []);
+                  const productTypeBadge = getProductTypeBadge(row.product);
                   return (
                     <div key={row.product.id} className="rounded-lg border border-white bg-white shadow-sm">
                       <div className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{row.product.title}</p>
-                          <p className="mt-1 text-xs text-gray-500">
-                            {row.product.product_kind === 'BUNDLE' ? '번들' : '일반'} · 옵션 {row.variants.length}개 · 포함 {row.includedCount}개 · 할인 {row.overrideCount}개
-                          </p>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                            {coverMedia?.public_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element -- project policy uses native img instead of next/image.
+                              <img
+                                src={coverMedia.public_url}
+                                alt={coverMedia.alt_text || `${row.product.title} 대표 이미지`}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-400">
+                                없음
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate text-sm font-medium text-gray-900">{row.product.title}</p>
+                              <Badge intent={productTypeBadge.intent} size="sm">
+                                {productTypeBadge.label}
+                              </Badge>
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">
+                              옵션 {row.variants.length}개 · 포함 {row.includedCount}개 · 할인 {row.overrideCount}개
+                            </p>
+                          </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <Button
@@ -1269,14 +1339,37 @@ export default function V2CatalogCampaignDetailPage() {
                   );
                   const quickIncludeableCount = notIncludedVariants.filter((variantRow) => variantRow.baseItem).length;
                   const isSavingProduct = savingProductId === row.product.id;
+                  const coverMedia = getCoverMedia(mediaByProductId[row.product.id] || []);
+                  const productTypeBadge = getProductTypeBadge(row.product);
                   return (
                     <div key={row.product.id} className="rounded-lg border border-white bg-white shadow-sm">
                       <div className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{row.product.title}</p>
-                          <p className="mt-1 text-xs text-gray-500">
-                            {row.product.product_kind === 'BUNDLE' ? '번들' : '일반'} · 옵션 {row.variants.length}개 · 미포함 {row.notIncludedCount}개
-                          </p>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                            {coverMedia?.public_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element -- project policy uses native img instead of next/image.
+                              <img
+                                src={coverMedia.public_url}
+                                alt={coverMedia.alt_text || `${row.product.title} 대표 이미지`}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-400">
+                                없음
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate text-sm font-medium text-gray-900">{row.product.title}</p>
+                              <Badge intent={productTypeBadge.intent} size="sm">
+                                {productTypeBadge.label}
+                              </Badge>
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">
+                              옵션 {row.variants.length}개 · 미포함 {row.notIncludedCount}개
+                            </p>
+                          </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <Button
