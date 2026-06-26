@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
@@ -12,17 +13,27 @@ import type {
   V2DigitalAsset,
   V2FulfillmentType,
   V2MediaAssetUploadProgress,
+  V2PriceList,
+  V2PriceListItem,
   V2Product,
   V2Variant,
   V2VariantStatus,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
+  useCreateV2PriceList,
+  useCreateV2PriceListItem,
   useCreateV2DigitalAsset,
   useCreateV2Variant,
+  usePublishV2PriceList,
+  useUpdateV2PriceListItem,
   useUpdateV2DigitalAsset,
   useUpdateV2Variant,
   useUploadV2MediaAssetFile,
+  useV2Campaigns,
+  useV2PriceListItems,
+  useV2PriceLists,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
+import { queryKeys } from '@/lib/client/hooks/query-keys';
 import {
   useV2AdminInventoryLevels,
   useV2AdminStockLocations,
@@ -73,6 +84,14 @@ function parseNonNegativeInteger(value: string, fieldName: string): number {
   return parsed;
 }
 
+function parseOptionalBasePrice(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return parseNonNegativeInteger(trimmed, '기본 판매가');
+}
+
 function parseNullableNonNegativeInteger(
   value: string,
   fieldName: string,
@@ -98,6 +117,56 @@ function getChoiceButtonClass(active: boolean): string {
       ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm'
       : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
   }`;
+}
+
+function formatCurrency(amount: number): string {
+  return `${amount.toLocaleString('ko-KR')}원`;
+}
+
+function pickLatestPriceList(lists: V2PriceList[]): V2PriceList | null {
+  if (lists.length === 0) {
+    return null;
+  }
+  return [...lists].sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0] || null;
+}
+
+function pickBestActivePriceItem(items: V2PriceListItem[]): V2PriceListItem | null {
+  const activeItems = items.filter((item) => item.status === 'ACTIVE');
+  if (activeItems.length === 0) {
+    return null;
+  }
+  return [...activeItems].sort((left, right) => right.created_at.localeCompare(left.created_at))[0] || null;
+}
+
+function findExactVariantPriceItem(params: {
+  items: V2PriceListItem[];
+  productId: string;
+  variantId: string | null;
+}): V2PriceListItem | null {
+  if (!params.variantId) {
+    return null;
+  }
+  return pickBestActivePriceItem(
+    params.items.filter(
+      (item) => item.product_id === params.productId && item.variant_id === params.variantId,
+    ),
+  );
+}
+
+function findResolvedVariantPriceItem(params: {
+  items: V2PriceListItem[];
+  productId: string;
+  variantId: string | null;
+}): V2PriceListItem | null {
+  const exact = findExactVariantPriceItem(params);
+  if (exact) {
+    return exact;
+  }
+  return pickBestActivePriceItem(
+    params.items.filter(
+      (item) => item.product_id === params.productId && item.variant_id === null,
+    ),
+  );
 }
 
 function formatBytes(value: number | null | undefined): string {
@@ -149,16 +218,23 @@ export function ProductVariantForm({
   onCancel,
   onSuccess,
 }: ProductVariantFormProps) {
+  const queryClient = useQueryClient();
   const createVariant = useCreateV2Variant();
   const updateVariant = useUpdateV2Variant();
   const uploadMediaAssetFile = useUploadV2MediaAssetFile();
   const createDigitalAsset = useCreateV2DigitalAsset();
   const updateDigitalAsset = useUpdateV2DigitalAsset();
   const upsertInventoryLevel = useV2AdminUpsertInventoryLevel();
+  const createPriceList = useCreateV2PriceList();
+  const publishPriceList = usePublishV2PriceList();
+  const createPriceListItem = useCreateV2PriceListItem();
+  const updatePriceListItem = useUpdateV2PriceListItem();
 
   const [title, setTitle] = useState('');
   const [fulfillmentType, setFulfillmentType] = useState<V2FulfillmentType>('DIGITAL');
   const [status, setStatus] = useState<V2VariantStatus>('DRAFT');
+  const [basePrice, setBasePrice] = useState('');
+  const [basePriceTouched, setBasePriceTouched] = useState(false);
   const [trackInventory, setTrackInventory] = useState(false);
   const [weightGrams, setWeightGrams] = useState('');
   const [inventoryLocationId, setInventoryLocationId] = useState('');
@@ -176,6 +252,7 @@ export function ProductVariantForm({
     mode === 'edit' &&
     variantCount === 1 &&
     (variant?.title || '').trim().toLowerCase() === 'default';
+  const currentVariantId = variant?.id || persistedVariantId || null;
 
   const { data: stockLocations, isLoading: stockLocationsLoading } = useV2AdminStockLocations();
   const { data: inventoryLevels, isLoading: inventoryLevelsLoading } = useV2AdminInventoryLevels(
@@ -185,12 +262,78 @@ export function ProductVariantForm({
         ? { variant_id: persistedVariantId }
         : null,
   );
+  const {
+    data: alwaysOnCampaigns,
+    isLoading: alwaysOnCampaignsLoading,
+  } = useV2Campaigns({ campaignType: 'ALWAYS_ON' });
+  const projectBaseCampaign = useMemo(() => {
+    const matchingCampaigns = (alwaysOnCampaigns || []).filter(
+      (campaign) =>
+        campaign.project_id === product.project_id &&
+        campaign.campaign_type === 'ALWAYS_ON' &&
+        campaign.status !== 'ARCHIVED',
+    );
+
+    if (matchingCampaigns.length === 0) {
+      return null;
+    }
+
+    return [...matchingCampaigns].sort((left, right) => {
+      const activeDiff = Number(right.status === 'ACTIVE') - Number(left.status === 'ACTIVE');
+      if (activeDiff !== 0) {
+        return activeDiff;
+      }
+      return right.updated_at.localeCompare(left.updated_at);
+    })[0] || null;
+  }, [alwaysOnCampaigns, product.project_id]);
+  const { data: basePriceLists, isLoading: basePriceListsLoading } = useV2PriceLists({
+    campaignId: projectBaseCampaign?.id,
+    scopeType: 'BASE',
+  });
+  const activeBasePriceList = useMemo(
+    () => (projectBaseCampaign ? pickLatestPriceList(basePriceLists || []) : null),
+    [basePriceLists, projectBaseCampaign],
+  );
+  const basePriceListRef = useRef<V2PriceList | null>(null);
+  const {
+    data: basePriceItems,
+    isLoading: basePriceItemsLoading,
+  } = useV2PriceListItems(activeBasePriceList?.id || null);
+  const exactBasePriceItem = useMemo(
+    () =>
+      findExactVariantPriceItem({
+        items: basePriceItems || [],
+        productId: product.id,
+        variantId: currentVariantId,
+      }),
+    [basePriceItems, currentVariantId, product.id],
+  );
+  const currentBasePriceItem = useMemo(
+    () =>
+      findResolvedVariantPriceItem({
+        items: basePriceItems || [],
+        productId: product.id,
+        variantId: currentVariantId,
+      }),
+    [basePriceItems, currentVariantId, product.id],
+  );
+  const isUsingInheritedBasePrice =
+    Boolean(currentBasePriceItem) && currentBasePriceItem?.id !== exactBasePriceItem?.id;
+  const isBasePricingLoading =
+    alwaysOnCampaignsLoading ||
+    (Boolean(projectBaseCampaign) && (basePriceListsLoading || basePriceItemsLoading));
+
+  useEffect(() => {
+    basePriceListRef.current = activeBasePriceList || null;
+  }, [activeBasePriceList]);
 
   useEffect(() => {
     if (mode === 'edit' && variant) {
       setTitle(variant.title);
       setFulfillmentType(lockedFulfillmentType || variant.fulfillment_type);
       setStatus(variant.status);
+      setBasePrice('');
+      setBasePriceTouched(false);
       setTrackInventory(variant.track_inventory);
       setWeightGrams(variant.weight_grams == null ? '' : String(variant.weight_grams));
       setInventoryOnHandQuantity('');
@@ -206,6 +349,8 @@ export function ProductVariantForm({
     setTitle('');
     setFulfillmentType(lockedFulfillmentType || 'DIGITAL');
     setStatus('DRAFT');
+    setBasePrice('');
+    setBasePriceTouched(false);
     setTrackInventory(false);
     setWeightGrams('');
     setInventoryOnHandQuantity('');
@@ -216,6 +361,21 @@ export function ProductVariantForm({
     setPersistedVariantId(null);
     setAbortUpload(null);
   }, [lockedFulfillmentType, mode, variant]);
+
+  useEffect(() => {
+    if (basePriceTouched) {
+      return;
+    }
+
+    if (mode === 'edit' && currentBasePriceItem) {
+      setBasePrice(String(currentBasePriceItem.unit_amount));
+      return;
+    }
+
+    if (mode === 'edit' && !isBasePricingLoading) {
+      setBasePrice('');
+    }
+  }, [basePriceTouched, currentBasePriceItem, isBasePricingLoading, mode]);
 
   useEffect(() => {
     if (!stockLocations || stockLocations.length === 0) {
@@ -264,8 +424,13 @@ export function ProductVariantForm({
     primaryAsset?.file_size ?? primaryAsset?.media_asset?.file_size ?? null;
 
   const isSubmitting =
+    isBasePricingLoading ||
     createVariant.isPending ||
     updateVariant.isPending ||
+    createPriceList.isPending ||
+    publishPriceList.isPending ||
+    createPriceListItem.isPending ||
+    updatePriceListItem.isPending ||
     uploadMediaAssetFile.isPending ||
     createDigitalAsset.isPending ||
     updateDigitalAsset.isPending ||
@@ -275,6 +440,97 @@ export function ProductVariantForm({
     (inventoryLevels || []).find((level) => level.location_id === inventoryLocationId) || null;
   const hasMultipleStockLocations = (stockLocations || []).length > 1;
   const singleStockLocation = stockLocations?.[0] || null;
+
+  const refreshPricingQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.v2CatalogAdmin.pricing.all,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.v2Shop.all,
+      }),
+    ]);
+  };
+
+  const ensureBasePriceList = async (): Promise<V2PriceList> => {
+    if (!projectBaseCampaign) {
+      throw new Error('이 상품의 프로젝트에 연결된 기본 캠페인을 찾을 수 없습니다.');
+    }
+
+    let priceList = basePriceListRef.current || activeBasePriceList;
+    if (!priceList) {
+      const created = await createPriceList.mutateAsync({
+        campaign_id: projectBaseCampaign.id,
+        name: `${projectBaseCampaign.name} 기본 가격`,
+        scope_type: 'BASE',
+        status: 'DRAFT',
+        currency_code: 'KRW',
+        starts_at: projectBaseCampaign.starts_at,
+        ends_at: projectBaseCampaign.ends_at,
+        metadata: {
+          source: 'v2-variant-form',
+          product_id: product.id,
+          project_id: product.project_id,
+        },
+        skipInvalidate: true,
+      });
+      priceList = created.data;
+    }
+
+    if (!priceList) {
+      throw new Error('기본 가격표를 준비하지 못했습니다.');
+    }
+
+    basePriceListRef.current = priceList;
+    return priceList;
+  };
+
+  const upsertVariantBasePrice = async (variantId: string, unitAmount: number) => {
+    const priceList = await ensureBasePriceList();
+
+    if (exactBasePriceItem) {
+      await updatePriceListItem.mutateAsync({
+        itemId: exactBasePriceItem.id,
+        data: {
+          product_id: product.id,
+          variant_id: variantId,
+          unit_amount: unitAmount,
+          compare_at_amount: null,
+          status: 'ACTIVE',
+        },
+        skipInvalidate: true,
+      });
+    } else {
+      await createPriceListItem.mutateAsync({
+        priceListId: priceList.id,
+        data: {
+          product_id: product.id,
+          variant_id: variantId,
+          unit_amount: unitAmount,
+          compare_at_amount: null,
+          status: 'ACTIVE',
+          metadata: {
+            source: 'v2-variant-form',
+            pricing_mode: 'BASE',
+          },
+        },
+        skipInvalidate: true,
+      });
+    }
+
+    if (priceList.status !== 'PUBLISHED') {
+      await publishPriceList.mutateAsync({
+        id: priceList.id,
+        skipInvalidate: true,
+      });
+      basePriceListRef.current = {
+        ...priceList,
+        status: 'PUBLISHED',
+      };
+    }
+
+    await refreshPricingQueries();
+  };
 
   const handleFulfillmentTypeChange = (value: V2FulfillmentType) => {
     if (isFulfillmentLocked) {
@@ -323,6 +579,10 @@ export function ProductVariantForm({
       if (!resolvedFulfillmentType) {
         throw new Error('상품 제공 방식이 설정되어 있지 않습니다. 상품 정보를 먼저 확인해 주세요.');
       }
+      const parsedBasePrice = parseOptionalBasePrice(basePrice);
+      if (status === 'ACTIVE' && parsedBasePrice === null) {
+        throw new Error('판매 중 옵션은 기본 판매가를 입력해야 합니다.');
+      }
 
       const nextVariantPayload = {
         title: trimmedTitle,
@@ -361,6 +621,14 @@ export function ProductVariantForm({
           variantId: variant.id,
           data: nextVariantPayload,
         });
+        savedVariantId = variant.id;
+      }
+
+      if (parsedBasePrice !== null) {
+        if (!savedVariantId) {
+          throw new Error('옵션 저장 후 기본 판매가를 반영할 수 없습니다.');
+        }
+        await upsertVariantBasePrice(savedVariantId, parsedBasePrice);
       }
 
       if (resolvedFulfillmentType === 'PHYSICAL' && trackInventory) {
@@ -626,6 +894,66 @@ export function ProductVariantForm({
                 </Button>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">기본 판매가</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              옵션의 상시 판매 가격입니다. 캠페인 화면에서는 포함 여부와 할인/특가를 관리합니다.
+            </p>
+          </div>
+          <Badge intent="info">BASE</Badge>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-12">
+          <div className="lg:col-span-7">
+            <FormField
+              label="기본 판매가 (원)"
+              htmlFor="variant-base-price"
+              required={status === 'ACTIVE'}
+              help="판매 중 옵션은 기본 판매가가 필요합니다. 임시 저장 옵션은 비워둘 수 있습니다."
+            >
+              <Input
+                id="variant-base-price"
+                type="number"
+                min="0"
+                step="1"
+                value={basePrice}
+                onChange={(event) => {
+                  setBasePriceTouched(true);
+                  setBasePrice(event.target.value);
+                }}
+                placeholder="예: 10000"
+                disabled={isBasePricingLoading}
+              />
+            </FormField>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:col-span-5">
+            <p className="text-sm font-medium text-gray-900">연결 기본 캠페인</p>
+            <p className="mt-2 text-sm text-gray-700">
+              {alwaysOnCampaignsLoading
+                ? '기본 캠페인 확인 중'
+                : projectBaseCampaign?.name || '연결된 기본 캠페인 없음'}
+            </p>
+            {currentBasePriceItem && (
+              <p className="mt-2 text-xs text-gray-500">
+                현재 기본가 {formatCurrency(currentBasePriceItem.unit_amount)}
+                {isUsingInheritedBasePrice ? ' · 상품 단위 가격에서 상속됨' : ''}
+              </p>
+            )}
+            {!alwaysOnCampaignsLoading && !projectBaseCampaign && (
+              <p className="mt-2 text-xs text-red-600">
+                저장하려면 이 프로젝트의 기본 캠페인이 먼저 필요합니다.
+              </p>
+            )}
+            {isBasePricingLoading && (
+              <p className="mt-2 text-xs text-gray-500">기존 기본 판매가를 불러오는 중입니다.</p>
+            )}
           </div>
         </div>
       </section>
