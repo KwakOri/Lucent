@@ -794,30 +794,22 @@ export function ProductVariantForm({
           <div>
             <h2 className="text-lg font-semibold text-gray-900">옵션 기본 설정</h2>
             <p className="mt-1 text-sm text-gray-500">
-              이름과 노출 상태만 먼저 정리하면 나머지 설정은 아래에서 이어서 처리할 수 있습니다.
+              {isSingleDefaultVariant
+                ? '단일 기본 옵션은 판매 상태와 가격만 관리합니다.'
+                : '이름과 노출 상태만 먼저 정리하면 나머지 설정은 아래에서 이어서 처리할 수 있습니다.'}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge intent={mode === 'create' ? 'info' : 'default'}>
               {mode === 'create' ? '새 옵션' : '옵션 수정'}
             </Badge>
-            <Badge intent="default">{product.title}</Badge>
+            {!isSingleDefaultVariant && <Badge intent="default">{product.title}</Badge>}
           </div>
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            {isSingleDefaultVariant ? (
-              <div>
-                <p className="mb-2 text-sm font-medium text-gray-700">옵션 이름</p>
-                <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700">
-                  default
-                </div>
-                <p className="mt-2 text-xs text-gray-500">
-                  옵션이 1개일 때는 기본 옵션명(`default`)을 자동 사용합니다.
-                </p>
-              </div>
-            ) : (
+          {!isSingleDefaultVariant && (
+            <div className="lg:col-span-7">
               <FormField
                 label="옵션 이름"
                 htmlFor="variant-title"
@@ -832,27 +824,29 @@ export function ProductVariantForm({
                   required
                 />
               </FormField>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:col-span-5">
-            <p className="text-sm font-medium text-gray-900">연결 상품</p>
-            <p className="mt-1 text-sm text-gray-500">선택한 상품에 이 옵션이 추가됩니다.</p>
-            <p className="mt-3 text-sm font-medium text-gray-900">{product.title}</p>
-            {isFulfillmentLocked && lockedFulfillmentType && (
-              <p className="mt-2 text-xs font-medium text-gray-600">
-                제공 방식: {FULFILLMENT_TYPE_LABELS[lockedFulfillmentType]} (상품 기준 고정)
+          {!isSingleDefaultVariant && (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:col-span-5">
+              <p className="text-sm font-medium text-gray-900">연결 상품</p>
+              <p className="mt-1 text-sm text-gray-500">선택한 상품에 이 옵션이 추가됩니다.</p>
+              <p className="mt-3 text-sm font-medium text-gray-900">{product.title}</p>
+              {isFulfillmentLocked && lockedFulfillmentType && (
+                <p className="mt-2 text-xs font-medium text-gray-600">
+                  제공 방식: {FULFILLMENT_TYPE_LABELS[lockedFulfillmentType]} (상품 기준 고정)
+                </p>
+              )}
+              {isBundleProduct && (
+                <p className="mt-2 text-xs font-medium text-gray-600">
+                  제공 방식: 번들 구성 상품 기준 자동 적용
+                </p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                상품 상세 페이지에서 언제든 옵션을 추가/수정할 수 있습니다.
               </p>
-            )}
-            {isBundleProduct && (
-              <p className="mt-2 text-xs font-medium text-gray-600">
-                제공 방식: 번들 구성 상품 기준 자동 적용
-              </p>
-            )}
-            <p className="mt-1 text-xs text-gray-500">
-              상품 상세 페이지에서 언제든 옵션을 추가/수정할 수 있습니다.
-            </p>
-          </div>
+            </div>
+          )}
 
           {canEditFulfillmentType && (
             <div className="space-y-3 lg:col-span-7">
@@ -884,7 +878,7 @@ export function ProductVariantForm({
 
           <div
             className={`space-y-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 ${
-              canEditFulfillmentType ? 'lg:col-span-5' : 'lg:col-span-12'
+              canEditFulfillmentType && !isSingleDefaultVariant ? 'lg:col-span-5' : 'lg:col-span-12'
             }`}
           >
             <div>
@@ -920,7 +914,7 @@ export function ProductVariantForm({
         </div>
 
         <div className="mt-5 grid gap-4 lg:grid-cols-12">
-          <div className="lg:col-span-7">
+          <div className={isSingleDefaultVariant ? 'lg:col-span-12' : 'lg:col-span-7'}>
             <FormField
               label="기본 판매가 (원)"
               htmlFor="variant-base-price"
@@ -943,32 +937,34 @@ export function ProductVariantForm({
             </FormField>
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:col-span-5">
-            <p className="text-sm font-medium text-gray-900">연결 기본 캠페인</p>
-            <p className="mt-2 text-sm text-gray-700">
-              {alwaysOnCampaignsLoading
-                ? '기본 캠페인 확인 중'
-                : projectBaseCampaign?.name || '연결된 기본 캠페인 없음'}
-            </p>
-            {currentBasePriceItem && (
-              <p className="mt-2 text-xs text-gray-500">
-                현재 기본가 {formatCurrency(currentBasePriceItem.unit_amount)}
-                {isUsingInheritedBasePrice ? ' · 상품 단위 가격에서 상속됨' : ''}
+          {!isSingleDefaultVariant && (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:col-span-5">
+              <p className="text-sm font-medium text-gray-900">연결 기본 캠페인</p>
+              <p className="mt-2 text-sm text-gray-700">
+                {alwaysOnCampaignsLoading
+                  ? '기본 캠페인 확인 중'
+                  : projectBaseCampaign?.name || '연결된 기본 캠페인 없음'}
               </p>
-            )}
-            {!alwaysOnCampaignsLoading && !projectBaseCampaign && (
-              <p className="mt-2 text-xs text-red-600">
-                저장하려면 이 프로젝트의 기본 캠페인이 먼저 필요합니다.
-              </p>
-            )}
-            {isBasePricingLoading && (
-              <p className="mt-2 text-xs text-gray-500">기존 기본 판매가를 불러오는 중입니다.</p>
-            )}
-          </div>
+              {currentBasePriceItem && (
+                <p className="mt-2 text-xs text-gray-500">
+                  현재 기본가 {formatCurrency(currentBasePriceItem.unit_amount)}
+                  {isUsingInheritedBasePrice ? ' · 상품 단위 가격에서 상속됨' : ''}
+                </p>
+              )}
+              {!alwaysOnCampaignsLoading && !projectBaseCampaign && (
+                <p className="mt-2 text-xs text-red-600">
+                  저장하려면 이 프로젝트의 기본 캠페인이 먼저 필요합니다.
+                </p>
+              )}
+              {isBasePricingLoading && (
+                <p className="mt-2 text-xs text-gray-500">기존 기본 판매가를 불러오는 중입니다.</p>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
-      {isBundleProduct && (
+      {isBundleProduct && !isSingleDefaultVariant && (
         <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
