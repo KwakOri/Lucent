@@ -18,6 +18,7 @@ import {
   useV2AdminVariants,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import { FULFILLMENT_TYPE_LABELS, VARIANT_STATUS_LABELS } from '@/lib/client/utils/v2-product-admin-form';
+import { ProductVariantForm } from './ProductVariantForm';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -160,6 +161,43 @@ function VariantAudioSummary({ variantId }: VariantAudioSummaryProps) {
   );
 }
 
+type VariantInlineEditPanelProps = {
+  product: V2Product;
+  variant: V2Variant;
+  variantCount: number;
+  onCancel: () => void;
+  onSuccess: () => void;
+};
+
+function VariantInlineEditPanel({
+  product,
+  variant,
+  variantCount,
+  onCancel,
+  onSuccess,
+}: VariantInlineEditPanelProps) {
+  const {
+    data: assets,
+    isLoading: assetsLoading,
+  } = useV2AdminVariantAssets(variant.id);
+  const primaryAsset = getPrimaryDigitalAsset(assets);
+
+  return (
+    <div className="mt-5 border-t border-gray-100 pt-5">
+      <ProductVariantForm
+        mode="edit"
+        product={product}
+        variant={variant}
+        variantCount={variantCount}
+        primaryAsset={primaryAsset}
+        isAssetsLoading={assetsLoading}
+        onCancel={onCancel}
+        onSuccess={onSuccess}
+      />
+    </div>
+  );
+}
+
 type ProductVariantManagerProps = {
   product: V2Product;
 };
@@ -168,6 +206,7 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [expandedVariantId, setExpandedVariantId] = useState<string | null>(null);
 
   const {
     data: variants,
@@ -186,10 +225,23 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
 
     try {
       await deleteVariant.mutateAsync(variantId);
+      setExpandedVariantId((current) => (current === variantId ? null : current));
       setMessage('옵션을 삭제했습니다.');
     } catch (deleteError) {
       setErrorMessage(getErrorMessage(deleteError));
     }
+  };
+
+  const handleToggleVariant = (variantId: string) => {
+    setMessage(null);
+    setErrorMessage(null);
+    setExpandedVariantId((current) => (current === variantId ? null : variantId));
+  };
+
+  const handleInlineEditSuccess = () => {
+    setExpandedVariantId(null);
+    setErrorMessage(null);
+    setMessage('옵션을 저장했습니다.');
   };
 
   return (
@@ -198,7 +250,7 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
         <div>
           <h2 className="text-lg font-semibold text-gray-900">옵션 목록</h2>
           <p className="mt-1 text-sm text-gray-500">
-            옵션 현황만 빠르게 확인하고, 추가나 수정은 전용 페이지에서 진행합니다.
+            옵션 현황을 확인하고, 펼친 뒤 바로 수정합니다.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -250,6 +302,7 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
           (variants || []).map((variant) => {
             const optionSummary = formatOptionSummary(variant.option_summary_json);
             const variantDetails = formatVariantDetails(variant);
+            const isExpanded = expandedVariantId === variant.id;
 
             return (
               <div
@@ -306,14 +359,10 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
 
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <Button
-                      intent="neutral"
-                      onClick={() =>
-                        router.push(
-                          `/admin/v2-catalog/products/${product.id}/variants/${variant.id}/edit`,
-                        )
-                      }
+                      intent={isExpanded ? 'secondary' : 'neutral'}
+                      onClick={() => handleToggleVariant(variant.id)}
                     >
-                      수정
+                      {isExpanded ? '접기' : '펼치기'}
                     </Button>
                     <Button
                       intent="danger"
@@ -324,6 +373,16 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
                     </Button>
                   </div>
                 </div>
+
+                {isExpanded && (
+                  <VariantInlineEditPanel
+                    product={product}
+                    variant={variant}
+                    variantCount={variants?.length || 0}
+                    onCancel={() => setExpandedVariantId(null)}
+                    onSuccess={handleInlineEditSuccess}
+                  />
+                )}
               </div>
             );
           })}

@@ -284,6 +284,12 @@ export default function V2CatalogProductDetailPage() {
       <ProductMediaManager product={product} />
 
       <ProductVariantManager product={product} />
+
+      <div className="flex justify-end border-t border-gray-200 pt-6">
+        <Button onClick={() => router.push(listPath)}>
+          저장하고 목록으로 이동
+        </Button>
+      </div>
     </div>
   );
 }
