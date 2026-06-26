@@ -66,6 +66,8 @@ export {
   useUpdateV2Project,
   usePublishV2Project,
   useUnpublishV2Project,
+  useArchiveV2Project,
+  useRestoreV2Project,
   useDeleteV2Project,
   useV2AdminArtists,
   useV2AdminArtist,
