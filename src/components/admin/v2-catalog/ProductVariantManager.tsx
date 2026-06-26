@@ -18,6 +18,7 @@ import {
   useV2AdminVariants,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import { FULFILLMENT_TYPE_LABELS, VARIANT_STATUS_LABELS } from '@/lib/client/utils/v2-product-admin-form';
+import { ProductVariantForm } from './ProductVariantForm';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -107,7 +108,11 @@ function formatOptionSummary(optionSummary: Record<string, unknown> | null): str
     .filter((value): value is string => Boolean(value));
 }
 
-function formatVariantDetails(variant: V2Variant): string[] {
+function formatVariantDetails(product: V2Product, variant: V2Variant): string[] {
+  if (product.product_kind === 'BUNDLE') {
+    return ['구성 상품 옵션 기준으로 이행 방식이 자동 계산됩니다.'];
+  }
+
   if (variant.fulfillment_type === 'PHYSICAL') {
     return [
       variant.track_inventory
@@ -160,14 +165,60 @@ function VariantAudioSummary({ variantId }: VariantAudioSummaryProps) {
   );
 }
 
-type ProductVariantManagerProps = {
+type VariantInlineEditPanelProps = {
   product: V2Product;
+  variant: V2Variant;
+  variantCount: number;
+  registerSaveHandler?: (handler: (() => Promise<boolean>) | null) => void;
+  onCancel: () => void;
+  onSuccess: () => void;
 };
 
-export function ProductVariantManager({ product }: ProductVariantManagerProps) {
+function VariantInlineEditPanel({
+  product,
+  variant,
+  variantCount,
+  registerSaveHandler,
+  onCancel,
+  onSuccess,
+}: VariantInlineEditPanelProps) {
+  const {
+    data: assets,
+    isLoading: assetsLoading,
+  } = useV2AdminVariantAssets(variant.id);
+  const primaryAsset = getPrimaryDigitalAsset(assets);
+
+  return (
+    <div className="mt-5 border-t border-gray-100 pt-5">
+      <ProductVariantForm
+        mode="edit"
+        product={product}
+        variant={variant}
+        variantCount={variantCount}
+        primaryAsset={primaryAsset}
+        isAssetsLoading={assetsLoading}
+        hideActions
+        registerSaveHandler={registerSaveHandler}
+        onCancel={onCancel}
+        onSuccess={onSuccess}
+      />
+    </div>
+  );
+}
+
+type ProductVariantManagerProps = {
+  product: V2Product;
+  registerSaveHandler?: (handler: (() => Promise<boolean>) | null) => void;
+};
+
+export function ProductVariantManager({
+  product,
+  registerSaveHandler,
+}: ProductVariantManagerProps) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [expandedVariantId, setExpandedVariantId] = useState<string | null>(null);
 
   const {
     data: variants,
@@ -186,10 +237,23 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
 
     try {
       await deleteVariant.mutateAsync(variantId);
+      setExpandedVariantId((current) => (current === variantId ? null : current));
       setMessage('옵션을 삭제했습니다.');
     } catch (deleteError) {
       setErrorMessage(getErrorMessage(deleteError));
     }
+  };
+
+  const handleToggleVariant = (variantId: string) => {
+    setMessage(null);
+    setErrorMessage(null);
+    setExpandedVariantId((current) => (current === variantId ? null : variantId));
+  };
+
+  const handleInlineEditSuccess = () => {
+    setExpandedVariantId(null);
+    setErrorMessage(null);
+    setMessage('옵션을 저장했습니다.');
   };
 
   return (
@@ -198,7 +262,7 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
         <div>
           <h2 className="text-lg font-semibold text-gray-900">옵션 목록</h2>
           <p className="mt-1 text-sm text-gray-500">
-            옵션 현황만 빠르게 확인하고, 추가나 수정은 전용 페이지에서 진행합니다.
+            옵션 현황을 확인하고, 펼친 뒤 바로 수정합니다.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -249,7 +313,8 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
           !variantsError &&
           (variants || []).map((variant) => {
             const optionSummary = formatOptionSummary(variant.option_summary_json);
-            const variantDetails = formatVariantDetails(variant);
+            const variantDetails = formatVariantDetails(product, variant);
+            const isExpanded = expandedVariantId === variant.id;
 
             return (
               <div
@@ -259,9 +324,13 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap gap-2">
-                      <Badge intent={resolveFulfillmentIntent(variant.fulfillment_type)}>
-                        {FULFILLMENT_TYPE_LABELS[variant.fulfillment_type]}
-                      </Badge>
+                      {product.product_kind === 'BUNDLE' ? (
+                        <Badge intent="default">구성 기준</Badge>
+                      ) : (
+                        <Badge intent={resolveFulfillmentIntent(variant.fulfillment_type)}>
+                          {FULFILLMENT_TYPE_LABELS[variant.fulfillment_type]}
+                        </Badge>
+                      )}
                       <Badge intent={resolveVariantStatusIntent(variant.status)}>
                         {VARIANT_STATUS_LABELS[variant.status]}
                       </Badge>
@@ -293,7 +362,7 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
                       ))}
                     </div>
 
-                    {variant.fulfillment_type === 'DIGITAL' && (
+                    {product.product_kind !== 'BUNDLE' && variant.fulfillment_type === 'DIGITAL' && (
                       <div className="mt-4">
                         <VariantAudioSummary variantId={variant.id} />
                       </div>
@@ -306,14 +375,10 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
 
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <Button
-                      intent="neutral"
-                      onClick={() =>
-                        router.push(
-                          `/admin/v2-catalog/products/${product.id}/variants/${variant.id}/edit`,
-                        )
-                      }
+                      intent={isExpanded ? 'secondary' : 'neutral'}
+                      onClick={() => handleToggleVariant(variant.id)}
                     >
-                      수정
+                      {isExpanded ? '접기' : '펼치기'}
                     </Button>
                     <Button
                       intent="danger"
@@ -324,6 +389,17 @@ export function ProductVariantManager({ product }: ProductVariantManagerProps) {
                     </Button>
                   </div>
                 </div>
+
+                {isExpanded && (
+                  <VariantInlineEditPanel
+                    product={product}
+                    variant={variant}
+                    variantCount={variants?.length || 0}
+                    registerSaveHandler={registerSaveHandler}
+                    onCancel={() => setExpandedVariantId(null)}
+                    onSuccess={handleInlineEditSuccess}
+                  />
+                )}
               </div>
             );
           })}

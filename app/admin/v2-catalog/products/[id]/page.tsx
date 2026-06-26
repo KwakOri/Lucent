@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -105,6 +105,9 @@ export default function V2CatalogProductDetailPage() {
   const params = useParams<{ id: string }>();
   const deleteProduct = useDeleteV2Product();
   const [pageErrorMessage, setPageErrorMessage] = useState<string | null>(null);
+  const [isBottomSavePending, setIsBottomSavePending] = useState(false);
+  const bundleSaveHandlerRef = useRef<(() => Promise<boolean>) | null>(null);
+  const variantSaveHandlerRef = useRef<(() => Promise<boolean>) | null>(null);
 
   const productId = useMemo(() => {
     const raw = params?.id;
@@ -155,6 +158,43 @@ export default function V2CatalogProductDetailPage() {
       router.push(listPath);
     } catch (deleteError) {
       setPageErrorMessage(getErrorMessage(deleteError));
+    }
+  };
+
+  const registerBundleSaveHandler = useCallback(
+    (handler: (() => Promise<boolean>) | null) => {
+      bundleSaveHandlerRef.current = handler;
+    },
+    [],
+  );
+
+  const registerVariantSaveHandler = useCallback(
+    (handler: (() => Promise<boolean>) | null) => {
+      variantSaveHandlerRef.current = handler;
+    },
+    [],
+  );
+
+  const handleSaveAndBack = async () => {
+    setIsBottomSavePending(true);
+    try {
+      if (variantSaveHandlerRef.current) {
+        const saved = await variantSaveHandlerRef.current();
+        if (!saved) {
+          return;
+        }
+      }
+
+      if (product?.product_kind === 'BUNDLE' && bundleSaveHandlerRef.current) {
+        const saved = await bundleSaveHandlerRef.current();
+        if (!saved) {
+          return;
+        }
+      }
+
+      router.push(listPath);
+    } finally {
+      setIsBottomSavePending(false);
     }
   };
 
@@ -278,12 +318,24 @@ export default function V2CatalogProductDetailPage() {
       </section>
 
       {product.product_kind === 'BUNDLE' && (
-        <ProductBundleManager bundleProduct={product} />
+        <ProductBundleManager
+          bundleProduct={product}
+          registerSaveHandler={registerBundleSaveHandler}
+        />
       )}
 
       <ProductMediaManager product={product} />
 
-      <ProductVariantManager product={product} />
+      <ProductVariantManager
+        product={product}
+        registerSaveHandler={registerVariantSaveHandler}
+      />
+
+      <div className="flex justify-start border-t border-gray-200 pt-6">
+        <Button loading={isBottomSavePending} onClick={handleSaveAndBack}>
+          저장하고 목록으로 이동
+        </Button>
+      </div>
     </div>
   );
 }

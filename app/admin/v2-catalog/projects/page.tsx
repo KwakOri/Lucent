@@ -2,21 +2,23 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Archive, RotateCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import type { V2ProjectStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
-  useDeleteV2Project,
+  useArchiveV2Project,
   usePublishV2Project,
+  useRestoreV2Project,
   useUnpublishV2Project,
   useV2AdminProjects,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 
-type ProjectFilterStatus = 'ALL' | V2ProjectStatus;
+type ProjectFilterStatus = 'ALL' | Exclude<V2ProjectStatus, 'ARCHIVED'>;
 
-const STATUS_VALUES: V2ProjectStatus[] = ['DRAFT', 'ACTIVE', 'ARCHIVED'];
+const STATUS_VALUES: Array<Exclude<V2ProjectStatus, 'ARCHIVED'>> = ['DRAFT', 'ACTIVE'];
 const SELECT_CLASS =
   'h-11 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20';
 
@@ -52,11 +54,15 @@ export default function V2CatalogProjectsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<ProjectFilterStatus>('ALL');
   const [keyword, setKeyword] = useState('');
+  const [isArchiveView, setIsArchiveView] = useState(false);
 
-  const { data: projects, isLoading, error } = useV2AdminProjects();
+  const { data: projects, isLoading, error } = useV2AdminProjects(
+    isArchiveView ? { status: 'ARCHIVED' } : {},
+  );
   const publishProject = usePublishV2Project();
   const unpublishProject = useUnpublishV2Project();
-  const deleteProject = useDeleteV2Project();
+  const archiveProject = useArchiveV2Project();
+  const restoreProject = useRestoreV2Project();
 
   const clearNotice = () => {
     setMessage(null);
@@ -76,7 +82,7 @@ export default function V2CatalogProjectsPage() {
     const search = keyword.trim().toLowerCase();
     return (projects || [])
       .filter((project) => {
-        if (statusFilter !== 'ALL' && project.status !== statusFilter) {
+        if (!isArchiveView && statusFilter !== 'ALL' && project.status !== statusFilter) {
           return false;
         }
         if (!search) {
@@ -86,7 +92,7 @@ export default function V2CatalogProjectsPage() {
         return haystack.includes(search);
       })
       .sort((left, right) => left.sort_order - right.sort_order);
-  }, [keyword, projects, statusFilter]);
+  }, [isArchiveView, keyword, projects, statusFilter]);
 
   const handlePublish = async (projectId: string) => {
     await runAction(async () => {
@@ -102,13 +108,23 @@ export default function V2CatalogProjectsPage() {
     });
   };
 
-  const handleDelete = async (projectId: string, projectName: string) => {
-    if (!window.confirm(`"${projectName}" 프로젝트를 삭제하시겠습니까?`)) {
+  const handleArchive = async (projectId: string, projectName: string) => {
+    if (!window.confirm(`"${projectName}" 프로젝트를 보관하시겠습니까? 보관하면 일반 목록에서 숨겨지고 비활성화됩니다.`)) {
       return;
     }
     await runAction(async () => {
-      await deleteProject.mutateAsync(projectId);
-      setMessage('프로젝트를 삭제했습니다.');
+      await archiveProject.mutateAsync(projectId);
+      setMessage('프로젝트를 보관했습니다.');
+    });
+  };
+
+  const handleRestore = async (projectId: string, projectName: string) => {
+    if (!window.confirm(`"${projectName}" 프로젝트를 보관함에서 복귀시키겠습니까? 복귀 후에는 DRAFT 상태가 됩니다.`)) {
+      return;
+    }
+    await runAction(async () => {
+      await restoreProject.mutateAsync(projectId);
+      setMessage('프로젝트를 보관함에서 복귀시켰습니다.');
     });
   };
 
@@ -132,17 +148,42 @@ export default function V2CatalogProjectsPage() {
     <div className="space-y-6">
       <div className="sm:flex sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">v2 프로젝트 관리</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isArchiveView ? 'v2 프로젝트 보관함' : 'v2 프로젝트 관리'}
+          </h1>
           <p className="mt-1 text-sm text-gray-500">
-            프로젝트 목록과 공개 상태를 운영합니다.
+            {isArchiveView
+              ? '보관된 프로젝트를 확인하고 필요한 항목을 DRAFT 상태로 복귀시킵니다.'
+              : '프로젝트 목록과 공개 상태를 운영합니다.'}
           </p>
         </div>
         <div className="mt-3 flex items-center gap-2 sm:mt-0">
           <Badge intent="info" size="md">
-            총 {projects?.length || 0}개
+            {isArchiveView ? '보관' : '총'} {projects?.length || 0}개
           </Badge>
-          <Button onClick={() => router.push('/admin/v2-catalog/projects/new')}>
-            새 프로젝트
+          {!isArchiveView && (
+            <Button onClick={() => router.push('/admin/v2-catalog/projects/new')}>
+              새 프로젝트
+            </Button>
+          )}
+          <Button
+            intent="neutral"
+            onClick={() => {
+              clearNotice();
+              setIsArchiveView((current) => !current);
+            }}
+          >
+            {isArchiveView ? (
+              <>
+                <RotateCcw className="h-4 w-4" />
+                프로젝트 목록
+              </>
+            ) : (
+              <>
+                <Archive className="h-4 w-4" />
+                보관함
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -166,18 +207,20 @@ export default function V2CatalogProjectsPage() {
             onChange={(event) => setKeyword(event.target.value)}
             className="max-w-xs"
           />
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as ProjectFilterStatus)}
-            className={SELECT_CLASS}
-          >
-            <option value="ALL">전체 상태</option>
-            {STATUS_VALUES.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
+          {!isArchiveView && (
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as ProjectFilterStatus)}
+              className={SELECT_CLASS}
+            >
+              <option value="ALL">전체 상태</option>
+              {STATUS_VALUES.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
@@ -205,7 +248,7 @@ export default function V2CatalogProjectsPage() {
               {filteredProjects.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
-                    조회 결과가 없습니다.
+                    {isArchiveView ? '보관된 프로젝트가 없습니다.' : '조회 결과가 없습니다.'}
                   </td>
                 </tr>
               )}
@@ -229,32 +272,46 @@ export default function V2CatalogProjectsPage() {
                       >
                         수정
                       </Button>
-                      {project.status !== 'ACTIVE' ? (
+                      {project.status === 'ARCHIVED' ? (
                         <Button
                           size="sm"
-                          onClick={() => handlePublish(project.id)}
-                          loading={publishProject.isPending}
+                          onClick={() => handleRestore(project.id, project.name)}
+                          loading={restoreProject.isPending}
                         >
-                          활성화
+                          <RotateCcw className="h-4 w-4" />
+                          복귀
                         </Button>
                       ) : (
-                        <Button
-                          intent="secondary"
-                          size="sm"
-                          onClick={() => handleUnpublish(project.id)}
-                          loading={unpublishProject.isPending}
-                        >
-                          비활성화
-                        </Button>
+                        <>
+                          {project.status !== 'ACTIVE' ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handlePublish(project.id)}
+                              loading={publishProject.isPending}
+                            >
+                              활성화
+                            </Button>
+                          ) : (
+                            <Button
+                              intent="secondary"
+                              size="sm"
+                              onClick={() => handleUnpublish(project.id)}
+                              loading={unpublishProject.isPending}
+                            >
+                              비활성화
+                            </Button>
+                          )}
+                          <Button
+                            intent="neutral"
+                            size="sm"
+                            onClick={() => handleArchive(project.id, project.name)}
+                            loading={archiveProject.isPending}
+                          >
+                            <Archive className="h-4 w-4" />
+                            보관
+                          </Button>
+                        </>
                       )}
-                      <Button
-                        intent="danger"
-                        size="sm"
-                        onClick={() => handleDelete(project.id, project.name)}
-                        loading={deleteProject.isPending}
-                      >
-                        삭제
-                      </Button>
                     </div>
                   </td>
                 </tr>
