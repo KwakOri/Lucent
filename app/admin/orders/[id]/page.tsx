@@ -259,10 +259,8 @@ export default function AdminOrderDetailPage() {
     checkCutoverPolicy.isPending;
   const canCancelOrder =
     !isCanceled &&
-    orderStatus === 'PENDING' &&
-    !['AUTHORIZED', 'CAPTURED', 'PARTIALLY_REFUNDED', 'REFUNDED', 'CANCELED'].includes(
-      paymentStatus,
-    );
+    orderStatus !== 'CANCELED' &&
+    paymentStatus !== 'REFUNDED';
   const canRefundOrder =
     !isCanceled &&
     grandTotalAmount > 0 &&
@@ -390,17 +388,19 @@ export default function AdminOrderDetailPage() {
           >
             주문 취소
           </Button>
-          <Button
-            intent="danger"
-            size="sm"
-            loading={refundOrderMutation.isPending || checkCutoverPolicy.isPending}
-            disabled={!canRefundOrder || isActionPending}
-            onClick={() => {
-              void handleRefundOrder();
-            }}
-          >
-            전체 환불
-          </Button>
+          {canRefundOrder ? (
+            <Button
+              intent="danger"
+              size="sm"
+              loading={refundOrderMutation.isPending || checkCutoverPolicy.isPending}
+              disabled={isActionPending}
+              onClick={() => {
+                void handleRefundOrder();
+              }}
+            >
+              전체 환불
+            </Button>
+          ) : null}
           <Link href={`/admin/refunds?orderId=${orderId}`}>
             <Button intent="secondary" size="sm">
               환불 관리로 이동
