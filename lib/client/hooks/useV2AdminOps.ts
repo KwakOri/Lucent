@@ -423,6 +423,24 @@ export function useV2AdminRefundOrder() {
   });
 }
 
+export function useV2AdminCancelOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      data,
+    }: {
+      orderId: string;
+      data: {
+        reason?: string | null;
+      };
+    }) => V2AdminOpsAPI.cancelOrder(orderId, data),
+    onSettled: async () => {
+      await invalidateV2AdminOps(queryClient);
+    },
+  });
+}
+
 export function useV2AdminDispatchShipment() {
   const queryClient = useQueryClient();
   return useMutation({

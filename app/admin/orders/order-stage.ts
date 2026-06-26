@@ -68,6 +68,11 @@ export function isCanceledOrder(row: V2AdminOrderQueueRow): boolean {
   );
 }
 
+export function isRefundedOrder(row: V2AdminOrderQueueRow): boolean {
+  const paymentStatus = String(row.payment_status || '').toUpperCase();
+  return paymentStatus === 'REFUNDED';
+}
+
 export function resolveLinearStageFromRow(
   row: V2AdminOrderQueueRow,
 ): V2AdminOrderLinearStage {

@@ -14,13 +14,14 @@ import {
   formatCurrency,
   formatDate,
   isCanceledOrder,
+  isRefundedOrder,
   linearStageLabel,
   resolveLinearStageFromRow,
   truncateMiddle,
 } from './order-stage';
 
-type V2OrderStageTab = V2AdminOrderLinearStage | 'CANCELED' | 'ALL';
-type V2OrderRowStage = V2AdminOrderLinearStage | 'CANCELED';
+type V2OrderStageTab = V2AdminOrderLinearStage | 'REFUNDED' | 'CANCELED' | 'ALL';
+type V2OrderRowStage = V2AdminOrderLinearStage | 'REFUNDED' | 'CANCELED';
 
 type StageTabOption = {
   key: V2OrderStageTab;
@@ -36,11 +37,15 @@ const STAGE_TABS: StageTabOption[] = [
   { key: 'READY_TO_SHIP', label: '배송 대기' },
   { key: 'IN_TRANSIT', label: '배송 중' },
   { key: 'DELIVERED', label: '배송 완료' },
+  { key: 'REFUNDED', label: '환불' },
   { key: 'CANCELED', label: '취소' },
   { key: 'ALL', label: '전체' },
 ];
 
 function resolveStageTabFromRow(row: V2AdminOrderQueueRow): V2OrderRowStage {
+  if (isRefundedOrder(row)) {
+    return 'REFUNDED';
+  }
   if (isCanceledOrder(row)) {
     return 'CANCELED';
   }
@@ -48,6 +53,9 @@ function resolveStageTabFromRow(row: V2AdminOrderQueueRow): V2OrderRowStage {
 }
 
 function stageBadgeLabel(stage: V2OrderRowStage): string {
+  if (stage === 'REFUNDED') {
+    return '환불';
+  }
   if (stage === 'CANCELED') {
     return '취소';
   }
@@ -90,6 +98,7 @@ export default function AdminOrdersPage() {
       READY_TO_SHIP: 0,
       IN_TRANSIT: 0,
       DELIVERED: 0,
+      REFUNDED: 0,
     };
 
     for (const item of data?.items || []) {
@@ -266,9 +275,11 @@ export default function AdminOrdersPage() {
                     const hasPhysical = row.has_physical === true;
                     const stage = resolveStageTabFromRow(row);
                     const stageBadgeClassName =
-                      stage === 'CANCELED'
-                        ? 'rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700'
-                        : 'rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700';
+                      stage === 'REFUNDED'
+                        ? 'rounded-full bg-purple-100 px-2 py-1 text-xs font-semibold text-purple-700'
+                        : stage === 'CANCELED'
+                          ? 'rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700'
+                          : 'rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700';
 
                     return (
                       <tr key={row.order_id}>
