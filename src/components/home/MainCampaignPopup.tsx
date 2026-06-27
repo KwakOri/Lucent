@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 const DISMISS_STORAGE_KEY = 'lucent:main-campaign-popup-dismissed-date';
 const TARGET_LINK =
-  'https://www.lucentlabel.shop/shop?campaign_id=7769084e-ddf0-4dd0-b462-3b9592e38410';
+  'https://www.lucentlabel.shop/shop?campaign_id=c2befa71-9b1f-478f-b06e-e87ec8d3012d';
 const BACKGROUND_IMAGE_SRC = '/popup_image.png';
 
 function getTodayKey(): string {
@@ -46,7 +46,9 @@ export function MainCampaignPopup() {
           <input
             type="checkbox"
             checked={dismissForTodayOnClose}
-            onChange={(event) => setDismissForTodayOnClose(event.target.checked)}
+            onChange={(event) =>
+              setDismissForTodayOnClose(event.target.checked)
+            }
             className="h-4 w-4 cursor-pointer accent-white"
             aria-label="하루동안 보지않기"
           />
