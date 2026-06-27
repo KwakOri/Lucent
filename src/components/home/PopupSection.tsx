@@ -6,6 +6,20 @@ import { useV2ShopCampaigns } from "@/lib/client/hooks";
 import type { V2ShopCampaign } from "@/lib/client/api/v2-shop.api";
 
 const EMPTY_CAMPAIGNS: V2ShopCampaign[] = [];
+const popupSectionVariants = {
+  home: {
+    section: "bg-[#f8fbff] px-4 py-16",
+    header: "mb-10 text-center",
+    title: "mb-3 text-4xl font-bold text-[#1a1a2e]",
+    description: "text-lg text-[#1a1a2e]/70",
+  },
+  shop: {
+    section: "bg-neutral-50 px-4 py-16",
+    header: "mb-12",
+    title: "mb-3 text-3xl font-bold text-text-primary",
+    description: "text-lg text-text-secondary",
+  },
+} as const;
 
 function parseIsoTimestamp(value: string | null): number | null {
   if (!value) {
@@ -69,16 +83,24 @@ function PopupCardSkeleton() {
   );
 }
 
-export function PopupSection() {
-  const {
-    data: campaigns,
-    isFetching,
-    isLoading,
-    isPending,
-    isError,
-  } = useV2ShopCampaigns({
-    channel: "WEB",
-  });
+interface PopupListSectionProps {
+  campaigns?: V2ShopCampaign[];
+  isFetching?: boolean;
+  isLoading?: boolean;
+  isPending?: boolean;
+  isError?: boolean;
+  variant?: keyof typeof popupSectionVariants;
+}
+
+export function PopupListSection({
+  campaigns,
+  isFetching = false,
+  isLoading = false,
+  isPending = false,
+  isError = false,
+  variant = "home",
+}: PopupListSectionProps) {
+  const styles = popupSectionVariants[variant];
   const campaignList = campaigns ?? EMPTY_CAMPAIGNS;
   const hasCampaignData = Array.isArray(campaigns);
   const shouldShowSkeleton =
@@ -103,13 +125,13 @@ export function PopupSection() {
   return (
     <section
       id="popup"
-      className="bg-[#f8fbff] px-4 py-16"
+      className={styles.section}
       aria-busy={shouldShowSkeleton}
     >
       <div className="mx-auto max-w-6xl">
-        <div className="mb-10 text-center">
-          <h2 className="mb-3 text-4xl font-bold text-[#1a1a2e]">POPUP</h2>
-          <p className="text-lg text-[#1a1a2e]/70">현재 진행 중인 팝업을 확인해 보세요</p>
+        <div className={styles.header}>
+          <h2 className={styles.title}>POPUP</h2>
+          <p className={styles.description}>현재 진행 중인 팝업을 확인해 보세요</p>
         </div>
 
         {shouldShowSkeleton ? (
@@ -174,5 +196,21 @@ export function PopupSection() {
         ) : null}
       </div>
     </section>
+  );
+}
+
+export function PopupSection() {
+  const campaignQuery = useV2ShopCampaigns({
+    channel: "WEB",
+  });
+
+  return (
+    <PopupListSection
+      campaigns={campaignQuery.data}
+      isFetching={campaignQuery.isFetching}
+      isLoading={campaignQuery.isLoading}
+      isPending={campaignQuery.isPending}
+      isError={campaignQuery.isError}
+    />
   );
 }
