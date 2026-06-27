@@ -102,10 +102,9 @@ export function HeroSlider() {
           (line, lineIndex) => (
             <span
               key={lineIndex}
-              className={`block ${line.color}`}
-              style={{
-                marginLeft: lineIndex % 2 === 1 ? "1rem" : "0",
-              }}
+              className={`block ${line.color} ${
+                lineIndex % 2 === 1 ? "sm:ml-4" : ""
+              }`}
             >
               {line.text}
             </span>
@@ -154,7 +153,7 @@ export function HeroSlider() {
           <div className="flex h-full">
             {/* 텍스트 영역 - 슬로건과 동일한 구조 */}
             <div className="relative z-10 flex flex-1 items-start px-4 pt-28 sm:px-6 sm:pt-32 md:items-center md:pt-0 lg:px-8">
-              <div className="ml-12 mr-auto max-w-2xl sm:ml-16 md:ml-8 lg:ml-60">
+              <div className="ml-4 mr-auto max-w-2xl text-left sm:ml-16 md:ml-8 lg:ml-60">
                 {slide.type === "slogan"
                   ? renderSloganTitle(slide.titleLines)
                   : renderShopTitle(slide.titleLines)}
