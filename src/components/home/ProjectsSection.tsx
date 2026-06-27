@@ -174,14 +174,16 @@ export function ProjectsSection() {
                                 <button
                                   key={socialKey}
                                   onClick={(e) => handleSocialClick(e, socialUrl)}
-                                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-white bg-transparent transition-colors hover:border-[#A8D5E2] hover:bg-[#A8D5E2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#66B5F3]"
+                                  className="group/social flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-[#A8D5E2] bg-transparent transition-colors hover:border-[#A8D5E2] hover:bg-[#A8D5E2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#66B5F3]"
                                   aria-label={socialIcon.label}
                                 >
-                                  <img
-                                    src={socialIcon.icon}
-                                    alt=""
+                                  <span
                                     aria-hidden="true"
-                                    className="h-[1.375rem] w-[1.375rem] object-contain"
+                                    className="h-[1.375rem] w-[1.375rem] bg-[#A8D5E2] transition-colors [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] group-hover/social:bg-white"
+                                    style={{
+                                      WebkitMaskImage: `url(${socialIcon.icon})`,
+                                      maskImage: `url(${socialIcon.icon})`,
+                                    }}
                                   />
                                 </button>
                               );
