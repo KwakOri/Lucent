@@ -1,5 +1,40 @@
 import Link from "next/link";
+import {
+  Cormorant_Garamond,
+  Gowun_Batang,
+  IBM_Plex_Mono,
+  IBM_Plex_Sans_KR,
+} from "next/font/google";
 import { Play, ShoppingBag } from "lucide-react";
+
+const ibmPlexSansKr = IBM_Plex_Sans_KR({
+  weight: ["400", "500", "600", "700"],
+  subsets: ["latin"],
+  variable: "--font-miruru-sans",
+  display: "swap",
+});
+
+const gowunBatang = Gowun_Batang({
+  weight: ["400", "700"],
+  subsets: ["latin"],
+  variable: "--font-miruru-batang",
+  display: "swap",
+});
+
+const cormorantGaramond = Cormorant_Garamond({
+  weight: ["400", "600", "700"],
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  variable: "--font-miruru-cormorant",
+  display: "swap",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  weight: ["400", "500"],
+  subsets: ["latin"],
+  variable: "--font-miruru-mono",
+  display: "swap",
+});
 
 const SOCIAL_LINKS = [
   {
@@ -35,11 +70,13 @@ const PROFILE_ITEMS = [
 
 export default function MiruruProjectPage() {
   return (
-    <main className="min-h-screen bg-[#f8f7ef] text-[#1a1a2e]">
+    <main
+      className={`${ibmPlexSansKr.variable} ${gowunBatang.variable} ${cormorantGaramond.variable} ${ibmPlexMono.variable} min-h-screen bg-[#f8f7ef] text-[#1a1a2e] [font-family:var(--font-miruru-sans)]`}
+    >
       <section className="relative isolate overflow-hidden px-5 pb-0 pt-14 sm:px-8 lg:px-14 lg:pt-16">
         <div
           aria-hidden="true"
-          className="absolute right-4 top-20 -z-10 font-serif text-[5.4rem] font-semibold leading-[0.78] tracking-tight text-[#a8d5e2]/30 sm:right-8 sm:top-24 sm:text-[9rem] lg:right-10 lg:top-36 lg:text-[11.75rem]"
+          className="absolute right-4 top-20 -z-10 text-[5.4rem] font-semibold leading-[0.78] tracking-tight text-[#a8d5e2]/30 [font-family:var(--font-miruru-cormorant)] sm:right-8 sm:top-24 sm:text-[9rem] lg:right-10 lg:top-36 lg:text-[11.75rem]"
         >
           MIRU
           <br />
@@ -48,7 +85,7 @@ export default function MiruruProjectPage() {
 
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-10 lg:flex-row lg:items-end lg:gap-16">
           <div className="relative w-full max-w-[430px] flex-none">
-            <div className="mb-4 ml-3 font-serif text-xs font-semibold tracking-[0.36em] text-[#9bb3cf] sm:absolute sm:left-8 sm:top-[-2.125rem] sm:mb-0 sm:ml-0">
+            <div className="mb-4 ml-3 text-xs font-semibold tracking-[0.36em] text-[#9bb3cf] [font-family:var(--font-miruru-cormorant)] sm:absolute sm:left-8 sm:top-[-2.125rem] sm:mb-0 sm:ml-0">
               LUCENT / No.01
             </div>
             <div className="relative h-[26rem] overflow-hidden rounded-t-[13rem] rounded-b-md bg-linear-to-br from-[#eaf4fd] to-[#dceefe] shadow-[0_18px_44px_rgba(74,136,185,0.16)] sm:h-[37.5rem]">
@@ -74,12 +111,12 @@ export default function MiruruProjectPage() {
 
           <div className="w-full pb-14 text-left lg:flex-1 lg:pb-10">
             <div className="mb-7 h-0.5 w-12 bg-[#f4d03f]" />
-            <h1 className="font-serif text-5xl font-bold leading-[1.14] tracking-tight sm:text-6xl lg:text-[4.75rem]">
+            <h1 className="text-5xl font-bold leading-[1.14] tracking-tight [font-family:var(--font-miruru-batang)] sm:text-6xl lg:text-[4.75rem]">
               시로우미
               <br />
               미루루
             </h1>
-            <p className="mt-5 font-serif text-2xl italic tracking-[0.18em] text-[#6f8db3] sm:text-[1.75rem]">
+            <p className="mt-5 text-2xl italic tracking-[0.18em] text-[#6f8db3] [font-family:var(--font-miruru-cormorant)] sm:text-[1.75rem]">
               Shiroumi Miruru
             </p>
             <div className="mt-7 inline-flex rounded-full border border-[#cfe0f0] px-5 py-2 text-xs font-semibold tracking-[0.16em] text-[#4a88b9]">
@@ -90,11 +127,11 @@ export default function MiruruProjectPage() {
       </section>
 
       <section className="px-5 py-16 text-center sm:px-8 lg:px-14 lg:py-20">
-        <div className="font-serif text-xs font-semibold tracking-[0.4em] text-[#9bb3cf]">
+        <div className="text-xs font-semibold tracking-[0.4em] text-[#9bb3cf] [font-family:var(--font-miruru-cormorant)]">
           STORY
         </div>
         <div className="mt-4 text-sm text-[#f4d03f]">*</div>
-        <p className="mx-auto mt-6 max-w-3xl space-y-3 font-serif text-lg leading-relaxed text-[#33384a] sm:space-y-0 sm:text-xl sm:leading-[2.2]">
+        <p className="mx-auto mt-6 max-w-3xl space-y-3 text-lg leading-relaxed text-[#33384a] [font-family:var(--font-miruru-batang)] sm:space-y-0 sm:text-xl sm:leading-[2.2]">
           <span className="block">
             작은 불빛 하나도 놓치지 않는 밤의 간호사, 시로우미 미루루.
           </span>
@@ -113,7 +150,7 @@ export default function MiruruProjectPage() {
       <section className="bg-linear-to-b from-[#f2f6ef] to-[#eef4fb] px-5 py-16 sm:px-8 lg:px-14 lg:py-20">
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-2 lg:gap-14">
           <div className="flex flex-col">
-            <div className="mb-6 font-serif text-xs font-semibold tracking-[0.4em] text-[#9bb3cf]">
+            <div className="mb-6 text-xs font-semibold tracking-[0.4em] text-[#9bb3cf] [font-family:var(--font-miruru-cormorant)]">
               DEBUT
             </div>
             <a
@@ -130,7 +167,7 @@ export default function MiruruProjectPage() {
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-[0_8px_22px_rgba(26,26,46,0.20)] transition-transform group-hover:scale-105 sm:h-[4.625rem] sm:w-[4.625rem]">
                   <Play className="ml-1 h-7 w-7 fill-[#4a88b9] text-[#4a88b9]" />
                 </div>
-                <div className="rounded-full bg-white/75 px-4 py-1.5 text-center font-mono text-xs tracking-wide text-[#2f567a]">
+                <div className="rounded-full bg-white/75 px-4 py-1.5 text-center text-xs tracking-wide text-[#2f567a] [font-family:var(--font-miruru-mono)]">
                   데뷔 PV - 유튜브에서 보기
                 </div>
               </div>
@@ -138,7 +175,7 @@ export default function MiruruProjectPage() {
           </div>
 
           <div className="flex flex-col">
-            <div className="mb-6 font-serif text-xs font-semibold tracking-[0.4em] text-[#9bb3cf]">
+            <div className="mb-6 text-xs font-semibold tracking-[0.4em] text-[#9bb3cf] [font-family:var(--font-miruru-cormorant)]">
               PROFILE
             </div>
             <dl className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
@@ -150,7 +187,7 @@ export default function MiruruProjectPage() {
                   <dt className="text-xs font-semibold tracking-[0.1em] text-[#4a88b9]">
                     {item.label}
                   </dt>
-                  <dd className="mt-2 font-serif text-[1.45rem] text-[#1a1a2e]">
+                  <dd className="mt-2 text-[1.45rem] text-[#1a1a2e] [font-family:var(--font-miruru-batang)]">
                     {item.value}
                   </dd>
                 </div>
@@ -161,7 +198,7 @@ export default function MiruruProjectPage() {
       </section>
 
       <section className="px-5 py-16 text-center sm:px-8 lg:px-14 lg:py-20">
-        <div className="mb-8 font-serif text-xs font-semibold tracking-[0.4em] text-[#9bb3cf]">
+        <div className="mb-8 text-xs font-semibold tracking-[0.4em] text-[#9bb3cf] [font-family:var(--font-miruru-cormorant)]">
           FOLLOW
         </div>
         <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
@@ -194,7 +231,7 @@ export default function MiruruProjectPage() {
           굿즈샵 보기
         </Link>
 
-        <div className="mx-auto mt-14 max-w-6xl border-t border-[#ece9da] pt-7 font-serif text-xs tracking-[0.18em] text-[#aab0bd]">
+        <div className="mx-auto mt-14 max-w-6xl border-t border-[#ece9da] pt-7 text-xs tracking-[0.18em] text-[#aab0bd] [font-family:var(--font-miruru-cormorant)]">
           © 2026 LUCENT MANAGEMENT · SHIROUMI MIRURU
         </div>
       </section>
