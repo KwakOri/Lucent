@@ -29,7 +29,7 @@ import {
   useV2AdminUpdateProductionView,
 } from '@/lib/client/hooks/useV2AdminProduction';
 import { useSession } from '@/lib/client/hooks';
-import { useV2AdminProjects, useV2Campaigns } from '@/lib/client/hooks/useV2CatalogAdmin';
+import { useV2AdminProjects } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -250,7 +250,6 @@ function buildSelectionKey(orderIds: string[]): string {
 
 type ProductionCandidateFilterValue = {
   projectId: string;
-  campaignId: string;
 };
 
 const MAX_SAVED_PRODUCTION_FILTERS = 30;
@@ -259,10 +258,7 @@ function isSameFilterValues(
   left: ProductionCandidateFilterValue,
   right: ProductionCandidateFilterValue,
 ): boolean {
-  return (
-    left.projectId === right.projectId &&
-    left.campaignId === right.campaignId
-  );
+  return left.projectId === right.projectId;
 }
 
 function normalizeProductionFilterValues(
@@ -270,7 +266,6 @@ function normalizeProductionFilterValues(
 ): ProductionCandidateFilterValue {
   return {
     projectId: value?.projectId || '',
-    campaignId: value?.campaignId || '',
   };
 }
 
@@ -279,7 +274,6 @@ function toFilterValueFromSavedView(
 ): ProductionCandidateFilterValue {
   return {
     projectId: view.filter.project_id || '',
-    campaignId: view.filter.campaign_id || '',
   };
 }
 
@@ -302,13 +296,11 @@ export function ProductionManagementContent({
   );
 
   const [projectIdInput, setProjectIdInput] = useState(initialFilterValues.projectId);
-  const [campaignIdInput, setCampaignIdInput] = useState(initialFilterValues.campaignId);
   const [selectedViewId, setSelectedViewId] = useState<string>('DEFAULT');
   const [isViewManagerOpen, setIsViewManagerOpen] = useState(false);
   const [viewNameDraft, setViewNameDraft] = useState('');
 
   const [projectId, setProjectId] = useState(initialFilterValues.projectId);
-  const [campaignId, setCampaignId] = useState(initialFilterValues.campaignId);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [previewSelectionKey, setPreviewSelectionKey] = useState('');
@@ -325,12 +317,10 @@ export function ProductionManagementContent({
   const [batchActionReason, setBatchActionReason] = useState('');
 
   const { data: projects = [], isLoading: projectsLoading } = useV2AdminProjects();
-  const { data: campaigns = [], isLoading: campaignsLoading } = useV2Campaigns();
 
   const candidatesQuery = useV2AdminProductionCandidates({
     limit: 300,
     project_id: projectId || undefined,
-    campaign_id: campaignId || undefined,
   });
   const batchesQuery = useV2AdminProductionBatches({
     limit: 100,
@@ -400,18 +390,6 @@ export function ProductionManagementContent({
     [projects],
   );
 
-  const campaignOptions = useMemo(
-    () =>
-      campaigns
-        .slice()
-        .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
-        .map((campaign) => ({
-          value: campaign.id,
-          label: `${campaign.name} (${campaign.code})`,
-        })),
-    [campaigns],
-  );
-
   const projectNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const project of projects) {
@@ -419,14 +397,6 @@ export function ProductionManagementContent({
     }
     return map;
   }, [projects]);
-
-  const campaignNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const campaign of campaigns) {
-      map.set(campaign.id, campaign.name);
-    }
-    return map;
-  }, [campaigns]);
 
   const selectedSavedView = useMemo(
     () => savedFilters.find((row) => row.id === selectedViewId) || null,
@@ -507,15 +477,12 @@ export function ProductionManagementContent({
 
   const currentFilterInputValue: ProductionCandidateFilterValue = {
     projectId: projectIdInput,
-    campaignId: campaignIdInput,
   };
 
   const applyFilterValues = (values: ProductionCandidateFilterValue) => {
     setProjectIdInput(values.projectId);
-    setCampaignIdInput(values.campaignId);
 
     setProjectId(values.projectId);
-    setCampaignId(values.campaignId);
     setSelectedOrderIds([]);
     setPreviewSelectionKey('');
     setPreviewErrorMessage(null);
@@ -525,16 +492,13 @@ export function ProductionManagementContent({
     const projectLabel = values.projectId
       ? projectNameById.get(values.projectId) || '알 수 없는 프로젝트'
       : '전체 프로젝트';
-    const campaignLabel = values.campaignId
-      ? campaignNameById.get(values.campaignId) || '알 수 없는 캠페인'
-      : '전체 캠페인';
-    return `${projectLabel} · ${campaignLabel}`;
+    return projectLabel;
   };
 
   const appliedFilterSummaryText =
-    !projectId && !campaignId
+    !projectId
       ? '설정된 필터 없음'
-      : buildFilterSummaryText({ projectId, campaignId });
+      : buildFilterSummaryText({ projectId });
 
   const setError = (error: unknown) => {
     showToast(getErrorMessage(error), { type: 'error' });
@@ -597,7 +561,7 @@ export function ProductionManagementContent({
         name: viewNameDraft.trim(),
         filter: {
           project_id: currentFilterInputValue.projectId || null,
-          campaign_id: currentFilterInputValue.campaignId || null,
+          campaign_id: null,
         },
       });
       setViewNameDraft('');
@@ -628,7 +592,7 @@ export function ProductionManagementContent({
         data: {
           filter: {
             project_id: currentFilterInputValue.projectId || null,
-            campaign_id: currentFilterInputValue.campaignId || null,
+            campaign_id: null,
           },
         },
       });
@@ -692,7 +656,7 @@ export function ProductionManagementContent({
             : 1;
       if (createdBatchCount > 1) {
         showToast(
-          `캠페인 기준으로 제작 배치 ${createdBatchCount}개를 생성했습니다. (첫 배치: ${createdTitle})`,
+          `제작 배치 ${createdBatchCount}개를 생성했습니다. (첫 배치: ${createdTitle})`,
           { type: 'success' },
         );
       } else {
@@ -794,8 +758,8 @@ export function ProductionManagementContent({
         <header className="space-y-2">
           <h1 className="text-2xl font-bold text-gray-900">제작 관리</h1>
           <p className="text-sm text-gray-600">
-            입금 확인 주문을 캠페인 기준 배치로 묶어 제작 수량을 확정하고, 제작이 끝난 주문부터
-            배송 대기 단계로 전이합니다.
+            입금 확인 주문을 선택해 제작 수량을 확정하고, 제작이 끝난 주문부터 배송 대기
+            단계로 전이합니다.
           </p>
         </header>
       )}
@@ -893,7 +857,7 @@ export function ProductionManagementContent({
                 />
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
-                  <table className="min-w-[1100px] table-fixed divide-y divide-gray-200 text-sm">
+                  <table className="min-w-[880px] table-fixed divide-y divide-gray-200 text-sm">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="w-12 px-3 py-2 text-left">
@@ -907,9 +871,6 @@ export function ProductionManagementContent({
                         </th>
                         <th className="w-[150px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
                           프로젝트
-                        </th>
-                        <th className="w-[220px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
-                          캠페인
                         </th>
                         <th className="w-[90px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
                           구성
@@ -956,11 +917,6 @@ export function ProductionManagementContent({
                             <td className="px-3 py-2 text-gray-700">
                               <p className="max-w-[130px] truncate whitespace-nowrap" title={row.project_name || '-'}>
                                 {row.project_name || '-'}
-                              </p>
-                            </td>
-                            <td className="px-3 py-2 text-gray-700">
-                              <p className="max-w-[200px] truncate whitespace-nowrap" title={row.campaign_name || '-'}>
-                                {row.campaign_name || '-'}
                               </p>
                             </td>
                             <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{resolveComposition(row)}</td>
@@ -1308,7 +1264,7 @@ export function ProductionManagementContent({
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">뷰/필터 설정</h3>
                 <p className="text-sm text-gray-600">
-                  제작 후보 조회는 프로젝트/캠페인 필터만 사용합니다.
+                  제작 후보 조회는 프로젝트 필터만 사용합니다.
                 </p>
               </div>
               <Button intent="neutral" size="sm" onClick={() => setIsViewManagerOpen(false)}>
@@ -1318,7 +1274,7 @@ export function ProductionManagementContent({
 
             <div className="space-y-3">
               <p className="text-sm font-medium text-gray-800">필터 관리</p>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3">
                 <select
                   className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
                   value={projectIdInput}
@@ -1327,19 +1283,6 @@ export function ProductionManagementContent({
                 >
                   <option value="">전체 프로젝트</option>
                   {projectOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-                  value={campaignIdInput}
-                  disabled={campaignsLoading}
-                  onChange={(event) => setCampaignIdInput(event.target.value)}
-                >
-                  <option value="">전체 캠페인</option>
-                  {campaignOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
