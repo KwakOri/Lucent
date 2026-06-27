@@ -58,11 +58,10 @@ function PopupCardSkeleton() {
         <div className="absolute left-4 top-4 h-8 w-20 rounded-full bg-white/70" />
         <div className="h-full w-full animate-pulse bg-gradient-to-r from-[#dceefe] via-white to-[#dceefe]" />
       </div>
-      <div className="space-y-4 px-6 py-5">
-        <div className="h-8 w-3/5 animate-pulse rounded-full bg-[#d8e7f6]" />
-        <div className="h-4 w-4/5 animate-pulse rounded-full bg-[#e7f1fb]" />
-        <div className="h-4 w-1/2 animate-pulse rounded-full bg-[#d8e7f6]" />
-        <p className="pt-1 text-sm font-medium text-[#4a88b9]">
+      <div className="px-6 py-5">
+        <div className="mb-2 h-8 w-3/5 animate-pulse rounded-full bg-[#d8e7f6]" />
+        <div className="mb-3 h-5 w-4/5 animate-pulse rounded-full bg-[#e7f1fb]" />
+        <p className="text-sm font-medium text-[#4a88b9]">
           팝업 정보를 불러오는 중입니다.
         </p>
       </div>
