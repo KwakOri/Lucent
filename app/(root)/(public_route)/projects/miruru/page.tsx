@@ -94,14 +94,17 @@ export default function MiruruProjectPage() {
           STORY
         </div>
         <div className="mt-4 text-sm text-[#f4d03f]">*</div>
-        <p className="mx-auto mt-6 max-w-3xl font-serif text-lg leading-loose text-[#33384a] sm:text-xl sm:leading-[2.2]">
-          작은 불빛 하나도 놓치지 않는 밤의 간호사, 시로우미 미루루.
-          <br className="hidden sm:block" />
-          아픈 마음에도 살며시 다가가 체온을 나누는 그녀는,
-          <br className="hidden sm:block" />
-          오늘도 누군가의 회복을 기다리며 병동의 불을 밝힌다.
-          <br className="hidden sm:block" />
-          <span className="text-[#6f8db3]">
+        <p className="mx-auto mt-6 max-w-3xl space-y-3 font-serif text-lg leading-relaxed text-[#33384a] sm:space-y-0 sm:text-xl sm:leading-[2.2]">
+          <span className="block">
+            작은 불빛 하나도 놓치지 않는 밤의 간호사, 시로우미 미루루.
+          </span>
+          <span className="block">
+            아픈 마음에도 살며시 다가가 체온을 나누는 그녀는,
+          </span>
+          <span className="block">
+            오늘도 누군가의 회복을 기다리며 병동의 불을 밝힌다.
+          </span>
+          <span className="block text-[#6f8db3]">
             당신의 가장 약한 순간에, 가장 다정한 목소리로.
           </span>
         </p>
