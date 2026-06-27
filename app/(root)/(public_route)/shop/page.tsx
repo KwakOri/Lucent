@@ -378,7 +378,7 @@ function ShopPageContent() {
                   />
 
                   <div className="p-3 sm:p-6">
-                    <h3 className="mb-1 line-clamp-2 text-sm font-bold leading-snug text-text-primary sm:mb-2 sm:text-xl">
+                    <h3 className="mb-1 line-clamp-1 text-sm font-bold leading-snug text-text-primary sm:mb-2 sm:line-clamp-2 sm:text-xl">
                       {pack.title}
                     </h3>
                     <p className="mb-3 line-clamp-1 text-xs text-text-secondary sm:mb-4 sm:line-clamp-2 sm:text-sm">
@@ -462,7 +462,7 @@ function ShopPageContent() {
                     </div>
 
                     <div className="p-3 sm:p-6">
-                      <h3 className="mb-1 line-clamp-2 text-sm font-bold leading-snug text-text-primary sm:mb-2 sm:text-xl">
+                      <h3 className="mb-1 line-clamp-1 text-sm font-bold leading-snug text-text-primary sm:mb-2 sm:line-clamp-2 sm:text-xl">
                         {goods.title}
                       </h3>
                       <p className="mb-3 line-clamp-1 text-xs text-text-secondary sm:mb-4 sm:line-clamp-2 sm:text-sm">
