@@ -112,6 +112,12 @@ function isV2ProductListQueryKey(
   );
 }
 
+function normalizeProductIds(productIds: string[]): string[] {
+  return Array.from(
+    new Set(productIds.map((productId) => productId.trim()).filter(Boolean)),
+  ).sort();
+}
+
 function updateV2ProductInListCache(
   previous: V2Product[] | undefined,
   product: V2Product,
@@ -462,41 +468,36 @@ export function useV2AdminVariants(productId: string | null | undefined) {
 
 export function useV2AdminVariantsMap(productIds: string[]) {
   const normalizedProductIds = useMemo(
-    () =>
-      Array.from(
-        new Set(productIds.map((productId) => productId.trim()).filter(Boolean)),
-      ),
+    () => normalizeProductIds(productIds),
     [productIds],
   );
 
-  const variantQueries = useQueries({
-    queries: normalizedProductIds.map((productId) => ({
-      queryKey: queryKeys.v2CatalogAdmin.products.variants(productId),
-      queryFn: async () => {
-        const response = await V2CatalogAdminAPI.getVariants(productId);
-        return response.data;
-      },
-      enabled: productId.length > 0,
-      staleTime: 60_000,
-      refetchOnWindowFocus: false,
-    })),
+  const variantsQuery = useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.products.variantsMap(normalizedProductIds),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getVariantsMap(normalizedProductIds);
+      return response.data;
+    },
+    enabled: normalizedProductIds.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   return useMemo(() => {
     const variantsByProductId = normalizedProductIds.reduce<
       Record<string, V2Variant[]>
-    >((accumulator, productId, index) => {
-      accumulator[productId] = (variantQueries[index]?.data || []) as V2Variant[];
+    >((accumulator, productId) => {
+      accumulator[productId] = variantsQuery.data?.[productId] || [];
       return accumulator;
     }, {});
 
     return {
       variantsByProductId,
-      isLoading: variantQueries.some((query) => query.isLoading),
-      isFetching: variantQueries.some((query) => query.isFetching),
-      isError: variantQueries.some((query) => Boolean(query.error)),
+      isLoading: normalizedProductIds.length > 0 && variantsQuery.isLoading,
+      isFetching: variantsQuery.isFetching,
+      isError: Boolean(variantsQuery.error),
     };
-  }, [normalizedProductIds, variantQueries]);
+  }, [normalizedProductIds, variantsQuery.data, variantsQuery.error, variantsQuery.isFetching, variantsQuery.isLoading]);
 }
 
 export function useCreateV2Variant() {
@@ -622,41 +623,37 @@ export function useV2AdminProductMedia(productId: string | null | undefined) {
 
 export function useV2AdminProductMediaMap(productIds: string[]) {
   const normalizedProductIds = useMemo(
-    () =>
-      Array.from(
-        new Set(productIds.map((productId) => productId.trim()).filter(Boolean)),
-      ),
+    () => normalizeProductIds(productIds),
     [productIds],
   );
 
-  const mediaQueries = useQueries({
-    queries: normalizedProductIds.map((productId) => ({
-      queryKey: queryKeys.v2CatalogAdmin.products.media(productId),
-      queryFn: async () => {
-        const response = await V2CatalogAdminAPI.getProductMedia(productId);
-        return response.data;
-      },
-      enabled: productId.length > 0,
-      staleTime: 60_000,
-      refetchOnWindowFocus: false,
-    })),
+  const mediaQuery = useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.products.mediaMap(normalizedProductIds),
+    queryFn: async () => {
+      const response =
+        await V2CatalogAdminAPI.getProductMediaMap(normalizedProductIds);
+      return response.data;
+    },
+    enabled: normalizedProductIds.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   return useMemo(() => {
     const mediaByProductId = normalizedProductIds.reduce<
       Record<string, V2ProductMedia[]>
-    >((accumulator, productId, index) => {
-      accumulator[productId] = (mediaQueries[index]?.data || []) as V2ProductMedia[];
+    >((accumulator, productId) => {
+      accumulator[productId] = mediaQuery.data?.[productId] || [];
       return accumulator;
     }, {});
 
     return {
       mediaByProductId,
-      isLoading: mediaQueries.some((query) => query.isLoading),
-      isFetching: mediaQueries.some((query) => query.isFetching),
-      isError: mediaQueries.some((query) => Boolean(query.error)),
+      isLoading: normalizedProductIds.length > 0 && mediaQuery.isLoading,
+      isFetching: mediaQuery.isFetching,
+      isError: Boolean(mediaQuery.error),
     };
-  }, [mediaQueries, normalizedProductIds]);
+  }, [mediaQuery.data, mediaQuery.error, mediaQuery.isFetching, mediaQuery.isLoading, normalizedProductIds]);
 }
 
 export function useCreateV2ProductMedia() {

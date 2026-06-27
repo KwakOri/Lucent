@@ -219,8 +219,20 @@ export const queryKeys = {
         [...queryKeys.v2CatalogAdmin.products.all, 'detail', id] as const,
       variants: (productId: string) =>
         [...queryKeys.v2CatalogAdmin.products.all, 'variants', productId] as const,
+      variantsMap: (productIds: string[]) =>
+        [
+          ...queryKeys.v2CatalogAdmin.products.all,
+          'variants-map',
+          productIds,
+        ] as const,
       media: (productId: string) =>
         [...queryKeys.v2CatalogAdmin.products.all, 'media', productId] as const,
+      mediaMap: (productIds: string[]) =>
+        [
+          ...queryKeys.v2CatalogAdmin.products.all,
+          'media-map',
+          productIds,
+        ] as const,
       publishReadiness: (productId: string) =>
         [
           ...queryKeys.v2CatalogAdmin.products.all,
