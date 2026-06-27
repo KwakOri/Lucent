@@ -45,6 +45,7 @@ class APIClient {
     }
 
     const resolvedUrl = this.resolveUrl(url);
+    const requestStartedAt = performance.now();
     console.log(`[apiClient] ${method} ${resolvedUrl}`);
 
     let response: Response;
@@ -68,7 +69,14 @@ class APIClient {
       throw this.toNetworkApiError(networkError);
     }
 
-    console.log(`[apiClient] 응답 상태: ${response.status} ${response.statusText}`);
+    const responseMs = Math.max(0, performance.now() - requestStartedAt).toFixed(1);
+    const serverTiming = response.headers.get('server-timing');
+    console.log(
+      `[apiClient] 응답 상태: ${response.status} ${response.statusText} (${responseMs}ms)`,
+    );
+    if (serverTiming) {
+      console.log(`[apiClient] server-timing: ${serverTiming}`);
+    }
 
     if (response.status === 204) {
       return {} as T;
