@@ -21,6 +21,7 @@ export default function PukongProjectPage() {
       imageAlt="푸콩"
       footerName="PUKONG"
       profileItems={PROFILE_ITEMS}
+      debutVideoId="WmHdpB107r8"
       storyLines={[
         '새로운 이야기를 준비하고 있습니다.',
         '푸콩의 자세한 소개는 곧 공개될 예정입니다.',

@@ -17,6 +17,7 @@ type LucentArtistDetailPageProps = {
   profileItems: ProfileItem[];
   storyLines: string[];
   storyHighlight?: string;
+  debutVideoId?: string;
   theme?: {
     cardFrom?: string;
     cardTo?: string;
@@ -37,6 +38,7 @@ export function LucentArtistDetailPage({
   profileItems,
   storyLines,
   storyHighlight,
+  debutVideoId,
   theme = {},
 }: LucentArtistDetailPageProps) {
   const accent = theme.accent ?? '#f4d03f';
@@ -146,29 +148,64 @@ export function LucentArtistDetailPage({
       </section>
 
       <section className="bg-linear-to-b from-[#f2f6ef] to-[#eef4fb] px-5 py-16 sm:px-8 lg:px-14 lg:py-20">
-        <div className="mx-auto max-w-6xl">
-          <div
-            className={`${styles.cormorant} mb-6 text-xs font-semibold tracking-[0.4em] text-[#9bb3cf]`}
-          >
-            PROFILE
-          </div>
-          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {profileItems.map((item) => (
+        <div
+          className={
+            debutVideoId
+              ? 'mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)] lg:gap-14'
+              : 'mx-auto max-w-6xl'
+          }
+        >
+          {debutVideoId && (
+            <div className="flex flex-col">
               <div
-                key={item.label}
-                className="flex min-h-28 flex-col justify-center rounded-xl border border-white/70 bg-white/45 px-5 py-5 backdrop-blur-sm sm:px-6"
+                className={`${styles.cormorant} mb-6 text-xs font-semibold tracking-[0.4em] text-[#9bb3cf]`}
               >
-                <dt className="text-xs font-semibold tracking-[0.1em] text-[#4a88b9]">
-                  {item.label}
-                </dt>
-                <dd
-                  className={`${styles.batang} mt-2 text-[1.45rem] text-[#1a1a2e]`}
-                >
-                  {item.value}
-                </dd>
+                DEBUT
               </div>
-            ))}
-          </dl>
+              <div className="relative aspect-video overflow-hidden rounded-xl bg-[#dceefe] shadow-[0_16px_38px_rgba(74,136,185,0.20)]">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${debutVideoId}`}
+                  title={`${imageAlt} PV`}
+                  className="h-full w-full border-0"
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col">
+            <div
+              className={`${styles.cormorant} mb-6 text-xs font-semibold tracking-[0.4em] text-[#9bb3cf]`}
+            >
+              PROFILE
+            </div>
+            <dl
+              className={
+                debutVideoId
+                  ? 'grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2'
+                  : 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'
+              }
+            >
+              {profileItems.map((item) => (
+                <div
+                  key={item.label}
+                  className="flex min-h-28 flex-col justify-center rounded-xl border border-white/70 bg-white/45 px-5 py-5 backdrop-blur-sm sm:px-6"
+                >
+                  <dt className="text-xs font-semibold tracking-[0.1em] text-[#4a88b9]">
+                    {item.label}
+                  </dt>
+                  <dd
+                    className={`${styles.batang} mt-2 text-[1.45rem] text-[#1a1a2e]`}
+                  >
+                    {item.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
         </div>
       </section>
 
