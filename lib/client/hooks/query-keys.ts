@@ -344,6 +344,8 @@ export const queryKeys = {
       },
       quote: () => [...queryKeys.v2CatalogAdmin.pricing.all, 'quote'] as const,
       debug: () => [...queryKeys.v2CatalogAdmin.pricing.all, 'debug'] as const,
+      campaignContext: (campaignId: string) =>
+        [...queryKeys.v2CatalogAdmin.pricing.all, 'campaign-context', campaignId] as const,
       orderSnapshotContract: () =>
         [...queryKeys.v2CatalogAdmin.pricing.all, 'order-snapshot-contract'] as const,
     },

@@ -1535,6 +1535,20 @@ export function useV2CampaignDetailContext(
   });
 }
 
+export function useV2CampaignPricingContext(
+  campaignId: string | null | undefined,
+) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.pricing.campaignContext(campaignId || ''),
+    queryFn: async () => {
+      const response =
+        await V2CatalogAdminAPI.getCampaignPricingContext(campaignId!);
+      return response.data;
+    },
+    enabled: !!campaignId,
+  });
+}
+
 export function useCreateV2Campaign() {
   const queryClient = useQueryClient();
   return useMutation({
