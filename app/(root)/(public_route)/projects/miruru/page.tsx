@@ -133,7 +133,7 @@ export default function MiruruProjectPage() {
               DEBUT
             </div>
             <a
-              href="https://www.youtube.com/@MiruruASMR"
+              href="https://www.youtube.com/watch?v=csCZ0zBdJ6Q"
               target="_blank"
               rel="noreferrer"
               className="group relative flex aspect-video items-center justify-center overflow-hidden rounded-xl bg-linear-to-br from-[#dceefe] to-[#a8d5e2] shadow-[0_16px_38px_rgba(74,136,185,0.20)]"
