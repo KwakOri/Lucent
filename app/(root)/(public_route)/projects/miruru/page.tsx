@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink, Play, ShoppingBag } from "lucide-react";
+import { Play, ShoppingBag } from "lucide-react";
 
 const SOCIAL_LINKS = [
   {
@@ -168,18 +168,17 @@ export default function MiruruProjectPage() {
               href={social.href}
               target="_blank"
               rel="noreferrer"
-              className="group inline-flex items-center gap-2 rounded-full border border-[#dde9f4] bg-white px-5 py-3 text-sm font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(26,26,46,0.05)] transition-colors hover:border-[#66b5f3] hover:text-[#4a88b9] sm:px-7"
+              aria-label={social.label}
+              className="group inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#dde9f4] bg-white shadow-[0_1px_2px_rgba(26,26,46,0.05)] transition-colors hover:border-[#66b5f3] hover:bg-[#eef7ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#66b5f3]"
             >
               <span
                 aria-hidden="true"
-                className="h-5 w-5 bg-[#A8D5E2] transition-colors [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] group-hover:bg-[#4a88b9]"
+                className="h-6 w-6 bg-[#A8D5E2] transition-colors [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] group-hover:bg-[#4a88b9]"
                 style={{
                   WebkitMaskImage: `url(${social.icon})`,
                   maskImage: `url(${social.icon})`,
                 }}
               />
-              {social.label}
-              <ExternalLink className="h-3.5 w-3.5" />
             </a>
           ))}
         </div>
