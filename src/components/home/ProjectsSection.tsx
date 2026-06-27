@@ -1,8 +1,10 @@
 "use client";
 
 import { useProjects } from "@/lib/client/hooks";
-import Link from "next/link";
 import { useCallback } from "react";
+
+const ARTIST_PAGE_READY_MESSAGE =
+  "아티스트 페이지는 아직 준비중입니다! 곧 만나요!";
 
 // Project display config
 const PROJECT_DISPLAY_CONFIG: Record<
@@ -59,15 +61,30 @@ export function ProjectsSection() {
     window.open(url, "_blank");
   }, []);
 
+  const handleProjectClick = useCallback(() => {
+    window.alert(ARTIST_PAGE_READY_MESSAGE);
+  }, []);
+
+  const handleProjectKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== "Enter" && e.key !== " ") {
+        return;
+      }
+      e.preventDefault();
+      handleProjectClick();
+    },
+    [handleProjectClick],
+  );
+
   return (
     <section id="projects" className="py-20 px-4 bg-white">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-text-primary mb-4">
-            Projects
+            Lucent
           </h2>
           <p className="text-lg text-text-secondary">
-            Lucent의 프로젝트를 만나보세요
+            Lucent의 아티스트를 만나보세요
           </p>
         </div>
 
@@ -78,9 +95,12 @@ export function ProjectsSection() {
               const isDisabled = !project.is_active;
 
               return (
-                <Link
+                <div
                   key={project.id}
-                  href={`/projects/${project.slug}`}
+                  role="button"
+                  tabIndex={isDisabled ? -1 : 0}
+                  onClick={isDisabled ? undefined : handleProjectClick}
+                  onKeyDown={isDisabled ? undefined : handleProjectKeyDown}
                   className={`block ${
                     !isDisabled
                       ? ""
@@ -203,7 +223,7 @@ export function ProjectsSection() {
                     </div>
                     <div className="absolute -bottom-20 left-0 right-0 z-30 bg-white px-6 py-10 rounded-b-3xl transition-all duration-500 ease-out group-hover:-translate-y-4"></div>
                   </div>
-                </Link>
+                </div>
               );
             })
           ) : (
