@@ -589,9 +589,14 @@ export default function V2CatalogCampaignDetailPage() {
   };
 
   const refreshCampaignPricingQueries = async () => {
-    await queryClient.invalidateQueries({
-      queryKey: queryKeys.v2CatalogAdmin.all,
-    });
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.v2CatalogAdmin.campaigns.all,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.v2CatalogAdmin.pricing.all,
+      }),
+    ]);
   };
 
   const ensureCampaignPriceList = async (): Promise<V2PriceList> => {
@@ -627,7 +632,10 @@ export default function V2CatalogCampaignDetailPage() {
     }
 
     if (row.variantExcludeTarget) {
-      await deleteTarget.mutateAsync(row.variantExcludeTarget.id);
+      await deleteTarget.mutateAsync({
+        targetId: row.variantExcludeTarget.id,
+        skipInvalidate: true,
+      });
     }
 
     if (row.included || isAlwaysOnCampaign || row.productIncludeTarget || row.variantIncludeTarget) {
@@ -651,6 +659,7 @@ export default function V2CatalogCampaignDetailPage() {
           inclusion_mode: 'VARIANT',
         },
       },
+      skipInvalidate: true,
     });
   };
 
@@ -680,6 +689,7 @@ export default function V2CatalogCampaignDetailPage() {
           exclusion_mode: 'VARIANT',
         },
       },
+      skipInvalidate: true,
     });
   };
 
@@ -797,7 +807,10 @@ export default function V2CatalogCampaignDetailPage() {
     }
 
     if (row.variantIncludeTarget) {
-      await deleteTarget.mutateAsync(row.variantIncludeTarget.id);
+      await deleteTarget.mutateAsync({
+        targetId: row.variantIncludeTarget.id,
+        skipInvalidate: true,
+      });
     }
 
     const needsExplicitExclude =
@@ -809,7 +822,10 @@ export default function V2CatalogCampaignDetailPage() {
     }
 
     if (row.campaignItem) {
-      await deactivatePriceListItem.mutateAsync(row.campaignItem.id);
+      await deactivatePriceListItem.mutateAsync({
+        itemId: row.campaignItem.id,
+        skipInvalidate: true,
+      });
     }
   };
 
@@ -887,7 +903,11 @@ export default function V2CatalogCampaignDetailPage() {
     setSuccessMessage(null);
     setSavingVariantId(row.variant.id);
     try {
-      await deactivatePriceListItem.mutateAsync(row.campaignItem.id);
+      await deactivatePriceListItem.mutateAsync({
+        itemId: row.campaignItem.id,
+        skipInvalidate: true,
+      });
+      await refreshCampaignPricingQueries();
       setSuccessMessage(`${row.variant.title || '기본 옵션'}을 기본가 사용으로 전환했습니다.`);
     } catch (actionError) {
       setErrorMessage(getErrorMessage(actionError));
@@ -915,7 +935,11 @@ export default function V2CatalogCampaignDetailPage() {
       return;
     }
     await handleRunAction(async () => {
-      await deleteTarget.mutateAsync(targetId);
+      await deleteTarget.mutateAsync({
+        targetId,
+        skipInvalidate: true,
+      });
+      await refreshCampaignPricingQueries();
     });
   };
 

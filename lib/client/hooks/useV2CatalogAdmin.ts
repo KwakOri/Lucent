@@ -1253,11 +1253,18 @@ export function useCreateV2CampaignTarget() {
     mutationFn: async ({
       campaignId,
       data,
+      skipInvalidate,
     }: {
       campaignId: string;
       data: CreateV2CampaignTargetData;
-    }) => V2CatalogAdminAPI.createCampaignTarget(campaignId, data),
-    onSuccess: async () => {
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.createCampaignTarget(campaignId, data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -1282,9 +1289,14 @@ export function useUpdateV2CampaignTarget() {
 export function useDeleteV2CampaignTarget() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (targetId: string) =>
-      V2CatalogAdminAPI.deleteCampaignTarget(targetId),
-    onSuccess: async () => {
+    mutationFn: async (input: string | ({ targetId: string } & InvalidateControl)) => {
+      const targetId = typeof input === 'string' ? input : input.targetId;
+      return V2CatalogAdminAPI.deleteCampaignTarget(targetId);
+    },
+    onSuccess: async (_response, variables) => {
+      if (typeof variables !== 'string' && variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -1433,9 +1445,14 @@ export function useUpdateV2PriceListItem() {
 export function useDeactivateV2PriceListItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (itemId: string) =>
-      V2CatalogAdminAPI.deactivatePriceListItem(itemId),
-    onSuccess: async () => {
+    mutationFn: async (input: string | ({ itemId: string } & InvalidateControl)) => {
+      const itemId = typeof input === 'string' ? input : input.itemId;
+      return V2CatalogAdminAPI.deactivatePriceListItem(itemId);
+    },
+    onSuccess: async (_response, variables) => {
+      if (typeof variables !== 'string' && variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
