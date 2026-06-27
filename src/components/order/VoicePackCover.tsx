@@ -154,7 +154,7 @@ export function VoicePackCover({
 
                 {/* 썸네일을 CD에도 표시 */}
                 {thumbnail && (
-                  <div className="absolute inset-2 rounded-full overflow-hidden opacity-100">
+                  <div className="absolute inset-1 overflow-hidden rounded-full opacity-100 sm:inset-2">
                     <img
                       src={thumbnail}
                       alt={name || 'Voice Pack'}
