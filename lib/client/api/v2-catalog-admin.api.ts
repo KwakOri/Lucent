@@ -169,6 +169,9 @@ export interface V2ProductMedia {
   media_asset?: V2MediaAsset | null;
 }
 
+export type V2VariantsByProductId = Record<string, V2Variant[]>;
+export type V2ProductMediaByProductId = Record<string, V2ProductMedia[]>;
+
 export interface V2ProjectProductListItem extends V2Product {
   variant_count: number;
   variant_status_counts: Record<V2VariantStatus, number>;
@@ -1488,6 +1491,20 @@ function buildSearchParams(
   return queryString ? `?${queryString}` : '';
 }
 
+function normalizeIdList(ids: string[]): string[] {
+  return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean))).sort();
+}
+
+function buildProductIdsSearchParams(productIds: string[]): string {
+  const normalizedProductIds = normalizeIdList(productIds);
+  return buildSearchParams({
+    productIds:
+      normalizedProductIds.length > 0
+        ? normalizedProductIds.join(',')
+        : undefined,
+  });
+}
+
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MULTIPART_UPLOAD_MAX_ATTEMPTS = 3;
@@ -1960,6 +1977,14 @@ export const V2CatalogAdminAPI = {
     return apiClient.get(`/api/v2/catalog/admin/products/${productId}/variants`);
   },
 
+  async getVariantsMap(
+    productIds: string[],
+  ): Promise<ApiResponse<V2VariantsByProductId>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/products/variants-map${buildProductIdsSearchParams(productIds)}`,
+    );
+  },
+
   async createVariant(
     productId: string,
     data: CreateV2VariantData,
@@ -2079,6 +2104,14 @@ export const V2CatalogAdminAPI = {
 
   async getProductMedia(productId: string): Promise<ApiResponse<V2ProductMedia[]>> {
     return apiClient.get(`/api/v2/catalog/admin/products/${productId}/media`);
+  },
+
+  async getProductMediaMap(
+    productIds: string[],
+  ): Promise<ApiResponse<V2ProductMediaByProductId>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/products/media-map${buildProductIdsSearchParams(productIds)}`,
+    );
   },
 
   async createProductMedia(
