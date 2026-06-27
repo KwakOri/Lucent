@@ -1,10 +1,8 @@
 "use client";
 
 import { useProjects } from "@/lib/client/hooks";
+import { useRouter } from "next/navigation";
 import { useCallback } from "react";
-
-const ARTIST_PAGE_READY_MESSAGE =
-  "아티스트 페이지는 아직 준비중입니다! 곧 만나요!";
 
 const SOCIAL_ICON_CONFIG = {
   chzzk: {
@@ -36,6 +34,7 @@ const PROJECT_DISPLAY_CONFIG: Record<
     bgColor?: string;
     artist?: string;
     image?: string;
+    detailPath?: string;
     socials?: {
       chzzk?: string;
       twitter?: string;
@@ -48,6 +47,7 @@ const PROJECT_DISPLAY_CONFIG: Record<
     bgColor: "#A8D5E2",
     artist: "시로우미 미루루",
     image: "/profilemiruru.png",
+    detailPath: "/projects/miruru",
     socials: {
       chzzk: "https://chzzk.naver.com/3e4cec21aa539da475b12e6f294ee766",
       twitter: "https://x.com/SiroumiMiruru",
@@ -68,6 +68,7 @@ const PROJECT_DISPLAY_CONFIG: Record<
 };
 
 export function ProjectsSection() {
+  const router = useRouter();
   const { data: projects, isLoading, isError, error } = useProjects();
 
   console.log('[ProjectsSection] 렌더링 상태:', {
@@ -84,17 +85,20 @@ export function ProjectsSection() {
     window.open(url, "_blank");
   }, []);
 
-  const handleProjectClick = useCallback(() => {
-    window.alert(ARTIST_PAGE_READY_MESSAGE);
-  }, []);
+  const handleProjectClick = useCallback(
+    (path: string) => {
+      router.push(path);
+    },
+    [router],
+  );
 
   const handleProjectKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
+    (e: React.KeyboardEvent<HTMLDivElement>, path: string) => {
       if (e.key !== "Enter" && e.key !== " ") {
         return;
       }
       e.preventDefault();
-      handleProjectClick();
+      handleProjectClick(path);
     },
     [handleProjectClick],
   );
@@ -116,14 +120,22 @@ export function ProjectsSection() {
             projects.map((project) => {
               const displayConfig = PROJECT_DISPLAY_CONFIG[project.slug] || {};
               const isDisabled = !project.is_active;
+              const detailPath =
+                displayConfig.detailPath || `/projects/${project.slug}`;
 
               return (
                 <div
                   key={project.id}
                   role="button"
                   tabIndex={isDisabled ? -1 : 0}
-                  onClick={isDisabled ? undefined : handleProjectClick}
-                  onKeyDown={isDisabled ? undefined : handleProjectKeyDown}
+                  onClick={
+                    isDisabled ? undefined : () => handleProjectClick(detailPath)
+                  }
+                  onKeyDown={
+                    isDisabled
+                      ? undefined
+                      : (event) => handleProjectKeyDown(event, detailPath)
+                  }
                   className={`block ${
                     !isDisabled
                       ? ""
