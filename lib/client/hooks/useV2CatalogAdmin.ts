@@ -69,6 +69,7 @@ import {
   type ValidateV2BundleDefinitionData,
   type UploadV2MediaAssetFileData,
   type V2Product,
+  type V2ProductStatus,
   type V2ProductMedia,
   type V2Variant,
 } from '@/lib/client/api/v2-catalog-admin.api';
@@ -394,6 +395,33 @@ export function useUpdateV2Product() {
       if (variables.skipInvalidate) {
         return;
       }
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useBulkUpdateV2ProductStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      productIds,
+      status,
+    }: {
+      productIds: string[];
+      status: V2ProductStatus;
+    }) => {
+      const uniqueProductIds = Array.from(new Set(productIds));
+      const responses = await Promise.all(
+        uniqueProductIds.map((productId) =>
+          V2CatalogAdminAPI.updateProduct(productId, { status }),
+        ),
+      );
+      return responses.map((response) => response.data);
+    },
+    onSuccess: (products) => {
+      products.forEach((product) => syncV2ProductCache(queryClient, product));
+    },
+    onSettled: async () => {
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
