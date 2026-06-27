@@ -1,0 +1,130 @@
+@font-face {
+  font-family: "Miruru Cormorant Garamond";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/cormorantgaramond/v21/co3smX5slCNuHLi8bLeY9MK7whWMhyjYrGFEsdtdc62E6zd58jDOjw.ttf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Miruru Cormorant Garamond";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/cormorantgaramond/v21/co3umX5slCNuHLi8bLeY9MK7whWMhyjypVO7abI26QOD_v86GnM.ttf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Miruru Cormorant Garamond";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/cormorantgaramond/v21/co3umX5slCNuHLi8bLeY9MK7whWMhyjypVO7abI26QOD_iE9GnM.ttf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Miruru Cormorant Garamond";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/cormorantgaramond/v21/co3umX5slCNuHLi8bLeY9MK7whWMhyjypVO7abI26QOD_hg9GnM.ttf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Miruru Gowun Batang";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/gowunbatang/v12/ijwSs5nhRMIjYsdSgcMa3wRhXA.ttf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Miruru Gowun Batang";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/gowunbatang/v12/ijwNs5nhRMIjYsdSgcMa3wRZ4J7awg.ttf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Miruru IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n5ig.ttf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Miruru IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJ8lc.ttf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Miruru IBM Plex Sans KR";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/ibmplexsanskr/v11/vEFK2-VJISZe3O_rc3ZVYh4aTwNO8tI.ttf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Miruru IBM Plex Sans KR";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/ibmplexsanskr/v11/vEFN2-VJISZe3O_rc3ZVYh4aTwNOyiacf7Y.ttf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Miruru IBM Plex Sans KR";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/ibmplexsanskr/v11/vEFN2-VJISZe3O_rc3ZVYh4aTwNOygqbf7Y.ttf")
+    format("truetype");
+}
+
+@font-face {
+  font-family: "Miruru IBM Plex Sans KR";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/ibmplexsanskr/v11/vEFN2-VJISZe3O_rc3ZVYh4aTwNOym6af7Y.ttf")
+    format("truetype");
+}
+
+.referenceFonts {
+  --miruru-font-sans: "Miruru IBM Plex Sans KR", "IBM Plex Sans KR",
+    sans-serif;
+  --miruru-font-batang: "Miruru Gowun Batang", "Gowun Batang", serif;
+  --miruru-font-cormorant: "Miruru Cormorant Garamond",
+    "Cormorant Garamond", serif;
+  --miruru-font-mono: "Miruru IBM Plex Mono", "IBM Plex Mono", monospace;
+
+  font-family: var(--miruru-font-sans);
+}
+
+.batang {
+  font-family: var(--miruru-font-batang);
+}
+
+.cormorant {
+  font-family: var(--miruru-font-cormorant);
+}
+
+.mono {
+  font-family: var(--miruru-font-mono);
+}
