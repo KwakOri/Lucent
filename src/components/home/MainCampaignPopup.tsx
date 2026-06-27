@@ -41,7 +41,12 @@ export function MainCampaignPopup() {
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/65 p-4">
-      <div className="relative h-[600px] max-h-[calc(100vh-2rem)] w-[600px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl shadow-2xl">
+      <div
+        className="relative aspect-square overflow-hidden rounded-2xl shadow-2xl"
+        style={{
+          width: 'min(600px, calc(100vw - 2rem), calc(100dvh - 2rem))',
+        }}
+      >
         <label className="absolute left-3 top-3 z-20 flex cursor-pointer items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-sm font-medium text-white">
           <input
             type="checkbox"
@@ -68,7 +73,7 @@ export function MainCampaignPopup() {
         <img
           src={BACKGROUND_IMAGE_SRC}
           alt="메인 캠페인 팝업"
-          className="h-full w-full object-cover"
+          className="h-full w-full object-contain"
         />
 
         <a
