@@ -1,8 +1,33 @@
 "use client";
 
 import { useProjects } from "@/lib/client/hooks";
-import Link from "next/link";
 import { useCallback } from "react";
+
+const ARTIST_PAGE_READY_MESSAGE =
+  "아티스트 페이지는 아직 준비중입니다! 곧 만나요!";
+
+const SOCIAL_ICON_CONFIG = {
+  chzzk: {
+    label: "치지직",
+    icon: "/icons/icon_chzzk.svg",
+  },
+  twitter: {
+    label: "X",
+    icon: "/icons/icon_twitter.svg",
+  },
+  youtube: {
+    label: "YouTube",
+    icon: "/icons/icon_youtube.svg",
+  },
+  cafe: {
+    label: "네이버 카페",
+    icon: "/icons/icon_naver_cafe.svg",
+  },
+} as const;
+
+type SocialKey = keyof typeof SOCIAL_ICON_CONFIG;
+
+const SOCIAL_ICON_ORDER: SocialKey[] = ["chzzk", "twitter", "youtube", "cafe"];
 
 // Project display config
 const PROJECT_DISPLAY_CONFIG: Record<
@@ -59,15 +84,30 @@ export function ProjectsSection() {
     window.open(url, "_blank");
   }, []);
 
+  const handleProjectClick = useCallback(() => {
+    window.alert(ARTIST_PAGE_READY_MESSAGE);
+  }, []);
+
+  const handleProjectKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== "Enter" && e.key !== " ") {
+        return;
+      }
+      e.preventDefault();
+      handleProjectClick();
+    },
+    [handleProjectClick],
+  );
+
   return (
     <section id="projects" className="py-20 px-4 bg-white">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-text-primary mb-4">
-            Projects
+            Lucent
           </h2>
           <p className="text-lg text-text-secondary">
-            Lucent의 프로젝트를 만나보세요
+            Lucent의 아티스트를 만나보세요
           </p>
         </div>
 
@@ -78,9 +118,12 @@ export function ProjectsSection() {
               const isDisabled = !project.is_active;
 
               return (
-                <Link
+                <div
                   key={project.id}
-                  href={`/projects/${project.slug}`}
+                  role="button"
+                  tabIndex={isDisabled ? -1 : 0}
+                  onClick={isDisabled ? undefined : handleProjectClick}
+                  onKeyDown={isDisabled ? undefined : handleProjectKeyDown}
                   className={`block ${
                     !isDisabled
                       ? ""
@@ -121,89 +164,37 @@ export function ProjectsSection() {
                         {/* 소셜 아이콘 */}
                         {displayConfig.socials && (
                           <div className="flex gap-2">
-                            {displayConfig.socials.chzzk && (
-                              <button
-                                onClick={(e) =>
-                                  handleSocialClick(
-                                    e,
-                                    displayConfig.socials!.chzzk!
-                                  )
-                                }
-                                className="w-9 h-9 rounded-xl bg-[#00FFA3] flex items-center justify-center hover:opacity-80 transition-opacity"
-                                aria-label="치지직"
-                              >
-                                <svg
-                                  className="w-4 h-4 text-black"
-                                  viewBox="0 0 24 24"
-                                  fill="currentColor"
+                            {SOCIAL_ICON_ORDER.map((socialKey) => {
+                              const socialUrl = displayConfig.socials?.[socialKey];
+                              if (!socialUrl) {
+                                return null;
+                              }
+                              const socialIcon = SOCIAL_ICON_CONFIG[socialKey];
+                              return (
+                                <button
+                                  key={socialKey}
+                                  onClick={(e) => handleSocialClick(e, socialUrl)}
+                                  className="group/social flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-[#A8D5E2] bg-transparent transition-colors hover:border-[#A8D5E2] hover:bg-[#A8D5E2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#66B5F3]"
+                                  aria-label={socialIcon.label}
                                 >
-                                  <path d="M4 4h16v12H5.17L4 17.17V4m0-2c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2H4zm2 10h12v2H6v-2zm0-3h12v2H6V9zm0-3h12v2H6V6z" />
-                                </svg>
-                              </button>
-                            )}
-                            {displayConfig.socials.twitter && (
-                              <button
-                                onClick={(e) =>
-                                  handleSocialClick(
-                                    e,
-                                    displayConfig.socials!.twitter!
-                                  )
-                                }
-                                className="w-9 h-9 rounded-xl bg-[#000000] flex items-center justify-center hover:opacity-80 transition-opacity"
-                                aria-label="Twitter"
-                              >
-                                <svg
-                                  className="w-4 h-4 text-white"
-                                  fill="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                                </svg>
-                              </button>
-                            )}
-                            {displayConfig.socials.youtube && (
-                              <button
-                                onClick={(e) =>
-                                  handleSocialClick(
-                                    e,
-                                    displayConfig.socials!.youtube!
-                                  )
-                                }
-                                className="w-9 h-9 rounded-xl bg-[#FF0000] flex items-center justify-center hover:opacity-80 transition-opacity"
-                                aria-label="YouTube"
-                              >
-                                <svg
-                                  className="w-4 h-4 text-white"
-                                  fill="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                                </svg>
-                              </button>
-                            )}
-                            {displayConfig.socials.cafe && (
-                              <button
-                                onClick={(e) =>
-                                  handleSocialClick(
-                                    e,
-                                    displayConfig.socials!.cafe!
-                                  )
-                                }
-                                className="w-9 h-9 rounded-xl bg-[#03C75A] flex items-center justify-center hover:opacity-80 transition-opacity"
-                                aria-label="네이버 카페"
-                              >
-                                <span className="text-white font-bold text-xs">
-                                  N
-                                </span>
-                              </button>
-                            )}
+                                  <span
+                                    aria-hidden="true"
+                                    className="h-[1.375rem] w-[1.375rem] bg-[#A8D5E2] transition-colors [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] group-hover/social:bg-white"
+                                    style={{
+                                      WebkitMaskImage: `url(${socialIcon.icon})`,
+                                      maskImage: `url(${socialIcon.icon})`,
+                                    }}
+                                  />
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
                     </div>
                     <div className="absolute -bottom-20 left-0 right-0 z-30 bg-white px-6 py-10 rounded-b-3xl transition-all duration-500 ease-out group-hover:-translate-y-4"></div>
                   </div>
-                </Link>
+                </div>
               );
             })
           ) : (
