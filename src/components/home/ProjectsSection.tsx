@@ -181,7 +181,7 @@ export function ProjectsSection() {
                                     src={socialIcon.icon}
                                     alt=""
                                     aria-hidden="true"
-                                    className="h-4 w-4 object-contain"
+                                    className="h-[1.375rem] w-[1.375rem] object-contain"
                                   />
                                 </button>
                               );
