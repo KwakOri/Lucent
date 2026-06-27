@@ -5,22 +5,22 @@ const SOCIAL_LINKS = [
   {
     label: "CHZZK",
     href: "https://chzzk.naver.com/3e4cec21aa539da475b12e6f294ee766",
-    color: "#66b5f3",
+    icon: "/icons/icon_chzzk.svg",
   },
   {
     label: "YouTube",
     href: "https://www.youtube.com/@MiruruASMR",
-    color: "#f4445f",
+    icon: "/icons/icon_youtube.svg",
   },
   {
     label: "X",
     href: "https://x.com/SiroumiMiruru",
-    color: "#1a1a2e",
+    icon: "/icons/icon_twitter.svg",
   },
   {
     label: "네이버카페",
     href: "https://cafe.naver.com/rurudrug",
-    color: "#2bb05a",
+    icon: "/icons/icon_naver_cafe.svg",
   },
 ];
 
@@ -168,12 +168,15 @@ export default function MiruruProjectPage() {
               href={social.href}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-[#dde9f4] bg-white px-5 py-3 text-sm font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(26,26,46,0.05)] transition-colors hover:border-[#66b5f3] hover:text-[#4a88b9] sm:px-7"
+              className="group inline-flex items-center gap-2 rounded-full border border-[#dde9f4] bg-white px-5 py-3 text-sm font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(26,26,46,0.05)] transition-colors hover:border-[#66b5f3] hover:text-[#4a88b9] sm:px-7"
             >
               <span
                 aria-hidden="true"
-                className="h-2 w-2 rounded-sm"
-                style={{ backgroundColor: social.color }}
+                className="h-5 w-5 bg-[#A8D5E2] transition-colors [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] group-hover:bg-[#4a88b9]"
+                style={{
+                  WebkitMaskImage: `url(${social.icon})`,
+                  maskImage: `url(${social.icon})`,
+                }}
               />
               {social.label}
               <ExternalLink className="h-3.5 w-3.5" />
