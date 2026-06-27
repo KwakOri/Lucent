@@ -68,7 +68,7 @@ export function HeroSlider() {
     titleLines: (typeof HERO_SLIDES)[0]["titleLines"]
   ) => {
     return (
-      <h1 className="text-4xl font-bold leading-none mb-8 sm:text-5xl md:text-[3.25rem] lg:text-[3.4rem] xl:text-[3.45rem]">
+      <h1 className="mb-6 text-[2.35rem] font-bold leading-[1.08] sm:text-5xl md:mb-8 md:text-[3.25rem] md:leading-none lg:text-[3.4rem] xl:text-[3.45rem]">
         {(
           titleLines as Array<{
             segments: Array<{ text: string; color: string }>;
@@ -77,7 +77,7 @@ export function HeroSlider() {
         ).map((line, lineIndex) => (
           <span
             key={lineIndex}
-            className={`block py-1 xl:whitespace-nowrap ${
+            className={`block py-0.5 md:py-1 xl:whitespace-nowrap ${
               line.indent ? "ml-4 sm:ml-8" : ""
             }`}
           >
@@ -97,7 +97,7 @@ export function HeroSlider() {
     titleLines: (typeof HERO_SLIDES)[1]["titleLines"]
   ) => {
     return (
-      <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-8">
+      <h1 className="mb-6 text-[2.35rem] font-bold leading-[1.08] sm:text-5xl md:mb-8 md:text-6xl md:leading-tight">
         {(titleLines as Array<{ text: string; color: string }>).map(
           (line, lineIndex) => (
             <span
@@ -116,7 +116,7 @@ export function HeroSlider() {
   };
 
   return (
-    <section className="relative min-h-150 overflow-hidden bg-[#f9f9ed]">
+    <section className="relative min-h-[31rem] overflow-hidden bg-[#f9f9ed] sm:min-h-[34rem] md:min-h-150">
       {/* Background decorative shapes */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -right-20 top-20 w-80 h-96 bg-[#F4D03F]/30 rounded-full blur-3xl" />
@@ -132,10 +132,10 @@ export function HeroSlider() {
               : "opacity-0 pointer-events-none"
           }`}
         >
-          <div className="h-full flex">
+          <div className="flex h-full">
             {/* 텍스트 영역 - 슬로건과 동일한 구조 */}
-            <div className="flex-1 flex items-center px-4 sm:px-6 lg:px-8">
-              <div className="max-w-2xl mr-auto ml-8 lg:ml-60">
+            <div className="flex flex-1 items-start px-4 pt-28 sm:px-6 sm:pt-32 md:items-center md:pt-0 lg:px-8">
+              <div className="ml-12 mr-auto max-w-2xl sm:ml-16 md:ml-8 lg:ml-60">
                 {slide.type === "slogan"
                   ? renderSloganTitle(slide.titleLines)
                   : renderShopTitle(slide.titleLines)}
@@ -144,11 +144,11 @@ export function HeroSlider() {
                 {slide.cta && (
                   <Link
                     href={slide.cta.link}
-                    className="inline-flex items-center gap-2 text-[#1a1a2e]/70 hover:text-[#66B5F3] transition-colors group"
+                    className="group inline-flex items-center gap-2 text-[#1a1a2e]/70 transition-colors hover:text-[#66B5F3]"
                   >
-                    <Sparkles className="w-5 h-5" />
-                    <span className="text-base">{slide.cta.text}</span>
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span className="text-sm sm:text-base">{slide.cta.text}</span>
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
                   </Link>
                 )}
               </div>
@@ -175,7 +175,7 @@ export function HeroSlider() {
       ))}
 
       {/* Slide Indicators */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2">
+      <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2 md:bottom-8">
         {HERO_SLIDES.map((_, index) => (
           <button
             key={index}
