@@ -14,7 +14,7 @@ import { useV2AdminProducts, useV2AdminProject } from '@/lib/client/hooks/useV2C
 import { PRODUCT_STATUS_LABELS } from '@/lib/client/utils/v2-product-admin-form';
 
 type ProductFilterStatus = 'ALL' | V2ProductStatus;
-type ProductSortKey = 'SORT_ASC' | 'UPDATED_DESC' | 'TITLE_ASC';
+type ProductSortKey = 'CREATED_DESC' | 'SORT_ASC' | 'UPDATED_DESC' | 'TITLE_ASC';
 
 const PRODUCT_STATUS_VALUES: V2ProductStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE', 'ARCHIVED'];
 
@@ -32,7 +32,7 @@ export default function V2CatalogProjectProductsPage() {
 
   const [keyword, setKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProductFilterStatus>('ALL');
-  const [sortKey, setSortKey] = useState<ProductSortKey>('SORT_ASC');
+  const [sortKey, setSortKey] = useState<ProductSortKey>('CREATED_DESC');
 
   const { data: project, isLoading: projectLoading, error: projectError } = useV2AdminProject(projectId);
   const {
@@ -55,6 +55,13 @@ export default function V2CatalogProjectProductsPage() {
     });
 
     return filtered.sort((left, right) => {
+      if (sortKey === 'CREATED_DESC') {
+        const createdDiff = right.created_at.localeCompare(left.created_at);
+        if (createdDiff !== 0) {
+          return createdDiff;
+        }
+        return right.id.localeCompare(left.id);
+      }
       if (sortKey === 'SORT_ASC') {
         if (left.sort_order !== right.sort_order) {
           return left.sort_order - right.sort_order;
@@ -172,6 +179,7 @@ export default function V2CatalogProjectProductsPage() {
             value={sortKey}
             onChange={(event) => setSortKey(event.target.value as ProductSortKey)}
             options={[
+              { value: 'CREATED_DESC', label: '최근 생성순' },
               { value: 'SORT_ASC', label: '정렬 순서' },
               { value: 'UPDATED_DESC', label: '최근 수정순' },
               { value: 'TITLE_ASC', label: '이름순' },
