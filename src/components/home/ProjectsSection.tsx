@@ -2,7 +2,7 @@
 
 import { useProjects } from "@/lib/client/hooks";
 import { useRouter } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 const SOCIAL_ICON_CONFIG = {
   chzzk: {
@@ -26,6 +26,34 @@ const SOCIAL_ICON_CONFIG = {
 type SocialKey = keyof typeof SOCIAL_ICON_CONFIG;
 
 const SOCIAL_ICON_ORDER: SocialKey[] = ["chzzk", "twitter", "youtube", "cafe"];
+
+type ProjectCardItem = {
+  id: string;
+  slug: string;
+  name: string;
+  is_active: boolean;
+};
+
+const STATIC_LUCENT_PROJECTS: ProjectCardItem[] = [
+  {
+    id: "static-miruru",
+    slug: "miruru",
+    name: "시로우미 미루루",
+    is_active: true,
+  },
+  {
+    id: "static-leafy",
+    slug: "leafy",
+    name: "리피",
+    is_active: true,
+  },
+  {
+    id: "static-pukong",
+    slug: "pukong",
+    name: "푸콩",
+    is_active: true,
+  },
+];
 
 // Project display config
 const PROJECT_DISPLAY_CONFIG: Record<
@@ -55,6 +83,18 @@ const PROJECT_DISPLAY_CONFIG: Record<
       cafe: "https://cafe.naver.com/rurudrug",
     },
   },
+  leafy: {
+    bgColor: "#D8F0D7",
+    artist: "리피",
+    image: "/profile_leafy.png",
+    detailPath: "/projects/leafy",
+  },
+  pukong: {
+    bgColor: "#BBDCF8",
+    artist: "푸콩",
+    image: "/profile_pukong.png",
+    detailPath: "/projects/pukong",
+  },
   "1st": {
     bgColor: "#E5E5E5",
     artist: "Drips",
@@ -70,6 +110,16 @@ const PROJECT_DISPLAY_CONFIG: Record<
 export function ProjectsSection() {
   const router = useRouter();
   const { data: projects, isLoading, isError, error } = useProjects();
+
+  const projectCards = useMemo(() => {
+    const fetchedProjects = projects ?? [];
+    const fetchedSlugs = new Set(fetchedProjects.map((project) => project.slug));
+    const staticFallbacks = STATIC_LUCENT_PROJECTS.filter(
+      (project) => !fetchedSlugs.has(project.slug),
+    );
+
+    return [...fetchedProjects, ...staticFallbacks];
+  }, [projects]);
 
   console.log('[ProjectsSection] 렌더링 상태:', {
     isLoading,
@@ -116,8 +166,8 @@ export function ProjectsSection() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {projects && projects.length > 0 ? (
-            projects.map((project) => {
+          {projectCards.length > 0 ? (
+            projectCards.map((project) => {
               const displayConfig = PROJECT_DISPLAY_CONFIG[project.slug] || {};
               const isDisabled = !project.is_active;
               const detailPath =
