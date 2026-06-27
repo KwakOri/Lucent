@@ -18,6 +18,7 @@ import type {
   GetV2BundleDefinitionsParams,
   GetV2ArtistsParams,
   GetV2ProductsParams,
+  GetV2ProjectProductListParams,
   GetV2ProjectsParams,
   GetV2CampaignsParams,
   GetV2CouponRedemptionsParams,
@@ -208,12 +209,30 @@ export const queryKeys = {
       all: ['v2-catalog-admin', 'products'] as const,
       list: (params: GetV2ProductsParams = {}) =>
         [...queryKeys.v2CatalogAdmin.products.all, 'list', params] as const,
+      projectList: (params: GetV2ProjectProductListParams) =>
+        [
+          ...queryKeys.v2CatalogAdmin.products.all,
+          'project-list',
+          params,
+        ] as const,
       detail: (id: string) =>
         [...queryKeys.v2CatalogAdmin.products.all, 'detail', id] as const,
       variants: (productId: string) =>
         [...queryKeys.v2CatalogAdmin.products.all, 'variants', productId] as const,
+      variantsMap: (productIds: string[]) =>
+        [
+          ...queryKeys.v2CatalogAdmin.products.all,
+          'variants-map',
+          productIds,
+        ] as const,
       media: (productId: string) =>
         [...queryKeys.v2CatalogAdmin.products.all, 'media', productId] as const,
+      mediaMap: (productIds: string[]) =>
+        [
+          ...queryKeys.v2CatalogAdmin.products.all,
+          'media-map',
+          productIds,
+        ] as const,
       publishReadiness: (productId: string) =>
         [
           ...queryKeys.v2CatalogAdmin.products.all,
@@ -273,8 +292,26 @@ export const queryKeys = {
         [...queryKeys.v2CatalogAdmin.campaigns.all, 'list', params] as const,
       detail: (id: string) =>
         [...queryKeys.v2CatalogAdmin.campaigns.all, 'detail', id] as const,
+      detailContext: (id: string) =>
+        [
+          ...queryKeys.v2CatalogAdmin.campaigns.all,
+          'detail-context',
+          id,
+        ] as const,
+      overview: (campaignIds: string[]) =>
+        [
+          ...queryKeys.v2CatalogAdmin.campaigns.all,
+          'overview',
+          campaignIds,
+        ] as const,
       targets: (campaignId: string) =>
         [...queryKeys.v2CatalogAdmin.campaigns.all, 'targets', campaignId] as const,
+      targetsMap: (campaignIds: string[]) =>
+        [
+          ...queryKeys.v2CatalogAdmin.campaigns.all,
+          'targets-map',
+          campaignIds,
+        ] as const,
     },
     pricing: {
       all: ['v2-catalog-admin', 'pricing'] as const,
@@ -307,6 +344,8 @@ export const queryKeys = {
       },
       quote: () => [...queryKeys.v2CatalogAdmin.pricing.all, 'quote'] as const,
       debug: () => [...queryKeys.v2CatalogAdmin.pricing.all, 'debug'] as const,
+      campaignContext: (campaignId: string) =>
+        [...queryKeys.v2CatalogAdmin.pricing.all, 'campaign-context', campaignId] as const,
       orderSnapshotContract: () =>
         [...queryKeys.v2CatalogAdmin.pricing.all, 'order-snapshot-contract'] as const,
     },

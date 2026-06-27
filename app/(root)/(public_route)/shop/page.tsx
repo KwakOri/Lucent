@@ -1,6 +1,7 @@
 "use client";
 
 import { VoicePackCover } from "@/components/order/VoicePackCover";
+import { PopupListSection } from "@/components/home/PopupSection";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
@@ -126,10 +127,11 @@ function ShopPageContent() {
   const [voicePackPage, setVoicePackPage] = useState(1);
   const [goodsPage, setGoodsPage] = useState(1);
   const selectedCampaignId = searchParams.get("campaign_id")?.trim() || "";
-  const { data: campaigns = [] } = useV2ShopCampaigns({
+  const campaignQuery = useV2ShopCampaigns({
     channel: "WEB",
     include_upcoming: true,
   });
+  const campaigns = useMemo(() => campaignQuery.data ?? [], [campaignQuery.data]);
   const { data, isLoading, error } = useV2ShopProducts({
     limit: 60,
     sort: "LATEST",
@@ -336,6 +338,15 @@ function ShopPageContent() {
           </div>
         )}
       </section>
+
+      <PopupListSection
+        campaigns={campaignQuery.data}
+        isFetching={campaignQuery.isFetching}
+        isLoading={campaignQuery.isLoading}
+        isPending={campaignQuery.isPending}
+        isError={campaignQuery.isError}
+        variant="shop"
+      />
 
       {voicePacks.length > 0 ? (
         <section className="px-4 py-16">

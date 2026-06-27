@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from '@/lib/client/utils/api-client';
+import type { V2AdminStockLocation } from '@/lib/client/api/v2-admin-ops.api';
 import type { ApiResponse } from '@/types';
 
 export type V2ProjectStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
@@ -167,6 +168,15 @@ export interface V2ProductMedia {
   updated_at: string;
   deleted_at: string | null;
   media_asset?: V2MediaAsset | null;
+}
+
+export type V2VariantsByProductId = Record<string, V2Variant[]>;
+export type V2ProductMediaByProductId = Record<string, V2ProductMedia[]>;
+
+export interface V2ProjectProductListItem extends V2Product {
+  variant_count: number;
+  variant_status_counts: Record<V2VariantStatus, number>;
+  cover_media: V2ProductMedia | null;
 }
 
 export interface V2DigitalAsset {
@@ -550,6 +560,44 @@ export interface V2CampaignTarget {
   deleted_at: string | null;
 }
 
+export interface V2CampaignOverview {
+  targetCount: number;
+  excludedTargetCount: number;
+  priceListCount: number;
+  promotionCount: number;
+  hasLinkedPricing: boolean;
+}
+
+export type V2CampaignOverviewByCampaignId = Record<string, V2CampaignOverview>;
+export type V2CampaignTargetsByCampaignId = Record<string, V2CampaignTarget[]>;
+
+export interface V2CampaignDetailContext {
+  campaign: V2Campaign;
+  targets: V2CampaignTarget[];
+  priceLists: V2PriceList[];
+  basePriceLists: V2PriceList[];
+  campaignPriceItems: V2PriceListItem[];
+  basePriceItems: V2PriceListItem[];
+  promotions: V2Promotion[];
+  projects: V2Project[];
+  products: V2Product[];
+  bundleDefinitions: V2BundleDefinition[];
+  variantsByProductId: V2VariantsByProductId;
+  mediaByProductId: V2ProductMediaByProductId;
+}
+
+export interface V2CampaignPricingContext {
+  campaign: V2Campaign;
+  targets: V2CampaignTarget[];
+  products: V2Product[];
+  stockLocations: V2AdminStockLocation[];
+  campaignPriceLists: V2PriceList[];
+  basePriceLists: V2PriceList[];
+  campaignPriceItems: V2PriceListItem[];
+  basePriceItems: V2PriceListItem[];
+  variantsByProductId: V2VariantsByProductId;
+}
+
 export interface V2PriceList {
   id: string;
   campaign_id: string | null;
@@ -841,6 +889,11 @@ export interface GetV2ProductsParams {
   status?: V2ProductStatus;
 }
 
+export interface GetV2ProjectProductListParams {
+  projectId: string;
+  status?: V2ProductStatus;
+}
+
 export interface GetV2MediaAssetsParams {
   kind?: V2MediaAssetKind;
   status?: V2MediaAssetStatus;
@@ -951,6 +1004,11 @@ export interface UpdateV2ProductData {
   sort_order?: number;
   status?: V2ProductStatus;
   metadata?: Record<string, unknown>;
+}
+
+export interface BulkUpdateV2ProductStatusData {
+  productIds: string[];
+  status: V2ProductStatus;
 }
 
 export interface CreateV2VariantData {
@@ -1472,6 +1530,25 @@ function buildSearchParams(
   return queryString ? `?${queryString}` : '';
 }
 
+function normalizeIdList(ids: string[]): string[] {
+  return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean))).sort();
+}
+
+function buildIdsSearchParams(key: string, ids: string[]): string {
+  const normalizedIds = normalizeIdList(ids);
+  return buildSearchParams({
+    [key]: normalizedIds.length > 0 ? normalizedIds.join(',') : undefined,
+  });
+}
+
+function buildProductIdsSearchParams(productIds: string[]): string {
+  return buildIdsSearchParams('productIds', productIds);
+}
+
+function buildCampaignIdsSearchParams(campaignIds: string[]): string {
+  return buildIdsSearchParams('campaignIds', campaignIds);
+}
+
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MULTIPART_UPLOAD_MAX_ATTEMPTS = 3;
@@ -1904,6 +1981,17 @@ export const V2CatalogAdminAPI = {
     );
   },
 
+  async getProjectProductList(
+    params: GetV2ProjectProductListParams,
+  ): Promise<ApiResponse<V2ProjectProductListItem[]>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/products/project-list${buildSearchParams({
+        projectId: params.projectId,
+        status: params.status,
+      })}`,
+    );
+  },
+
   async getProduct(id: string): Promise<ApiResponse<V2Product>> {
     return apiClient.get(`/api/v2/catalog/admin/products/${id}`);
   },
@@ -1919,12 +2007,26 @@ export const V2CatalogAdminAPI = {
     return apiClient.patch(`/api/v2/catalog/admin/products/${id}`, data);
   },
 
+  async bulkUpdateProductStatus(
+    data: BulkUpdateV2ProductStatusData,
+  ): Promise<ApiResponse<V2Product[]>> {
+    return apiClient.patch('/api/v2/catalog/admin/products/bulk-status', data);
+  },
+
   async deleteProduct(id: string): Promise<ApiResponse<{ message: string }>> {
     return apiClient.delete(`/api/v2/catalog/admin/products/${id}`);
   },
 
   async getVariants(productId: string): Promise<ApiResponse<V2Variant[]>> {
     return apiClient.get(`/api/v2/catalog/admin/products/${productId}/variants`);
+  },
+
+  async getVariantsMap(
+    productIds: string[],
+  ): Promise<ApiResponse<V2VariantsByProductId>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/products/variants-map${buildProductIdsSearchParams(productIds)}`,
+    );
   },
 
   async createVariant(
@@ -2046,6 +2148,14 @@ export const V2CatalogAdminAPI = {
 
   async getProductMedia(productId: string): Promise<ApiResponse<V2ProductMedia[]>> {
     return apiClient.get(`/api/v2/catalog/admin/products/${productId}/media`);
+  },
+
+  async getProductMediaMap(
+    productIds: string[],
+  ): Promise<ApiResponse<V2ProductMediaByProductId>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/products/media-map${buildProductIdsSearchParams(productIds)}`,
+    );
   },
 
   async createProductMedia(
@@ -2267,6 +2377,34 @@ export const V2CatalogAdminAPI = {
 
   async getCampaign(id: string): Promise<ApiResponse<V2Campaign>> {
     return apiClient.get(`/api/v2/catalog/admin/campaigns/${id}`);
+  },
+
+  async getCampaignDetailContext(
+    id: string,
+  ): Promise<ApiResponse<V2CampaignDetailContext>> {
+    return apiClient.get(`/api/v2/catalog/admin/campaigns/${id}/detail-context`);
+  },
+
+  async getCampaignPricingContext(
+    id: string,
+  ): Promise<ApiResponse<V2CampaignPricingContext>> {
+    return apiClient.get(`/api/v2/catalog/admin/campaigns/${id}/pricing-context`);
+  },
+
+  async getCampaignOverviewMap(
+    campaignIds: string[],
+  ): Promise<ApiResponse<V2CampaignOverviewByCampaignId>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/campaigns/overview${buildCampaignIdsSearchParams(campaignIds)}`,
+    );
+  },
+
+  async getCampaignTargetsMap(
+    campaignIds: string[],
+  ): Promise<ApiResponse<V2CampaignTargetsByCampaignId>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/campaigns/targets-map${buildCampaignIdsSearchParams(campaignIds)}`,
+    );
   },
 
   async createCampaign(

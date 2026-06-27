@@ -236,7 +236,10 @@ export function ProductVariantManager({
     setErrorMessage(null);
 
     try {
-      await deleteVariant.mutateAsync(variantId);
+      await deleteVariant.mutateAsync({
+        variantId,
+        productId: product.id,
+      });
       setExpandedVariantId((current) => (current === variantId ? null : current));
       setMessage('옵션을 삭제했습니다.');
     } catch (deleteError) {

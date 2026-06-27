@@ -27,16 +27,7 @@ import {
   usePublishV2PriceList,
   useSuspendV2Campaign,
   useUpdateV2PriceListItem,
-  useV2BundleDefinitions,
-  useV2AdminVariantsMap,
-  useV2Campaign,
-  useV2CampaignTargets,
-  useV2PriceListItems,
-  useV2PriceLists,
-  useV2Promotions,
-  useV2AdminProducts,
-  useV2AdminProjects,
-  useV2AdminProductMediaMap,
+  useV2CampaignDetailContext,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import { queryKeys } from '@/lib/client/hooks/query-keys';
 import {
@@ -88,6 +79,13 @@ type ProductCampaignRow = {
   missingBaseCount: number;
   notIncludedCount: number;
 };
+
+const EMPTY_CAMPAIGN_TARGETS: V2CampaignTarget[] = [];
+const EMPTY_PRICE_LISTS: V2PriceList[] = [];
+const EMPTY_PRICE_ITEMS: V2PriceListItem[] = [];
+const EMPTY_PRODUCTS: V2Product[] = [];
+const EMPTY_VARIANTS_BY_PRODUCT_ID: Record<string, V2Variant[]> = {};
+const EMPTY_MEDIA_BY_PRODUCT_ID: Record<string, V2ProductMedia[]> = {};
 
 function pickLatestPriceList(lists: V2PriceList[]): V2PriceList | null {
   if (lists.length === 0) {
@@ -307,17 +305,26 @@ export default function V2CatalogCampaignDetailPage() {
     return raw || '';
   }, [params]);
 
-  const { data: campaign, isLoading: campaignLoading, error: campaignError } = useV2Campaign(campaignId);
-  const { data: targets, isLoading: targetsLoading, error: targetsError } = useV2CampaignTargets(campaignId);
-  const { data: priceLists, isLoading: priceListsLoading, error: priceListsError } = useV2PriceLists({ campaignId });
-  const { data: basePriceLists, isLoading: basePriceListsLoading, error: basePriceListsError } = useV2PriceLists({
-    scopeType: 'BASE',
-    status: 'PUBLISHED',
-  });
-  const { data: promotions, isLoading: promotionsLoading, error: promotionsError } = useV2Promotions({ campaignId });
-  const { data: projects, isLoading: projectsLoading, error: projectsError } = useV2AdminProjects();
-  const { data: products, isLoading: productsLoading, error: productsError } = useV2AdminProducts();
-  const { data: bundleDefinitions, isLoading: bundlesLoading, error: bundlesError } = useV2BundleDefinitions();
+  const {
+    data: detailContext,
+    isLoading: detailContextLoading,
+    isFetching: detailContextFetching,
+    error: detailContextError,
+  } = useV2CampaignDetailContext(campaignId);
+  const campaign = detailContext?.campaign || null;
+  const targets = detailContext?.targets ?? EMPTY_CAMPAIGN_TARGETS;
+  const priceLists = detailContext?.priceLists ?? EMPTY_PRICE_LISTS;
+  const campaignPriceItems =
+    detailContext?.campaignPriceItems ?? EMPTY_PRICE_ITEMS;
+  const basePriceItems = detailContext?.basePriceItems ?? EMPTY_PRICE_ITEMS;
+  const promotions = detailContext?.promotions || [];
+  const projects = detailContext?.projects || [];
+  const products = detailContext?.products ?? EMPTY_PRODUCTS;
+  const bundleDefinitions = detailContext?.bundleDefinitions || [];
+  const variantsByProductId =
+    detailContext?.variantsByProductId ?? EMPTY_VARIANTS_BY_PRODUCT_ID;
+  const mediaByProductId =
+    detailContext?.mediaByProductId ?? EMPTY_MEDIA_BY_PRODUCT_ID;
 
   const activateCampaign = useActivateV2Campaign();
   const suspendCampaign = useSuspendV2Campaign();
@@ -341,23 +348,7 @@ export default function V2CatalogCampaignDetailPage() {
     const published = campaignScopedPriceLists.find((list) => list.status === 'PUBLISHED');
     return published || pickLatestPriceList(campaignScopedPriceLists);
   }, [campaignScopedPriceLists]);
-  const activeBasePriceList = useMemo(
-    () => pickLatestPriceList(basePriceLists || []),
-    [basePriceLists],
-  );
-
-  const {
-    data: campaignPriceItems,
-    isLoading: campaignPriceItemsLoading,
-    error: campaignPriceItemsError,
-  } = useV2PriceListItems(activeCampaignPriceList?.id || null);
-  const {
-    data: basePriceItems,
-    isLoading: basePriceItemsLoading,
-    error: basePriceItemsError,
-  } = useV2PriceListItems(activeBasePriceList?.id || null);
-
-  const linkedTargetSummary = useMemo(() => summarizeTargetGroups(targets || []), [targets]);
+  const linkedTargetSummary = useMemo(() => summarizeTargetGroups(targets), [targets]);
   const period = useMemo(
     () => (campaign ? getCampaignPeriod(campaign.starts_at, campaign.ends_at) : 'NO_PERIOD'),
     [campaign],
@@ -365,7 +356,7 @@ export default function V2CatalogCampaignDetailPage() {
 
   const groupedTargets = useMemo(() => {
     const map = new Map<string, typeof targets>();
-    (targets || []).forEach((target) => {
+    targets.forEach((target) => {
       const key = target.is_excluded ? `exclude-${target.target_type}` : `include-${target.target_type}`;
       map.set(key, [...(map.get(key) || []), target]);
     });
@@ -373,7 +364,7 @@ export default function V2CatalogCampaignDetailPage() {
   }, [targets]);
 
   const candidateProducts = useMemo(() => {
-    if (!campaign || !products) {
+    if (!campaign) {
       return [];
     }
 
@@ -381,7 +372,7 @@ export default function V2CatalogCampaignDetailPage() {
     if (campaign.project_id) {
       projectScopeIds.add(campaign.project_id);
     }
-    (targets || [])
+    targets
       .filter((target) => !target.is_excluded && target.target_type === 'PROJECT')
       .forEach((target) => projectScopeIds.add(target.target_id));
 
@@ -397,30 +388,7 @@ export default function V2CatalogCampaignDetailPage() {
     });
   }, [campaign, products, targets]);
 
-  const productIdsForVariants = useMemo(
-    () => candidateProducts.map((product) => product.id),
-    [candidateProducts],
-  );
-  const { mediaByProductId } = useV2AdminProductMediaMap(productIdsForVariants);
-  const {
-    variantsByProductId,
-    isLoading: variantsMapLoading,
-    isFetching: variantsMapFetching,
-    isError: variantsMapError,
-  } = useV2AdminVariantsMap(productIdsForVariants);
-
-  const isLoading =
-    campaignLoading ||
-    targetsLoading ||
-    priceListsLoading ||
-    basePriceListsLoading ||
-    promotionsLoading ||
-    projectsLoading ||
-    productsLoading ||
-    bundlesLoading ||
-    campaignPriceItemsLoading ||
-    basePriceItemsLoading ||
-    variantsMapLoading;
+  const isLoading = detailContextLoading;
 
   const campaignPriceItemsByProductId = useMemo(() => {
     const map = new Map<string, V2PriceListItem[]>();
@@ -589,9 +557,14 @@ export default function V2CatalogCampaignDetailPage() {
   };
 
   const refreshCampaignPricingQueries = async () => {
-    await queryClient.invalidateQueries({
-      queryKey: queryKeys.v2CatalogAdmin.all,
-    });
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.v2CatalogAdmin.campaigns.all,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.v2CatalogAdmin.pricing.all,
+      }),
+    ]);
   };
 
   const ensureCampaignPriceList = async (): Promise<V2PriceList> => {
@@ -627,7 +600,10 @@ export default function V2CatalogCampaignDetailPage() {
     }
 
     if (row.variantExcludeTarget) {
-      await deleteTarget.mutateAsync(row.variantExcludeTarget.id);
+      await deleteTarget.mutateAsync({
+        targetId: row.variantExcludeTarget.id,
+        skipInvalidate: true,
+      });
     }
 
     if (row.included || isAlwaysOnCampaign || row.productIncludeTarget || row.variantIncludeTarget) {
@@ -651,6 +627,7 @@ export default function V2CatalogCampaignDetailPage() {
           inclusion_mode: 'VARIANT',
         },
       },
+      skipInvalidate: true,
     });
   };
 
@@ -680,6 +657,7 @@ export default function V2CatalogCampaignDetailPage() {
           exclusion_mode: 'VARIANT',
         },
       },
+      skipInvalidate: true,
     });
   };
 
@@ -797,7 +775,10 @@ export default function V2CatalogCampaignDetailPage() {
     }
 
     if (row.variantIncludeTarget) {
-      await deleteTarget.mutateAsync(row.variantIncludeTarget.id);
+      await deleteTarget.mutateAsync({
+        targetId: row.variantIncludeTarget.id,
+        skipInvalidate: true,
+      });
     }
 
     const needsExplicitExclude =
@@ -809,7 +790,10 @@ export default function V2CatalogCampaignDetailPage() {
     }
 
     if (row.campaignItem) {
-      await deactivatePriceListItem.mutateAsync(row.campaignItem.id);
+      await deactivatePriceListItem.mutateAsync({
+        itemId: row.campaignItem.id,
+        skipInvalidate: true,
+      });
     }
   };
 
@@ -887,7 +871,11 @@ export default function V2CatalogCampaignDetailPage() {
     setSuccessMessage(null);
     setSavingVariantId(row.variant.id);
     try {
-      await deactivatePriceListItem.mutateAsync(row.campaignItem.id);
+      await deactivatePriceListItem.mutateAsync({
+        itemId: row.campaignItem.id,
+        skipInvalidate: true,
+      });
+      await refreshCampaignPricingQueries();
       setSuccessMessage(`${row.variant.title || '기본 옵션'}을 기본가 사용으로 전환했습니다.`);
     } catch (actionError) {
       setErrorMessage(getErrorMessage(actionError));
@@ -915,7 +903,11 @@ export default function V2CatalogCampaignDetailPage() {
       return;
     }
     await handleRunAction(async () => {
-      await deleteTarget.mutateAsync(targetId);
+      await deleteTarget.mutateAsync({
+        targetId,
+        skipInvalidate: true,
+      });
+      await refreshCampaignPricingQueries();
     });
   };
 
@@ -937,19 +929,9 @@ export default function V2CatalogCampaignDetailPage() {
   }
 
   if (
-    campaignError ||
-    targetsError ||
-    priceListsError ||
-    basePriceListsError ||
-    promotionsError ||
-    projectsError ||
-    productsError ||
-    bundlesError ||
-    campaignPriceItemsError ||
-    basePriceItemsError ||
-    variantsMapError ||
+    detailContextError ||
+    !detailContext ||
     !campaign ||
-    !targets ||
     !projects ||
     !products ||
     !bundleDefinitions ||
@@ -1505,7 +1487,7 @@ export default function V2CatalogCampaignDetailPage() {
             </div>
           </div>
         </div>
-        {variantsMapFetching && (
+        {detailContextFetching && (
           <p className="mt-3 text-xs text-gray-500">옵션 정보를 최신 상태로 갱신하는 중입니다.</p>
         )}
       </section>

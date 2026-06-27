@@ -7,7 +7,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   V2CatalogAdminAPI,
   type BuildV2PriceQuoteData,
@@ -35,6 +35,7 @@ import {
   type GetV2BundleDefinitionsParams,
   type GetV2ArtistsParams,
   type GetV2MediaAssetsParams,
+  type GetV2ProjectProductListParams,
   type GetV2PriceListsParams,
   type GetV2ProductsParams,
   type GetV2PromotionsParams,
@@ -68,10 +69,13 @@ import {
   type ValidateV2CouponData,
   type ValidateV2BundleDefinitionData,
   type UploadV2MediaAssetFileData,
+  type V2DigitalAsset,
   type V2Product,
+  type V2ProjectProductListItem,
   type V2ProductStatus,
   type V2ProductMedia,
   type V2Variant,
+  type V2VariantStatus,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import { queryKeys } from './query-keys';
 
@@ -79,6 +83,31 @@ async function invalidateV2CatalogAdmin(queryClient: ReturnType<typeof useQueryC
   await queryClient.invalidateQueries({
     queryKey: queryKeys.v2CatalogAdmin.all,
   });
+}
+
+async function invalidateV2MediaAssetQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+) {
+  await queryClient.invalidateQueries({
+    queryKey: queryKeys.v2CatalogAdmin.mediaAssets.all,
+  });
+}
+
+function getEmptyVariantStatusCounts(): Record<V2VariantStatus, number> {
+  return {
+    DRAFT: 0,
+    ACTIVE: 0,
+    INACTIVE: 0,
+  };
+}
+
+function buildVariantStatusCounts(
+  variants: V2Variant[],
+): Record<V2VariantStatus, number> {
+  return variants.reduce<Record<V2VariantStatus, number>>((counts, variant) => {
+    counts[variant.status] += 1;
+    return counts;
+  }, getEmptyVariantStatusCounts());
 }
 
 function matchesV2ProductListParams(
@@ -101,6 +130,27 @@ type V2ProductListQueryKey = readonly [
   GetV2ProductsParams,
 ];
 
+type V2ProductProjectListQueryKey = readonly [
+  'v2-catalog-admin',
+  'products',
+  'project-list',
+  GetV2ProjectProductListParams,
+];
+
+type V2ProductVariantsMapQueryKey = readonly [
+  'v2-catalog-admin',
+  'products',
+  'variants-map',
+  string[],
+];
+
+type V2ProductMediaMapQueryKey = readonly [
+  'v2-catalog-admin',
+  'products',
+  'media-map',
+  string[],
+];
+
 function isV2ProductListQueryKey(
   queryKey: readonly unknown[],
 ): queryKey is V2ProductListQueryKey {
@@ -109,6 +159,52 @@ function isV2ProductListQueryKey(
     queryKey[1] === 'products' &&
     queryKey[2] === 'list'
   );
+}
+
+function isV2ProductProjectListQueryKey(
+  queryKey: readonly unknown[],
+): queryKey is V2ProductProjectListQueryKey {
+  return (
+    queryKey[0] === 'v2-catalog-admin' &&
+    queryKey[1] === 'products' &&
+    queryKey[2] === 'project-list'
+  );
+}
+
+function isV2ProductVariantsMapQueryKey(
+  queryKey: readonly unknown[],
+): queryKey is V2ProductVariantsMapQueryKey {
+  return (
+    queryKey[0] === 'v2-catalog-admin' &&
+    queryKey[1] === 'products' &&
+    queryKey[2] === 'variants-map' &&
+    Array.isArray(queryKey[3])
+  );
+}
+
+function isV2ProductMediaMapQueryKey(
+  queryKey: readonly unknown[],
+): queryKey is V2ProductMediaMapQueryKey {
+  return (
+    queryKey[0] === 'v2-catalog-admin' &&
+    queryKey[1] === 'products' &&
+    queryKey[2] === 'media-map' &&
+    Array.isArray(queryKey[3])
+  );
+}
+
+function isV2ProductMediaQueryKey(queryKey: readonly unknown[]): boolean {
+  return (
+    queryKey[0] === 'v2-catalog-admin' &&
+    queryKey[1] === 'products' &&
+    queryKey[2] === 'media'
+  );
+}
+
+function normalizeStringIds(ids: string[]): string[] {
+  return Array.from(
+    new Set(ids.map((id) => id.trim()).filter(Boolean)),
+  ).sort();
 }
 
 function updateV2ProductInListCache(
@@ -137,6 +233,88 @@ function updateV2ProductInListCache(
   return previous.map((item) => (item.id === product.id ? product : item));
 }
 
+function toV2ProjectProductListItem(
+  product: V2Product,
+  previousItem?: V2ProjectProductListItem,
+): V2ProjectProductListItem {
+  return {
+    ...previousItem,
+    ...product,
+    variant_count: previousItem?.variant_count ?? 0,
+    variant_status_counts:
+      previousItem?.variant_status_counts ?? getEmptyVariantStatusCounts(),
+    cover_media: previousItem?.cover_media ?? null,
+  };
+}
+
+function updateV2ProductInProjectListCache(
+  previous: V2ProjectProductListItem[] | undefined,
+  product: V2Product,
+  params: GetV2ProjectProductListParams,
+) {
+  if (!previous) {
+    return previous;
+  }
+
+  const productIndex = previous.findIndex((item) => item.id === product.id);
+  const matchesParams = matchesV2ProductListParams(product, params);
+
+  if (!matchesParams) {
+    if (productIndex === -1) {
+      return previous;
+    }
+    return previous.filter((item) => item.id !== product.id);
+  }
+
+  if (productIndex === -1) {
+    return [...previous, toV2ProjectProductListItem(product)];
+  }
+
+  return previous.map((item) =>
+    item.id === product.id ? toV2ProjectProductListItem(product, item) : item,
+  );
+}
+
+function removeV2ProductFromCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  productId: string,
+) {
+  queryClient.removeQueries({
+    queryKey: queryKeys.v2CatalogAdmin.products.detail(productId),
+  });
+  queryClient.removeQueries({
+    queryKey: queryKeys.v2CatalogAdmin.products.variants(productId),
+  });
+  queryClient.removeQueries({
+    queryKey: queryKeys.v2CatalogAdmin.products.media(productId),
+  });
+  queryClient.removeQueries({
+    queryKey: queryKeys.v2CatalogAdmin.products.publishReadiness(productId),
+  });
+
+  queryClient
+    .getQueryCache()
+    .findAll({ predicate: (query) => isV2ProductListQueryKey(query.queryKey) })
+    .forEach((query) => {
+      queryClient.setQueryData<V2Product[]>(
+        query.queryKey,
+        (previous) => previous?.filter((item) => item.id !== productId),
+      );
+    });
+
+  queryClient
+    .getQueryCache()
+    .findAll({
+      predicate: (query) => isV2ProductProjectListQueryKey(query.queryKey),
+    })
+    .forEach((query) => {
+      queryClient.setQueryData<V2ProjectProductListItem[]>(
+        query.queryKey,
+        (previous) => previous?.filter((item) => item.id !== productId),
+      );
+    });
+}
+
 function syncV2ProductCache(
   queryClient: ReturnType<typeof useQueryClient>,
   product: V2Product,
@@ -157,11 +335,232 @@ function syncV2ProductCache(
         updateV2ProductInListCache(previous, product, params),
       );
     });
+
+  queryClient
+    .getQueryCache()
+    .findAll({
+      predicate: (query) => isV2ProductProjectListQueryKey(query.queryKey),
+    })
+    .forEach((query) => {
+      const queryKey = query.queryKey as V2ProductProjectListQueryKey;
+      const params = queryKey[3];
+
+      queryClient.setQueryData<V2ProjectProductListItem[]>(queryKey, (previous) =>
+        updateV2ProductInProjectListCache(previous, product, params),
+      );
+    });
+}
+
+function upsertById<T extends { id: string }>(
+  previous: T[] | undefined,
+  nextItem: T,
+) {
+  if (!previous) {
+    return [nextItem];
+  }
+  if (!previous.some((item) => item.id === nextItem.id)) {
+    return [...previous, nextItem];
+  }
+  return previous.map((item) => (item.id === nextItem.id ? nextItem : item));
+}
+
+function removeById<T extends { id: string }>(
+  previous: T[] | undefined,
+  itemId: string,
+) {
+  return previous?.filter((item) => item.id !== itemId);
+}
+
+function syncV2ProjectListVariantSummary(
+  queryClient: ReturnType<typeof useQueryClient>,
+  productId: string,
+) {
+  const variants = queryClient.getQueryData<V2Variant[]>(
+    queryKeys.v2CatalogAdmin.products.variants(productId),
+  );
+  if (!variants) {
+    return;
+  }
+
+  const variantStatusCounts = buildVariantStatusCounts(variants);
+  queryClient
+    .getQueryCache()
+    .findAll({
+      predicate: (query) => isV2ProductProjectListQueryKey(query.queryKey),
+    })
+    .forEach((query) => {
+      queryClient.setQueryData<V2ProjectProductListItem[]>(
+        query.queryKey,
+        (previous) =>
+          previous?.map((item) =>
+            item.id === productId
+              ? {
+                  ...item,
+                  variant_count: variants.length,
+                  variant_status_counts: variantStatusCounts,
+                }
+              : item,
+          ),
+      );
+    });
+}
+
+function syncV2VariantCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  variant: V2Variant,
+) {
+  queryClient.setQueryData<V2Variant[]>(
+    queryKeys.v2CatalogAdmin.products.variants(variant.product_id),
+    (previous) => upsertById(previous, variant),
+  );
+
+  queryClient
+    .getQueryCache()
+    .findAll({
+      predicate: (query) =>
+        isV2ProductVariantsMapQueryKey(query.queryKey) &&
+        query.queryKey[3].includes(variant.product_id),
+    })
+    .forEach((query) => {
+      queryClient.setQueryData<Record<string, V2Variant[]>>(
+        query.queryKey,
+        (previous) => ({
+          ...(previous || {}),
+          [variant.product_id]: upsertById(
+            previous?.[variant.product_id],
+            variant,
+          ),
+        }),
+      );
+    });
+
+  syncV2ProjectListVariantSummary(queryClient, variant.product_id);
+}
+
+function removeV2VariantFromCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  variantId: string,
+  productId: string,
+) {
+  queryClient.setQueryData<V2Variant[]>(
+    queryKeys.v2CatalogAdmin.products.variants(productId),
+    (previous) => removeById(previous, variantId),
+  );
+
+  queryClient
+    .getQueryCache()
+    .findAll({
+      predicate: (query) =>
+        isV2ProductVariantsMapQueryKey(query.queryKey) &&
+        query.queryKey[3].includes(productId),
+    })
+    .forEach((query) => {
+      queryClient.setQueryData<Record<string, V2Variant[]>>(
+        query.queryKey,
+        (previous) => ({
+          ...(previous || {}),
+          [productId]: removeById(previous?.[productId], variantId) || [],
+        }),
+      );
+    });
+
+  syncV2ProjectListVariantSummary(queryClient, productId);
+}
+
+function resolveV2CoverMedia(mediaList: V2ProductMedia[]): V2ProductMedia | null {
+  const activeMedia = mediaList.filter((media) => media.status === 'ACTIVE');
+  return (
+    activeMedia.find((media) => media.is_primary) ||
+    activeMedia.find((media) => media.media_role === 'PRIMARY') ||
+    null
+  );
+}
+
+function syncV2ProjectListCoverMedia(
+  queryClient: ReturnType<typeof useQueryClient>,
+  productId: string,
+) {
+  const mediaList = queryClient.getQueryData<V2ProductMedia[]>(
+    queryKeys.v2CatalogAdmin.products.media(productId),
+  );
+  if (!mediaList) {
+    return;
+  }
+
+  const coverMedia = resolveV2CoverMedia(mediaList);
+  queryClient
+    .getQueryCache()
+    .findAll({
+      predicate: (query) => isV2ProductProjectListQueryKey(query.queryKey),
+    })
+    .forEach((query) => {
+      queryClient.setQueryData<V2ProjectProductListItem[]>(
+        query.queryKey,
+        (previous) =>
+          previous?.map((item) =>
+            item.id === productId
+              ? {
+                  ...item,
+                  cover_media: coverMedia,
+                }
+              : item,
+          ),
+      );
+    });
+}
+
+function syncV2ProductMediaCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  media: V2ProductMedia,
+) {
+  queryClient.setQueryData<V2ProductMedia[]>(
+    queryKeys.v2CatalogAdmin.products.media(media.product_id),
+    (previous) => upsertById(previous, media),
+  );
+
+  queryClient
+    .getQueryCache()
+    .findAll({
+      predicate: (query) =>
+        isV2ProductMediaMapQueryKey(query.queryKey) &&
+        query.queryKey[3].includes(media.product_id),
+    })
+    .forEach((query) => {
+      queryClient.setQueryData<Record<string, V2ProductMedia[]>>(
+        query.queryKey,
+        (previous) => ({
+          ...(previous || {}),
+          [media.product_id]: upsertById(
+            previous?.[media.product_id],
+            media,
+          ),
+        }),
+      );
+    });
+
+  syncV2ProjectListCoverMedia(queryClient, media.product_id);
+}
+
+function syncV2DigitalAssetCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  asset: V2DigitalAsset,
+) {
+  queryClient.setQueryData<V2DigitalAsset[]>(
+    queryKeys.v2CatalogAdmin.assets.list(asset.variant_id),
+    (previous) => upsertById(previous, asset),
+  );
 }
 
 type InvalidateControl = {
   skipInvalidate?: boolean;
 };
+
+type DeleteV2VariantInput =
+  | string
+  | ({
+      variantId: string;
+      productId?: string;
+    } & InvalidateControl);
 
 export function useV2AdminProjects(params: GetV2ProjectsParams = {}) {
   return useQuery({
@@ -353,6 +752,19 @@ export function useV2AdminProducts(params: GetV2ProductsParams = {}) {
   });
 }
 
+export function useV2AdminProjectProductList(
+  params: GetV2ProjectProductListParams,
+) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.products.projectList(params),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getProjectProductList(params);
+      return response.data;
+    },
+    enabled: !!params.projectId,
+  });
+}
+
 export function useV2AdminProduct(productId: string | null | undefined) {
   return useQuery({
     queryKey: queryKeys.v2CatalogAdmin.products.detail(productId || ''),
@@ -369,8 +781,8 @@ export function useCreateV2Product() {
   return useMutation({
     mutationFn: async (data: CreateV2ProductData) =>
       V2CatalogAdminAPI.createProduct(data),
-    onSuccess: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
+    onSuccess: (response) => {
+      syncV2ProductCache(queryClient, response.data);
     },
   });
 }
@@ -395,7 +807,6 @@ export function useUpdateV2Product() {
       if (variables.skipInvalidate) {
         return;
       }
-      await invalidateV2CatalogAdmin(queryClient);
     },
   });
 }
@@ -410,19 +821,14 @@ export function useBulkUpdateV2ProductStatus() {
       productIds: string[];
       status: V2ProductStatus;
     }) => {
-      const uniqueProductIds = Array.from(new Set(productIds));
-      const responses = await Promise.all(
-        uniqueProductIds.map((productId) =>
-          V2CatalogAdminAPI.updateProduct(productId, { status }),
-        ),
-      );
-      return responses.map((response) => response.data);
+      const response = await V2CatalogAdminAPI.bulkUpdateProductStatus({
+        productIds,
+        status,
+      });
+      return response.data;
     },
     onSuccess: (products) => {
       products.forEach((product) => syncV2ProductCache(queryClient, product));
-    },
-    onSettled: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
     },
   });
 }
@@ -431,8 +837,8 @@ export function useDeleteV2Product() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => V2CatalogAdminAPI.deleteProduct(id),
-    onSuccess: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
+    onSuccess: (_response, productId) => {
+      removeV2ProductFromCache(queryClient, productId);
     },
   });
 }
@@ -450,41 +856,36 @@ export function useV2AdminVariants(productId: string | null | undefined) {
 
 export function useV2AdminVariantsMap(productIds: string[]) {
   const normalizedProductIds = useMemo(
-    () =>
-      Array.from(
-        new Set(productIds.map((productId) => productId.trim()).filter(Boolean)),
-      ),
+    () => normalizeStringIds(productIds),
     [productIds],
   );
 
-  const variantQueries = useQueries({
-    queries: normalizedProductIds.map((productId) => ({
-      queryKey: queryKeys.v2CatalogAdmin.products.variants(productId),
-      queryFn: async () => {
-        const response = await V2CatalogAdminAPI.getVariants(productId);
-        return response.data;
-      },
-      enabled: productId.length > 0,
-      staleTime: 60_000,
-      refetchOnWindowFocus: false,
-    })),
+  const variantsQuery = useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.products.variantsMap(normalizedProductIds),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getVariantsMap(normalizedProductIds);
+      return response.data;
+    },
+    enabled: normalizedProductIds.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   return useMemo(() => {
     const variantsByProductId = normalizedProductIds.reduce<
       Record<string, V2Variant[]>
-    >((accumulator, productId, index) => {
-      accumulator[productId] = (variantQueries[index]?.data || []) as V2Variant[];
+    >((accumulator, productId) => {
+      accumulator[productId] = variantsQuery.data?.[productId] || [];
       return accumulator;
     }, {});
 
     return {
       variantsByProductId,
-      isLoading: variantQueries.some((query) => query.isLoading),
-      isFetching: variantQueries.some((query) => query.isFetching),
-      isError: variantQueries.some((query) => Boolean(query.error)),
+      isLoading: normalizedProductIds.length > 0 && variantsQuery.isLoading,
+      isFetching: variantsQuery.isFetching,
+      isError: Boolean(variantsQuery.error),
     };
-  }, [normalizedProductIds, variantQueries]);
+  }, [normalizedProductIds, variantsQuery.data, variantsQuery.error, variantsQuery.isFetching, variantsQuery.isLoading]);
 }
 
 export function useCreateV2Variant() {
@@ -497,8 +898,8 @@ export function useCreateV2Variant() {
       productId: string;
       data: CreateV2VariantData;
     }) => V2CatalogAdminAPI.createVariant(productId, data),
-    onSuccess: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
+    onSuccess: (response) => {
+      syncV2VariantCache(queryClient, response.data);
     },
   });
 }
@@ -517,11 +918,12 @@ export function useUpdateV2Variant() {
       void skipInvalidate;
       return V2CatalogAdminAPI.updateVariant(variantId, data);
     },
-    onSuccess: async (_response, variables) => {
+    onSuccess: async (response, variables) => {
+      syncV2VariantCache(queryClient, response.data);
+
       if (variables.skipInvalidate) {
         return;
       }
-      await invalidateV2CatalogAdmin(queryClient);
     },
   });
 }
@@ -529,10 +931,28 @@ export function useUpdateV2Variant() {
 export function useDeleteV2Variant() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (variantId: string) =>
-      V2CatalogAdminAPI.deleteVariant(variantId),
-    onSuccess: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
+    mutationFn: async (input: DeleteV2VariantInput) => {
+      const variantId = typeof input === 'string' ? input : input.variantId;
+      return V2CatalogAdminAPI.deleteVariant(variantId);
+    },
+    onSuccess: async (_response, variables) => {
+      if (typeof variables !== 'string' && variables.skipInvalidate) {
+        return;
+      }
+
+      const variantId =
+        typeof variables === 'string' ? variables : variables.variantId;
+      const productId =
+        typeof variables === 'string' ? null : variables.productId || null;
+
+      if (productId) {
+        removeV2VariantFromCache(queryClient, variantId, productId);
+        return;
+      }
+
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.v2CatalogAdmin.products.all,
+      });
     },
   });
 }
@@ -558,7 +978,14 @@ export function useUpdateV2MediaAsset() {
       data: UpdateV2MediaAssetData;
     }) => V2CatalogAdminAPI.updateMediaAsset(mediaAssetId, data),
     onSuccess: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
+      await Promise.all([
+        invalidateV2MediaAssetQueries(queryClient),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            isV2ProductMediaQueryKey(query.queryKey) ||
+            isV2ProductMediaMapQueryKey(query.queryKey),
+        }),
+      ]);
     },
   });
 }
@@ -569,7 +996,14 @@ export function useDeleteV2MediaAsset() {
     mutationFn: async (mediaAssetId: string) =>
       V2CatalogAdminAPI.deleteMediaAsset(mediaAssetId),
     onSuccess: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
+      await Promise.all([
+        invalidateV2MediaAssetQueries(queryClient),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            isV2ProductMediaQueryKey(query.queryKey) ||
+            isV2ProductMediaMapQueryKey(query.queryKey),
+        }),
+      ]);
     },
   });
 }
@@ -592,7 +1026,7 @@ export function useUploadV2MediaAssetFile() {
       if (variables.skipInvalidate) {
         return;
       }
-      await invalidateV2CatalogAdmin(queryClient);
+      await invalidateV2MediaAssetQueries(queryClient);
     },
   });
 }
@@ -610,41 +1044,37 @@ export function useV2AdminProductMedia(productId: string | null | undefined) {
 
 export function useV2AdminProductMediaMap(productIds: string[]) {
   const normalizedProductIds = useMemo(
-    () =>
-      Array.from(
-        new Set(productIds.map((productId) => productId.trim()).filter(Boolean)),
-      ),
+    () => normalizeStringIds(productIds),
     [productIds],
   );
 
-  const mediaQueries = useQueries({
-    queries: normalizedProductIds.map((productId) => ({
-      queryKey: queryKeys.v2CatalogAdmin.products.media(productId),
-      queryFn: async () => {
-        const response = await V2CatalogAdminAPI.getProductMedia(productId);
-        return response.data;
-      },
-      enabled: productId.length > 0,
-      staleTime: 60_000,
-      refetchOnWindowFocus: false,
-    })),
+  const mediaQuery = useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.products.mediaMap(normalizedProductIds),
+    queryFn: async () => {
+      const response =
+        await V2CatalogAdminAPI.getProductMediaMap(normalizedProductIds);
+      return response.data;
+    },
+    enabled: normalizedProductIds.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   return useMemo(() => {
     const mediaByProductId = normalizedProductIds.reduce<
       Record<string, V2ProductMedia[]>
-    >((accumulator, productId, index) => {
-      accumulator[productId] = (mediaQueries[index]?.data || []) as V2ProductMedia[];
+    >((accumulator, productId) => {
+      accumulator[productId] = mediaQuery.data?.[productId] || [];
       return accumulator;
     }, {});
 
     return {
       mediaByProductId,
-      isLoading: mediaQueries.some((query) => query.isLoading),
-      isFetching: mediaQueries.some((query) => query.isFetching),
-      isError: mediaQueries.some((query) => Boolean(query.error)),
+      isLoading: normalizedProductIds.length > 0 && mediaQuery.isLoading,
+      isFetching: mediaQuery.isFetching,
+      isError: Boolean(mediaQuery.error),
     };
-  }, [mediaQueries, normalizedProductIds]);
+  }, [mediaQuery.data, mediaQuery.error, mediaQuery.isFetching, mediaQuery.isLoading, normalizedProductIds]);
 }
 
 export function useCreateV2ProductMedia() {
@@ -661,11 +1091,12 @@ export function useCreateV2ProductMedia() {
       void skipInvalidate;
       return V2CatalogAdminAPI.createProductMedia(productId, data);
     },
-    onSuccess: async (_response, variables) => {
+    onSuccess: async (response, variables) => {
+      syncV2ProductMediaCache(queryClient, response.data);
+
       if (variables.skipInvalidate) {
         return;
       }
-      await invalidateV2CatalogAdmin(queryClient);
     },
   });
 }
@@ -684,11 +1115,12 @@ export function useUpdateV2ProductMedia() {
       void skipInvalidate;
       return V2CatalogAdminAPI.updateProductMedia(mediaId, data);
     },
-    onSuccess: async (_response, variables) => {
+    onSuccess: async (response, variables) => {
+      syncV2ProductMediaCache(queryClient, response.data);
+
       if (variables.skipInvalidate) {
         return;
       }
-      await invalidateV2CatalogAdmin(queryClient);
     },
   });
 }
@@ -698,8 +1130,8 @@ export function useDeactivateV2ProductMedia() {
   return useMutation({
     mutationFn: async (mediaId: string) =>
       V2CatalogAdminAPI.deactivateProductMedia(mediaId),
-    onSuccess: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
+    onSuccess: (response) => {
+      syncV2ProductMediaCache(queryClient, response.data);
     },
   });
 }
@@ -725,8 +1157,8 @@ export function useCreateV2DigitalAsset() {
       variantId: string;
       data: CreateV2DigitalAssetData;
     }) => V2CatalogAdminAPI.createDigitalAsset(variantId, data),
-    onSuccess: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
+    onSuccess: (response) => {
+      syncV2DigitalAssetCache(queryClient, response.data);
     },
   });
 }
@@ -741,8 +1173,8 @@ export function useUpdateV2DigitalAsset() {
       assetId: string;
       data: UpdateV2DigitalAssetData;
     }) => V2CatalogAdminAPI.updateDigitalAsset(assetId, data),
-    onSuccess: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
+    onSuccess: (response) => {
+      syncV2DigitalAssetCache(queryClient, response.data);
     },
   });
 }
@@ -752,8 +1184,8 @@ export function useActivateV2DigitalAsset() {
   return useMutation({
     mutationFn: async (assetId: string) =>
       V2CatalogAdminAPI.activateDigitalAsset(assetId),
-    onSuccess: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
+    onSuccess: (response) => {
+      syncV2DigitalAssetCache(queryClient, response.data);
     },
   });
 }
@@ -763,8 +1195,8 @@ export function useDeactivateV2DigitalAsset() {
   return useMutation({
     mutationFn: async (assetId: string) =>
       V2CatalogAdminAPI.deactivateDigitalAsset(assetId),
-    onSuccess: async () => {
-      await invalidateV2CatalogAdmin(queryClient);
+    onSuccess: (response) => {
+      syncV2DigitalAssetCache(queryClient, response.data);
     },
   });
 }
@@ -1089,6 +1521,34 @@ export function useV2Campaign(campaignId: string | null | undefined) {
   });
 }
 
+export function useV2CampaignDetailContext(
+  campaignId: string | null | undefined,
+) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.detailContext(campaignId || ''),
+    queryFn: async () => {
+      const response =
+        await V2CatalogAdminAPI.getCampaignDetailContext(campaignId!);
+      return response.data;
+    },
+    enabled: !!campaignId,
+  });
+}
+
+export function useV2CampaignPricingContext(
+  campaignId: string | null | undefined,
+) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.pricing.campaignContext(campaignId || ''),
+    queryFn: async () => {
+      const response =
+        await V2CatalogAdminAPI.getCampaignPricingContext(campaignId!);
+      return response.data;
+    },
+    enabled: !!campaignId,
+  });
+}
+
 export function useCreateV2Campaign() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1158,84 +1618,67 @@ export function useV2CampaignTargets(campaignId: string | null | undefined) {
 }
 
 export function useV2CampaignOverview(campaignIds: string[]) {
-  const targetQueries = useQueries({
-    queries: campaignIds.map((campaignId) => ({
-      queryKey: queryKeys.v2CatalogAdmin.campaigns.targets(campaignId),
-      queryFn: async () => {
-        const response = await V2CatalogAdminAPI.getCampaignTargets(campaignId);
-        return response.data;
-      },
-      enabled: campaignId.length > 0,
-    })),
-  });
-
-  const priceListQueries = useQueries({
-    queries: campaignIds.map((campaignId) => ({
-      queryKey: queryKeys.v2CatalogAdmin.pricing.priceLists.list({ campaignId }),
-      queryFn: async () => {
-        const response = await V2CatalogAdminAPI.getPriceLists({ campaignId });
-        return response.data;
-      },
-      enabled: campaignId.length > 0,
-    })),
-  });
-
-  const promotionQueries = useQueries({
-    queries: campaignIds.map((campaignId) => ({
-      queryKey: queryKeys.v2CatalogAdmin.pricing.promotions.list({ campaignId }),
-      queryFn: async () => {
-        const response = await V2CatalogAdminAPI.getPromotions({ campaignId });
-        return response.data;
-      },
-      enabled: campaignId.length > 0,
-    })),
+  const normalizedCampaignIds = useMemo(
+    () => normalizeStringIds(campaignIds),
+    [campaignIds],
+  );
+  const overviewQuery = useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.overview(normalizedCampaignIds),
+    queryFn: async () => {
+      const response =
+        await V2CatalogAdminAPI.getCampaignOverviewMap(normalizedCampaignIds);
+      return response.data;
+    },
+    enabled: normalizedCampaignIds.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   return useMemo(() => {
-    return campaignIds.reduce<Record<string, {
+    return normalizedCampaignIds.reduce<Record<string, {
       targetCount: number;
       excludedTargetCount: number;
       priceListCount: number;
       promotionCount: number;
       hasLinkedPricing: boolean;
       isLoading: boolean;
-    }>>((accumulator, campaignId, index) => {
-      const targets = targetQueries[index]?.data || [];
-      const priceLists = priceListQueries[index]?.data || [];
-      const promotions = promotionQueries[index]?.data || [];
+    }>>((accumulator, campaignId) => {
+      const overview = overviewQuery.data?.[campaignId];
 
       accumulator[campaignId] = {
-        targetCount: targets.filter((target) => !target.is_excluded).length,
-        excludedTargetCount: targets.filter((target) => target.is_excluded).length,
-        priceListCount: priceLists.length,
-        promotionCount: promotions.length,
-        hasLinkedPricing: priceLists.length > 0 || promotions.length > 0,
-        isLoading:
-          Boolean(targetQueries[index]?.isLoading) ||
-          Boolean(priceListQueries[index]?.isLoading) ||
-          Boolean(promotionQueries[index]?.isLoading),
+        targetCount: overview?.targetCount || 0,
+        excludedTargetCount: overview?.excludedTargetCount || 0,
+        priceListCount: overview?.priceListCount || 0,
+        promotionCount: overview?.promotionCount || 0,
+        hasLinkedPricing: overview?.hasLinkedPricing || false,
+        isLoading: normalizedCampaignIds.length > 0 && overviewQuery.isLoading,
       };
 
       return accumulator;
     }, {});
-  }, [campaignIds, priceListQueries, promotionQueries, targetQueries]);
+  }, [normalizedCampaignIds, overviewQuery.data, overviewQuery.isLoading]);
 }
 
 export function useV2CampaignTargetsMap(campaignIds: string[]) {
-  const targetQueries = useQueries({
-    queries: campaignIds.map((campaignId) => ({
-      queryKey: queryKeys.v2CatalogAdmin.campaigns.targets(campaignId),
-      queryFn: async () => {
-        const response = await V2CatalogAdminAPI.getCampaignTargets(campaignId);
-        return response.data;
-      },
-      enabled: campaignId.length > 0,
-    })),
+  const normalizedCampaignIds = useMemo(
+    () => normalizeStringIds(campaignIds),
+    [campaignIds],
+  );
+  const targetsQuery = useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.targetsMap(normalizedCampaignIds),
+    queryFn: async () => {
+      const response =
+        await V2CatalogAdminAPI.getCampaignTargetsMap(normalizedCampaignIds);
+      return response.data;
+    },
+    enabled: normalizedCampaignIds.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   return useMemo(
     () =>
-      campaignIds.reduce<
+      normalizedCampaignIds.reduce<
         Record<
           string,
           {
@@ -1243,14 +1686,15 @@ export function useV2CampaignTargetsMap(campaignIds: string[]) {
             isLoading: boolean;
           }
         >
-      >((accumulator, campaignId, index) => {
+      >((accumulator, campaignId) => {
         accumulator[campaignId] = {
-          targets: (targetQueries[index]?.data || []) as V2CampaignTarget[],
-          isLoading: Boolean(targetQueries[index]?.isLoading),
+          targets: targetsQuery.data?.[campaignId] || [],
+          isLoading:
+            normalizedCampaignIds.length > 0 && targetsQuery.isLoading,
         };
         return accumulator;
       }, {}),
-    [campaignIds, targetQueries],
+    [normalizedCampaignIds, targetsQuery.data, targetsQuery.isLoading],
   );
 }
 
@@ -1260,11 +1704,18 @@ export function useCreateV2CampaignTarget() {
     mutationFn: async ({
       campaignId,
       data,
+      skipInvalidate,
     }: {
       campaignId: string;
       data: CreateV2CampaignTargetData;
-    }) => V2CatalogAdminAPI.createCampaignTarget(campaignId, data),
-    onSuccess: async () => {
+    } & InvalidateControl) => {
+      void skipInvalidate;
+      return V2CatalogAdminAPI.createCampaignTarget(campaignId, data);
+    },
+    onSuccess: async (_response, variables) => {
+      if (variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -1289,9 +1740,14 @@ export function useUpdateV2CampaignTarget() {
 export function useDeleteV2CampaignTarget() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (targetId: string) =>
-      V2CatalogAdminAPI.deleteCampaignTarget(targetId),
-    onSuccess: async () => {
+    mutationFn: async (input: string | ({ targetId: string } & InvalidateControl)) => {
+      const targetId = typeof input === 'string' ? input : input.targetId;
+      return V2CatalogAdminAPI.deleteCampaignTarget(targetId);
+    },
+    onSuccess: async (_response, variables) => {
+      if (typeof variables !== 'string' && variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });
@@ -1440,9 +1896,14 @@ export function useUpdateV2PriceListItem() {
 export function useDeactivateV2PriceListItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (itemId: string) =>
-      V2CatalogAdminAPI.deactivatePriceListItem(itemId),
-    onSuccess: async () => {
+    mutationFn: async (input: string | ({ itemId: string } & InvalidateControl)) => {
+      const itemId = typeof input === 'string' ? input : input.itemId;
+      return V2CatalogAdminAPI.deactivatePriceListItem(itemId);
+    },
+    onSuccess: async (_response, variables) => {
+      if (typeof variables !== 'string' && variables.skipInvalidate) {
+        return;
+      }
       await invalidateV2CatalogAdmin(queryClient);
     },
   });

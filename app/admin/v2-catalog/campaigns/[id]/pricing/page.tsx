@@ -11,21 +11,19 @@ import {
   CampaignPricingBulkTable,
   type SaveCampaignVariantPriceParams,
 } from '@/src/components/admin/v2-catalog/CampaignPricingBulkTable';
-import type { V2PriceList, V2PriceListItem } from '@/lib/client/api/v2-catalog-admin.api';
+import type {
+  V2CampaignPricingContext,
+  V2PriceList,
+  V2PriceListItem,
+} from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useCreateV2PriceList,
   useCreateV2PriceListItem,
   usePublishV2PriceList,
   useUpdateV2PriceListItem,
-  useV2AdminProducts,
-  useV2AdminVariants,
-  useV2Campaign,
-  useV2CampaignTargets,
-  useV2PriceListItems,
-  useV2PriceLists,
+  useV2CampaignPricingContext,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import { queryKeys } from '@/lib/client/hooks/query-keys';
-import { useV2AdminStockLocations } from '@/lib/client/hooks/useV2AdminOps';
 import { formatDateRange, getErrorMessage } from '@/lib/client/utils/v2-campaign-admin';
 import { resolveEligibleCampaignProducts } from '@/lib/client/utils/v2-campaign-targeting';
 import {
@@ -34,6 +32,13 @@ import {
 } from '@/lib/client/utils/v2-product-admin-form';
 
 type DiscountMode = 'FIXED' | 'PERCENT';
+
+const EMPTY_CAMPAIGN_TARGETS: V2CampaignPricingContext['targets'] = [];
+const EMPTY_PRODUCTS: V2CampaignPricingContext['products'] = [];
+const EMPTY_STOCK_LOCATIONS: V2CampaignPricingContext['stockLocations'] = [];
+const EMPTY_PRICE_LISTS: V2PriceList[] = [];
+const EMPTY_PRICE_ITEMS: V2PriceListItem[] = [];
+const EMPTY_VARIANTS_BY_PRODUCT_ID: V2CampaignPricingContext['variantsByProductId'] = {};
 
 function formatCurrency(amount: number): string {
   return `${amount.toLocaleString('ko-KR')}원`;
@@ -192,20 +197,26 @@ export default function V2CatalogCampaignPricingPage() {
   const presetProductId = (searchParams.get('productId') || '').trim();
   const pendingOnly = searchParams.get('pendingOnly') === '1';
 
-  const { data: campaign, isLoading: campaignLoading, error: campaignError } = useV2Campaign(campaignId);
-  const { data: targets, isLoading: targetsLoading, error: targetsError } = useV2CampaignTargets(campaignId);
-  const { data: products, isLoading: productsLoading, error: productsError } = useV2AdminProducts();
-  const { data: stockLocations, isLoading: stockLocationsLoading } = useV2AdminStockLocations();
+  const {
+    data: pricingContext,
+    isLoading: pricingContextLoading,
+    isFetching: pricingContextFetching,
+    error: pricingContextError,
+  } = useV2CampaignPricingContext(campaignId);
+  const campaign = pricingContext?.campaign || null;
+  const targets = pricingContext?.targets ?? EMPTY_CAMPAIGN_TARGETS;
+  const products = pricingContext?.products ?? EMPTY_PRODUCTS;
+  const stockLocations = pricingContext?.stockLocations ?? EMPTY_STOCK_LOCATIONS;
+  const campaignPriceLists =
+    pricingContext?.campaignPriceLists ?? EMPTY_PRICE_LISTS;
+  const basePriceLists = pricingContext?.basePriceLists ?? EMPTY_PRICE_LISTS;
+  const campaignPriceItems =
+    pricingContext?.campaignPriceItems ?? EMPTY_PRICE_ITEMS;
+  const baseItems = pricingContext?.basePriceItems ?? EMPTY_PRICE_ITEMS;
+  const variantsByProductId =
+    pricingContext?.variantsByProductId ?? EMPTY_VARIANTS_BY_PRODUCT_ID;
   const isAlwaysOnCampaign = campaign?.campaign_type === 'ALWAYS_ON';
   const campaignPriceScopeType = isAlwaysOnCampaign ? 'BASE' : 'OVERRIDE';
-  const { data: campaignPriceLists, isLoading: campaignPriceListsLoading } = useV2PriceLists({
-    campaignId,
-    scopeType: campaignPriceScopeType,
-  });
-  const { data: basePriceLists, isLoading: basePriceListsLoading } = useV2PriceLists({
-    scopeType: 'BASE',
-    status: 'PUBLISHED',
-  });
 
   const createPriceList = useCreateV2PriceList();
   const publishPriceList = usePublishV2PriceList();
@@ -220,44 +231,27 @@ export default function V2CatalogCampaignPricingPage() {
     () => publishedCampaignPriceList || pickLatestPriceList(campaignPriceLists || []),
     [campaignPriceLists, publishedCampaignPriceList],
   );
-  const activeBaseList = useMemo(
-    () => pickLatestPriceList(basePriceLists || []),
-    [basePriceLists],
-  );
-
-  const {
-    data: campaignPriceItems,
-    isLoading: campaignPriceItemsLoading,
-    error: campaignPriceItemsError,
-  } = useV2PriceListItems(activeCampaignPriceList?.id || null);
-  const {
-    data: baseItems,
-    isLoading: baseItemsLoading,
-    error: baseItemsError,
-  } = useV2PriceListItems(activeBaseList?.id || null);
-  const { data: variants, isLoading: variantsLoading, error: variantsError } = useV2AdminVariants(
-    selectedProductId || null,
-  );
-
-  const isLoading =
-    campaignLoading ||
-    targetsLoading ||
-    productsLoading ||
-    stockLocationsLoading ||
-    campaignPriceListsLoading ||
-    basePriceListsLoading ||
-    campaignPriceItemsLoading ||
-    baseItemsLoading ||
-    variantsLoading;
 
   const eligibleProducts = useMemo(() => {
+    if (!campaign) {
+      return [];
+    }
     return resolveEligibleCampaignProducts({
-      campaignType: campaign?.campaign_type || 'SALE',
-      campaignProjectId: campaign?.project_id || null,
-      targets: targets || [],
-      products: products || [],
+      campaignType: campaign.campaign_type,
+      campaignProjectId: campaign.project_id || null,
+      targets,
+      products,
     });
-  }, [campaign?.campaign_type, campaign?.project_id, products, targets]);
+  }, [campaign, products, targets]);
+  const variantsMapLoading = pricingContextLoading;
+  const variantsMapFetching = pricingContextFetching;
+  const variantsMapError = Boolean(pricingContextError);
+  const variants = useMemo(
+    () => (selectedProductId ? variantsByProductId[selectedProductId] || [] : []),
+    [selectedProductId, variantsByProductId],
+  );
+
+  const isLoading = pricingContextLoading;
 
   const presetProduct = useMemo(
     () => eligibleProducts.find((product) => product.id === presetProductId) || null,
@@ -286,15 +280,14 @@ export default function V2CatalogCampaignPricingPage() {
   }, [eligibleProducts, presetProduct, presetProductId, selectedProductId]);
 
   useEffect(() => {
-    const nextVariants = variants || [];
-    if (nextVariants.length === 0) {
+    if (variants.length === 0) {
       setSelectedVariantId('');
       return;
     }
-    if (selectedVariantId && nextVariants.some((variant) => variant.id === selectedVariantId)) {
+    if (selectedVariantId && variants.some((variant) => variant.id === selectedVariantId)) {
       return;
     }
-    setSelectedVariantId(nextVariants[0].id);
+    setSelectedVariantId(variants[0].id);
   }, [selectedVariantId, variants]);
 
   const selectedProduct = useMemo(
@@ -315,11 +308,11 @@ export default function V2CatalogCampaignPricingPage() {
     }
     return resolveProductFulfillmentLabel({
       fulfillmentType: selectedProduct.fulfillment_type,
-      variantFulfillmentTypes: (variants || []).map((variant) => variant.fulfillment_type),
+      variantFulfillmentTypes: variants.map((variant) => variant.fulfillment_type),
     });
   }, [selectedProduct, variants]);
   const selectedVariant = useMemo(
-    () => (variants || []).find((variant) => variant.id === selectedVariantId) || null,
+    () => variants.find((variant) => variant.id === selectedVariantId) || null,
     [selectedVariantId, variants],
   );
 
@@ -356,7 +349,7 @@ export default function V2CatalogCampaignPricingPage() {
 
   const selectedProductVariantPriceStatus = useMemo(() => {
     const map = new Map<string, { hasBase: boolean; hasCampaignPrice: boolean; configured: boolean }>();
-    (variants || []).forEach((variant) => {
+    variants.forEach((variant) => {
       const base = findPriceItem({
         items: baseItems || [],
         productId: selectedProductId,
@@ -378,7 +371,7 @@ export default function V2CatalogCampaignPricingPage() {
   }, [baseItems, basePriceListById, campaignPriceItems, isAlwaysOnCampaign, selectedProductId, variants]);
 
   const variantRows = useMemo(() => {
-    return (variants || []).map((variant) => {
+    return variants.map((variant) => {
       const base = findPriceItem({
         items: baseItems || [],
         productId: selectedProductId,
@@ -415,10 +408,10 @@ export default function V2CatalogCampaignPricingPage() {
     if (!pendingOnly || hasAppliedPendingVariantRef.current) {
       return;
     }
-    if (!(variants || []).length) {
+    if (!variants.length) {
       return;
     }
-    const pendingVariant = (variants || []).find(
+    const pendingVariant = variants.find(
       (variant) => !selectedProductVariantPriceStatus.get(variant.id)?.configured,
     );
     if (pendingVariant) {
@@ -637,15 +630,10 @@ export default function V2CatalogCampaignPricingPage() {
   }
 
   if (
-    campaignError ||
-    targetsError ||
-    productsError ||
-    campaignPriceItemsError ||
-    baseItemsError ||
-    variantsError ||
+    pricingContextError ||
+    !pricingContext ||
     !campaign ||
-    !targets ||
-    !products
+    variantsMapError
   ) {
     return (
       <div className="space-y-4">
@@ -749,6 +737,10 @@ export default function V2CatalogCampaignPricingPage() {
               baseItems={baseItems || []}
               campaignItems={campaignPriceItems || []}
               basePriceListsById={basePriceListById}
+              variantsByProductId={variantsByProductId}
+              variantsLoading={variantsMapLoading}
+              variantsFetching={variantsMapFetching}
+              variantsError={variantsMapError}
               defaultStockLocationId={defaultStockLocationId}
               onSavePrice={upsertCampaignVariantPrice}
               onAfterSave={refreshPricingQueries}
