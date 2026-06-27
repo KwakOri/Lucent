@@ -170,6 +170,28 @@
 
   --animate-slide-in: slide-in 0.3s ease-out;
   --animate-slide-out: slide-out 0.3s ease-in;
+
+  /* =========================
+     Skeleton Animations
+     ========================= */
+  @keyframes popup-skeleton-shine {
+    0% {
+      opacity: 0;
+      transform: translateX(-160%) skewX(-16deg);
+    }
+    18% {
+      opacity: 0.72;
+    }
+    52% {
+      opacity: 0.55;
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(260%) skewX(-16deg);
+    }
+  }
+
+  --animate-popup-skeleton-shine: popup-skeleton-shine 1.8s ease-in-out infinite;
 }
 
 /* =========================
