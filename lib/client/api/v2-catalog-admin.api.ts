@@ -169,6 +169,12 @@ export interface V2ProductMedia {
   media_asset?: V2MediaAsset | null;
 }
 
+export interface V2ProjectProductListItem extends V2Product {
+  variant_count: number;
+  variant_status_counts: Record<V2VariantStatus, number>;
+  cover_media: V2ProductMedia | null;
+}
+
 export interface V2DigitalAsset {
   id: string;
   variant_id: string;
@@ -841,6 +847,11 @@ export interface GetV2ProductsParams {
   status?: V2ProductStatus;
 }
 
+export interface GetV2ProjectProductListParams {
+  projectId: string;
+  status?: V2ProductStatus;
+}
+
 export interface GetV2MediaAssetsParams {
   kind?: V2MediaAssetKind;
   status?: V2MediaAssetStatus;
@@ -951,6 +962,11 @@ export interface UpdateV2ProductData {
   sort_order?: number;
   status?: V2ProductStatus;
   metadata?: Record<string, unknown>;
+}
+
+export interface BulkUpdateV2ProductStatusData {
+  productIds: string[];
+  status: V2ProductStatus;
 }
 
 export interface CreateV2VariantData {
@@ -1904,6 +1920,17 @@ export const V2CatalogAdminAPI = {
     );
   },
 
+  async getProjectProductList(
+    params: GetV2ProjectProductListParams,
+  ): Promise<ApiResponse<V2ProjectProductListItem[]>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/products/project-list${buildSearchParams({
+        projectId: params.projectId,
+        status: params.status,
+      })}`,
+    );
+  },
+
   async getProduct(id: string): Promise<ApiResponse<V2Product>> {
     return apiClient.get(`/api/v2/catalog/admin/products/${id}`);
   },
@@ -1917,6 +1944,12 @@ export const V2CatalogAdminAPI = {
     data: UpdateV2ProductData,
   ): Promise<ApiResponse<V2Product>> {
     return apiClient.patch(`/api/v2/catalog/admin/products/${id}`, data);
+  },
+
+  async bulkUpdateProductStatus(
+    data: BulkUpdateV2ProductStatusData,
+  ): Promise<ApiResponse<V2Product[]>> {
+    return apiClient.patch('/api/v2/catalog/admin/products/bulk-status', data);
   },
 
   async deleteProduct(id: string): Promise<ApiResponse<{ message: string }>> {

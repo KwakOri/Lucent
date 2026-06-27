@@ -18,6 +18,7 @@ import type {
   GetV2BundleDefinitionsParams,
   GetV2ArtistsParams,
   GetV2ProductsParams,
+  GetV2ProjectProductListParams,
   GetV2ProjectsParams,
   GetV2CampaignsParams,
   GetV2CouponRedemptionsParams,
@@ -208,6 +209,12 @@ export const queryKeys = {
       all: ['v2-catalog-admin', 'products'] as const,
       list: (params: GetV2ProductsParams = {}) =>
         [...queryKeys.v2CatalogAdmin.products.all, 'list', params] as const,
+      projectList: (params: GetV2ProjectProductListParams) =>
+        [
+          ...queryKeys.v2CatalogAdmin.products.all,
+          'project-list',
+          params,
+        ] as const,
       detail: (id: string) =>
         [...queryKeys.v2CatalogAdmin.products.all, 'detail', id] as const,
       variants: (productId: string) =>
