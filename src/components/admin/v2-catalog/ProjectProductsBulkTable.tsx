@@ -15,9 +15,9 @@ import {
   useV2AdminVariantsMap,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import {
-  FULFILLMENT_TYPE_LABELS,
   PRODUCT_KIND_LABELS,
   PRODUCT_STATUS_LABELS,
+  VARIANT_STATUS_LABELS,
 } from '@/lib/client/utils/v2-product-admin-form';
 
 type ProjectProductsBulkTableProps = {
@@ -66,19 +66,23 @@ function formatDateTime(value: string): string {
   });
 }
 
-function summarizeVariants(variants: V2Variant[]): string {
+function summarizeVariantStatuses(variants: V2Variant[]): string {
   if (variants.length === 0) {
     return '옵션 없음';
   }
 
-  const fulfillmentCounts = variants.reduce<Record<string, number>>((accumulator, variant) => {
-    const label = FULFILLMENT_TYPE_LABELS[variant.fulfillment_type];
-    accumulator[label] = (accumulator[label] || 0) + 1;
+  const statusCounts = variants.reduce<Record<V2Variant['status'], number>>((accumulator, variant) => {
+    accumulator[variant.status] = (accumulator[variant.status] || 0) + 1;
     return accumulator;
-  }, {});
+  }, {
+    DRAFT: 0,
+    ACTIVE: 0,
+    INACTIVE: 0,
+  });
 
-  return Object.entries(fulfillmentCounts)
-    .map(([label, count]) => `${label} ${count}개`)
+  return (['ACTIVE', 'DRAFT', 'INACTIVE'] as const)
+    .filter((status) => statusCounts[status] > 0)
+    .map((status) => `${VARIANT_STATUS_LABELS[status]} ${statusCounts[status]}개`)
     .join(' · ');
 }
 
@@ -206,7 +210,7 @@ export function ProjectProductsBulkTable({
                     <div className="min-w-[160px]">
                       <Badge intent="info" size="sm">{productVariants.length}개</Badge>
                       <p className="mt-2 text-xs text-gray-500">
-                        {isVariantSummaryLoading ? '옵션 확인 중' : summarizeVariants(productVariants)}
+                        {isVariantSummaryLoading ? '옵션 확인 중' : summarizeVariantStatuses(productVariants)}
                       </p>
                     </div>
                   </td>
