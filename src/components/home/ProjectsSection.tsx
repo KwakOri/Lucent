@@ -174,7 +174,7 @@ export function ProjectsSection() {
                                 <button
                                   key={socialKey}
                                   onClick={(e) => handleSocialClick(e, socialUrl)}
-                                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1a1a2e] transition-colors hover:bg-[#2d2d48] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#66B5F3]"
+                                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-white bg-transparent transition-colors hover:border-[#A8D5E2] hover:bg-[#A8D5E2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#66B5F3]"
                                   aria-label={socialIcon.label}
                                 >
                                   <img
