@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import type {
   V2Product,
   V2ProductMedia,
@@ -14,13 +15,19 @@ import {
   useV2AdminVariantsMap,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import {
-  FULFILLMENT_TYPE_LABELS,
   PRODUCT_KIND_LABELS,
   PRODUCT_STATUS_LABELS,
+  VARIANT_STATUS_LABELS,
 } from '@/lib/client/utils/v2-product-admin-form';
 
 type ProjectProductsBulkTableProps = {
   products: V2Product[];
+  selectedProductIds: string[];
+  allProductsSelected: boolean;
+  hasPartialSelection: boolean;
+  isSelectionDisabled?: boolean;
+  onToggleProduct: (productId: string, checked: boolean) => void;
+  onToggleAllProducts: (checked: boolean) => void;
   onOpenDetail: (productId: string) => void;
 };
 
@@ -59,27 +66,41 @@ function formatDateTime(value: string): string {
   });
 }
 
-function summarizeVariants(variants: V2Variant[]): string {
+function summarizeVariantStatuses(variants: V2Variant[]): string {
   if (variants.length === 0) {
     return '옵션 없음';
   }
 
-  const fulfillmentCounts = variants.reduce<Record<string, number>>((accumulator, variant) => {
-    const label = FULFILLMENT_TYPE_LABELS[variant.fulfillment_type];
-    accumulator[label] = (accumulator[label] || 0) + 1;
+  const statusCounts = variants.reduce<Record<V2Variant['status'], number>>((accumulator, variant) => {
+    accumulator[variant.status] = (accumulator[variant.status] || 0) + 1;
     return accumulator;
-  }, {});
+  }, {
+    DRAFT: 0,
+    ACTIVE: 0,
+    INACTIVE: 0,
+  });
 
-  return Object.entries(fulfillmentCounts)
-    .map(([label, count]) => `${label} ${count}개`)
+  return (['ACTIVE', 'DRAFT', 'INACTIVE'] as const)
+    .filter((status) => statusCounts[status] > 0)
+    .map((status) => `${VARIANT_STATUS_LABELS[status]} ${statusCounts[status]}개`)
     .join(' · ');
 }
 
 export function ProjectProductsBulkTable({
   products,
+  selectedProductIds,
+  allProductsSelected,
+  hasPartialSelection,
+  isSelectionDisabled,
+  onToggleProduct,
+  onToggleAllProducts,
   onOpenDetail,
 }: ProjectProductsBulkTableProps) {
   const productIds = useMemo(() => products.map((product) => product.id), [products]);
+  const selectedProductIdSet = useMemo(
+    () => new Set(selectedProductIds),
+    [selectedProductIds],
+  );
   const {
     variantsByProductId,
     isLoading: variantsLoading,
@@ -108,6 +129,16 @@ export function ProjectProductsBulkTable({
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
+              <th className="w-12 px-3 py-2 text-left font-semibold text-gray-700">
+                <Checkbox
+                  size="sm"
+                  checked={allProductsSelected}
+                  indeterminate={hasPartialSelection}
+                  disabled={isSelectionDisabled || products.length === 0}
+                  label={<span className="sr-only">현재 목록 상품 전체 선택</span>}
+                  onChange={(event) => onToggleAllProducts(event.target.checked)}
+                />
+              </th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">커버</th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">상품</th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">상태</th>
@@ -124,6 +155,17 @@ export function ProjectProductsBulkTable({
 
               return (
                 <tr key={product.id} className="align-top">
+                  <td className="px-3 py-3">
+                    <Checkbox
+                      size="sm"
+                      checked={selectedProductIdSet.has(product.id)}
+                      disabled={isSelectionDisabled}
+                      label={<span className="sr-only">{product.title} 선택</span>}
+                      onChange={(event) =>
+                        onToggleProduct(product.id, event.target.checked)
+                      }
+                    />
+                  </td>
                   <td className="px-3 py-3">
                     <div className="h-14 w-14 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
                       {coverMedia?.public_url ? (
@@ -168,7 +210,7 @@ export function ProjectProductsBulkTable({
                     <div className="min-w-[160px]">
                       <Badge intent="info" size="sm">{productVariants.length}개</Badge>
                       <p className="mt-2 text-xs text-gray-500">
-                        {isVariantSummaryLoading ? '옵션 확인 중' : summarizeVariants(productVariants)}
+                        {isVariantSummaryLoading ? '옵션 확인 중' : summarizeVariantStatuses(productVariants)}
                       </p>
                     </div>
                   </td>
