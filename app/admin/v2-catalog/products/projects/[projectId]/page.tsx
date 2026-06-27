@@ -13,7 +13,7 @@ import { ProjectProductsBulkTable } from '@/src/components/admin/v2-catalog/Proj
 import type { V2ProductStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useBulkUpdateV2ProductStatus,
-  useV2AdminProducts,
+  useV2AdminProjectProductList,
   useV2AdminProject,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import { PRODUCT_STATUS_LABELS } from '@/lib/client/utils/v2-product-admin-form';
@@ -81,7 +81,7 @@ export default function V2CatalogProjectProductsPage() {
     data: products,
     isLoading: productsLoading,
     error: productsError,
-  } = useV2AdminProducts({ projectId });
+  } = useV2AdminProjectProductList({ projectId });
 
   const filteredProducts = useMemo(() => {
     const search = keyword.trim().toLowerCase();

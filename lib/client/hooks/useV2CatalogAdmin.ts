@@ -35,6 +35,7 @@ import {
   type GetV2BundleDefinitionsParams,
   type GetV2ArtistsParams,
   type GetV2MediaAssetsParams,
+  type GetV2ProjectProductListParams,
   type GetV2PriceListsParams,
   type GetV2ProductsParams,
   type GetV2PromotionsParams,
@@ -353,6 +354,19 @@ export function useV2AdminProducts(params: GetV2ProductsParams = {}) {
   });
 }
 
+export function useV2AdminProjectProductList(
+  params: GetV2ProjectProductListParams,
+) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.products.projectList(params),
+    queryFn: async () => {
+      const response = await V2CatalogAdminAPI.getProjectProductList(params);
+      return response.data;
+    },
+    enabled: !!params.projectId,
+  });
+}
+
 export function useV2AdminProduct(productId: string | null | undefined) {
   return useQuery({
     queryKey: queryKeys.v2CatalogAdmin.products.detail(productId || ''),
@@ -410,13 +424,11 @@ export function useBulkUpdateV2ProductStatus() {
       productIds: string[];
       status: V2ProductStatus;
     }) => {
-      const uniqueProductIds = Array.from(new Set(productIds));
-      const responses = await Promise.all(
-        uniqueProductIds.map((productId) =>
-          V2CatalogAdminAPI.updateProduct(productId, { status }),
-        ),
-      );
-      return responses.map((response) => response.data);
+      const response = await V2CatalogAdminAPI.bulkUpdateProductStatus({
+        productIds,
+        status,
+      });
+      return response.data;
     },
     onSuccess: (products) => {
       products.forEach((product) => syncV2ProductCache(queryClient, product));

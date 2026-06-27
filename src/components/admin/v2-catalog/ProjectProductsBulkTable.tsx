@@ -6,14 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import type {
-  V2Product,
-  V2ProductMedia,
-  V2Variant,
+  V2ProjectProductListItem,
+  V2VariantStatus,
 } from '@/lib/client/api/v2-catalog-admin.api';
-import {
-  useV2AdminProductMediaMap,
-  useV2AdminVariantsMap,
-} from '@/lib/client/hooks/useV2CatalogAdmin';
 import {
   PRODUCT_KIND_LABELS,
   PRODUCT_STATUS_LABELS,
@@ -21,7 +16,7 @@ import {
 } from '@/lib/client/utils/v2-product-admin-form';
 
 type ProjectProductsBulkTableProps = {
-  products: V2Product[];
+  products: V2ProjectProductListItem[];
   selectedProductIds: string[];
   allProductsSelected: boolean;
   hasPartialSelection: boolean;
@@ -31,16 +26,7 @@ type ProjectProductsBulkTableProps = {
   onOpenDetail: (productId: string) => void;
 };
 
-function getCoverMedia(mediaList: V2ProductMedia[]): V2ProductMedia | null {
-  const active = mediaList.filter((media) => media.status === 'ACTIVE');
-  return (
-    active.find((media) => media.is_primary) ||
-    active.find((media) => media.media_role === 'PRIMARY') ||
-    null
-  );
-}
-
-function resolveProductStatusIntent(status: V2Product['status']) {
+function resolveProductStatusIntent(status: V2ProjectProductListItem['status']) {
   if (status === 'ACTIVE') {
     return 'success';
   }
@@ -53,7 +39,7 @@ function resolveProductStatusIntent(status: V2Product['status']) {
   return 'info';
 }
 
-function resolveProductKindIntent(kind: V2Product['product_kind']) {
+function resolveProductKindIntent(kind: V2ProjectProductListItem['product_kind']) {
   return kind === 'BUNDLE' ? 'warning' : 'info';
 }
 
@@ -66,19 +52,13 @@ function formatDateTime(value: string): string {
   });
 }
 
-function summarizeVariantStatuses(variants: V2Variant[]): string {
-  if (variants.length === 0) {
+function summarizeVariantStatuses(
+  variantCount: number,
+  statusCounts: Record<V2VariantStatus, number>,
+): string {
+  if (variantCount === 0) {
     return '옵션 없음';
   }
-
-  const statusCounts = variants.reduce<Record<V2Variant['status'], number>>((accumulator, variant) => {
-    accumulator[variant.status] = (accumulator[variant.status] || 0) + 1;
-    return accumulator;
-  }, {
-    DRAFT: 0,
-    ACTIVE: 0,
-    INACTIVE: 0,
-  });
 
   return (['ACTIVE', 'DRAFT', 'INACTIVE'] as const)
     .filter((status) => statusCounts[status] > 0)
@@ -96,35 +76,13 @@ export function ProjectProductsBulkTable({
   onToggleAllProducts,
   onOpenDetail,
 }: ProjectProductsBulkTableProps) {
-  const productIds = useMemo(() => products.map((product) => product.id), [products]);
   const selectedProductIdSet = useMemo(
     () => new Set(selectedProductIds),
     [selectedProductIds],
   );
-  const {
-    variantsByProductId,
-    isLoading: variantsLoading,
-    isFetching: variantsFetching,
-    isError: variantsError,
-  } = useV2AdminVariantsMap(productIds);
-  const {
-    mediaByProductId,
-    isError: mediaError,
-  } = useV2AdminProductMediaMap(productIds);
 
   return (
     <div className="space-y-4">
-      {variantsError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          옵션 정보를 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
-        </div>
-      )}
-      {mediaError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          상품 이미지 정보를 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.
-        </div>
-      )}
-
       <div className="overflow-x-auto rounded-xl border border-gray-200">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
@@ -149,9 +107,7 @@ export function ProjectProductsBulkTable({
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
             {products.map((product) => {
-              const productVariants = variantsByProductId[product.id] || [];
-              const coverMedia = getCoverMedia(mediaByProductId[product.id] || []);
-              const isVariantSummaryLoading = variantsLoading || variantsFetching;
+              const coverMedia = product.cover_media;
 
               return (
                 <tr key={product.id} className="align-top">
@@ -208,9 +164,12 @@ export function ProjectProductsBulkTable({
                   </td>
                   <td className="px-3 py-3">
                     <div className="min-w-[160px]">
-                      <Badge intent="info" size="sm">{productVariants.length}개</Badge>
+                      <Badge intent="info" size="sm">{product.variant_count}개</Badge>
                       <p className="mt-2 text-xs text-gray-500">
-                        {isVariantSummaryLoading ? '옵션 확인 중' : summarizeVariantStatuses(productVariants)}
+                        {summarizeVariantStatuses(
+                          product.variant_count,
+                          product.variant_status_counts,
+                        )}
                       </p>
                     </div>
                   </td>
