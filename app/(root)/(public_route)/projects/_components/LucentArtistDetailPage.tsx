@@ -151,7 +151,7 @@ export function LucentArtistDetailPage({
         <div
           className={
             debutVideoId
-              ? 'mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)] lg:gap-14'
+              ? 'mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,1.17fr)_minmax(0,0.83fr)] lg:gap-14'
               : 'mx-auto max-w-6xl'
           }
         >
