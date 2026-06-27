@@ -7,7 +7,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   V2CatalogAdminAPI,
   type BuildV2PriceQuoteData,
@@ -112,9 +112,9 @@ function isV2ProductListQueryKey(
   );
 }
 
-function normalizeProductIds(productIds: string[]): string[] {
+function normalizeStringIds(ids: string[]): string[] {
   return Array.from(
-    new Set(productIds.map((productId) => productId.trim()).filter(Boolean)),
+    new Set(ids.map((id) => id.trim()).filter(Boolean)),
   ).sort();
 }
 
@@ -468,7 +468,7 @@ export function useV2AdminVariants(productId: string | null | undefined) {
 
 export function useV2AdminVariantsMap(productIds: string[]) {
   const normalizedProductIds = useMemo(
-    () => normalizeProductIds(productIds),
+    () => normalizeStringIds(productIds),
     [productIds],
   );
 
@@ -623,7 +623,7 @@ export function useV2AdminProductMedia(productId: string | null | undefined) {
 
 export function useV2AdminProductMediaMap(productIds: string[]) {
   const normalizedProductIds = useMemo(
-    () => normalizeProductIds(productIds),
+    () => normalizeStringIds(productIds),
     [productIds],
   );
 
@@ -1167,84 +1167,67 @@ export function useV2CampaignTargets(campaignId: string | null | undefined) {
 }
 
 export function useV2CampaignOverview(campaignIds: string[]) {
-  const targetQueries = useQueries({
-    queries: campaignIds.map((campaignId) => ({
-      queryKey: queryKeys.v2CatalogAdmin.campaigns.targets(campaignId),
-      queryFn: async () => {
-        const response = await V2CatalogAdminAPI.getCampaignTargets(campaignId);
-        return response.data;
-      },
-      enabled: campaignId.length > 0,
-    })),
-  });
-
-  const priceListQueries = useQueries({
-    queries: campaignIds.map((campaignId) => ({
-      queryKey: queryKeys.v2CatalogAdmin.pricing.priceLists.list({ campaignId }),
-      queryFn: async () => {
-        const response = await V2CatalogAdminAPI.getPriceLists({ campaignId });
-        return response.data;
-      },
-      enabled: campaignId.length > 0,
-    })),
-  });
-
-  const promotionQueries = useQueries({
-    queries: campaignIds.map((campaignId) => ({
-      queryKey: queryKeys.v2CatalogAdmin.pricing.promotions.list({ campaignId }),
-      queryFn: async () => {
-        const response = await V2CatalogAdminAPI.getPromotions({ campaignId });
-        return response.data;
-      },
-      enabled: campaignId.length > 0,
-    })),
+  const normalizedCampaignIds = useMemo(
+    () => normalizeStringIds(campaignIds),
+    [campaignIds],
+  );
+  const overviewQuery = useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.overview(normalizedCampaignIds),
+    queryFn: async () => {
+      const response =
+        await V2CatalogAdminAPI.getCampaignOverviewMap(normalizedCampaignIds);
+      return response.data;
+    },
+    enabled: normalizedCampaignIds.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   return useMemo(() => {
-    return campaignIds.reduce<Record<string, {
+    return normalizedCampaignIds.reduce<Record<string, {
       targetCount: number;
       excludedTargetCount: number;
       priceListCount: number;
       promotionCount: number;
       hasLinkedPricing: boolean;
       isLoading: boolean;
-    }>>((accumulator, campaignId, index) => {
-      const targets = targetQueries[index]?.data || [];
-      const priceLists = priceListQueries[index]?.data || [];
-      const promotions = promotionQueries[index]?.data || [];
+    }>>((accumulator, campaignId) => {
+      const overview = overviewQuery.data?.[campaignId];
 
       accumulator[campaignId] = {
-        targetCount: targets.filter((target) => !target.is_excluded).length,
-        excludedTargetCount: targets.filter((target) => target.is_excluded).length,
-        priceListCount: priceLists.length,
-        promotionCount: promotions.length,
-        hasLinkedPricing: priceLists.length > 0 || promotions.length > 0,
-        isLoading:
-          Boolean(targetQueries[index]?.isLoading) ||
-          Boolean(priceListQueries[index]?.isLoading) ||
-          Boolean(promotionQueries[index]?.isLoading),
+        targetCount: overview?.targetCount || 0,
+        excludedTargetCount: overview?.excludedTargetCount || 0,
+        priceListCount: overview?.priceListCount || 0,
+        promotionCount: overview?.promotionCount || 0,
+        hasLinkedPricing: overview?.hasLinkedPricing || false,
+        isLoading: normalizedCampaignIds.length > 0 && overviewQuery.isLoading,
       };
 
       return accumulator;
     }, {});
-  }, [campaignIds, priceListQueries, promotionQueries, targetQueries]);
+  }, [normalizedCampaignIds, overviewQuery.data, overviewQuery.isLoading]);
 }
 
 export function useV2CampaignTargetsMap(campaignIds: string[]) {
-  const targetQueries = useQueries({
-    queries: campaignIds.map((campaignId) => ({
-      queryKey: queryKeys.v2CatalogAdmin.campaigns.targets(campaignId),
-      queryFn: async () => {
-        const response = await V2CatalogAdminAPI.getCampaignTargets(campaignId);
-        return response.data;
-      },
-      enabled: campaignId.length > 0,
-    })),
+  const normalizedCampaignIds = useMemo(
+    () => normalizeStringIds(campaignIds),
+    [campaignIds],
+  );
+  const targetsQuery = useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.targetsMap(normalizedCampaignIds),
+    queryFn: async () => {
+      const response =
+        await V2CatalogAdminAPI.getCampaignTargetsMap(normalizedCampaignIds);
+      return response.data;
+    },
+    enabled: normalizedCampaignIds.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   return useMemo(
     () =>
-      campaignIds.reduce<
+      normalizedCampaignIds.reduce<
         Record<
           string,
           {
@@ -1252,14 +1235,15 @@ export function useV2CampaignTargetsMap(campaignIds: string[]) {
             isLoading: boolean;
           }
         >
-      >((accumulator, campaignId, index) => {
+      >((accumulator, campaignId) => {
         accumulator[campaignId] = {
-          targets: (targetQueries[index]?.data || []) as V2CampaignTarget[],
-          isLoading: Boolean(targetQueries[index]?.isLoading),
+          targets: targetsQuery.data?.[campaignId] || [],
+          isLoading:
+            normalizedCampaignIds.length > 0 && targetsQuery.isLoading,
         };
         return accumulator;
       }, {}),
-    [campaignIds, targetQueries],
+    [normalizedCampaignIds, targetsQuery.data, targetsQuery.isLoading],
   );
 }
 

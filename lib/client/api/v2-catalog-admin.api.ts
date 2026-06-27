@@ -559,6 +559,17 @@ export interface V2CampaignTarget {
   deleted_at: string | null;
 }
 
+export interface V2CampaignOverview {
+  targetCount: number;
+  excludedTargetCount: number;
+  priceListCount: number;
+  promotionCount: number;
+  hasLinkedPricing: boolean;
+}
+
+export type V2CampaignOverviewByCampaignId = Record<string, V2CampaignOverview>;
+export type V2CampaignTargetsByCampaignId = Record<string, V2CampaignTarget[]>;
+
 export interface V2PriceList {
   id: string;
   campaign_id: string | null;
@@ -1495,14 +1506,19 @@ function normalizeIdList(ids: string[]): string[] {
   return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean))).sort();
 }
 
-function buildProductIdsSearchParams(productIds: string[]): string {
-  const normalizedProductIds = normalizeIdList(productIds);
+function buildIdsSearchParams(key: string, ids: string[]): string {
+  const normalizedIds = normalizeIdList(ids);
   return buildSearchParams({
-    productIds:
-      normalizedProductIds.length > 0
-        ? normalizedProductIds.join(',')
-        : undefined,
+    [key]: normalizedIds.length > 0 ? normalizedIds.join(',') : undefined,
   });
+}
+
+function buildProductIdsSearchParams(productIds: string[]): string {
+  return buildIdsSearchParams('productIds', productIds);
+}
+
+function buildCampaignIdsSearchParams(campaignIds: string[]): string {
+  return buildIdsSearchParams('campaignIds', campaignIds);
 }
 
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
@@ -2333,6 +2349,22 @@ export const V2CatalogAdminAPI = {
 
   async getCampaign(id: string): Promise<ApiResponse<V2Campaign>> {
     return apiClient.get(`/api/v2/catalog/admin/campaigns/${id}`);
+  },
+
+  async getCampaignOverviewMap(
+    campaignIds: string[],
+  ): Promise<ApiResponse<V2CampaignOverviewByCampaignId>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/campaigns/overview${buildCampaignIdsSearchParams(campaignIds)}`,
+    );
+  },
+
+  async getCampaignTargetsMap(
+    campaignIds: string[],
+  ): Promise<ApiResponse<V2CampaignTargetsByCampaignId>> {
+    return apiClient.get(
+      `/api/v2/catalog/admin/campaigns/targets-map${buildCampaignIdsSearchParams(campaignIds)}`,
+    );
   },
 
   async createCampaign(
