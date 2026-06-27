@@ -21,6 +21,7 @@ export default function LeafyProjectPage() {
       imageAlt="리피"
       footerName="LEAFY"
       profileItems={PROFILE_ITEMS}
+      debutVideoId="fx8HnH4Pvos"
       storyLines={[
         '새로운 이야기를 준비하고 있습니다.',
         '리피의 자세한 소개는 곧 공개될 예정입니다.',
