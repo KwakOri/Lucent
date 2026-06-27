@@ -1,4 +1,4 @@
-import { Play, ShoppingBag } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 
 import styles from './miruru-fonts.module.css';
@@ -132,27 +132,17 @@ export default function MiruruProjectPage() {
             >
               DEBUT
             </div>
-            <a
-              href="https://www.youtube.com/watch?v=csCZ0zBdJ6Q"
-              target="_blank"
-              rel="noreferrer"
-              className="group relative flex aspect-video items-center justify-center overflow-hidden rounded-xl bg-linear-to-br from-[#dceefe] to-[#a8d5e2] shadow-[0_16px_38px_rgba(74,136,185,0.20)]"
-            >
-              <div
-                aria-hidden="true"
-                className="absolute inset-0 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.12)_0_14px,rgba(255,255,255,0)_14px_28px)]"
+            <div className="relative aspect-video overflow-hidden rounded-xl bg-[#dceefe] shadow-[0_16px_38px_rgba(74,136,185,0.20)]">
+              <iframe
+                src="https://www.youtube-nocookie.com/embed/csCZ0zBdJ6Q"
+                title="시로우미 미루루 데뷔 PV"
+                className="h-full w-full border-0"
+                loading="lazy"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
               />
-              <div className="relative flex flex-col items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-[0_8px_22px_rgba(26,26,46,0.20)] transition-transform group-hover:scale-105 sm:h-[4.625rem] sm:w-[4.625rem]">
-                  <Play className="ml-1 h-7 w-7 fill-[#4a88b9] text-[#4a88b9]" />
-                </div>
-                <div
-                  className={`${styles.mono} rounded-full bg-white/75 px-4 py-1.5 text-center text-xs tracking-wide text-[#2f567a]`}
-                >
-                  데뷔 PV - 유튜브에서 보기
-                </div>
-              </div>
-            </a>
+            </div>
           </div>
 
           <div className="flex flex-col">
