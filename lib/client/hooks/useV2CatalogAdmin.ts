@@ -68,6 +68,7 @@ import {
   type ValidateV2CouponData,
   type ValidateV2BundleDefinitionData,
   type UploadV2MediaAssetFileData,
+  type V2Product,
   type V2ProductMedia,
   type V2Variant,
 } from '@/lib/client/api/v2-catalog-admin.api';
@@ -77,6 +78,84 @@ async function invalidateV2CatalogAdmin(queryClient: ReturnType<typeof useQueryC
   await queryClient.invalidateQueries({
     queryKey: queryKeys.v2CatalogAdmin.all,
   });
+}
+
+function matchesV2ProductListParams(
+  product: V2Product,
+  params: GetV2ProductsParams = {},
+): boolean {
+  if (params.projectId && params.projectId !== product.project_id) {
+    return false;
+  }
+  if (params.status && params.status !== product.status) {
+    return false;
+  }
+  return true;
+}
+
+type V2ProductListQueryKey = readonly [
+  'v2-catalog-admin',
+  'products',
+  'list',
+  GetV2ProductsParams,
+];
+
+function isV2ProductListQueryKey(
+  queryKey: readonly unknown[],
+): queryKey is V2ProductListQueryKey {
+  return (
+    queryKey[0] === 'v2-catalog-admin' &&
+    queryKey[1] === 'products' &&
+    queryKey[2] === 'list'
+  );
+}
+
+function updateV2ProductInListCache(
+  previous: V2Product[] | undefined,
+  product: V2Product,
+  params: GetV2ProductsParams = {},
+) {
+  if (!previous) {
+    return previous;
+  }
+
+  const productIndex = previous.findIndex((item) => item.id === product.id);
+  const matchesParams = matchesV2ProductListParams(product, params);
+
+  if (!matchesParams) {
+    if (productIndex === -1) {
+      return previous;
+    }
+    return previous.filter((item) => item.id !== product.id);
+  }
+
+  if (productIndex === -1) {
+    return [...previous, product];
+  }
+
+  return previous.map((item) => (item.id === product.id ? product : item));
+}
+
+function syncV2ProductCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  product: V2Product,
+) {
+  queryClient.setQueryData(
+    queryKeys.v2CatalogAdmin.products.detail(product.id),
+    product,
+  );
+
+  queryClient
+    .getQueryCache()
+    .findAll({ predicate: (query) => isV2ProductListQueryKey(query.queryKey) })
+    .forEach((query) => {
+      const queryKey = query.queryKey as V2ProductListQueryKey;
+      const params = queryKey[3] || {};
+
+      queryClient.setQueryData<V2Product[]>(queryKey, (previous) =>
+        updateV2ProductInListCache(previous, product, params),
+      );
+    });
 }
 
 type InvalidateControl = {
@@ -309,7 +388,9 @@ export function useUpdateV2Product() {
       void skipInvalidate;
       return V2CatalogAdminAPI.updateProduct(id, data);
     },
-    onSuccess: async (_response, variables) => {
+    onSuccess: async (response, variables) => {
+      syncV2ProductCache(queryClient, response.data);
+
       if (variables.skipInvalidate) {
         return;
       }
