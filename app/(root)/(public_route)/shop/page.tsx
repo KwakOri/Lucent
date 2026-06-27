@@ -146,6 +146,7 @@ function ShopPageContent() {
     selectedCampaign?.shop_banner_public_url || null;
   const showCampaignHeroBanner =
     !!selectedCampaignId && !!selectedCampaignBannerUrl;
+  const showPopupListSection = !selectedCampaignId;
   const heroBackgroundClass = selectedCampaignId
     ? "bg-[#7bb8e9]"
     : "bg-[#f9f9ed]";
@@ -339,14 +340,16 @@ function ShopPageContent() {
         )}
       </section>
 
-      <PopupListSection
-        campaigns={campaignQuery.data}
-        isFetching={campaignQuery.isFetching}
-        isLoading={campaignQuery.isLoading}
-        isPending={campaignQuery.isPending}
-        isError={campaignQuery.isError}
-        variant="shop"
-      />
+      {showPopupListSection ? (
+        <PopupListSection
+          campaigns={campaignQuery.data}
+          isFetching={campaignQuery.isFetching}
+          isLoading={campaignQuery.isLoading}
+          isPending={campaignQuery.isPending}
+          isError={campaignQuery.isError}
+          variant="shop"
+        />
+      ) : null}
 
       {voicePacks.length > 0 ? (
         <section className="px-4 py-16">
