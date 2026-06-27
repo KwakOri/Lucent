@@ -132,9 +132,28 @@ export function HeroSlider() {
               : "opacity-0 pointer-events-none"
           }`}
         >
+          {slide.image && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 md:hidden"
+            >
+              <img
+                src={slide.image}
+                alt=""
+                className={`absolute max-w-none object-contain opacity-30 ${
+                  slide.type === "slogan"
+                    ? "bottom-0 right-[-18%] h-[88%] w-[92%] object-bottom"
+                    : "bottom-14 right-[-10%] h-[68%] w-[86%] object-center"
+                }`}
+              />
+              <div className="absolute inset-0 bg-linear-to-r from-[#f9f9ed]/95 via-[#f9f9ed]/72 to-[#f9f9ed]/35" />
+              <div className="absolute inset-x-0 bottom-0 h-28 bg-linear-to-t from-[#f9f9ed] to-[#f9f9ed]/0" />
+            </div>
+          )}
+
           <div className="flex h-full">
             {/* 텍스트 영역 - 슬로건과 동일한 구조 */}
-            <div className="flex flex-1 items-start px-4 pt-28 sm:px-6 sm:pt-32 md:items-center md:pt-0 lg:px-8">
+            <div className="relative z-10 flex flex-1 items-start px-4 pt-28 sm:px-6 sm:pt-32 md:items-center md:pt-0 lg:px-8">
               <div className="ml-12 mr-auto max-w-2xl sm:ml-16 md:ml-8 lg:ml-60">
                 {slide.type === "slogan"
                   ? renderSloganTitle(slide.titleLines)
