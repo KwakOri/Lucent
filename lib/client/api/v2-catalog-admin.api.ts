@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from '@/lib/client/utils/api-client';
+import type { V2AdminStockLocation } from '@/lib/client/api/v2-admin-ops.api';
 import type { ApiResponse } from '@/types';
 
 export type V2ProjectStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
@@ -583,6 +584,18 @@ export interface V2CampaignDetailContext {
   bundleDefinitions: V2BundleDefinition[];
   variantsByProductId: V2VariantsByProductId;
   mediaByProductId: V2ProductMediaByProductId;
+}
+
+export interface V2CampaignPricingContext {
+  campaign: V2Campaign;
+  targets: V2CampaignTarget[];
+  products: V2Product[];
+  stockLocations: V2AdminStockLocation[];
+  campaignPriceLists: V2PriceList[];
+  basePriceLists: V2PriceList[];
+  campaignPriceItems: V2PriceListItem[];
+  basePriceItems: V2PriceListItem[];
+  variantsByProductId: V2VariantsByProductId;
 }
 
 export interface V2PriceList {
@@ -2370,6 +2383,12 @@ export const V2CatalogAdminAPI = {
     id: string,
   ): Promise<ApiResponse<V2CampaignDetailContext>> {
     return apiClient.get(`/api/v2/catalog/admin/campaigns/${id}/detail-context`);
+  },
+
+  async getCampaignPricingContext(
+    id: string,
+  ): Promise<ApiResponse<V2CampaignPricingContext>> {
+    return apiClient.get(`/api/v2/catalog/admin/campaigns/${id}/pricing-context`);
   },
 
   async getCampaignOverviewMap(

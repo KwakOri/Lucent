@@ -7,6 +7,7 @@
 - Method: warm-up pass, then measured pass using admin SSR auth cookies and existing timing headers.
 - Baseline local artifact: `output/playwright/waterfall-20260627/waterfall.json` (ignored by git).
 - Post WN-314 local artifact: `output/playwright/waterfall-20260627/waterfall-post-wn314.json` (ignored by git).
+- Post WN-316 focused pricing retest was measured directly and through the browser after adding the pricing-context aggregate endpoint.
 
 ## Baseline Measured Pass
 
@@ -30,6 +31,12 @@
 | `/admin/v2-catalog/campaigns/:campaignId` | 1 | 183.4ms | 79.4ms | 73.0ms | `200:1` |
 | `/admin/v2-catalog/campaigns/:campaignId/pricing` | 8 | 264.9ms | 276.6ms | 137.7ms | `200:8` |
 
+## Post WN-316 Focused Pricing Retest
+
+| Route | API count | Warm direct API | Proxy | Backend app | Status |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `/admin/v2-catalog/campaigns/:campaignId/pricing` | 1 | 105-203ms | 29.3-66.4ms | 25.0-58.9ms | `200:1` |
+
 ## Findings
 
 - Project product list is no longer the main bottleneck. It now loads with 2 API calls: project detail and project-list aggregate.
@@ -40,13 +47,13 @@
 - Campaign pricing was reduced from 10 API calls to 8 API calls by reusing the bulk variants map and removing per-product variant requests.
 - Campaign detail was reduced from 11 API calls to 1 aggregate detail-context API call after WN-314.
 - Post WN-314, every measured admin route returned only `200` responses.
+- Campaign pricing was reduced from 8 API calls to 1 pricing-context aggregate API call after WN-316. Browser retest showed 1 pricing-context call and 0 legacy fan-out calls.
 
 ## Remaining Candidates
 
-- Campaign pricing still fans out to 8 API calls. The largest remaining opportunity is a focused pricing aggregate endpoint that returns campaign, targets, base price list/items, products, variants map, and inventory locations together.
 - Campaign list still uses 5 API calls. It is not the current hot spot, but it can be collapsed later if the page becomes a frequent operator entry point.
 - Product list and project product list are acceptable at 2 API calls each.
-- Recommended next task: evaluate whether the campaign pricing aggregate endpoint is worth the extra backend/frontend contract surface.
+- Recommended next task: re-run the full 6-route waterfall if another round of performance work starts; otherwise leave the remaining 5-call campaign list as a lower-priority candidate.
 
 ## Verification
 
@@ -54,3 +61,4 @@
 - Dashboard direct retest: 6 consecutive `GET /api/v2/admin/ops/dashboard/overview?preset=LAST_7_DAYS` calls with admin bearer auth returned `200`.
 - Frontend targeted lint for WN-313/WN-314 changed files.
 - Post WN-314 browser remeasure: warm-up pass followed by measured pass across 6 admin routes using admin SSR auth cookies.
+- Post WN-316 campaign pricing browser retest: `GET /api/v2/catalog/admin/campaigns/:campaignId/pricing-context` returned `200`; pricing page API count was 1.

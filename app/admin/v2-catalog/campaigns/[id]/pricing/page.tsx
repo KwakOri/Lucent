@@ -11,21 +11,19 @@ import {
   CampaignPricingBulkTable,
   type SaveCampaignVariantPriceParams,
 } from '@/src/components/admin/v2-catalog/CampaignPricingBulkTable';
-import type { V2PriceList, V2PriceListItem } from '@/lib/client/api/v2-catalog-admin.api';
+import type {
+  V2CampaignPricingContext,
+  V2PriceList,
+  V2PriceListItem,
+} from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useCreateV2PriceList,
   useCreateV2PriceListItem,
   usePublishV2PriceList,
   useUpdateV2PriceListItem,
-  useV2AdminProducts,
-  useV2AdminVariantsMap,
-  useV2Campaign,
-  useV2CampaignTargets,
-  useV2PriceListItems,
-  useV2PriceLists,
+  useV2CampaignPricingContext,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import { queryKeys } from '@/lib/client/hooks/query-keys';
-import { useV2AdminStockLocations } from '@/lib/client/hooks/useV2AdminOps';
 import { formatDateRange, getErrorMessage } from '@/lib/client/utils/v2-campaign-admin';
 import { resolveEligibleCampaignProducts } from '@/lib/client/utils/v2-campaign-targeting';
 import {
@@ -34,6 +32,13 @@ import {
 } from '@/lib/client/utils/v2-product-admin-form';
 
 type DiscountMode = 'FIXED' | 'PERCENT';
+
+const EMPTY_CAMPAIGN_TARGETS: V2CampaignPricingContext['targets'] = [];
+const EMPTY_PRODUCTS: V2CampaignPricingContext['products'] = [];
+const EMPTY_STOCK_LOCATIONS: V2CampaignPricingContext['stockLocations'] = [];
+const EMPTY_PRICE_LISTS: V2PriceList[] = [];
+const EMPTY_PRICE_ITEMS: V2PriceListItem[] = [];
+const EMPTY_VARIANTS_BY_PRODUCT_ID: V2CampaignPricingContext['variantsByProductId'] = {};
 
 function formatCurrency(amount: number): string {
   return `${amount.toLocaleString('ko-KR')}원`;
@@ -192,20 +197,26 @@ export default function V2CatalogCampaignPricingPage() {
   const presetProductId = (searchParams.get('productId') || '').trim();
   const pendingOnly = searchParams.get('pendingOnly') === '1';
 
-  const { data: campaign, isLoading: campaignLoading, error: campaignError } = useV2Campaign(campaignId);
-  const { data: targets, isLoading: targetsLoading, error: targetsError } = useV2CampaignTargets(campaignId);
-  const { data: products, isLoading: productsLoading, error: productsError } = useV2AdminProducts();
-  const { data: stockLocations, isLoading: stockLocationsLoading } = useV2AdminStockLocations();
+  const {
+    data: pricingContext,
+    isLoading: pricingContextLoading,
+    isFetching: pricingContextFetching,
+    error: pricingContextError,
+  } = useV2CampaignPricingContext(campaignId);
+  const campaign = pricingContext?.campaign || null;
+  const targets = pricingContext?.targets ?? EMPTY_CAMPAIGN_TARGETS;
+  const products = pricingContext?.products ?? EMPTY_PRODUCTS;
+  const stockLocations = pricingContext?.stockLocations ?? EMPTY_STOCK_LOCATIONS;
+  const campaignPriceLists =
+    pricingContext?.campaignPriceLists ?? EMPTY_PRICE_LISTS;
+  const basePriceLists = pricingContext?.basePriceLists ?? EMPTY_PRICE_LISTS;
+  const campaignPriceItems =
+    pricingContext?.campaignPriceItems ?? EMPTY_PRICE_ITEMS;
+  const baseItems = pricingContext?.basePriceItems ?? EMPTY_PRICE_ITEMS;
+  const variantsByProductId =
+    pricingContext?.variantsByProductId ?? EMPTY_VARIANTS_BY_PRODUCT_ID;
   const isAlwaysOnCampaign = campaign?.campaign_type === 'ALWAYS_ON';
   const campaignPriceScopeType = isAlwaysOnCampaign ? 'BASE' : 'OVERRIDE';
-  const { data: campaignPriceLists, isLoading: campaignPriceListsLoading } = useV2PriceLists({
-    campaignId,
-    scopeType: campaignPriceScopeType,
-  });
-  const { data: basePriceLists, isLoading: basePriceListsLoading } = useV2PriceLists({
-    scopeType: 'BASE',
-    status: 'PUBLISHED',
-  });
 
   const createPriceList = useCreateV2PriceList();
   const publishPriceList = usePublishV2PriceList();
@@ -220,24 +231,9 @@ export default function V2CatalogCampaignPricingPage() {
     () => publishedCampaignPriceList || pickLatestPriceList(campaignPriceLists || []),
     [campaignPriceLists, publishedCampaignPriceList],
   );
-  const activeBaseList = useMemo(
-    () => pickLatestPriceList(basePriceLists || []),
-    [basePriceLists],
-  );
-
-  const {
-    data: campaignPriceItems,
-    isLoading: campaignPriceItemsLoading,
-    error: campaignPriceItemsError,
-  } = useV2PriceListItems(activeCampaignPriceList?.id || null);
-  const {
-    data: baseItems,
-    isLoading: baseItemsLoading,
-    error: baseItemsError,
-  } = useV2PriceListItems(activeBaseList?.id || null);
 
   const eligibleProducts = useMemo(() => {
-    if (!campaign || !targets || !products) {
+    if (!campaign) {
       return [];
     }
     return resolveEligibleCampaignProducts({
@@ -247,31 +243,15 @@ export default function V2CatalogCampaignPricingPage() {
       products,
     });
   }, [campaign, products, targets]);
-  const eligibleProductIds = useMemo(
-    () => eligibleProducts.map((product) => product.id),
-    [eligibleProducts],
-  );
-  const {
-    variantsByProductId,
-    isLoading: variantsMapLoading,
-    isFetching: variantsMapFetching,
-    isError: variantsMapError,
-  } = useV2AdminVariantsMap(eligibleProductIds);
+  const variantsMapLoading = pricingContextLoading;
+  const variantsMapFetching = pricingContextFetching;
+  const variantsMapError = Boolean(pricingContextError);
   const variants = useMemo(
     () => (selectedProductId ? variantsByProductId[selectedProductId] || [] : []),
     [selectedProductId, variantsByProductId],
   );
 
-  const isLoading =
-    campaignLoading ||
-    targetsLoading ||
-    productsLoading ||
-    stockLocationsLoading ||
-    campaignPriceListsLoading ||
-    basePriceListsLoading ||
-    campaignPriceItemsLoading ||
-    baseItemsLoading ||
-    variantsMapLoading;
+  const isLoading = pricingContextLoading;
 
   const presetProduct = useMemo(
     () => eligibleProducts.find((product) => product.id === presetProductId) || null,
@@ -650,15 +630,10 @@ export default function V2CatalogCampaignPricingPage() {
   }
 
   if (
-    campaignError ||
-    targetsError ||
-    productsError ||
-    campaignPriceItemsError ||
-    baseItemsError ||
-    variantsMapError ||
+    pricingContextError ||
+    !pricingContext ||
     !campaign ||
-    !targets ||
-    !products
+    variantsMapError
   ) {
     return (
       <div className="space-y-4">
