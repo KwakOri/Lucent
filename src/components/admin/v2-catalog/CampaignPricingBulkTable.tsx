@@ -10,7 +10,7 @@ import type {
   V2Product,
   V2Variant,
 } from '@/lib/client/api/v2-catalog-admin.api';
-import { useUpdateV2Variant, useV2AdminVariantsMap } from '@/lib/client/hooks/useV2CatalogAdmin';
+import { useUpdateV2Variant } from '@/lib/client/hooks/useV2CatalogAdmin';
 import { useV2AdminUpsertInventoryLevel } from '@/lib/client/hooks/useV2AdminOps';
 import {
   FULFILLMENT_TYPE_LABELS,
@@ -29,6 +29,10 @@ export type SaveCampaignVariantPriceParams = {
 
 type CampaignPricingBulkTableProps = {
   products: V2Product[];
+  variantsByProductId: Record<string, V2Variant[]>;
+  variantsLoading: boolean;
+  variantsFetching: boolean;
+  variantsError: boolean;
   isAlwaysOnCampaign: boolean;
   baseItems: V2PriceListItem[];
   campaignItems: V2PriceListItem[];
@@ -222,6 +226,10 @@ function getProductFulfillmentIntent(summary: ProductFulfillmentSummary): 'defau
 
 export function CampaignPricingBulkTable({
   products,
+  variantsByProductId,
+  variantsLoading,
+  variantsFetching,
+  variantsError,
   isAlwaysOnCampaign,
   baseItems,
   campaignItems,
@@ -240,14 +248,6 @@ export function CampaignPricingBulkTable({
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-
-  const productIds = useMemo(() => products.map((product) => product.id), [products]);
-  const {
-    variantsByProductId,
-    isLoading: variantsLoading,
-    isFetching: variantsFetching,
-    isError: variantsError,
-  } = useV2AdminVariantsMap(productIds);
 
   const upsertInventoryLevel = useV2AdminUpsertInventoryLevel();
   const updateVariant = useUpdateV2Variant();

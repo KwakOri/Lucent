@@ -373,7 +373,7 @@ export default function V2CatalogCampaignDetailPage() {
   }, [targets]);
 
   const candidateProducts = useMemo(() => {
-    if (!campaign || !products) {
+    if (!campaign || !products || !targets) {
       return [];
     }
 
