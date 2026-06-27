@@ -76,7 +76,7 @@ export default function MiruruProjectPage() {
       <section className="relative isolate overflow-hidden px-5 pb-0 pt-14 sm:px-8 lg:px-14 lg:pt-16">
         <div
           aria-hidden="true"
-          className="absolute right-4 top-20 -z-10 text-[5.4rem] font-semibold leading-[0.78] tracking-tight text-[#a8d5e2]/30 [font-family:var(--font-miruru-cormorant)] sm:right-8 sm:top-24 sm:text-[9rem] lg:right-10 lg:top-36 lg:text-[11.75rem]"
+          className="absolute right-4 top-20 -z-10 text-right text-[5.4rem] font-semibold leading-[0.8] tracking-[-0.01em] text-[#a8d5e2]/30 [font-family:var(--font-miruru-cormorant)] sm:right-8 sm:top-24 sm:text-[9rem] lg:right-[34px] lg:top-[150px] lg:text-[188px]"
         >
           MIRU
           <br />
