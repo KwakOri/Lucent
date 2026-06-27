@@ -125,7 +125,7 @@ export default function MiruruProjectPage() {
       </section>
 
       <section className="bg-linear-to-b from-[#f2f6ef] to-[#eef4fb] px-5 py-16 sm:px-8 lg:px-14 lg:py-20">
-        <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-2 lg:gap-14">
+        <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)] lg:gap-14">
           <div className="flex flex-col">
             <div
               className={`${styles.cormorant} mb-6 text-xs font-semibold tracking-[0.4em] text-[#9bb3cf]`}
