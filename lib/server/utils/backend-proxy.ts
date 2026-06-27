@@ -8,6 +8,7 @@ const PASSTHROUGH_HEADERS = [
   'accept-ranges',
   'content-disposition',
   'location',
+  'x-lucent-backend-app-ms',
 ];
 
 interface ProxyBackendOptions {
@@ -25,6 +26,7 @@ function createTimingHeaders(input: {
   authMs: number;
   backendMs: number;
   payloadMs: number;
+  backendServerTiming?: string | null;
 }): HeadersInit {
   const totalMs = formatDurationMs(input.totalMs);
   const authMs = formatDurationMs(input.authMs);
@@ -33,11 +35,14 @@ function createTimingHeaders(input: {
 
   return {
     'server-timing': [
+      input.backendServerTiming || '',
       `lucent_proxy;dur=${totalMs}`,
       `lucent_auth;dur=${authMs}`,
       `lucent_backend;dur=${backendMs}`,
       `lucent_payload;dur=${payloadMs}`,
-    ].join(', '),
+    ]
+      .filter(Boolean)
+      .join(', '),
     'x-lucent-proxy-ms': totalMs,
     'x-lucent-auth-ms': authMs,
     'x-lucent-backend-ms': backendMs,
@@ -205,6 +210,7 @@ export async function proxyBackendRequest(
       authMs,
       backendMs,
       payloadMs,
+      backendServerTiming: backendResponse.headers.get('server-timing'),
     });
     for (const [name, value] of Object.entries(timingHeaders)) {
       responseHeaders.set(name, value);
