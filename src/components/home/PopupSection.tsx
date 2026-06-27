@@ -62,6 +62,12 @@ function formatDateRange(startsAt: string | null, endsAt: string | null): string
   return `${startLabel} ~ ${endLabel}`;
 }
 
+function PopupSkeletonShine() {
+  return (
+    <div className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 animate-popup-skeleton-shine bg-white/70 blur-xl" />
+  );
+}
+
 function PopupCardSkeleton() {
   return (
     <div
@@ -70,11 +76,15 @@ function PopupCardSkeleton() {
     >
       <div className="relative aspect-[12/5] overflow-hidden bg-[#dceefe]">
         <div className="absolute left-4 top-4 h-8 w-20 rounded-full bg-white/70" />
-        <div className="h-full w-full animate-pulse bg-gradient-to-r from-[#dceefe] via-white to-[#dceefe]" />
+        <PopupSkeletonShine />
       </div>
       <div className="px-6 py-5">
-        <div className="mb-2 h-8 w-3/5 animate-pulse rounded-full bg-[#d8e7f6]" />
-        <div className="mb-3 h-5 w-4/5 animate-pulse rounded-full bg-[#e7f1fb]" />
+        <div className="relative mb-2 h-8 w-3/5 overflow-hidden rounded-full bg-[#d8e7f6]">
+          <PopupSkeletonShine />
+        </div>
+        <div className="relative mb-3 h-5 w-4/5 overflow-hidden rounded-full bg-[#e7f1fb]">
+          <PopupSkeletonShine />
+        </div>
         <p className="text-sm font-medium text-[#4a88b9]">
           팝업 정보를 불러오는 중입니다.
         </p>
