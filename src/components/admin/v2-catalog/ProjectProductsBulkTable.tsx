@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import type {
   V2Product,
   V2ProductMedia,
@@ -21,6 +22,12 @@ import {
 
 type ProjectProductsBulkTableProps = {
   products: V2Product[];
+  selectedProductIds: string[];
+  allProductsSelected: boolean;
+  hasPartialSelection: boolean;
+  isSelectionDisabled?: boolean;
+  onToggleProduct: (productId: string, checked: boolean) => void;
+  onToggleAllProducts: (checked: boolean) => void;
   onOpenDetail: (productId: string) => void;
 };
 
@@ -77,9 +84,19 @@ function summarizeVariants(variants: V2Variant[]): string {
 
 export function ProjectProductsBulkTable({
   products,
+  selectedProductIds,
+  allProductsSelected,
+  hasPartialSelection,
+  isSelectionDisabled,
+  onToggleProduct,
+  onToggleAllProducts,
   onOpenDetail,
 }: ProjectProductsBulkTableProps) {
   const productIds = useMemo(() => products.map((product) => product.id), [products]);
+  const selectedProductIdSet = useMemo(
+    () => new Set(selectedProductIds),
+    [selectedProductIds],
+  );
   const {
     variantsByProductId,
     isLoading: variantsLoading,
@@ -108,6 +125,16 @@ export function ProjectProductsBulkTable({
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
+              <th className="w-12 px-3 py-2 text-left font-semibold text-gray-700">
+                <Checkbox
+                  size="sm"
+                  checked={allProductsSelected}
+                  indeterminate={hasPartialSelection}
+                  disabled={isSelectionDisabled || products.length === 0}
+                  label={<span className="sr-only">현재 목록 상품 전체 선택</span>}
+                  onChange={(event) => onToggleAllProducts(event.target.checked)}
+                />
+              </th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">커버</th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">상품</th>
               <th className="px-3 py-2 text-left font-semibold text-gray-700">상태</th>
@@ -124,6 +151,17 @@ export function ProjectProductsBulkTable({
 
               return (
                 <tr key={product.id} className="align-top">
+                  <td className="px-3 py-3">
+                    <Checkbox
+                      size="sm"
+                      checked={selectedProductIdSet.has(product.id)}
+                      disabled={isSelectionDisabled}
+                      label={<span className="sr-only">{product.title} 선택</span>}
+                      onChange={(event) =>
+                        onToggleProduct(product.id, event.target.checked)
+                      }
+                    />
+                  </td>
                   <td className="px-3 py-3">
                     <div className="h-14 w-14 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
                       {coverMedia?.public_url ? (
