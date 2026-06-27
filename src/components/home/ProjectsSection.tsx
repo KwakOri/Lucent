@@ -165,7 +165,7 @@ export function ProjectsSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 gap-x-8 gap-y-36 md:grid-cols-2 lg:gap-y-40">
           {projectCards.length > 0 ? (
             projectCards.map((project) => {
               const displayConfig = PROJECT_DISPLAY_CONFIG[project.slug] || {};
