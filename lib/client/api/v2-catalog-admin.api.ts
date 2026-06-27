@@ -570,6 +570,21 @@ export interface V2CampaignOverview {
 export type V2CampaignOverviewByCampaignId = Record<string, V2CampaignOverview>;
 export type V2CampaignTargetsByCampaignId = Record<string, V2CampaignTarget[]>;
 
+export interface V2CampaignDetailContext {
+  campaign: V2Campaign;
+  targets: V2CampaignTarget[];
+  priceLists: V2PriceList[];
+  basePriceLists: V2PriceList[];
+  campaignPriceItems: V2PriceListItem[];
+  basePriceItems: V2PriceListItem[];
+  promotions: V2Promotion[];
+  projects: V2Project[];
+  products: V2Product[];
+  bundleDefinitions: V2BundleDefinition[];
+  variantsByProductId: V2VariantsByProductId;
+  mediaByProductId: V2ProductMediaByProductId;
+}
+
 export interface V2PriceList {
   id: string;
   campaign_id: string | null;
@@ -2349,6 +2364,12 @@ export const V2CatalogAdminAPI = {
 
   async getCampaign(id: string): Promise<ApiResponse<V2Campaign>> {
     return apiClient.get(`/api/v2/catalog/admin/campaigns/${id}`);
+  },
+
+  async getCampaignDetailContext(
+    id: string,
+  ): Promise<ApiResponse<V2CampaignDetailContext>> {
+    return apiClient.get(`/api/v2/catalog/admin/campaigns/${id}/detail-context`);
   },
 
   async getCampaignOverviewMap(

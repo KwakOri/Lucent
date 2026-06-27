@@ -1521,6 +1521,20 @@ export function useV2Campaign(campaignId: string | null | undefined) {
   });
 }
 
+export function useV2CampaignDetailContext(
+  campaignId: string | null | undefined,
+) {
+  return useQuery({
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.detailContext(campaignId || ''),
+    queryFn: async () => {
+      const response =
+        await V2CatalogAdminAPI.getCampaignDetailContext(campaignId!);
+      return response.data;
+    },
+    enabled: !!campaignId,
+  });
+}
+
 export function useCreateV2Campaign() {
   const queryClient = useQueryClient();
   return useMutation({

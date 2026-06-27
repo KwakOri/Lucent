@@ -292,6 +292,12 @@ export const queryKeys = {
         [...queryKeys.v2CatalogAdmin.campaigns.all, 'list', params] as const,
       detail: (id: string) =>
         [...queryKeys.v2CatalogAdmin.campaigns.all, 'detail', id] as const,
+      detailContext: (id: string) =>
+        [
+          ...queryKeys.v2CatalogAdmin.campaigns.all,
+          'detail-context',
+          id,
+        ] as const,
       overview: (campaignIds: string[]) =>
         [
           ...queryKeys.v2CatalogAdmin.campaigns.all,
