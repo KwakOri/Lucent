@@ -35,6 +35,7 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # local ops reports
+/output/
 /reports/v2-rehearsal/
 /supabase/.temp/
 /supabase/backups/
