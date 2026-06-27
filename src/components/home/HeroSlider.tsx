@@ -115,7 +115,7 @@ export function HeroSlider() {
   };
 
   return (
-    <section className="relative min-h-[31rem] overflow-hidden bg-[#f9f9ed] sm:min-h-[34rem] md:min-h-150">
+    <section className="relative min-h-[29rem] overflow-hidden bg-[#f9f9ed] sm:min-h-[32rem] md:min-h-150">
       {/* Background decorative shapes */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -right-20 top-20 w-80 h-96 bg-[#F4D03F]/30 rounded-full blur-3xl" />
