@@ -88,12 +88,24 @@ const PROJECT_DISPLAY_CONFIG: Record<
     artist: "리피",
     image: "/profile_leafy.png",
     detailPath: "/projects/leafy",
+    socials: {
+      chzzk: "https://chzzk.naver.com/c0087678584dde072491be66f0662e40",
+      twitter: "https://x.com/Melting_Leafy",
+      youtube: "https://www.youtube.com/@%EB%A6%AC%ED%94%BCleafy",
+      cafe: "https://cafe.naver.com/meltingleafy",
+    },
   },
   pukong: {
     bgColor: "#BBDCF8",
     artist: "푸콩",
     image: "/profile_pukong.png",
     detailPath: "/projects/pukong",
+    socials: {
+      chzzk: "https://chzzk.naver.com/43341c5abdd1fb6b3645d195977a1c10",
+      twitter: "https://x.com/pukongi1004",
+      youtube: "https://www.youtube.com/@%ED%91%B8%EC%BD%A9%EC%9D%B4PUKONG",
+      cafe: "https://cafe.naver.com/brownrm9jg",
+    },
   },
   "1st": {
     bgColor: "#E5E5E5",
