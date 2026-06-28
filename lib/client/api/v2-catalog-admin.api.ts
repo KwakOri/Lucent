@@ -1092,6 +1092,17 @@ export interface UpdateV2MediaAssetData {
   metadata?: Record<string, unknown>;
 }
 
+export interface CreateExternalV2MediaAssetData {
+  url: string;
+  file_name?: string;
+  mime_type?: string | null;
+  file_size?: number | null;
+  asset_kind?: V2MediaAssetKind;
+  storage_provider?: string;
+  status?: V2MediaAssetStatus;
+  metadata?: Record<string, unknown>;
+}
+
 export interface UploadV2MediaAssetFileData {
   file: File;
   asset_kind?: V2MediaAssetKind;
@@ -2072,6 +2083,12 @@ export const V2CatalogAdminAPI = {
     mediaAssetId: string,
   ): Promise<ApiResponse<V2MediaAsset>> {
     return apiClient.delete(`/api/v2/catalog/admin/media-assets/${mediaAssetId}`);
+  },
+
+  async createExternalMediaAsset(
+    data: CreateExternalV2MediaAssetData,
+  ): Promise<ApiResponse<V2MediaAsset>> {
+    return apiClient.post('/api/v2/catalog/admin/media-assets/external-link', data);
   },
 
   async uploadMediaAssetFile(

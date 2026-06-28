@@ -21,6 +21,7 @@ import {
   type CreateV2BundleDefinitionData,
   type CreateV2CouponData,
   type CreateV2DigitalAssetData,
+  type CreateExternalV2MediaAssetData,
   type CreateV2MediaData,
   type CreateV2PriceListData,
   type CreateV2PriceListItemData,
@@ -1004,6 +1005,17 @@ export function useDeleteV2MediaAsset() {
             isV2ProductMediaMapQueryKey(query.queryKey),
         }),
       ]);
+    },
+  });
+}
+
+export function useCreateExternalV2MediaAsset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateExternalV2MediaAssetData) =>
+      V2CatalogAdminAPI.createExternalMediaAsset(data),
+    onSuccess: async () => {
+      await invalidateV2MediaAssetQueries(queryClient);
     },
   });
 }
