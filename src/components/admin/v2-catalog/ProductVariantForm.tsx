@@ -175,10 +175,12 @@ function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim());
 }
 
-function getChoiceButtonClass(active: boolean): string {
+function getChoiceButtonClass(active: boolean, current = false): string {
   return `rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
     active
       ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm'
+      : current
+        ? 'border-blue-200 bg-blue-50/70 text-gray-800 ring-1 ring-blue-100 hover:border-blue-300'
       : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
   }`;
 }
@@ -505,6 +507,10 @@ export function ProductVariantForm({
   const isExistingExternalLink =
     Boolean(existingStorageProvider && existingStorageProvider.toUpperCase() !== 'R2') ||
     isHttpUrl(primaryAsset?.storage_path || '');
+  const existingDigitalAssetInputMode: DigitalAssetInputMode | null =
+    mode === 'edit' && primaryAsset ? (isExistingExternalLink ? 'LINK' : 'FILE') : null;
+  const existingDigitalAssetTypeLabel =
+    existingDigitalAssetInputMode === 'LINK' ? '현재 링크' : '현재 파일';
   const existingDigitalAssetSizeLabel =
     isExistingExternalLink && (!existingDigitalAssetSize || existingDigitalAssetSize <= 1)
       ? '외부 링크'
@@ -1303,7 +1309,9 @@ export function ProductVariantForm({
                   <p>현재 연결된 디지털 에셋 정보를 불러오는 중입니다.</p>
                 ) : primaryAsset ? (
                   <div className="space-y-1">
-                    <p className="font-medium text-gray-900">현재 파일: {existingDigitalAssetName}</p>
+                    <p className="font-medium text-gray-900">
+                      {existingDigitalAssetTypeLabel}: {existingDigitalAssetName}
+                    </p>
                     <p className="text-xs text-gray-500">
                       {existingDigitalAssetSizeLabel} · 상태 {primaryAsset.status}
                     </p>
@@ -1322,11 +1330,21 @@ export function ProductVariantForm({
                   setUploadState(null);
                   setAbortUpload(null);
                 }}
-                className={getChoiceButtonClass(digitalAssetInputMode === 'FILE')}
+                className={getChoiceButtonClass(
+                  digitalAssetInputMode === 'FILE',
+                  existingDigitalAssetInputMode === 'FILE',
+                )}
               >
-                <span className="flex items-center gap-2">
-                  <FileArchive className="h-4 w-4" aria-hidden="true" />
-                  File
+                <span className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2">
+                    <FileArchive className="h-4 w-4" aria-hidden="true" />
+                    File
+                  </span>
+                  {existingDigitalAssetInputMode === 'FILE' && (
+                    <Badge intent="info" className="shrink-0">
+                      현재 저장됨
+                    </Badge>
+                  )}
                 </span>
                 <span className="mt-1 block text-xs font-normal text-gray-500">
                   오디오 또는 zip 파일을 R2에 업로드합니다.
@@ -1339,11 +1357,21 @@ export function ProductVariantForm({
                   setUploadState(null);
                   setAbortUpload(null);
                 }}
-                className={getChoiceButtonClass(digitalAssetInputMode === 'LINK')}
+                className={getChoiceButtonClass(
+                  digitalAssetInputMode === 'LINK',
+                  existingDigitalAssetInputMode === 'LINK',
+                )}
               >
-                <span className="flex items-center gap-2">
-                  <LinkIcon className="h-4 w-4" aria-hidden="true" />
-                  Link
+                <span className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2">
+                    <LinkIcon className="h-4 w-4" aria-hidden="true" />
+                    Link
+                  </span>
+                  {existingDigitalAssetInputMode === 'LINK' && (
+                    <Badge intent="info" className="shrink-0">
+                      현재 저장됨
+                    </Badge>
+                  )}
                 </span>
                 <span className="mt-1 block text-xs font-normal text-gray-500">
                   Google Drive 같은 외부 다운로드 링크를 연결합니다.
