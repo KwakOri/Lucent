@@ -28,7 +28,7 @@ type SocialKey = keyof typeof SOCIAL_ICON_CONFIG;
 
 const SOCIAL_ICON_ORDER: SocialKey[] = ["chzzk", "twitter", "youtube", "cafe"];
 const FEATURED_PROJECT_ORDER = ["miruru", "leafy", "pukong"] as const;
-const FEATURED_PROJECT_ORDER_RANK = new Map(
+const FEATURED_PROJECT_ORDER_RANK: ReadonlyMap<string, number> = new Map(
   FEATURED_PROJECT_ORDER.map((slug, index) => [slug, index]),
 );
 
