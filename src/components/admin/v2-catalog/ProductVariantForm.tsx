@@ -175,12 +175,10 @@ function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim());
 }
 
-function getChoiceButtonClass(active: boolean, current = false): string {
+function getChoiceButtonClass(active: boolean): string {
   return `rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
     active
       ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm'
-      : current
-        ? 'border-blue-200 bg-blue-50/70 text-gray-800 ring-1 ring-blue-100 hover:border-blue-300'
       : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
   }`;
 }
@@ -1330,10 +1328,7 @@ export function ProductVariantForm({
                   setUploadState(null);
                   setAbortUpload(null);
                 }}
-                className={getChoiceButtonClass(
-                  digitalAssetInputMode === 'FILE',
-                  existingDigitalAssetInputMode === 'FILE',
-                )}
+                className={getChoiceButtonClass(digitalAssetInputMode === 'FILE')}
               >
                 <span className="flex items-center justify-between gap-3">
                   <span className="flex items-center gap-2">
@@ -1357,10 +1352,7 @@ export function ProductVariantForm({
                   setUploadState(null);
                   setAbortUpload(null);
                 }}
-                className={getChoiceButtonClass(
-                  digitalAssetInputMode === 'LINK',
-                  existingDigitalAssetInputMode === 'LINK',
-                )}
+                className={getChoiceButtonClass(digitalAssetInputMode === 'LINK')}
               >
                 <span className="flex items-center justify-between gap-3">
                   <span className="flex items-center gap-2">
