@@ -27,6 +27,10 @@ const SOCIAL_ICON_CONFIG = {
 type SocialKey = keyof typeof SOCIAL_ICON_CONFIG;
 
 const SOCIAL_ICON_ORDER: SocialKey[] = ["chzzk", "twitter", "youtube", "cafe"];
+const FEATURED_PROJECT_ORDER = ["miruru", "leafy", "pukong"] as const;
+const FEATURED_PROJECT_ORDER_RANK = new Map(
+  FEATURED_PROJECT_ORDER.map((slug, index) => [slug, index]),
+);
 
 const darkenHexColor = (hexColor: string, ratio = 0.28) => {
   const normalized = hexColor.trim().replace("#", "");
@@ -79,6 +83,16 @@ const STATIC_LUCENT_PROJECTS: ProjectCardItem[] = [
     is_active: true,
   },
 ];
+
+const getProjectLayoutClassName = (slug: string) =>
+  slug === "miruru"
+    ? "md:col-span-2 md:mx-auto md:w-[calc((100%-2rem)/2)]"
+    : "";
+
+const getProjectRowZIndex = (index: number) => {
+  const rowIndex = index === 0 ? 0 : Math.ceil(index / 2);
+  return (rowIndex + 1) * 10;
+};
 
 // Project display config
 const PROJECT_DISPLAY_CONFIG: Record<
@@ -156,7 +170,15 @@ export function ProjectsSection() {
       (project) => !fetchedSlugs.has(project.slug),
     );
 
-    return [...fetchedProjects, ...staticFallbacks];
+    return [...fetchedProjects, ...staticFallbacks]
+      .map((project, index) => ({ project, index }))
+      .sort((left, right) => {
+        const leftRank = FEATURED_PROJECT_ORDER_RANK.get(left.project.slug) ?? 999;
+        const rightRank =
+          FEATURED_PROJECT_ORDER_RANK.get(right.project.slug) ?? 999;
+        return leftRank - rightRank || left.index - right.index;
+      })
+      .map(({ project }) => project);
   }, [projects]);
 
   console.log("[ProjectsSection] 렌더링 상태:", {
@@ -200,12 +222,14 @@ export function ProjectsSection() {
 
         <div className="grid grid-cols-1 gap-x-8 gap-y-36 md:grid-cols-2 lg:gap-y-40">
           {projectCards.length > 0 ? (
-            projectCards.map((project) => {
+            projectCards.map((project, index) => {
               const displayConfig = PROJECT_DISPLAY_CONFIG[project.slug] || {};
               const isDisabled = !project.is_active;
               const socialAccentColor = darkenHexColor(
                 displayConfig.bgColor || "#E5E5E5",
               );
+              const layoutClassName = getProjectLayoutClassName(project.slug);
+              const rowZIndex = getProjectRowZIndex(index);
 
               return (
                 <div
@@ -222,7 +246,8 @@ export function ProjectsSection() {
                     !isDisabled
                       ? ""
                       : "opacity-60 cursor-not-allowed pointer-events-none"
-                  } group`}
+                  } group relative ${layoutClassName}`}
+                  style={{ zIndex: rowZIndex }}
                 >
                   {/* 카드 컨테이너 */}
                   <div className="relative pt-32">
