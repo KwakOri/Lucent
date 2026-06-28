@@ -1,8 +1,9 @@
 "use client";
 
 import { useProjects } from "@/lib/client/hooks";
-import { useRouter } from "next/navigation";
 import { useCallback, useMemo } from "react";
+
+const ARTIST_DETAIL_COMING_SOON_MESSAGE = "준비중인 페이지입니다! 곧 만나요!";
 
 const SOCIAL_ICON_CONFIG = {
   chzzk: {
@@ -26,6 +27,30 @@ const SOCIAL_ICON_CONFIG = {
 type SocialKey = keyof typeof SOCIAL_ICON_CONFIG;
 
 const SOCIAL_ICON_ORDER: SocialKey[] = ["chzzk", "twitter", "youtube", "cafe"];
+
+const darkenHexColor = (hexColor: string, ratio = 0.28) => {
+  const normalized = hexColor.trim().replace("#", "");
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((character) => character + character)
+          .join("")
+      : normalized;
+
+  if (!/^[0-9a-fA-F]{6}$/.test(expanded)) {
+    return hexColor;
+  }
+
+  const channels = [0, 2, 4].map((start) => {
+    const value = parseInt(expanded.slice(start, start + 2), 16);
+    return Math.max(0, Math.round(value * (1 - ratio)))
+      .toString(16)
+      .padStart(2, "0");
+  });
+
+  return `#${channels.join("")}`;
+};
 
 type ProjectCardItem = {
   id: string;
@@ -120,12 +145,13 @@ const PROJECT_DISPLAY_CONFIG: Record<
 };
 
 export function ProjectsSection() {
-  const router = useRouter();
   const { data: projects, isLoading, isError, error } = useProjects();
 
   const projectCards = useMemo(() => {
     const fetchedProjects = projects ?? [];
-    const fetchedSlugs = new Set(fetchedProjects.map((project) => project.slug));
+    const fetchedSlugs = new Set(
+      fetchedProjects.map((project) => project.slug),
+    );
     const staticFallbacks = STATIC_LUCENT_PROJECTS.filter(
       (project) => !fetchedSlugs.has(project.slug),
     );
@@ -133,7 +159,7 @@ export function ProjectsSection() {
     return [...fetchedProjects, ...staticFallbacks];
   }, [projects]);
 
-  console.log('[ProjectsSection] 렌더링 상태:', {
+  console.log("[ProjectsSection] 렌더링 상태:", {
     isLoading,
     isError,
     error,
@@ -147,20 +173,17 @@ export function ProjectsSection() {
     window.open(url, "_blank");
   }, []);
 
-  const handleProjectClick = useCallback(
-    (path: string) => {
-      router.push(path);
-    },
-    [router],
-  );
+  const handleProjectClick = useCallback(() => {
+    window.alert(ARTIST_DETAIL_COMING_SOON_MESSAGE);
+  }, []);
 
   const handleProjectKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>, path: string) => {
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key !== "Enter" && e.key !== " ") {
         return;
       }
       e.preventDefault();
-      handleProjectClick(path);
+      handleProjectClick();
     },
     [handleProjectClick],
   );
@@ -169,9 +192,7 @@ export function ProjectsSection() {
     <section id="projects" className="py-20 px-4 bg-white">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-text-primary mb-4">
-            Lucent
-          </h2>
+          <h2 className="text-4xl font-bold text-text-primary mb-4">Lucent</h2>
           <p className="text-lg text-text-secondary">
             Lucent의 아티스트를 만나보세요
           </p>
@@ -182,22 +203,20 @@ export function ProjectsSection() {
             projectCards.map((project) => {
               const displayConfig = PROJECT_DISPLAY_CONFIG[project.slug] || {};
               const isDisabled = !project.is_active;
-              const detailPath =
-                displayConfig.detailPath || `/projects/${project.slug}`;
-              const socialAccentColor = displayConfig.bgColor || "#E5E5E5";
+              const socialAccentColor = darkenHexColor(
+                displayConfig.bgColor || "#E5E5E5",
+              );
 
               return (
                 <div
                   key={project.id}
                   role="button"
                   tabIndex={isDisabled ? -1 : 0}
-                  onClick={
-                    isDisabled ? undefined : () => handleProjectClick(detailPath)
-                  }
+                  onClick={isDisabled ? undefined : handleProjectClick}
                   onKeyDown={
                     isDisabled
                       ? undefined
-                      : (event) => handleProjectKeyDown(event, detailPath)
+                      : (event) => handleProjectKeyDown(event)
                   }
                   className={`block ${
                     !isDisabled
@@ -240,7 +259,8 @@ export function ProjectsSection() {
                         {displayConfig.socials && (
                           <div className="flex gap-2">
                             {SOCIAL_ICON_ORDER.map((socialKey) => {
-                              const socialUrl = displayConfig.socials?.[socialKey];
+                              const socialUrl =
+                                displayConfig.socials?.[socialKey];
                               if (!socialUrl) {
                                 return null;
                               }
@@ -248,12 +268,15 @@ export function ProjectsSection() {
                               return (
                                 <button
                                   key={socialKey}
-                                  onClick={(e) => handleSocialClick(e, socialUrl)}
+                                  onClick={(e) =>
+                                    handleSocialClick(e, socialUrl)
+                                  }
                                   className="group/social flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-[var(--project-social-color)] bg-transparent transition-colors hover:border-[var(--project-social-color)] hover:bg-[var(--project-social-color)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--project-social-color)]"
                                   aria-label={socialIcon.label}
                                   style={
                                     {
-                                      "--project-social-color": socialAccentColor,
+                                      "--project-social-color":
+                                        socialAccentColor,
                                     } as React.CSSProperties
                                   }
                                 >
