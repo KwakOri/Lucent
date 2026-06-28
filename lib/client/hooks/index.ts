@@ -88,6 +88,7 @@ export {
   useCreateV2ProductMedia,
   useUpdateV2ProductMedia,
   useDeactivateV2ProductMedia,
+  useCreateExternalV2MediaAsset,
   useV2AdminVariantAssets,
   useCreateV2DigitalAsset,
   useUpdateV2DigitalAsset,
