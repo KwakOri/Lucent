@@ -69,30 +69,30 @@ export function VoicePackCover({
       />
 
       {/* CD 케이스 프레임 */}
-      <div className="absolute inset-2 rounded-lg border border-white/40" />
+      <div className="absolute inset-1.5 rounded-lg border border-white/40 sm:inset-2" />
 
       {/* 왼쪽 사이드 패턴 */}
       <div
-        className={`absolute bottom-0 left-0 top-0 flex w-8 flex-col items-center justify-center gap-1.5 py-3 backdrop-blur-sm ${
+        className={`absolute bottom-0 left-0 top-0 flex w-6 flex-col items-center justify-center gap-1 py-2 backdrop-blur-sm sm:w-8 sm:gap-1.5 sm:py-3 ${
           usesMediaBackground ? 'bg-white/10' : 'bg-white/30'
         }`}
       >
         {[...Array(4)].map((_, i) => (
           <div
             key={i}
-            className={`h-4 w-4 rotate-45 border-2 ${
+            className={`h-3 w-3 rotate-45 border-2 sm:h-4 sm:w-4 ${
               usesMediaBackground ? 'border-white/30' : 'border-[#1a1a2e]/30'
             }`}
           />
         ))}
       </div>
 
-      <div className="w-full h-full pl-8 pr-2">
+      <div className="w-full h-full pl-6 pr-1.5 sm:pl-8 sm:pr-2">
         <div className="w-full h-full relative ">
           {/* 상단 라벨 */}
           <div className="absolute w-full h-full ">
             {/* 상단 좌측 라벨 */}
-            <div className="absolute top-3 left-3">
+            <div className="absolute left-2 top-2 sm:left-3 sm:top-3">
               <p
                 className={`font-mono text-[8px] font-medium ${
                   usesMediaBackground ? 'text-white/80' : 'text-[#1a1a2e]/70'
@@ -116,7 +116,7 @@ export function VoicePackCover({
               </p>
             </div>
             {/* 우측 상단 코드 */}
-            <div className="absolute top-3 right-3">
+            <div className="absolute right-2 top-2 sm:right-3 sm:top-3">
               <p
                 className={`font-mono text-[10px] font-bold ${
                   usesMediaBackground ? 'text-white/65' : 'text-[#1a1a2e]/60'
@@ -133,7 +133,7 @@ export function VoicePackCover({
             <div
               className={
                 usesMediaBackground
-                  ? 'absolute  h-36 w-36 sm:h-40 sm:w-40'
+                  ? 'absolute h-20 w-20 sm:h-40 sm:w-40'
                   : 'absolute bottom-4 right-4 h-24 w-24'
               }
               style={{
@@ -154,7 +154,7 @@ export function VoicePackCover({
 
                 {/* 썸네일을 CD에도 표시 */}
                 {thumbnail && (
-                  <div className="absolute inset-2 rounded-full overflow-hidden opacity-100">
+                  <div className="absolute inset-1 overflow-hidden rounded-full opacity-100 sm:inset-2">
                     <img
                       src={thumbnail}
                       alt={name || 'Voice Pack'}
@@ -173,7 +173,7 @@ export function VoicePackCover({
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div
                     className={`rounded-full bg-[#1a1a2e] ${
-                      usesMediaBackground ? 'h-6 w-6' : 'h-4 w-4'
+                      usesMediaBackground ? 'h-4 w-4 sm:h-6 sm:w-6' : 'h-4 w-4'
                     }`}
                   />
                 </div>
@@ -181,7 +181,7 @@ export function VoicePackCover({
                 {/* 디스크 라벨 */}
                 <div
                   className={`absolute inset-0 flex items-end justify-center ${
-                    usesMediaBackground ? 'pb-10' : 'pb-7'
+                    usesMediaBackground ? 'pb-6 sm:pb-10' : 'pb-7'
                   }`}
                 >
                   <p className="font-mono text-[5px] tracking-widest text-[#1a1a2e]/40">

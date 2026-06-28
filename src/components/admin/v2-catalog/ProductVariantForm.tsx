@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { FileArchive, Link as LinkIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
@@ -12,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import type {
   V2DigitalAsset,
   V2FulfillmentType,
+  V2MediaAssetKind,
   V2MediaAssetUploadProgress,
   V2PriceList,
   V2PriceListItem,
@@ -23,6 +25,7 @@ import {
   useCreateV2PriceList,
   useCreateV2PriceListItem,
   useCreateV2DigitalAsset,
+  useCreateExternalV2MediaAsset,
   useCreateV2Variant,
   usePublishV2PriceList,
   useUpdateV2PriceListItem,
@@ -49,8 +52,10 @@ import { UploadProgressCard, type VariantUploadState } from './UploadProgressCar
 
 const VARIANT_STATUS_VALUES: V2VariantStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE'];
 const FULFILLMENT_TYPE_VALUES: V2FulfillmentType[] = ['DIGITAL', 'PHYSICAL'];
+const DIGITAL_FILE_ACCEPT = 'audio/*,.mp3,.wav,.flac,.m4a,.zip,application/zip,application/x-zip-compressed';
 
 type VariantSaveHandler = () => Promise<boolean>;
+type DigitalAssetInputMode = 'FILE' | 'LINK';
 
 type ProductVariantFormProps = {
   mode: 'create' | 'edit';
@@ -114,6 +119,60 @@ function isAudioFile(file: File): boolean {
     return true;
   }
   return /\.(mp3|wav|flac|m4a)$/i.test(file.name);
+}
+
+function isZipFile(file: File): boolean {
+  const mime = file.type.toLowerCase();
+  return (
+    mime === 'application/zip' ||
+    mime === 'application/x-zip-compressed' ||
+    /\.zip$/i.test(file.name)
+  );
+}
+
+function isSupportedDigitalFile(file: File): boolean {
+  return isAudioFile(file) || isZipFile(file);
+}
+
+function inferDigitalFileAssetKind(file: File): V2MediaAssetKind {
+  if (isZipFile(file)) {
+    return 'ARCHIVE';
+  }
+  return 'AUDIO';
+}
+
+function inferDigitalFileMimeType(file: File): string {
+  if (file.type) {
+    return file.type;
+  }
+  if (isZipFile(file)) {
+    return 'application/zip';
+  }
+  if (/\.mp3$/i.test(file.name)) {
+    return 'audio/mpeg';
+  }
+  if (/\.wav$/i.test(file.name)) {
+    return 'audio/wav';
+  }
+  if (/\.flac$/i.test(file.name)) {
+    return 'audio/flac';
+  }
+  if (/\.m4a$/i.test(file.name)) {
+    return 'audio/mp4';
+  }
+  return 'application/octet-stream';
+}
+
+function inferExternalLinkAssetKind(url: string, fileName: string): V2MediaAssetKind {
+  const target = `${fileName} ${url}`;
+  if (/\.zip(?:$|[?#\s])/i.test(target)) {
+    return 'ARCHIVE';
+  }
+  return 'FILE';
+}
+
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value.trim());
 }
 
 function getChoiceButtonClass(active: boolean): string {
@@ -229,6 +288,7 @@ export function ProductVariantForm({
   const createVariant = useCreateV2Variant();
   const updateVariant = useUpdateV2Variant();
   const uploadMediaAssetFile = useUploadV2MediaAssetFile();
+  const createExternalMediaAsset = useCreateExternalV2MediaAsset();
   const createDigitalAsset = useCreateV2DigitalAsset();
   const updateDigitalAsset = useUpdateV2DigitalAsset();
   const upsertInventoryLevel = useV2AdminUpsertInventoryLevel();
@@ -247,7 +307,11 @@ export function ProductVariantForm({
   const [inventoryLocationId, setInventoryLocationId] = useState('');
   const [inventoryOnHandQuantity, setInventoryOnHandQuantity] = useState('');
   const [inventorySafetyStockQuantity, setInventorySafetyStockQuantity] = useState('');
-  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [digitalAssetInputMode, setDigitalAssetInputMode] =
+    useState<DigitalAssetInputMode>('FILE');
+  const [digitalFile, setDigitalFile] = useState<File | null>(null);
+  const [digitalLinkUrl, setDigitalLinkUrl] = useState('');
+  const [digitalLinkFileName, setDigitalLinkFileName] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadState, setUploadState] = useState<VariantUploadState | null>(null);
   const [persistedVariantId, setPersistedVariantId] = useState<string | null>(null);
@@ -347,7 +411,10 @@ export function ProductVariantForm({
       setWeightGrams(variant.weight_grams == null ? '' : String(variant.weight_grams));
       setInventoryOnHandQuantity('');
       setInventorySafetyStockQuantity('');
-      setAudioFile(null);
+      setDigitalAssetInputMode('FILE');
+      setDigitalFile(null);
+      setDigitalLinkUrl('');
+      setDigitalLinkFileName('');
       setErrorMessage(null);
       setUploadState(null);
       setPersistedVariantId(null);
@@ -364,7 +431,10 @@ export function ProductVariantForm({
     setWeightGrams('');
     setInventoryOnHandQuantity('');
     setInventorySafetyStockQuantity('');
-    setAudioFile(null);
+    setDigitalAssetInputMode('FILE');
+    setDigitalFile(null);
+    setDigitalLinkUrl('');
+    setDigitalLinkFileName('');
     setErrorMessage(null);
     setUploadState(null);
     setPersistedVariantId(null);
@@ -427,10 +497,22 @@ export function ProductVariantForm({
     inventorySafetyStockQuantity,
   ]);
 
-  const existingAudioName =
-    primaryAsset?.file_name || primaryAsset?.media_asset?.file_name || '연결된 오디오 없음';
-  const existingAudioSize =
+  const existingDigitalAssetName =
+    primaryAsset?.file_name || primaryAsset?.media_asset?.file_name || '연결된 디지털 파일 없음';
+  const existingDigitalAssetSize =
     primaryAsset?.file_size ?? primaryAsset?.media_asset?.file_size ?? null;
+  const existingStorageProvider = primaryAsset?.media_asset?.storage_provider || null;
+  const isExistingExternalLink =
+    Boolean(existingStorageProvider && existingStorageProvider.toUpperCase() !== 'R2') ||
+    isHttpUrl(primaryAsset?.storage_path || '');
+  const existingDigitalAssetInputMode: DigitalAssetInputMode | null =
+    mode === 'edit' && primaryAsset ? (isExistingExternalLink ? 'LINK' : 'FILE') : null;
+  const existingDigitalAssetTypeLabel =
+    existingDigitalAssetInputMode === 'LINK' ? '현재 링크' : '현재 파일';
+  const existingDigitalAssetSizeLabel =
+    isExistingExternalLink && (!existingDigitalAssetSize || existingDigitalAssetSize <= 1)
+      ? '외부 링크'
+      : formatBytes(existingDigitalAssetSize);
 
   const isSubmitting =
     isBasePricingLoading ||
@@ -441,6 +523,7 @@ export function ProductVariantForm({
     createPriceListItem.isPending ||
     updatePriceListItem.isPending ||
     uploadMediaAssetFile.isPending ||
+    createExternalMediaAsset.isPending ||
     createDigitalAsset.isPending ||
     updateDigitalAsset.isPending ||
     upsertInventoryLevel.isPending;
@@ -554,7 +637,9 @@ export function ProductVariantForm({
       return;
     }
     setTrackInventory(true);
-    setAudioFile(null);
+    setDigitalFile(null);
+    setDigitalLinkUrl('');
+    setDigitalLinkFileName('');
     setUploadState(null);
     setAbortUpload(null);
   };
@@ -668,76 +753,132 @@ export function ProductVariantForm({
         });
       }
 
-      if (!isBundleProduct && resolvedFulfillmentType === 'DIGITAL' && audioFile) {
-        if (!isAudioFile(audioFile)) {
-          throw new Error('오디오 파일 형식(mp3/wav/flac/m4a 또는 audio/*)만 업로드할 수 있습니다.');
-        }
-        if (!savedVariantId) {
-          throw new Error('옵션 저장 후 오디오를 연결할 수 없습니다.');
-        }
-
-        setUploadState(createIdleUploadState(audioFile.name));
-        const uploaded = await uploadMediaAssetFile.mutateAsync({
-          data: {
-            file: audioFile,
-            asset_kind: 'AUDIO',
-            status: 'ACTIVE',
-            metadata: {
-              source: mode === 'create' ? 'v2-variant-create-audio' : 'v2-variant-edit-audio',
-            },
+      if (!isBundleProduct && resolvedFulfillmentType === 'DIGITAL') {
+        const persistPrimaryDigitalAsset = async (
+          payload: {
+            media_asset_id: string;
+            file_name: string;
+            mime_type: string;
+            file_size: number;
+            status: 'READY' | 'DRAFT';
+            metadata: Record<string, unknown>;
           },
-          options: {
-            onProgress: (progress) => {
-              setUploadState(toUploadState(progress, audioFile.name));
-            },
-            onAbortReady: (nextAbortUpload) => {
-              setAbortUpload(() => nextAbortUpload);
-            },
-          },
-        });
-        setAbortUpload(null);
+        ) => {
+          if (!savedVariantId) {
+            throw new Error('옵션 저장 후 디지털 파일을 연결할 수 없습니다.');
+          }
 
-        setUploadState({
-          stage: 'linking',
-          fileName: audioFile.name,
-          loaded: audioFile.size,
-          total: audioFile.size,
-          percent: 100,
-        });
+          if (primaryAsset) {
+            await updateDigitalAsset.mutateAsync({
+              assetId: primaryAsset.id,
+              data: payload,
+            });
+            return;
+          }
 
-        const digitalAssetPayload = {
-          media_asset_id: uploaded.data.id,
-          file_name: audioFile.name,
-          mime_type: audioFile.type || 'application/octet-stream',
-          file_size: audioFile.size,
-          status: status === 'ACTIVE' ? 'READY' : 'DRAFT',
-          metadata: {
-            source: mode === 'create' ? 'v2-variant-create-audio' : 'v2-variant-edit-audio',
-          },
-        } as const;
-
-        if (primaryAsset) {
-          await updateDigitalAsset.mutateAsync({
-            assetId: primaryAsset.id,
-            data: digitalAssetPayload,
-          });
-        } else {
           await createDigitalAsset.mutateAsync({
             variantId: savedVariantId,
             data: {
               asset_role: 'PRIMARY',
-              ...digitalAssetPayload,
+              ...payload,
             },
+          });
+        };
+
+        if (digitalAssetInputMode === 'FILE' && digitalFile) {
+          if (!isSupportedDigitalFile(digitalFile)) {
+            throw new Error('오디오(mp3/wav/flac/m4a) 또는 zip 파일만 업로드할 수 있습니다.');
+          }
+
+          const uploadSource =
+            mode === 'create' ? 'v2-variant-create-file' : 'v2-variant-edit-file';
+          setUploadState(createIdleUploadState(digitalFile.name));
+          const uploaded = await uploadMediaAssetFile.mutateAsync({
+            data: {
+              file: digitalFile,
+              asset_kind: inferDigitalFileAssetKind(digitalFile),
+              status: 'ACTIVE',
+              metadata: {
+                source: uploadSource,
+                delivery_method: 'FILE',
+              },
+            },
+            options: {
+              onProgress: (progress) => {
+                setUploadState(toUploadState(progress, digitalFile.name));
+              },
+              onAbortReady: (nextAbortUpload) => {
+                setAbortUpload(() => nextAbortUpload);
+              },
+            },
+          });
+          setAbortUpload(null);
+
+          setUploadState({
+            stage: 'linking',
+            fileName: digitalFile.name,
+            loaded: digitalFile.size,
+            total: digitalFile.size,
+            percent: 100,
+          });
+
+          await persistPrimaryDigitalAsset({
+            media_asset_id: uploaded.data.id,
+            file_name: digitalFile.name,
+            mime_type: inferDigitalFileMimeType(digitalFile),
+            file_size: digitalFile.size,
+            status: status === 'ACTIVE' ? 'READY' : 'DRAFT',
+            metadata: {
+              source: uploadSource,
+              delivery_method: 'FILE',
+              media_asset_kind: inferDigitalFileAssetKind(digitalFile),
+            },
+          });
+
+          setUploadState({
+            stage: 'complete',
+            fileName: digitalFile.name,
+            loaded: digitalFile.size,
+            total: digitalFile.size,
+            percent: 100,
           });
         }
 
-        setUploadState({
-          stage: 'complete',
-          fileName: audioFile.name,
-          loaded: audioFile.size,
-          total: audioFile.size,
-          percent: 100,
-        });
+        if (digitalAssetInputMode === 'LINK' && digitalLinkUrl.trim()) {
+          if (!isHttpUrl(digitalLinkUrl)) {
+            throw new Error('다운로드 링크는 http(s) URL이어야 합니다.');
+          }
+
+          const normalizedLinkUrl = digitalLinkUrl.trim();
+          const linkFileName = digitalLinkFileName.trim() || 'Google Drive file';
+          const assetKind = inferExternalLinkAssetKind(normalizedLinkUrl, linkFileName);
+          const linkSource =
+            mode === 'create' ? 'v2-variant-create-link' : 'v2-variant-edit-link';
+          const mediaAsset = await createExternalMediaAsset.mutateAsync({
+            url: normalizedLinkUrl,
+            file_name: linkFileName,
+            asset_kind: assetKind,
+            status: 'ACTIVE',
+            metadata: {
+              source: linkSource,
+              delivery_method: 'LINK',
+            },
+          });
+
+          await persistPrimaryDigitalAsset({
+            media_asset_id: mediaAsset.data.id,
+            file_name: linkFileName,
+            mime_type: mediaAsset.data.mime_type || 'application/octet-stream',
+            file_size: mediaAsset.data.file_size || 1,
+            status: status === 'ACTIVE' ? 'READY' : 'DRAFT',
+            metadata: {
+              source: linkSource,
+              delivery_method: 'LINK',
+              external_url: normalizedLinkUrl,
+              media_asset_kind: assetKind,
+            },
+          });
+        }
       }
 
       setAbortUpload(null);
@@ -750,11 +891,11 @@ export function ProductVariantForm({
         if (mode === 'create' && savedVariantId) {
           setPersistedVariantId(savedVariantId);
           setErrorMessage(
-            '오디오 업로드를 취소했습니다. 옵션은 이미 저장되어 있으니 같은 옵션에 다시 업로드할 수 있습니다.',
+            '디지털 파일 업로드를 취소했습니다. 옵션은 이미 저장되어 있으니 같은 옵션에 다시 업로드할 수 있습니다.',
           );
           return false;
         }
-        setErrorMessage('오디오 업로드를 취소했습니다. 다시 시도하거나 파일을 바꿀 수 있습니다.');
+        setErrorMessage('디지털 파일 업로드를 취소했습니다. 다시 시도하거나 파일을 바꿀 수 있습니다.');
         return false;
       }
 
@@ -792,7 +933,7 @@ export function ProductVariantForm({
   };
 
   const handleRetryUpload = async () => {
-    if (!audioFile || isSubmitting) {
+    if (!digitalFile || digitalAssetInputMode !== 'FILE' || isSubmitting) {
       return;
     }
     await submitVariantForm();
@@ -1000,7 +1141,7 @@ export function ProductVariantForm({
             <Badge intent="default">구성 기준</Badge>
           </div>
           <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
-            부모 옵션에는 대표 판매가와 노출 상태만 저장하고, 오디오 파일/재고/배송 세부 정보는 구성 상품의
+            부모 옵션에는 대표 판매가와 노출 상태만 저장하고, 디지털 파일/재고/배송 세부 정보는 구성 상품의
             옵션에서 관리합니다.
           </div>
         </section>
@@ -1142,9 +1283,9 @@ export function ProductVariantForm({
         <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">오디오 파일</h2>
+              <h2 className="text-lg font-semibold text-gray-900">디지털 파일</h2>
               <p className="mt-1 text-sm text-gray-500">
-                디지털 옵션은 오디오 파일을 연결해 바로 제공할 수 있습니다.
+                디지털 옵션에 파일 업로드 또는 다운로드 링크를 연결합니다.
               </p>
             </div>
             <Badge intent="info">디지털</Badge>
@@ -1152,47 +1293,136 @@ export function ProductVariantForm({
 
           <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4">
             <p className="text-sm font-medium text-blue-900">
-              {mode === 'create' ? '오디오 파일 업로드 (선택)' : '오디오 파일 교체 (선택)'}
+              {mode === 'create' ? '디지털 파일 연결 (선택)' : '디지털 파일 교체 (선택)'}
             </p>
             <p className="mt-1 text-sm text-blue-800/80">
               {mode === 'create'
-                ? '파일을 선택하면 옵션 저장과 함께 업로드되어 기본 디지털 에셋으로 연결됩니다.'
-                : '새 파일을 선택하지 않으면 기존 오디오를 그대로 유지합니다.'}
+                ? '파일을 선택하거나 링크를 입력하면 옵션 저장과 함께 기본 디지털 에셋으로 연결됩니다.'
+                : '새 파일/링크를 입력하지 않으면 기존 디지털 에셋을 그대로 유지합니다.'}
             </p>
 
             {mode === 'edit' && (
               <div className="mt-4 rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm text-gray-700">
                 {isAssetsLoading ? (
-                  <p>현재 연결된 오디오 정보를 불러오는 중입니다.</p>
+                  <p>현재 연결된 디지털 에셋 정보를 불러오는 중입니다.</p>
                 ) : primaryAsset ? (
                   <div className="space-y-1">
-                    <p className="font-medium text-gray-900">현재 파일: {existingAudioName}</p>
+                    <p className="font-medium text-gray-900">
+                      {existingDigitalAssetTypeLabel}: {existingDigitalAssetName}
+                    </p>
                     <p className="text-xs text-gray-500">
-                      {formatBytes(existingAudioSize)} · 상태 {primaryAsset.status}
+                      {existingDigitalAssetSizeLabel} · 상태 {primaryAsset.status}
                     </p>
                   </div>
                 ) : (
-                  <p>현재 연결된 오디오가 없습니다. 새 파일을 선택하면 기본 오디오로 연결됩니다.</p>
+                  <p>현재 연결된 디지털 에셋이 없습니다. 파일 또는 링크를 추가할 수 있습니다.</p>
                 )}
               </div>
             )}
 
-            <FileInput
-              id="variant-audio-file"
-              triggerLabel={
-                audioFile
-                  ? `${audioFile.name} (${formatBytes(audioFile.size)})`
-                  : mode === 'create'
-                    ? '오디오 파일 선택'
-                    : '새 오디오 파일 선택'
-              }
-              accept="audio/*,.mp3,.wav,.flac,.m4a"
-              onChange={(event) => setAudioFile(event.target.files?.[0] || null)}
-              className="mt-4"
-            />
-            <p className="mt-2 text-xs text-gray-500">
-              선택 파일: {audioFile ? `${audioFile.name} (${formatBytes(audioFile.size)})` : '없음'}
-            </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDigitalAssetInputMode('FILE');
+                  setUploadState(null);
+                  setAbortUpload(null);
+                }}
+                className={getChoiceButtonClass(digitalAssetInputMode === 'FILE')}
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2">
+                    <FileArchive className="h-4 w-4" aria-hidden="true" />
+                    File
+                  </span>
+                  {existingDigitalAssetInputMode === 'FILE' && (
+                    <Badge intent="info" className="shrink-0">
+                      현재 저장됨
+                    </Badge>
+                  )}
+                </span>
+                <span className="mt-1 block text-xs font-normal text-gray-500">
+                  오디오 또는 zip 파일을 R2에 업로드합니다.
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDigitalAssetInputMode('LINK');
+                  setUploadState(null);
+                  setAbortUpload(null);
+                }}
+                className={getChoiceButtonClass(digitalAssetInputMode === 'LINK')}
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2">
+                    <LinkIcon className="h-4 w-4" aria-hidden="true" />
+                    Link
+                  </span>
+                  {existingDigitalAssetInputMode === 'LINK' && (
+                    <Badge intent="info" className="shrink-0">
+                      현재 저장됨
+                    </Badge>
+                  )}
+                </span>
+                <span className="mt-1 block text-xs font-normal text-gray-500">
+                  Google Drive 같은 외부 다운로드 링크를 연결합니다.
+                </span>
+              </button>
+            </div>
+
+            {digitalAssetInputMode === 'FILE' ? (
+              <>
+                <FileInput
+                  id="variant-digital-file"
+                  triggerLabel={
+                    digitalFile
+                      ? `${digitalFile.name} (${formatBytes(digitalFile.size)})`
+                      : mode === 'create'
+                        ? '디지털 파일 선택'
+                        : '새 디지털 파일 선택'
+                  }
+                  accept={DIGITAL_FILE_ACCEPT}
+                  onChange={(event) => setDigitalFile(event.target.files?.[0] || null)}
+                  className="mt-4"
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  선택 파일: {digitalFile ? `${digitalFile.name} (${formatBytes(digitalFile.size)})` : '없음'}
+                </p>
+              </>
+            ) : (
+              <div className="mt-4 grid gap-4 lg:grid-cols-12">
+                <div className="lg:col-span-8">
+                  <FormField
+                    label="다운로드 링크"
+                    htmlFor="variant-digital-link-url"
+                    help="https:// 로 시작하는 공유 링크를 입력합니다."
+                  >
+                    <Input
+                      id="variant-digital-link-url"
+                      type="url"
+                      value={digitalLinkUrl}
+                      onChange={(event) => setDigitalLinkUrl(event.target.value)}
+                      placeholder="https://drive.google.com/file/d/..."
+                    />
+                  </FormField>
+                </div>
+                <div className="lg:col-span-4">
+                  <FormField
+                    label="표시 파일명"
+                    htmlFor="variant-digital-link-file-name"
+                    help="비워두면 기본 이름을 사용합니다."
+                  >
+                    <Input
+                      id="variant-digital-link-file-name"
+                      value={digitalLinkFileName}
+                      onChange={(event) => setDigitalLinkFileName(event.target.value)}
+                      placeholder="voice-pack.zip"
+                    />
+                  </FormField>
+                </div>
+              </div>
+            )}
           </div>
 
           {uploadState && (
@@ -1204,7 +1434,7 @@ export function ProductVariantForm({
                     업로드 취소
                   </Button>
                 )}
-                {!abortUpload && audioFile && errorMessage && (
+                {!abortUpload && digitalFile && errorMessage && (
                   <Button type="button" intent="neutral" size="sm" onClick={handleRetryUpload}>
                     업로드 다시 시도
                   </Button>
@@ -1213,7 +1443,7 @@ export function ProductVariantForm({
             </div>
           )}
 
-          {!uploadState && audioFile && errorMessage && (
+          {!uploadState && digitalFile && errorMessage && (
             <div className="mt-4">
               <Button type="button" intent="neutral" size="sm" onClick={handleRetryUpload}>
                 업로드 다시 시도

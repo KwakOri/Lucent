@@ -1,10 +1,9 @@
 "use client";
 
 import { useProjects } from "@/lib/client/hooks";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
-const ARTIST_PAGE_READY_MESSAGE =
-  "아티스트 페이지는 아직 준비중입니다! 곧 만나요!";
+const ARTIST_DETAIL_COMING_SOON_MESSAGE = "준비중인 페이지입니다! 곧 만나요!";
 
 const SOCIAL_ICON_CONFIG = {
   chzzk: {
@@ -29,6 +28,58 @@ type SocialKey = keyof typeof SOCIAL_ICON_CONFIG;
 
 const SOCIAL_ICON_ORDER: SocialKey[] = ["chzzk", "twitter", "youtube", "cafe"];
 
+const darkenHexColor = (hexColor: string, ratio = 0.28) => {
+  const normalized = hexColor.trim().replace("#", "");
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((character) => character + character)
+          .join("")
+      : normalized;
+
+  if (!/^[0-9a-fA-F]{6}$/.test(expanded)) {
+    return hexColor;
+  }
+
+  const channels = [0, 2, 4].map((start) => {
+    const value = parseInt(expanded.slice(start, start + 2), 16);
+    return Math.max(0, Math.round(value * (1 - ratio)))
+      .toString(16)
+      .padStart(2, "0");
+  });
+
+  return `#${channels.join("")}`;
+};
+
+type ProjectCardItem = {
+  id: string;
+  slug: string;
+  name: string;
+  is_active: boolean;
+};
+
+const STATIC_LUCENT_PROJECTS: ProjectCardItem[] = [
+  {
+    id: "static-miruru",
+    slug: "miruru",
+    name: "시로우미 미루루",
+    is_active: true,
+  },
+  {
+    id: "static-leafy",
+    slug: "leafy",
+    name: "리피",
+    is_active: true,
+  },
+  {
+    id: "static-pukong",
+    slug: "pukong",
+    name: "푸콩",
+    is_active: true,
+  },
+];
+
 // Project display config
 const PROJECT_DISPLAY_CONFIG: Record<
   string,
@@ -36,6 +87,7 @@ const PROJECT_DISPLAY_CONFIG: Record<
     bgColor?: string;
     artist?: string;
     image?: string;
+    detailPath?: string;
     socials?: {
       chzzk?: string;
       twitter?: string;
@@ -48,11 +100,36 @@ const PROJECT_DISPLAY_CONFIG: Record<
     bgColor: "#A8D5E2",
     artist: "시로우미 미루루",
     image: "/profilemiruru.png",
+    detailPath: "/projects/miruru",
     socials: {
       chzzk: "https://chzzk.naver.com/3e4cec21aa539da475b12e6f294ee766",
       twitter: "https://x.com/SiroumiMiruru",
       youtube: "https://www.youtube.com/@MiruruASMR",
       cafe: "https://cafe.naver.com/rurudrug",
+    },
+  },
+  leafy: {
+    bgColor: "#D8F0D7",
+    artist: "리피",
+    image: "/profile_leafy.png",
+    detailPath: "/projects/leafy",
+    socials: {
+      chzzk: "https://chzzk.naver.com/c0087678584dde072491be66f0662e40",
+      twitter: "https://x.com/Melting_Leafy",
+      youtube: "https://www.youtube.com/@%EB%A6%AC%ED%94%BCleafy",
+      cafe: "https://cafe.naver.com/meltingleafy",
+    },
+  },
+  pukong: {
+    bgColor: "#BBDCF8",
+    artist: "푸콩",
+    image: "/profile_pukong.png",
+    detailPath: "/projects/pukong",
+    socials: {
+      chzzk: "https://chzzk.naver.com/43341c5abdd1fb6b3645d195977a1c10",
+      twitter: "https://x.com/pukongi1004",
+      youtube: "https://www.youtube.com/@%ED%91%B8%EC%BD%A9%EC%9D%B4PUKONG",
+      cafe: "https://cafe.naver.com/brownrm9jg",
     },
   },
   "1st": {
@@ -70,7 +147,19 @@ const PROJECT_DISPLAY_CONFIG: Record<
 export function ProjectsSection() {
   const { data: projects, isLoading, isError, error } = useProjects();
 
-  console.log('[ProjectsSection] 렌더링 상태:', {
+  const projectCards = useMemo(() => {
+    const fetchedProjects = projects ?? [];
+    const fetchedSlugs = new Set(
+      fetchedProjects.map((project) => project.slug),
+    );
+    const staticFallbacks = STATIC_LUCENT_PROJECTS.filter(
+      (project) => !fetchedSlugs.has(project.slug),
+    );
+
+    return [...fetchedProjects, ...staticFallbacks];
+  }, [projects]);
+
+  console.log("[ProjectsSection] 렌더링 상태:", {
     isLoading,
     isError,
     error,
@@ -85,7 +174,7 @@ export function ProjectsSection() {
   }, []);
 
   const handleProjectClick = useCallback(() => {
-    window.alert(ARTIST_PAGE_READY_MESSAGE);
+    window.alert(ARTIST_DETAIL_COMING_SOON_MESSAGE);
   }, []);
 
   const handleProjectKeyDown = useCallback(
@@ -103,19 +192,20 @@ export function ProjectsSection() {
     <section id="projects" className="py-20 px-4 bg-white">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-text-primary mb-4">
-            Lucent
-          </h2>
+          <h2 className="text-4xl font-bold text-text-primary mb-4">Lucent</h2>
           <p className="text-lg text-text-secondary">
             Lucent의 아티스트를 만나보세요
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {projects && projects.length > 0 ? (
-            projects.map((project) => {
+        <div className="grid grid-cols-1 gap-x-8 gap-y-36 md:grid-cols-2 lg:gap-y-40">
+          {projectCards.length > 0 ? (
+            projectCards.map((project) => {
               const displayConfig = PROJECT_DISPLAY_CONFIG[project.slug] || {};
               const isDisabled = !project.is_active;
+              const socialAccentColor = darkenHexColor(
+                displayConfig.bgColor || "#E5E5E5",
+              );
 
               return (
                 <div
@@ -123,7 +213,11 @@ export function ProjectsSection() {
                   role="button"
                   tabIndex={isDisabled ? -1 : 0}
                   onClick={isDisabled ? undefined : handleProjectClick}
-                  onKeyDown={isDisabled ? undefined : handleProjectKeyDown}
+                  onKeyDown={
+                    isDisabled
+                      ? undefined
+                      : (event) => handleProjectKeyDown(event)
+                  }
                   className={`block ${
                     !isDisabled
                       ? ""
@@ -165,7 +259,8 @@ export function ProjectsSection() {
                         {displayConfig.socials && (
                           <div className="flex gap-2">
                             {SOCIAL_ICON_ORDER.map((socialKey) => {
-                              const socialUrl = displayConfig.socials?.[socialKey];
+                              const socialUrl =
+                                displayConfig.socials?.[socialKey];
                               if (!socialUrl) {
                                 return null;
                               }
@@ -173,13 +268,21 @@ export function ProjectsSection() {
                               return (
                                 <button
                                   key={socialKey}
-                                  onClick={(e) => handleSocialClick(e, socialUrl)}
-                                  className="group/social flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-[#A8D5E2] bg-transparent transition-colors hover:border-[#A8D5E2] hover:bg-[#A8D5E2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#66B5F3]"
+                                  onClick={(e) =>
+                                    handleSocialClick(e, socialUrl)
+                                  }
+                                  className="group/social flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-[var(--project-social-color)] bg-transparent transition-colors hover:border-[var(--project-social-color)] hover:bg-[var(--project-social-color)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--project-social-color)]"
                                   aria-label={socialIcon.label}
+                                  style={
+                                    {
+                                      "--project-social-color":
+                                        socialAccentColor,
+                                    } as React.CSSProperties
+                                  }
                                 >
                                   <span
                                     aria-hidden="true"
-                                    className="h-[1.375rem] w-[1.375rem] bg-[#A8D5E2] transition-colors [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] group-hover/social:bg-white"
+                                    className="h-[1.375rem] w-[1.375rem] bg-[var(--project-social-color)] transition-colors [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] group-hover/social:bg-white"
                                     style={{
                                       WebkitMaskImage: `url(${socialIcon.icon})`,
                                       maskImage: `url(${socialIcon.icon})`,

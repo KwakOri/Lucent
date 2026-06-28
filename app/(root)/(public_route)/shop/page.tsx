@@ -352,22 +352,22 @@ function ShopPageContent() {
       ) : null}
 
       {voicePacks.length > 0 ? (
-        <section className="px-4 py-16">
+        <section className="px-4 py-12 sm:py-16">
           <div className="mx-auto max-w-6xl">
-            <div className="mb-12">
-              <h2 className="mb-3 text-3xl font-bold text-text-primary">
+            <div className="mb-8 sm:mb-12">
+              <h2 className="mb-2 text-2xl font-bold text-text-primary sm:mb-3 sm:text-3xl">
                 Voice Packs
               </h2>
-              <p className="text-lg text-text-secondary">
+              <p className="text-base text-text-secondary sm:text-lg">
                 아티스트의 다양한 보이스팩을 만나보세요
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
               {paginatedVoicePacks.map((pack, index) => (
                 <div
                   key={pack.product_id}
-                  className="cursor-pointer overflow-hidden rounded-2xl border-2 border-primary-200 bg-white transition-all duration-300 hover:scale-105 hover:shadow-xl"
+                  className="cursor-pointer overflow-hidden rounded-xl border border-primary-200 bg-white transition-all duration-300 hover:shadow-xl sm:rounded-2xl sm:border-2 sm:hover:scale-105"
                   onClick={() => handleProductClick(pack.product_id)}
                 >
                   <VoicePackCover
@@ -377,14 +377,14 @@ function ShopPageContent() {
                     appearance="media"
                   />
 
-                  <div className="p-6">
-                    <h3 className="mb-2 text-xl font-bold text-text-primary">
+                  <div className="p-3 sm:p-6">
+                    <h3 className="mb-1 line-clamp-1 text-sm font-bold leading-snug text-text-primary sm:mb-2 sm:line-clamp-2 sm:text-xl">
                       {pack.title}
                     </h3>
-                    <p className="mb-4 line-clamp-2 text-sm text-text-secondary">
+                    <p className="mb-3 line-clamp-1 text-xs text-text-secondary sm:mb-4 sm:line-clamp-2 sm:text-sm">
                       {pack.short_description || "보이스팩"}
                     </p>
-                    <p className="mb-4 text-2xl font-bold text-primary-700">
+                    <p className="mb-3 text-lg font-bold text-primary-700 sm:mb-4 sm:text-2xl">
                       {formatDisplayPrice(pack)}
                     </p>
                     <div className="mb-3">{renderSellableBadge(pack)}</div>
@@ -392,8 +392,9 @@ function ShopPageContent() {
                     <div className="flex gap-2">
                       <Button
                         intent="secondary"
-                        size="md"
+                        size="sm"
                         fullWidth
+                        className="text-xs sm:h-11 sm:rounded-lg sm:px-4 sm:text-base"
                         onClick={(event) => {
                           event.stopPropagation();
                           handleProductClick(pack.product_id);
@@ -403,10 +404,12 @@ function ShopPageContent() {
                       </Button>
                       <Button
                         intent="primary"
-                        size="md"
+                        size="sm"
+                        className="shrink-0 px-3 sm:h-11 sm:rounded-lg sm:px-4"
                         disabled={
                           !canAddToCart(pack) || addingToCart === pack.product_id
                         }
+                        aria-label={`${pack.title} 장바구니에 담기`}
                         onClick={(event) => void handleAddToCart(event, pack)}
                       >
                         <ShoppingCart className="h-4 w-4" />
@@ -427,23 +430,23 @@ function ShopPageContent() {
       ) : null}
 
       {physicalGoods.length > 0 ? (
-        <section className="bg-white px-4 py-16">
+        <section className="bg-white px-4 py-12 sm:py-16">
           <div className="mx-auto max-w-6xl">
-            <div className="mb-12">
-              <h2 className="mb-3 text-3xl font-bold text-text-primary">Goods</h2>
-              <p className="text-lg text-text-secondary">
+            <div className="mb-8 sm:mb-12">
+              <h2 className="mb-2 text-2xl font-bold text-text-primary sm:mb-3 sm:text-3xl">Goods</h2>
+              <p className="text-base text-text-secondary sm:text-lg">
                 아티스트의 다양한 굿즈를 만나보세요
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
               {paginatedPhysicalGoods.map((goods) => {
                 const soldOut = goods.availability.reason === "OUT_OF_STOCK";
                 const canAdd = canAddToCart(goods);
                 return (
                   <div
                     key={goods.product_id}
-                    className="cursor-pointer overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 transition-all duration-300 hover:scale-105 hover:shadow-xl"
+                    className="cursor-pointer overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 transition-all duration-300 hover:shadow-xl sm:rounded-2xl sm:hover:scale-105"
                     onClick={() => handleProductClick(goods.product_id)}
                   >
                     <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-br from-neutral-100 to-neutral-200">
@@ -454,37 +457,44 @@ function ShopPageContent() {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <span className="text-6xl">📦</span>
+                        <span className="text-4xl sm:text-6xl">📦</span>
                       )}
                     </div>
 
-                    <div className="p-6">
-                      <h3 className="mb-2 text-xl font-bold text-text-primary">
+                    <div className="p-3 sm:p-6">
+                      <h3 className="mb-1 line-clamp-1 text-sm font-bold leading-snug text-text-primary sm:mb-2 sm:line-clamp-2 sm:text-xl">
                         {goods.title}
                       </h3>
-                      <p className="mb-4 line-clamp-2 text-sm text-text-secondary">
+                      <p className="mb-3 line-clamp-1 text-xs text-text-secondary sm:mb-4 sm:line-clamp-2 sm:text-sm">
                         {goods.short_description || "굿즈"}
                       </p>
-                      <p className="mb-4 text-2xl font-bold text-primary-700">
+                      <p className="mb-3 text-lg font-bold text-primary-700 sm:mb-4 sm:text-2xl">
                         {formatDisplayPrice(goods)}
                       </p>
 
                       {!goods.availability.sellable ? (
-                        <p className="mb-2 text-sm text-red-600">
+                        <p className="mb-2 text-xs text-red-600 sm:text-sm">
                           {soldOut ? "품절" : "판매 준비 중"}
                         </p>
                       ) : null}
 
                       {!canAdd ? (
-                        <Button intent="primary" size="md" fullWidth disabled>
+                        <Button
+                          intent="primary"
+                          size="sm"
+                          fullWidth
+                          disabled
+                          className="text-xs sm:h-11 sm:rounded-lg sm:px-4 sm:text-base"
+                        >
                           {soldOut ? "품절" : "판매 준비 중"}
                         </Button>
                       ) : (
                         <div className="flex gap-2">
                           <Button
                             intent="secondary"
-                            size="md"
+                            size="sm"
                             fullWidth
+                            className="text-xs sm:h-11 sm:rounded-lg sm:px-4 sm:text-base"
                             onClick={(event) => {
                               event.stopPropagation();
                               handleProductClick(goods.product_id);
@@ -494,8 +504,10 @@ function ShopPageContent() {
                           </Button>
                           <Button
                             intent="primary"
-                            size="md"
+                            size="sm"
+                            className="shrink-0 px-3 sm:h-11 sm:rounded-lg sm:px-4"
                             disabled={addingToCart === goods.product_id}
+                            aria-label={`${goods.title} 장바구니에 담기`}
                             onClick={(event) => void handleAddToCart(event, goods)}
                           >
                             <ShoppingCart className="h-4 w-4" />
