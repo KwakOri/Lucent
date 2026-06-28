@@ -1,6 +1,3 @@
-import { ShoppingBag } from 'lucide-react';
-import Link from 'next/link';
-
 import styles from './miruru-fonts.module.css';
 
 const SOCIAL_LINKS = [
@@ -38,12 +35,12 @@ const PROFILE_ITEMS = [
 export default function MiruruProjectPage() {
   return (
     <main
-      className={`${styles.referenceFonts} min-h-screen bg-[#f8f7ef] text-[#1a1a2e]`}
+      className={`${styles.referenceFonts} min-h-screen bg-[#FFFFFF] text-[#1a1a2e]`}
     >
       <section className="relative isolate overflow-hidden px-5 pb-0 pt-14 sm:px-8 lg:px-14 lg:pt-16">
         <div
           aria-hidden="true"
-          className={`${styles.cormorant} absolute right-20 top-20 -z-10 text-right text-[5.4rem] font-semibold leading-[0.8] tracking-[-0.01em] text-[#a8d5e2]/30 sm:right-8 sm:top-24 sm:text-[9rem] lg:right-[34px] lg:top-[150px] lg:text-[188px]`}
+          className={`${styles.cormorant} absolute right-4 top-20 -z-10 text-right text-[5.4rem] font-semibold leading-[0.8] tracking-[-0.01em] text-[#a8d5e2]/30 sm:right-8 sm:top-24 sm:text-[9rem] lg:right-[100px] lg:top-[150px] lg:text-[188px]`}
         >
           MIRU
           <br />
@@ -199,14 +196,6 @@ export default function MiruruProjectPage() {
             </a>
           ))}
         </div>
-
-        <Link
-          href="/shop"
-          className="mt-10 inline-flex items-center gap-2 rounded-full bg-[#1a1a2e] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#4a88b9]"
-        >
-          <ShoppingBag className="h-4 w-4" />
-          굿즈샵 보기
-        </Link>
 
         <div
           className={`${styles.cormorant} mx-auto mt-14 max-w-6xl border-t border-[#ece9da] pt-7 text-xs tracking-[0.18em] text-[#aab0bd]`}
