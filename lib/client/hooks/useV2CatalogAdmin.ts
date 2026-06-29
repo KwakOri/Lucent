@@ -4,12 +4,14 @@
  * v2 catalog 운영 화면에서 사용하는 React Query hook
  */
 
-'use client';
+"use client";
 
-import { useMemo } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   V2CatalogAdminAPI,
+  type AnalyzeV2BasePriceChangeData,
+  type ApplyV2BasePriceChangeData,
   type BuildV2PriceQuoteData,
   type CreateV2CampaignData,
   type V2CampaignTarget,
@@ -77,10 +79,12 @@ import {
   type V2ProductMedia,
   type V2Variant,
   type V2VariantStatus,
-} from '@/lib/client/api/v2-catalog-admin.api';
-import { queryKeys } from './query-keys';
+} from "@/lib/client/api/v2-catalog-admin.api";
+import { queryKeys } from "./query-keys";
 
-async function invalidateV2CatalogAdmin(queryClient: ReturnType<typeof useQueryClient>) {
+async function invalidateV2CatalogAdmin(
+  queryClient: ReturnType<typeof useQueryClient>,
+) {
   await queryClient.invalidateQueries({
     queryKey: queryKeys.v2CatalogAdmin.all,
   });
@@ -125,30 +129,30 @@ function matchesV2ProductListParams(
 }
 
 type V2ProductListQueryKey = readonly [
-  'v2-catalog-admin',
-  'products',
-  'list',
+  "v2-catalog-admin",
+  "products",
+  "list",
   GetV2ProductsParams,
 ];
 
 type V2ProductProjectListQueryKey = readonly [
-  'v2-catalog-admin',
-  'products',
-  'project-list',
+  "v2-catalog-admin",
+  "products",
+  "project-list",
   GetV2ProjectProductListParams,
 ];
 
 type V2ProductVariantsMapQueryKey = readonly [
-  'v2-catalog-admin',
-  'products',
-  'variants-map',
+  "v2-catalog-admin",
+  "products",
+  "variants-map",
   string[],
 ];
 
 type V2ProductMediaMapQueryKey = readonly [
-  'v2-catalog-admin',
-  'products',
-  'media-map',
+  "v2-catalog-admin",
+  "products",
+  "media-map",
   string[],
 ];
 
@@ -156,9 +160,9 @@ function isV2ProductListQueryKey(
   queryKey: readonly unknown[],
 ): queryKey is V2ProductListQueryKey {
   return (
-    queryKey[0] === 'v2-catalog-admin' &&
-    queryKey[1] === 'products' &&
-    queryKey[2] === 'list'
+    queryKey[0] === "v2-catalog-admin" &&
+    queryKey[1] === "products" &&
+    queryKey[2] === "list"
   );
 }
 
@@ -166,9 +170,9 @@ function isV2ProductProjectListQueryKey(
   queryKey: readonly unknown[],
 ): queryKey is V2ProductProjectListQueryKey {
   return (
-    queryKey[0] === 'v2-catalog-admin' &&
-    queryKey[1] === 'products' &&
-    queryKey[2] === 'project-list'
+    queryKey[0] === "v2-catalog-admin" &&
+    queryKey[1] === "products" &&
+    queryKey[2] === "project-list"
   );
 }
 
@@ -176,9 +180,9 @@ function isV2ProductVariantsMapQueryKey(
   queryKey: readonly unknown[],
 ): queryKey is V2ProductVariantsMapQueryKey {
   return (
-    queryKey[0] === 'v2-catalog-admin' &&
-    queryKey[1] === 'products' &&
-    queryKey[2] === 'variants-map' &&
+    queryKey[0] === "v2-catalog-admin" &&
+    queryKey[1] === "products" &&
+    queryKey[2] === "variants-map" &&
     Array.isArray(queryKey[3])
   );
 }
@@ -187,25 +191,23 @@ function isV2ProductMediaMapQueryKey(
   queryKey: readonly unknown[],
 ): queryKey is V2ProductMediaMapQueryKey {
   return (
-    queryKey[0] === 'v2-catalog-admin' &&
-    queryKey[1] === 'products' &&
-    queryKey[2] === 'media-map' &&
+    queryKey[0] === "v2-catalog-admin" &&
+    queryKey[1] === "products" &&
+    queryKey[2] === "media-map" &&
     Array.isArray(queryKey[3])
   );
 }
 
 function isV2ProductMediaQueryKey(queryKey: readonly unknown[]): boolean {
   return (
-    queryKey[0] === 'v2-catalog-admin' &&
-    queryKey[1] === 'products' &&
-    queryKey[2] === 'media'
+    queryKey[0] === "v2-catalog-admin" &&
+    queryKey[1] === "products" &&
+    queryKey[2] === "media"
   );
 }
 
 function normalizeStringIds(ids: string[]): string[] {
-  return Array.from(
-    new Set(ids.map((id) => id.trim()).filter(Boolean)),
-  ).sort();
+  return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean))).sort();
 }
 
 function updateV2ProductInListCache(
@@ -297,9 +299,8 @@ function removeV2ProductFromCache(
     .getQueryCache()
     .findAll({ predicate: (query) => isV2ProductListQueryKey(query.queryKey) })
     .forEach((query) => {
-      queryClient.setQueryData<V2Product[]>(
-        query.queryKey,
-        (previous) => previous?.filter((item) => item.id !== productId),
+      queryClient.setQueryData<V2Product[]>(query.queryKey, (previous) =>
+        previous?.filter((item) => item.id !== productId),
       );
     });
 
@@ -346,8 +347,10 @@ function syncV2ProductCache(
       const queryKey = query.queryKey as V2ProductProjectListQueryKey;
       const params = queryKey[3];
 
-      queryClient.setQueryData<V2ProjectProductListItem[]>(queryKey, (previous) =>
-        updateV2ProductInProjectListCache(previous, product, params),
+      queryClient.setQueryData<V2ProjectProductListItem[]>(
+        queryKey,
+        (previous) =>
+          updateV2ProductInProjectListCache(previous, product, params),
       );
     });
 }
@@ -468,11 +471,13 @@ function removeV2VariantFromCache(
   syncV2ProjectListVariantSummary(queryClient, productId);
 }
 
-function resolveV2CoverMedia(mediaList: V2ProductMedia[]): V2ProductMedia | null {
-  const activeMedia = mediaList.filter((media) => media.status === 'ACTIVE');
+function resolveV2CoverMedia(
+  mediaList: V2ProductMedia[],
+): V2ProductMedia | null {
+  const activeMedia = mediaList.filter((media) => media.status === "ACTIVE");
   return (
     activeMedia.find((media) => media.is_primary) ||
-    activeMedia.find((media) => media.media_role === 'PRIMARY') ||
+    activeMedia.find((media) => media.media_role === "PRIMARY") ||
     null
   );
 }
@@ -531,10 +536,7 @@ function syncV2ProductMediaCache(
         query.queryKey,
         (previous) => ({
           ...(previous || {}),
-          [media.product_id]: upsertById(
-            previous?.[media.product_id],
-            media,
-          ),
+          [media.product_id]: upsertById(previous?.[media.product_id], media),
         }),
       );
     });
@@ -575,7 +577,7 @@ export function useV2AdminProjects(params: GetV2ProjectsParams = {}) {
 
 export function useV2AdminProject(projectId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.projects.detail(projectId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.projects.detail(projectId || ""),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getProject(projectId!);
       return response.data;
@@ -673,7 +675,7 @@ export function useV2AdminArtists(params: GetV2ArtistsParams = {}) {
 
 export function useV2AdminArtist(artistId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.artists.detail(artistId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.artists.detail(artistId || ""),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getArtist(artistId!);
       return response.data;
@@ -768,7 +770,7 @@ export function useV2AdminProjectProductList(
 
 export function useV2AdminProduct(productId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.products.detail(productId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.products.detail(productId || ""),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getProduct(productId!);
       return response.data;
@@ -846,7 +848,7 @@ export function useDeleteV2Product() {
 
 export function useV2AdminVariants(productId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.products.variants(productId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.products.variants(productId || ""),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getVariants(productId!);
       return response.data;
@@ -862,9 +864,11 @@ export function useV2AdminVariantsMap(productIds: string[]) {
   );
 
   const variantsQuery = useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.products.variantsMap(normalizedProductIds),
+    queryKey:
+      queryKeys.v2CatalogAdmin.products.variantsMap(normalizedProductIds),
     queryFn: async () => {
-      const response = await V2CatalogAdminAPI.getVariantsMap(normalizedProductIds);
+      const response =
+        await V2CatalogAdminAPI.getVariantsMap(normalizedProductIds);
       return response.data;
     },
     enabled: normalizedProductIds.length > 0,
@@ -886,7 +890,13 @@ export function useV2AdminVariantsMap(productIds: string[]) {
       isFetching: variantsQuery.isFetching,
       isError: Boolean(variantsQuery.error),
     };
-  }, [normalizedProductIds, variantsQuery.data, variantsQuery.error, variantsQuery.isFetching, variantsQuery.isLoading]);
+  }, [
+    normalizedProductIds,
+    variantsQuery.data,
+    variantsQuery.error,
+    variantsQuery.isFetching,
+    variantsQuery.isLoading,
+  ]);
 }
 
 export function useCreateV2Variant() {
@@ -933,18 +943,18 @@ export function useDeleteV2Variant() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: DeleteV2VariantInput) => {
-      const variantId = typeof input === 'string' ? input : input.variantId;
+      const variantId = typeof input === "string" ? input : input.variantId;
       return V2CatalogAdminAPI.deleteVariant(variantId);
     },
     onSuccess: async (_response, variables) => {
-      if (typeof variables !== 'string' && variables.skipInvalidate) {
+      if (typeof variables !== "string" && variables.skipInvalidate) {
         return;
       }
 
       const variantId =
-        typeof variables === 'string' ? variables : variables.variantId;
+        typeof variables === "string" ? variables : variables.variantId;
       const productId =
-        typeof variables === 'string' ? null : variables.productId || null;
+        typeof variables === "string" ? null : variables.productId || null;
 
       if (productId) {
         removeV2VariantFromCache(queryClient, variantId, productId);
@@ -1045,7 +1055,7 @@ export function useUploadV2MediaAssetFile() {
 
 export function useV2AdminProductMedia(productId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.products.media(productId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.products.media(productId || ""),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getProductMedia(productId!);
       return response.data;
@@ -1086,7 +1096,13 @@ export function useV2AdminProductMediaMap(productIds: string[]) {
       isFetching: mediaQuery.isFetching,
       isError: Boolean(mediaQuery.error),
     };
-  }, [mediaQuery.data, mediaQuery.error, mediaQuery.isFetching, mediaQuery.isLoading, normalizedProductIds]);
+  }, [
+    mediaQuery.data,
+    mediaQuery.error,
+    mediaQuery.isFetching,
+    mediaQuery.isLoading,
+    normalizedProductIds,
+  ]);
 }
 
 export function useCreateV2ProductMedia() {
@@ -1150,7 +1166,7 @@ export function useDeactivateV2ProductMedia() {
 
 export function useV2AdminVariantAssets(variantId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.assets.list(variantId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.assets.list(variantId || ""),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getVariantAssets(variantId!);
       return response.data;
@@ -1213,7 +1229,9 @@ export function useDeactivateV2DigitalAsset() {
   });
 }
 
-export function useV2BundleDefinitions(params: GetV2BundleDefinitionsParams = {}) {
+export function useV2BundleDefinitions(
+  params: GetV2BundleDefinitionsParams = {},
+) {
   return useQuery({
     queryKey: queryKeys.v2CatalogAdmin.bundles.definitions.list(params),
     queryFn: async () => {
@@ -1226,10 +1244,12 @@ export function useV2BundleDefinitions(params: GetV2BundleDefinitionsParams = {}
 export function useV2BundleDefinition(definitionId: string | null | undefined) {
   return useQuery({
     queryKey: queryKeys.v2CatalogAdmin.bundles.definitions.detail(
-      definitionId || '',
+      definitionId || "",
     ),
     queryFn: async () => {
-      const response = await V2CatalogAdminAPI.getBundleDefinition(definitionId!);
+      const response = await V2CatalogAdminAPI.getBundleDefinition(
+        definitionId!,
+      );
       return response.data;
     },
     enabled: !!definitionId,
@@ -1239,11 +1259,10 @@ export function useV2BundleDefinition(definitionId: string | null | undefined) {
 export function useCreateV2BundleDefinition() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: CreateV2BundleDefinitionData & InvalidateControl) => {
-      const {
-        skipInvalidate,
-        ...data
-      } = input;
+    mutationFn: async (
+      input: CreateV2BundleDefinitionData & InvalidateControl,
+    ) => {
+      const { skipInvalidate, ...data } = input;
       void skipInvalidate;
       return V2CatalogAdminAPI.createBundleDefinition(data);
     },
@@ -1330,10 +1349,12 @@ export function useCloneV2BundleDefinitionVersion() {
 export function useV2BundleComponents(definitionId: string | null | undefined) {
   return useQuery({
     queryKey: queryKeys.v2CatalogAdmin.bundles.definitions.components(
-      definitionId || '',
+      definitionId || "",
     ),
     queryFn: async () => {
-      const response = await V2CatalogAdminAPI.getBundleComponents(definitionId!);
+      const response = await V2CatalogAdminAPI.getBundleComponents(
+        definitionId!,
+      );
       return response.data;
     },
     enabled: !!definitionId,
@@ -1450,11 +1471,13 @@ export function useDeleteV2BundleComponentOption() {
   });
 }
 
-export function useValidateV2BundleDefinition(definitionId: string | null | undefined) {
+export function useValidateV2BundleDefinition(
+  definitionId: string | null | undefined,
+) {
   return useMutation({
     mutationFn: async (data: ValidateV2BundleDefinitionData = {}) => {
       if (!definitionId) {
-        throw new Error('definitionId is required');
+        throw new Error("definitionId is required");
       }
       const response = await V2CatalogAdminAPI.validateBundleDefinition(
         definitionId,
@@ -1501,11 +1524,17 @@ export function useBuildV2BundleCanaryReport() {
   });
 }
 
-export function useV2ProductPublishReadiness(productId: string | null | undefined) {
+export function useV2ProductPublishReadiness(
+  productId: string | null | undefined,
+) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.products.publishReadiness(productId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.products.publishReadiness(
+      productId || "",
+    ),
     queryFn: async () => {
-      const response = await V2CatalogAdminAPI.getProductPublishReadiness(productId!);
+      const response = await V2CatalogAdminAPI.getProductPublishReadiness(
+        productId!,
+      );
       return response.data;
     },
     enabled: !!productId,
@@ -1524,7 +1553,7 @@ export function useV2Campaigns(params: GetV2CampaignsParams = {}) {
 
 export function useV2Campaign(campaignId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.campaigns.detail(campaignId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.detail(campaignId || ""),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getCampaign(campaignId!);
       return response.data;
@@ -1537,14 +1566,17 @@ export function useV2CampaignDetailContext(
   campaignId: string | null | undefined,
 ) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.campaigns.detailContext(campaignId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.detailContext(
+      campaignId || "",
+    ),
     queryFn: async () => {
-      const response =
-        await V2CatalogAdminAPI.getCampaignDetailContext(campaignId!);
+      const response = await V2CatalogAdminAPI.getCampaignDetailContext(
+        campaignId!,
+      );
       return response.data;
     },
     enabled: !!campaignId,
-    refetchOnMount: 'always',
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
   });
 }
@@ -1608,7 +1640,7 @@ export function useCloseV2Campaign() {
 
 export function useV2CampaignTargets(campaignId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.campaigns.targets(campaignId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.targets(campaignId || ""),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getCampaignTargets(campaignId!);
       return response.data;
@@ -1623,10 +1655,13 @@ export function useV2CampaignOverview(campaignIds: string[]) {
     [campaignIds],
   );
   const overviewQuery = useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.campaigns.overview(normalizedCampaignIds),
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.overview(
+      normalizedCampaignIds,
+    ),
     queryFn: async () => {
-      const response =
-        await V2CatalogAdminAPI.getCampaignOverviewMap(normalizedCampaignIds);
+      const response = await V2CatalogAdminAPI.getCampaignOverviewMap(
+        normalizedCampaignIds,
+      );
       return response.data;
     },
     enabled: normalizedCampaignIds.length > 0,
@@ -1635,14 +1670,19 @@ export function useV2CampaignOverview(campaignIds: string[]) {
   });
 
   return useMemo(() => {
-    return normalizedCampaignIds.reduce<Record<string, {
-      targetCount: number;
-      excludedTargetCount: number;
-      priceListCount: number;
-      promotionCount: number;
-      hasLinkedPricing: boolean;
-      isLoading: boolean;
-    }>>((accumulator, campaignId) => {
+    return normalizedCampaignIds.reduce<
+      Record<
+        string,
+        {
+          targetCount: number;
+          excludedTargetCount: number;
+          priceListCount: number;
+          promotionCount: number;
+          hasLinkedPricing: boolean;
+          isLoading: boolean;
+        }
+      >
+    >((accumulator, campaignId) => {
       const overview = overviewQuery.data?.[campaignId];
 
       accumulator[campaignId] = {
@@ -1665,10 +1705,13 @@ export function useV2CampaignTargetsMap(campaignIds: string[]) {
     [campaignIds],
   );
   const targetsQuery = useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.campaigns.targetsMap(normalizedCampaignIds),
+    queryKey: queryKeys.v2CatalogAdmin.campaigns.targetsMap(
+      normalizedCampaignIds,
+    ),
     queryFn: async () => {
-      const response =
-        await V2CatalogAdminAPI.getCampaignTargetsMap(normalizedCampaignIds);
+      const response = await V2CatalogAdminAPI.getCampaignTargetsMap(
+        normalizedCampaignIds,
+      );
       return response.data;
     },
     enabled: normalizedCampaignIds.length > 0,
@@ -1689,8 +1732,7 @@ export function useV2CampaignTargetsMap(campaignIds: string[]) {
       >((accumulator, campaignId) => {
         accumulator[campaignId] = {
           targets: targetsQuery.data?.[campaignId] || [],
-          isLoading:
-            normalizedCampaignIds.length > 0 && targetsQuery.isLoading,
+          isLoading: normalizedCampaignIds.length > 0 && targetsQuery.isLoading,
         };
         return accumulator;
       }, {}),
@@ -1740,12 +1782,14 @@ export function useUpdateV2CampaignTarget() {
 export function useDeleteV2CampaignTarget() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: string | ({ targetId: string } & InvalidateControl)) => {
-      const targetId = typeof input === 'string' ? input : input.targetId;
+    mutationFn: async (
+      input: string | ({ targetId: string } & InvalidateControl),
+    ) => {
+      const targetId = typeof input === "string" ? input : input.targetId;
       return V2CatalogAdminAPI.deleteCampaignTarget(targetId);
     },
     onSuccess: async (_response, variables) => {
-      if (typeof variables !== 'string' && variables.skipInvalidate) {
+      if (typeof variables !== "string" && variables.skipInvalidate) {
         return;
       }
       await invalidateV2CatalogAdmin(queryClient);
@@ -1765,7 +1809,9 @@ export function useV2PriceLists(params: GetV2PriceListsParams = {}) {
 
 export function useV2PriceList(priceListId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.pricing.priceLists.detail(priceListId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.pricing.priceLists.detail(
+      priceListId || "",
+    ),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getPriceList(priceListId!);
       return response.data;
@@ -1778,10 +1824,7 @@ export function useCreateV2PriceList() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateV2PriceListData & InvalidateControl) => {
-      const {
-        skipInvalidate,
-        ...data
-      } = input;
+      const { skipInvalidate, ...data } = input;
       void skipInvalidate;
       return V2CatalogAdminAPI.createPriceList(data);
     },
@@ -1813,12 +1856,14 @@ export function useUpdateV2PriceList() {
 export function usePublishV2PriceList() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: string | ({ id: string } & InvalidateControl)) => {
-      const id = typeof input === 'string' ? input : input.id;
+    mutationFn: async (
+      input: string | ({ id: string } & InvalidateControl),
+    ) => {
+      const id = typeof input === "string" ? input : input.id;
       return V2CatalogAdminAPI.publishPriceList(id);
     },
     onSuccess: async (_response, variables) => {
-      if (typeof variables !== 'string' && variables.skipInvalidate) {
+      if (typeof variables !== "string" && variables.skipInvalidate) {
         return;
       }
       await invalidateV2CatalogAdmin(queryClient);
@@ -1838,7 +1883,9 @@ export function useRollbackV2PriceList() {
 
 export function useV2PriceListItems(priceListId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.pricing.priceLists.items(priceListId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.pricing.priceLists.items(
+      priceListId || "",
+    ),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getPriceListItems(priceListId!);
       return response.data;
@@ -1896,15 +1943,45 @@ export function useUpdateV2PriceListItem() {
 export function useDeactivateV2PriceListItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: string | ({ itemId: string } & InvalidateControl)) => {
-      const itemId = typeof input === 'string' ? input : input.itemId;
+    mutationFn: async (
+      input: string | ({ itemId: string } & InvalidateControl),
+    ) => {
+      const itemId = typeof input === "string" ? input : input.itemId;
       return V2CatalogAdminAPI.deactivatePriceListItem(itemId);
     },
     onSuccess: async (_response, variables) => {
-      if (typeof variables !== 'string' && variables.skipInvalidate) {
+      if (typeof variables !== "string" && variables.skipInvalidate) {
         return;
       }
       await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useAnalyzeV2BasePriceChange() {
+  return useMutation({
+    mutationFn: async (data: AnalyzeV2BasePriceChangeData) =>
+      V2CatalogAdminAPI.analyzeBasePriceChange(data),
+  });
+}
+
+export function useApplyV2BasePriceChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: ApplyV2BasePriceChangeData) =>
+      V2CatalogAdminAPI.applyBasePriceChange(data),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.v2CatalogAdmin.pricing.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.v2CatalogAdmin.campaigns.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.v2Shop.all,
+        }),
+      ]);
     },
   });
 }
@@ -1921,7 +1998,9 @@ export function useV2Promotions(params: GetV2PromotionsParams = {}) {
 
 export function useV2Promotion(promotionId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.pricing.promotions.detail(promotionId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.pricing.promotions.detail(
+      promotionId || "",
+    ),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getPromotion(promotionId!);
       return response.data;
@@ -1959,7 +2038,9 @@ export function useUpdateV2Promotion() {
 
 export function useV2PromotionRules(promotionId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.pricing.promotions.rules(promotionId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.pricing.promotions.rules(
+      promotionId || "",
+    ),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getPromotionRules(promotionId!);
       return response.data;
@@ -2012,7 +2093,7 @@ export function useV2Coupons(params: GetV2CouponsParams = {}) {
 
 export function useV2Coupon(couponId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.pricing.coupons.detail(couponId || ''),
+    queryKey: queryKeys.v2CatalogAdmin.pricing.coupons.detail(couponId || ""),
     queryFn: async () => {
       const response = await V2CatalogAdminAPI.getCoupon(couponId!);
       return response.data;
@@ -2021,7 +2102,9 @@ export function useV2Coupon(couponId: string | null | undefined) {
   });
 }
 
-export function useV2CouponRedemptions(params: GetV2CouponRedemptionsParams = {}) {
+export function useV2CouponRedemptions(
+  params: GetV2CouponRedemptionsParams = {},
+) {
   return useQuery({
     queryKey: queryKeys.v2CatalogAdmin.pricing.coupons.redemptions(params),
     queryFn: async () => {
@@ -2034,7 +2117,8 @@ export function useV2CouponRedemptions(params: GetV2CouponRedemptionsParams = {}
 export function useCreateV2Coupon() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: CreateV2CouponData) => V2CatalogAdminAPI.createCoupon(data),
+    mutationFn: async (data: CreateV2CouponData) =>
+      V2CatalogAdminAPI.createCoupon(data),
     onSuccess: async () => {
       await invalidateV2CatalogAdmin(queryClient);
     },
@@ -2155,7 +2239,8 @@ export function useV2CatalogMigrationCompareReport(sampleLimit = 20) {
   return useQuery({
     queryKey: queryKeys.v2CatalogAdmin.migration.compareReport(sampleLimit),
     queryFn: async () => {
-      const response = await V2CatalogAdminAPI.getMigrationCompareReport(sampleLimit);
+      const response =
+        await V2CatalogAdminAPI.getMigrationCompareReport(sampleLimit);
       return response.data;
     },
   });
@@ -2163,9 +2248,11 @@ export function useV2CatalogMigrationCompareReport(sampleLimit = 20) {
 
 export function useV2CatalogReadSwitchChecklist(sampleLimit = 20) {
   return useQuery({
-    queryKey: queryKeys.v2CatalogAdmin.migration.readSwitchChecklist(sampleLimit),
+    queryKey:
+      queryKeys.v2CatalogAdmin.migration.readSwitchChecklist(sampleLimit),
     queryFn: async () => {
-      const response = await V2CatalogAdminAPI.getReadSwitchChecklist(sampleLimit);
+      const response =
+        await V2CatalogAdminAPI.getReadSwitchChecklist(sampleLimit);
       return response.data;
     },
   });
