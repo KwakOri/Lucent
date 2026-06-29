@@ -4,6 +4,10 @@ import { useParams } from "next/navigation";
 import { Loading } from "@/components/ui/loading";
 import { useV2ContentAdminPost } from "@/lib/client/hooks/useV2ContentAdmin";
 import { ContentPostForm } from "@/src/components/admin/content/ContentPostForm";
+import {
+  AdminPageHeader,
+  adminLegacyBridgeClass,
+} from "@/src/components/admin/AdminDesignSystem";
 
 export default function EditContentPostPage() {
   const params = useParams<{ id: string }>();
@@ -20,20 +24,19 @@ export default function EditContentPostPage() {
 
   if (error || !post) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+      <div className="rounded-[14px] border border-red-200 bg-red-50 p-4 font-medium text-red-700">
         게시글 정보를 불러오지 못했습니다.
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">게시글 수정</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          저장 후 발행하면 공개 뉴스 페이지에 노출됩니다.
-        </p>
-      </div>
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="content form"
+        title="게시글 수정"
+        description="저장 후 발행하면 공개 뉴스 페이지에 노출됩니다."
+      />
       <ContentPostForm mode="edit" post={post} />
     </div>
   );

@@ -3,6 +3,10 @@
 import { useParams } from 'next/navigation';
 import { useProject } from '@/lib/client/hooks/useProjects';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  adminLegacyBridgeClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { ProjectForm } from '@/src/components/admin/projects/ProjectForm';
 
 export default function EditProjectPage() {
@@ -26,13 +30,12 @@ export default function EditProjectPage() {
   }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">프로젝트 수정</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {project.name} 정보를 수정합니다
-        </p>
-      </div>
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="legacy form"
+        title="프로젝트 수정"
+        description={`${project.name} 정보를 수정합니다.`}
+      />
 
       <ProjectForm project={project} />
     </div>

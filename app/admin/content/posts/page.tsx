@@ -8,6 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loading } from "@/components/ui/loading";
 import { Select } from "@/components/ui/select";
+import {
+  AdminPageHeader,
+  adminButtonClass,
+  adminInputClass,
+  adminLegacyBridgeClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+} from "@/src/components/admin/AdminDesignSystem";
 import type {
   V2ContentPostStatus,
   V2ContentPostType,
@@ -87,32 +95,32 @@ export default function ContentPostsAdminPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">게시글 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            홈 새소식, 공지, 배너형 콘텐츠를 작성하고 발행합니다.
-          </p>
-        </div>
-        <Button onClick={() => router.push("/admin/content/posts/new")}>
-          <Plus className="h-4 w-4" />
-          새 게시글
-        </Button>
-      </div>
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="content"
+        title="게시글 관리"
+        description="홈 새소식, 공지, 배너형 콘텐츠를 작성하고 발행합니다."
+        actions={
+          <Button className={adminPrimaryButtonClass} onClick={() => router.push("/admin/content/posts/new")}>
+            <Plus className="h-4 w-4" />
+            새 게시글
+          </Button>
+        }
+      />
 
       {errorMessage ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       ) : null}
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-4 shadow-none">
         <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px]">
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="제목, 요약, slug 검색"
+            className={adminInputClass}
           />
           <Select
             value={statusFilter}
@@ -124,6 +132,7 @@ export default function ContentPostsAdminPage() {
                 value: status,
               })),
             ]}
+            className={adminSelectClass}
           />
           <Select
             value={typeFilter}
@@ -135,6 +144,7 @@ export default function ContentPostsAdminPage() {
                 value: type,
               })),
             ]}
+            className={adminSelectClass}
           />
         </div>
       </section>
@@ -186,6 +196,7 @@ export default function ContentPostsAdminPage() {
                 <Button
                   intent="neutral"
                   size="sm"
+                  className={adminButtonClass}
                   onClick={() => router.push(`/admin/content/posts/${post.id}`)}
                 >
                   <Edit3 className="h-4 w-4" />
@@ -194,6 +205,7 @@ export default function ContentPostsAdminPage() {
                 {post.status !== "PUBLISHED" ? (
                   <Button
                     size="sm"
+                    className={adminPrimaryButtonClass}
                     loading={publishPost.isPending}
                     onClick={() => handlePublish(post.id)}
                   >
@@ -205,6 +217,7 @@ export default function ContentPostsAdminPage() {
                   <Button
                     intent="neutral"
                     size="sm"
+                    className={adminButtonClass}
                     loading={archivePost.isPending}
                     onClick={() => handleArchive(post.id)}
                   >
