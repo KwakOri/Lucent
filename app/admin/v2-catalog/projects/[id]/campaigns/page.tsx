@@ -6,6 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
 import {
+  AdminPageHeader,
+  AdminStatCard,
+  AdminSurface,
+  adminButtonClass,
+  adminPrimaryButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
+import {
   useV2CampaignOverview,
   useV2CampaignTargetsMap,
   useV2Campaigns,
@@ -88,69 +95,65 @@ export default function V2ProjectCampaignsPage() {
   const draftProductCount = products.filter((product) => product.status === 'DRAFT').length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="text-sm text-gray-500">프로젝트 캠페인 허브</p>
-          <h1 className="mt-1 text-2xl font-bold text-gray-900">{project.name}</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            기본 캠페인과 지정 캠페인을 한 곳에서 보고 가격 등록 상태를 확인합니다.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}`)}>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="project campaigns"
+        title={project.name}
+        description="기본 캠페인과 지정 캠페인을 한 곳에서 보고 가격 등록 상태를 확인합니다."
+        actions={
+          <>
+          <Button
+            intent="neutral"
+            className={adminButtonClass}
+            onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}`)}
+          >
             프로젝트 상세
           </Button>
           <Button
             intent="neutral"
+            className={adminButtonClass}
             onClick={() => router.push(`/admin/v2-catalog/campaigns/new?type=ALWAYS_ON&projectId=${project.id}`)}
           >
             기본 캠페인 생성
           </Button>
-          <Button onClick={() => router.push(`/admin/v2-catalog/campaigns/new?projectId=${project.id}`)}>
+          <Button
+            className={adminPrimaryButtonClass}
+            onClick={() => router.push(`/admin/v2-catalog/campaigns/new?projectId=${project.id}`)}
+          >
             지정 캠페인 생성
           </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">전체 캠페인</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{relatedCampaigns.length}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">기본 캠페인</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{baseCampaign ? 1 : 0}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">ACTIVE 지정 캠페인</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">
-            {targetedCampaigns.filter((campaign) => campaign.status === 'ACTIVE').length}
-          </p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">상품 상태</p>
-          <p className="mt-2 text-sm font-semibold text-gray-900">
-            ACTIVE {activeProductCount}개 · DRAFT {draftProductCount}개
-          </p>
-        </div>
+        <AdminStatCard label="전체 캠페인" value={relatedCampaigns.length} />
+        <AdminStatCard label="기본 캠페인" value={baseCampaign ? 1 : 0} />
+        <AdminStatCard
+          label="ACTIVE 지정 캠페인"
+          value={targetedCampaigns.filter((campaign) => campaign.status === 'ACTIVE').length}
+        />
+        <AdminStatCard
+          label="상품 상태"
+          value={<span className="text-base">ACTIVE {activeProductCount} · DRAFT {draftProductCount}</span>}
+        />
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <AdminSurface padding="md">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">기본 캠페인</h2>
-            <p className="mt-1 text-sm text-gray-500">이 프로젝트의 상시(BASE) 가격 운영 캠페인입니다.</p>
+            <h2 className="text-lg font-black text-[#1a1a2e]">기본 캠페인</h2>
+            <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">이 프로젝트의 상시(BASE) 가격 운영 캠페인입니다.</p>
           </div>
         </div>
 
         <div className="mt-4">
           {!baseCampaign ? (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-500">
+            <div className="rounded-[16px] border border-dashed border-[#e7e3d3] bg-[#faf9f3] px-6 py-10 text-center text-sm font-medium text-[#1a1a2e]/55">
               기본 캠페인이 아직 없습니다.
             </div>
           ) : (
-            <article className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <article className="rounded-[16px] border border-[#e7e3d3] bg-[#faf9f3] p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge intent={getCampaignStatusIntent(baseCampaign.status)}>
                   {CAMPAIGN_STATUS_LABELS[baseCampaign.status]}
@@ -160,35 +163,40 @@ export default function V2ProjectCampaignsPage() {
                 </Badge>
                 <Badge intent="default">{CAMPAIGN_TYPE_LABELS[baseCampaign.campaign_type]}</Badge>
               </div>
-              <p className="mt-3 text-sm font-semibold text-gray-900">{baseCampaign.name}</p>
-              <p className="mt-1 text-xs text-gray-500">{formatDateRange(baseCampaign.starts_at, baseCampaign.ends_at)}</p>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-3 text-sm font-black text-[#1a1a2e]">{baseCampaign.name}</p>
+              <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">{formatDateRange(baseCampaign.starts_at, baseCampaign.ends_at)}</p>
+              <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">
                 가격/프로모션 연결: {overviewByCampaignId[baseCampaign.id]?.hasLinkedPricing ? '완료' : '미완료'}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button size="sm" intent="neutral" onClick={() => router.push(`/admin/v2-catalog/campaigns/${baseCampaign.id}`)}>
+                <Button
+                  size="sm"
+                  intent="neutral"
+                  className="!rounded-[10px] !border-0 !bg-[#f5f3e8] !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]"
+                  onClick={() => router.push(`/admin/v2-catalog/campaigns/${baseCampaign.id}`)}
+                >
                   상세
                 </Button>
               </div>
             </article>
           )}
         </div>
-      </section>
+      </AdminSurface>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">지정 캠페인</h2>
-        <p className="mt-1 text-sm text-gray-500">
+      <AdminSurface padding="md">
+        <h2 className="text-lg font-black text-[#1a1a2e]">지정 캠페인</h2>
+        <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
           시즌/팝업/이벤트처럼 기간 운영이 필요한 캠페인입니다.
         </p>
 
         <div className="mt-4 space-y-3">
           {targetedCampaigns.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-500">
+            <div className="rounded-[16px] border border-dashed border-[#e7e3d3] bg-[#faf9f3] px-6 py-10 text-center text-sm font-medium text-[#1a1a2e]/55">
               지정 캠페인이 아직 없습니다.
             </div>
           ) : (
             targetedCampaigns.map((campaign) => (
-              <article key={campaign.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+              <article key={campaign.id} className="rounded-[16px] border border-[#e7e3d3] bg-[#faf9f3] p-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <div className="flex flex-wrap gap-2">
@@ -200,14 +208,19 @@ export default function V2ProjectCampaignsPage() {
                       </Badge>
                       <Badge intent="default">{CAMPAIGN_TYPE_LABELS[campaign.campaign_type]}</Badge>
                     </div>
-                    <p className="mt-3 text-sm font-semibold text-gray-900">{campaign.name}</p>
-                    <p className="mt-1 text-xs text-gray-500">{formatDateRange(campaign.starts_at, campaign.ends_at)}</p>
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-3 text-sm font-black text-[#1a1a2e]">{campaign.name}</p>
+                    <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">{formatDateRange(campaign.starts_at, campaign.ends_at)}</p>
+                    <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">
                       가격/프로모션 연결: {overviewByCampaignId[campaign.id]?.hasLinkedPricing ? '완료' : '미완료'}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" intent="neutral" onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}`)}>
+                    <Button
+                      size="sm"
+                      intent="neutral"
+                      className="!rounded-[10px] !border-0 !bg-[#f5f3e8] !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]"
+                      onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}`)}
+                    >
                       상세
                     </Button>
                   </div>
@@ -216,7 +229,7 @@ export default function V2ProjectCampaignsPage() {
             ))
           )}
         </div>
-      </section>
+      </AdminSurface>
     </div>
   );
 }
