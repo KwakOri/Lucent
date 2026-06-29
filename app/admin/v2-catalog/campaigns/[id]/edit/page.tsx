@@ -4,6 +4,10 @@ import { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  adminButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { CampaignForm } from '@/src/components/admin/v2-catalog/CampaignForm';
 import {
   useV2BundleDefinitions,
@@ -53,10 +57,10 @@ export default function V2CatalogCampaignEditPage() {
   ) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
           캠페인 수정 정보를 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/campaigns')}>
+        <Button intent="neutral" className={adminButtonClass} onClick={() => router.push('/admin/v2-catalog/campaigns')}>
           목록으로
         </Button>
       </div>
@@ -64,20 +68,17 @@ export default function V2CatalogCampaignEditPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">캠페인 수정</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            이름, 설명, 기간을 손보고 적용 대상은 상세 페이지에서 이어서 관리합니다.
-          </p>
-        </div>
-        <div className="mt-3 sm:mt-0">
-          <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaignId}`)}>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="campaign form"
+        title="캠페인 수정"
+        description="이름, 설명, 기간을 손보고 적용 대상은 상세 페이지에서 이어서 관리합니다."
+        actions={
+          <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaignId}`)}>
             상세로 돌아가기
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <CampaignForm
         mode="edit"

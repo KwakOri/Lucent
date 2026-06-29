@@ -4,13 +4,19 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input, Textarea } from '@/components/ui/input';
+import {
+  AdminPageHeader,
+  AdminSurface,
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { ImageUpload } from '@/src/components/admin/ImageUpload';
 import type { V2ArtistStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import { useCreateV2Artist } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 const ARTIST_STATUS_VALUES: V2ArtistStatus[] = ['DRAFT', 'ACTIVE', 'ARCHIVED'];
-const SELECT_CLASS =
-  'h-11 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -58,43 +64,44 @@ export default function V2CatalogArtistCreatePage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">v2 아티스트 생성</h1>
-          <p className="mt-1 text-sm text-gray-500">새 아티스트를 등록합니다.</p>
-        </div>
-        <div className="mt-3 sm:mt-0">
-          <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/artists')}>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="artist form"
+        title="v2 아티스트 생성"
+        description="새 아티스트를 등록합니다."
+        actions={
+          <Button intent="neutral" className={adminButtonClass} onClick={() => router.push('/admin/v2-catalog/artists')}>
             목록으로
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       )}
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <AdminSurface padding="lg">
         <form className="grid grid-cols-1 gap-3 lg:grid-cols-2" onSubmit={handleCreateArtist}>
           <Input
             placeholder="이름"
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
+            className={adminInputClass}
           />
           <Input
             placeholder="slug (예: rosie)"
             value={slug}
             onChange={(event) => setSlug(event.target.value)}
             required
+            className={adminInputClass}
           />
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as V2ArtistStatus)}
-            className={SELECT_CLASS}
+            className={adminSelectClass}
           >
             {ARTIST_STATUS_VALUES.map((statusValue) => (
               <option key={statusValue} value={statusValue}>
@@ -106,6 +113,7 @@ export default function V2CatalogArtistCreatePage() {
             placeholder="profile_image_url (직접 입력 가능)"
             value={profileImageUrl}
             onChange={(event) => setProfileImageUrl(event.target.value)}
+            className={adminInputClass}
           />
           <div className="lg:col-span-2">
             <ImageUpload
@@ -124,22 +132,24 @@ export default function V2CatalogArtistCreatePage() {
               value={bio}
               onChange={(event) => setBio(event.target.value)}
               rows={3}
+              className={adminInputClass}
             />
           </div>
           <div className="lg:col-span-2 flex gap-2">
-            <Button type="submit" loading={createArtist.isPending}>
+            <Button type="submit" className={adminPrimaryButtonClass} loading={createArtist.isPending}>
               생성
             </Button>
             <Button
               type="button"
               intent="neutral"
+              className={adminButtonClass}
               onClick={() => router.push('/admin/v2-catalog/artists')}
             >
               취소
             </Button>
           </div>
         </form>
-      </section>
+      </AdminSurface>
     </div>
   );
 }

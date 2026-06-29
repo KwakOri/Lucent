@@ -6,6 +6,14 @@ import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 import { Input, Textarea } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  AdminSurface,
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type { V2Project, V2ProjectStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useUploadV2MediaAssetFile,
@@ -14,8 +22,6 @@ import {
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 const STATUS_VALUES: V2ProjectStatus[] = ['DRAFT', 'ACTIVE', 'ARCHIVED'];
-const SELECT_CLASS =
-  'h-11 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -136,39 +142,42 @@ function ProjectEditForm({ project, onCancel }: ProjectEditFormProps) {
   return (
     <>
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       )}
       {message && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-[14px] border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
           {message}
         </div>
       )}
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <AdminSurface padding="lg">
         <form className="grid grid-cols-1 gap-3 md:grid-cols-2" onSubmit={handleUpdateProject}>
           <Input
             placeholder="프로젝트명"
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
+            className={adminInputClass}
           />
           <Input
             placeholder="slug"
             value={slug}
             onChange={(event) => setSlug(event.target.value)}
             required
+            className={adminInputClass}
           />
           <Input
             placeholder="sort_order"
             value={sortOrder}
             onChange={(event) => setSortOrder(event.target.value)}
+            className={adminInputClass}
           />
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as V2ProjectStatus)}
-            className={SELECT_CLASS}
+            className={adminSelectClass}
           >
             {STATUS_VALUES.map((statusValue) => (
               <option key={statusValue} value={statusValue}>
@@ -192,6 +201,7 @@ function ProjectEditForm({ project, onCancel }: ProjectEditFormProps) {
             <Button
               type="button"
               intent="neutral"
+              className={adminButtonClass}
               onClick={clearProjectCover}
               disabled={!hasCover || isSubmitting}
             >
@@ -199,9 +209,9 @@ function ProjectEditForm({ project, onCancel }: ProjectEditFormProps) {
             </Button>
           </div>
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-gray-700">커버 이미지 (선택)</label>
+            <label className="mb-2 block text-sm font-black text-[#1a1a2e]">커버 이미지 (선택)</label>
             {coverPreviewUrl ? (
-              <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+              <div className="overflow-hidden rounded-[16px] border border-[#e7e3d3] bg-[#faf9f3]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={coverPreviewUrl}
@@ -210,17 +220,17 @@ function ProjectEditForm({ project, onCancel }: ProjectEditFormProps) {
                 />
               </div>
             ) : (
-              <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 text-center text-sm text-gray-500">
+              <div className="flex h-40 items-center justify-center rounded-[16px] border border-dashed border-[#e7e3d3] bg-[#faf9f3] px-4 text-center text-sm font-medium text-[#1a1a2e]/55">
                 {hasCover
                   ? '커버가 연결되어 있습니다. (public URL이 없어 미리보기는 표시되지 않습니다)'
                   : '커버 이미지를 설정하지 않았습니다.'}
               </div>
             )}
             {coverFileName ? (
-              <p className="mt-2 text-xs text-gray-500">최근 업로드 파일: {coverFileName}</p>
+              <p className="mt-2 text-xs font-medium text-[#1a1a2e]/45">최근 업로드 파일: {coverFileName}</p>
             ) : null}
             {hasCover && !coverFileName ? (
-              <p className="mt-2 break-all text-xs text-gray-500">연결된 asset ID: {coverMediaAssetId}</p>
+              <p className="mt-2 break-all text-xs font-medium text-[#1a1a2e]/45">연결된 asset ID: {coverMediaAssetId}</p>
             ) : null}
           </div>
           <div className="md:col-span-2">
@@ -229,18 +239,19 @@ function ProjectEditForm({ project, onCancel }: ProjectEditFormProps) {
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               rows={3}
+              className={adminInputClass}
             />
           </div>
           <div className="md:col-span-2 flex gap-2">
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" className={adminPrimaryButtonClass} loading={isSubmitting}>
               저장
             </Button>
-            <Button type="button" intent="neutral" onClick={onCancel}>
+            <Button type="button" intent="neutral" className={adminButtonClass} onClick={onCancel}>
               취소
             </Button>
           </div>
         </form>
-      </section>
+      </AdminSurface>
     </>
   );
 }
@@ -270,10 +281,10 @@ export default function V2CatalogProjectEditPage() {
   if (error || !project) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
           프로젝트 정보를 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/projects')}>
+        <Button intent="neutral" className={adminButtonClass} onClick={() => router.push('/admin/v2-catalog/projects')}>
           프로젝트 목록
         </Button>
       </div>
@@ -281,18 +292,17 @@ export default function V2CatalogProjectEditPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">v2 프로젝트 수정</h1>
-          <p className="mt-1 text-sm text-gray-500">{project.name} 정보를 수정합니다.</p>
-        </div>
-        <div className="mt-3 sm:mt-0">
-          <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}`)}>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="project form"
+        title="v2 프로젝트 수정"
+        description={`${project.name} 정보를 수정합니다.`}
+        actions={
+          <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}`)}>
             상세로 돌아가기
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <ProjectEditForm
         project={project}

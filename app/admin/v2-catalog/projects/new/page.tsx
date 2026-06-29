@@ -6,6 +6,13 @@ import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 import { Input, Textarea } from '@/components/ui/input';
 import {
+  AdminPageHeader,
+  AdminSurface,
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
+import {
   useCreateV2Project,
   useUploadV2MediaAssetFile,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
@@ -114,54 +121,56 @@ export default function V2CatalogProjectCreatePage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">v2 프로젝트 생성</h1>
-          <p className="mt-1 text-sm text-gray-500">새 프로젝트를 등록합니다.</p>
-        </div>
-        <div className="mt-3 sm:mt-0">
-          <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/projects')}>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="project form"
+        title="v2 프로젝트 생성"
+        description="새 프로젝트를 등록합니다."
+        actions={
+          <Button intent="neutral" className={adminButtonClass} onClick={() => router.push('/admin/v2-catalog/projects')}>
             목록으로
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       )}
       {message && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-[14px] border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
           {message}
         </div>
       )}
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <AdminSurface padding="lg">
         <form className="grid grid-cols-1 gap-3 md:grid-cols-2" onSubmit={handleCreateProject}>
           <Input
             placeholder="프로젝트명"
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
+            className={adminInputClass}
           />
           <Input
             placeholder="slug (예: jennie-solo)"
             value={slug}
             onChange={(event) => setSlug(event.target.value)}
             required
+            className={adminInputClass}
           />
           <Input
             placeholder="sort_order"
             value={sortOrder}
             onChange={(event) => setSortOrder(event.target.value)}
+            className={adminInputClass}
           />
           <div className="md:col-span-2 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">커버 이미지 (선택)</label>
+              <label className="mb-2 block text-sm font-black text-[#1a1a2e]">커버 이미지 (선택)</label>
               {coverPreviewUrl ? (
-                <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                <div className="overflow-hidden rounded-[16px] border border-[#e7e3d3] bg-[#faf9f3]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={coverPreviewUrl}
@@ -170,17 +179,17 @@ export default function V2CatalogProjectCreatePage() {
                   />
                 </div>
               ) : (
-                <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 text-center text-sm text-gray-500">
+                <div className="flex h-40 items-center justify-center rounded-[16px] border border-dashed border-[#e7e3d3] bg-[#faf9f3] px-4 text-center text-sm font-medium text-[#1a1a2e]/55">
                   {hasCover
                     ? '커버가 연결되어 있습니다. (public URL이 없어 미리보기는 표시되지 않습니다)'
                     : '커버 이미지를 설정하지 않았습니다.'}
                 </div>
               )}
               {coverFileName ? (
-                <p className="mt-2 text-xs text-gray-500">최근 업로드 파일: {coverFileName}</p>
+                <p className="mt-2 text-xs font-medium text-[#1a1a2e]/45">최근 업로드 파일: {coverFileName}</p>
               ) : null}
               {hasCover && !coverFileName ? (
-                <p className="mt-2 break-all text-xs text-gray-500">연결된 asset ID: {coverMediaAssetId}</p>
+                <p className="mt-2 break-all text-xs font-medium text-[#1a1a2e]/45">연결된 asset ID: {coverMediaAssetId}</p>
               ) : null}
             </div>
 
@@ -200,6 +209,7 @@ export default function V2CatalogProjectCreatePage() {
               <Button
                 type="button"
                 intent="neutral"
+                className={adminButtonClass}
                 onClick={clearProjectCover}
                 disabled={!hasCover || isSubmitting}
               >
@@ -213,22 +223,24 @@ export default function V2CatalogProjectCreatePage() {
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               rows={3}
+              className={adminInputClass}
             />
           </div>
           <div className="md:col-span-2 flex gap-2">
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" className={adminPrimaryButtonClass} loading={isSubmitting}>
               생성
             </Button>
             <Button
               type="button"
               intent="neutral"
+              className={adminButtonClass}
               onClick={() => router.push('/admin/v2-catalog/projects')}
             >
               취소
             </Button>
           </div>
         </form>
-      </section>
+      </AdminSurface>
     </div>
   );
 }

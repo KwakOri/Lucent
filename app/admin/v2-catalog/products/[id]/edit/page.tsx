@@ -4,6 +4,10 @@ import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  adminButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { ProductBasicsForm } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
 import type { ProductBasicsFormValues } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
 import {
@@ -88,10 +92,10 @@ export default function V2CatalogProductEditPage() {
   if (error || projectsError || !product || !projects) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
           상품 정보를 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/products')}>
+        <Button intent="neutral" className={adminButtonClass} onClick={() => router.push('/admin/v2-catalog/products')}>
           목록으로
         </Button>
       </div>
@@ -99,20 +103,17 @@ export default function V2CatalogProductEditPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">상품 정보 수정</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            기본 정보는 별도 페이지에서 차분히 수정하고, 저장 후 상세 화면으로 돌아갑니다.
-          </p>
-        </div>
-        <div className="mt-3 sm:mt-0">
-          <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/products/${productId}`)}>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="product form"
+        title="상품 정보 수정"
+        description="기본 정보는 별도 페이지에서 차분히 수정하고, 저장 후 상세 화면으로 돌아갑니다."
+        actions={
+          <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(`/admin/v2-catalog/products/${productId}`)}>
             상세로 돌아가기
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <ProductBasicsForm
         mode="edit"

@@ -5,6 +5,12 @@ import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input, Textarea } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import {
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type {
   V2FulfillmentType,
   V2ProductKind,
@@ -59,6 +65,18 @@ const PRODUCT_KIND_OPTIONS: Array<{
 
 const EDIT_STATUS_OPTIONS: V2ProductStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE'];
 const FULFILLMENT_TYPE_OPTIONS: V2FulfillmentType[] = ['DIGITAL', 'PHYSICAL'];
+const formSectionClassName =
+  'rounded-[22px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
+const softPanelClassName =
+  'rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-4 py-4';
+
+function getChoiceButtonClass(active: boolean): string {
+  return `rounded-[16px] border px-4 py-4 text-left transition ${
+    active
+      ? 'border-[#1a1a2e] bg-[#f5f3e8] text-[#1a1a2e]'
+      : 'border-[#e7e3d3] bg-white text-[#1a1a2e] hover:border-[#d8d1bd] hover:bg-[#faf9f3]'
+  }`;
+}
 
 export function ProductBasicsForm({
   mode,
@@ -115,15 +133,15 @@ export function ProductBasicsForm({
   return (
     <div className="space-y-6">
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       )}
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className={formSectionClassName}>
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold text-gray-900">기본 정보</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-black text-[#1a1a2e]">기본 정보</h2>
+          <p className="text-sm font-medium text-[#1a1a2e]/55">
             꼭 필요한 정보만 먼저 입력하세요. 내부 코드는 자동으로 정리합니다.
           </p>
         </div>
@@ -146,6 +164,7 @@ export function ProductBasicsForm({
                 }))}
                 placeholder="프로젝트를 선택하세요"
                 required
+                className={adminSelectClass}
               />
             </FormField>
 
@@ -161,14 +180,15 @@ export function ProductBasicsForm({
                 onChange={(event) => handleTitleChange(event.target.value)}
                 placeholder="예: 봄 시즌 디지털 팩"
                 required
+                className={adminInputClass}
               />
             </FormField>
           </div>
 
           <div className="space-y-3">
             <div>
-              <p className="text-sm font-medium text-text-primary">상품 유형</p>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="text-sm font-black text-[#1a1a2e]">상품 유형</p>
+              <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
                 먼저 개별 상품인지, 여러 상품을 묶는 번들인지 선택합니다.
               </p>
             </div>
@@ -181,14 +201,10 @@ export function ProductBasicsForm({
                     key={option.value}
                     type="button"
                     onClick={() => setProductKind(option.value)}
-                    className={`rounded-2xl border px-4 py-4 text-left transition ${
-                      active
-                        ? 'border-primary-500 bg-primary-50 shadow-sm'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
+                    className={getChoiceButtonClass(active)}
                   >
-                    <p className="text-sm font-semibold text-gray-900">{option.title}</p>
-                    <p className="mt-1 text-sm leading-6 text-gray-600">
+                    <p className="text-sm font-black">{option.title}</p>
+                    <p className="mt-1 text-sm font-medium leading-6 text-[#1a1a2e]/55">
                       {option.description}
                     </p>
                   </button>
@@ -199,8 +215,8 @@ export function ProductBasicsForm({
 
           <div className="space-y-3">
             <div>
-              <p className="text-sm font-medium text-text-primary">상품 제공 방식</p>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="text-sm font-black text-[#1a1a2e]">상품 제공 방식</p>
+              <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
                 STANDARD 상품은 여기서 디지털/실물 유형을 고정합니다.
               </p>
             </div>
@@ -214,16 +230,12 @@ export function ProductBasicsForm({
                       key={option}
                       type="button"
                       onClick={() => setFulfillmentType(option)}
-                      className={`rounded-2xl border px-4 py-4 text-left transition ${
-                        active
-                          ? 'border-primary-500 bg-primary-50 shadow-sm'
-                          : 'border-gray-200 bg-white hover:border-gray-300'
-                      }`}
+                      className={getChoiceButtonClass(active)}
                     >
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p className="text-sm font-black">
                         {FULFILLMENT_TYPE_LABELS[option]}
                       </p>
-                      <p className="mt-1 text-sm leading-6 text-gray-600">
+                      <p className="mt-1 text-sm font-medium leading-6 text-[#1a1a2e]/55">
                         {option === 'DIGITAL'
                           ? '옵션은 디지털 형식으로 고정되며 배송이 필요하지 않습니다.'
                           : '옵션은 실물 형식으로 고정되며 배송/재고 관리를 사용할 수 있습니다.'}
@@ -233,23 +245,23 @@ export function ProductBasicsForm({
                 })}
               </div>
             ) : (
-              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+              <div className="rounded-[16px] border border-dashed border-[#e7e3d3] bg-[#faf9f3] px-4 py-4 text-sm font-medium text-[#1a1a2e]/60">
                 <p>
                   번들 상품은 하위 구성에 따라 디지털/실물이 섞일 수 있어 상품 수준 제공 방식은
                   고정하지 않습니다.
                 </p>
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-[#1a1a2e]/45">
                   저장 후 상품 상세의 `번들 구성 상품` 영역에서 포함 상품과 수량 정책을 확정합니다.
                 </p>
               </div>
             )}
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+          <div className={softPanelClassName}>
             <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-900">상품 주소</p>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="text-sm font-black text-[#1a1a2e]">상품 주소</p>
+                <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
                   상품명 기준으로 자동 생성되며, 필요할 때만 직접 수정합니다.
                 </p>
               </div>
@@ -257,6 +269,7 @@ export function ProductBasicsForm({
                 type="button"
                 intent="neutral"
                 size="sm"
+                className={adminButtonClass}
                 onClick={() => {
                   setShowAdvanced((prev) => !prev);
                   setManualSlug(true);
@@ -266,11 +279,11 @@ export function ProductBasicsForm({
               </Button>
             </div>
 
-            <div className="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            <div className="mt-3 rounded-[14px] border border-[#e7e3d3] bg-white px-4 py-3">
+              <p className="text-xs font-black uppercase tracking-wide text-[#1a1a2e]/40">
                 Preview
               </p>
-              <p className="mt-1 text-sm font-medium text-gray-900">
+              <p className="mt-1 text-sm font-bold text-[#1a1a2e]">
                 /shop/{effectiveSlug || autoSlug}
               </p>
             </div>
@@ -287,14 +300,15 @@ export function ProductBasicsForm({
                 value={shortDescription}
                 onChange={(event) => setShortDescription(event.target.value)}
                 placeholder="예: 디지털 음원과 보너스 콘텐츠를 한 번에"
+                className={adminInputClass}
               />
             </FormField>
 
             {mode === 'edit' && (
               <div className="space-y-3">
                 <div>
-                  <p className="text-sm font-medium text-text-primary">판매 상태</p>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="text-sm font-black text-[#1a1a2e]">판매 상태</p>
+                  <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
                     고객에게 어떻게 보일지 선택하세요.
                   </p>
                 </div>
@@ -305,6 +319,7 @@ export function ProductBasicsForm({
                       type="button"
                       size="sm"
                       intent={status === option ? 'primary' : 'neutral'}
+                      className={status === option ? adminPrimaryButtonClass : adminButtonClass}
                       onClick={() => setStatus(option)}
                     >
                       {PRODUCT_STATUS_LABELS[option]}
@@ -326,14 +341,15 @@ export function ProductBasicsForm({
               onChange={(event) => setDescription(event.target.value)}
               rows={5}
               placeholder="상품 소개, 구성, 구매 전 안내를 자연스럽게 작성하세요."
+              className={adminInputClass}
             />
           </FormField>
 
           {showAdvanced && (
-            <section className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4">
+            <section className="rounded-[16px] border border-dashed border-[#e7e3d3] bg-[#faf9f3] px-4 py-4">
               <div className="flex flex-col gap-1">
-                <h3 className="text-sm font-semibold text-gray-900">고급 설정</h3>
-                <p className="text-sm text-gray-500">
+                <h3 className="text-sm font-black text-[#1a1a2e]">고급 설정</h3>
+                <p className="text-sm font-medium text-[#1a1a2e]/55">
                   일반적으로는 수정할 필요 없는 내부 설정입니다.
                 </p>
               </div>
@@ -352,19 +368,25 @@ export function ProductBasicsForm({
                       setSlug(event.target.value);
                     }}
                     placeholder={autoSlug}
+                    className={adminInputClass}
                   />
                 </FormField>
 
                 {mode === 'edit' && (
                   <div className="space-y-3">
-                    <p className="text-sm font-medium text-text-primary">보관 상태</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm font-black text-[#1a1a2e]">보관 상태</p>
+                    <p className="text-sm font-medium text-[#1a1a2e]/55">
                       더 이상 운영하지 않는 상품은 보관할 수 있습니다.
                     </p>
                     <Button
                       type="button"
                       size="sm"
                       intent={status === 'ARCHIVED' ? 'danger' : 'neutral'}
+                      className={
+                        status === 'ARCHIVED'
+                          ? '!rounded-[12px] !bg-[#ca2a30] !font-bold !text-white hover:!bg-[#b0242a]'
+                          : adminButtonClass
+                      }
                       onClick={() => setStatus('ARCHIVED')}
                     >
                       {PRODUCT_STATUS_LABELS.ARCHIVED}
@@ -376,10 +398,10 @@ export function ProductBasicsForm({
           )}
 
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" className={adminPrimaryButtonClass} loading={isSubmitting}>
               {submitLabel}
             </Button>
-            <Button type="button" intent="neutral" onClick={onCancel}>
+            <Button type="button" intent="neutral" className={adminButtonClass} onClick={onCancel}>
               취소
             </Button>
           </div>

@@ -2,6 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  adminButtonClass,
+  adminPrimaryButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type {
   V2BundleDefinition,
   V2Campaign,
@@ -20,6 +24,9 @@ import {
   type CampaignTargetSelection,
 } from '@/lib/client/utils/v2-campaign-admin';
 import { CampaignTargetPicker } from './CampaignTargetPicker';
+
+const targetSectionClassName =
+  'rounded-[22px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
 
 type CampaignTargetFormProps = {
   mode: 'create' | 'edit';
@@ -111,7 +118,7 @@ export function CampaignTargetForm({
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       )}
@@ -132,17 +139,17 @@ export function CampaignTargetForm({
         defaultTargetType={target?.target_type || 'PROJECT'}
       />
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">적용 방식</h2>
-        <p className="mt-1 text-sm text-gray-500">보통은 포함 대상으로 추가하고, 예외만 제외 대상으로 둡니다.</p>
+      <section className={targetSectionClassName}>
+        <h2 className="text-lg font-black text-[#1a1a2e]">적용 방식</h2>
+        <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">보통은 포함 대상으로 추가하고, 예외만 제외 대상으로 둡니다.</p>
 
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
-            className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+            className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
               !isExcluded
-                ? 'border-primary-500 bg-primary-50 text-primary-700'
-                : 'border-gray-200 bg-white text-gray-700'
+                ? 'border-[#1a1a2e] bg-[#f5f3e8] text-[#1a1a2e]'
+                : 'border-[#e7e3d3] bg-white text-[#1a1a2e] hover:bg-[#faf9f3]'
             }`}
             onClick={() => setIsExcluded(false)}
           >
@@ -150,10 +157,10 @@ export function CampaignTargetForm({
           </button>
           <button
             type="button"
-            className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+            className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
               isExcluded
-                ? 'border-amber-400 bg-amber-50 text-amber-700'
-                : 'border-gray-200 bg-white text-gray-700'
+                ? 'border-[#a35200] bg-[#fff4d5] text-[#a35200]'
+                : 'border-[#e7e3d3] bg-white text-[#1a1a2e] hover:bg-[#faf9f3]'
             }`}
             onClick={() => setIsExcluded(true)}
           >
@@ -163,10 +170,10 @@ export function CampaignTargetForm({
       </section>
 
       <div className="flex flex-wrap justify-end gap-2">
-        <Button intent="neutral" onClick={onCancel} disabled={isSubmitting}>
+        <Button intent="neutral" className={adminButtonClass} onClick={onCancel} disabled={isSubmitting}>
           취소
         </Button>
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" className={adminPrimaryButtonClass} loading={isSubmitting}>
           {mode === 'create' ? '대상 저장' : '대상 수정 저장'}
         </Button>
       </div>

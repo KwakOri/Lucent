@@ -4,6 +4,10 @@ import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  adminButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { ProductBasicsForm } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
 import type { ProductBasicsFormValues } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
 import {
@@ -127,10 +131,10 @@ export default function V2CatalogProductCreatePage() {
   if (projectsError || !projects) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
           프로젝트 목록을 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push(listPath)}>
+        <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(listPath)}>
           목록으로
         </Button>
       </div>
@@ -138,20 +142,17 @@ export default function V2CatalogProductCreatePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">새 상품 만들기</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            저장 시 기본 옵션(`default`) 1개를 자동 생성하고, 필요하면 옵션을 추가해 확장할 수 있습니다.
-          </p>
-        </div>
-        <div className="mt-3 sm:mt-0">
-          <Button intent="neutral" onClick={() => router.push(listPath)}>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="product form"
+        title="새 상품 만들기"
+        description="저장 시 기본 옵션(default) 1개를 자동 생성하고, 필요하면 옵션을 추가해 확장할 수 있습니다."
+        actions={
+          <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(listPath)}>
             목록으로
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <ProductBasicsForm
         mode="create"
