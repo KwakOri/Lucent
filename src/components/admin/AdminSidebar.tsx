@@ -2,7 +2,7 @@
 
 import { useState, type FocusEvent } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   ArrowLeftRight,
@@ -102,12 +102,14 @@ function isNavItemActive(pathname: string, href: string): boolean {
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopExpanded, setDesktopExpanded] = useState(false);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
   const openDesktopMenu = () => setDesktopExpanded(true);
   const closeDesktopMenu = () => setDesktopExpanded(false);
+  const handleGoBack = () => router.back();
 
   const handleDesktopBlur = (event: FocusEvent<HTMLDivElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -223,6 +225,27 @@ export function AdminSidebar() {
         onFocusCapture={openDesktopMenu}
         onBlurCapture={handleDesktopBlur}
       >
+        <button
+          type="button"
+          className={`
+            flex h-14 items-center justify-start rounded-2xl bg-white pl-4 pr-4 text-sm font-semibold text-text-secondary
+            shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-primary-700
+            ${desktopExpanded ? 'w-48' : 'w-14'}
+          `}
+          onClick={handleGoBack}
+        >
+          <span className="sr-only">이전 페이지로 이동</span>
+          <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
+          <span
+            className={`
+              overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
+              ${desktopExpanded ? 'ml-3 max-w-[9rem] opacity-100' : 'ml-0 max-w-0 opacity-0'}
+            `}
+          >
+            뒤로가기
+          </span>
+        </button>
+
         <Link
           href="/"
           className={`
@@ -231,7 +254,7 @@ export function AdminSidebar() {
             ${desktopExpanded ? 'w-48' : 'w-14'}
           `}
         >
-          <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
+          <House className="h-5 w-5 shrink-0" aria-hidden />
           <span
             className={`
               overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
