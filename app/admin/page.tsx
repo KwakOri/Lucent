@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   Banknote,
   BarChart3,
+  CheckCircle2,
   Clock3,
   Package as PackageIcon,
   RefreshCw,
@@ -21,11 +22,15 @@ import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import {
   type ListV2AdminDashboardOverviewParams,
+  type V2AdminDashboardUrgentOrder,
   type V2AdminDashboardOrderStage,
   type V2AdminSalesStatsPreset,
 } from '@/lib/client/api/v2-admin-ops.api';
 import { type V2Campaign } from '@/lib/client/api/v2-catalog-admin.api';
-import { useV2AdminDashboardOverview } from '@/lib/client/hooks/useV2AdminOps';
+import {
+  useV2AdminDashboardOverview,
+  useV2AdminOrderLinearTransitionExecute,
+} from '@/lib/client/hooks/useV2AdminOps';
 import { useV2Campaigns } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 type FilterState = {
@@ -71,7 +76,10 @@ function shiftIsoDate(dateValue: string, days: number): string {
   return toIsoDate(date);
 }
 
-function resolvePresetRange(preset: V2AdminSalesStatsPreset): { from: string; to: string } {
+function resolvePresetRange(preset: V2AdminSalesStatsPreset): {
+  from: string;
+  to: string;
+} {
   const today = toIsoDate(new Date());
   if (preset === 'LAST_30_DAYS') {
     return {
@@ -85,7 +93,9 @@ function resolvePresetRange(preset: V2AdminSalesStatsPreset): { from: string; to
   };
 }
 
-function toDashboardParams(filters: FilterState): ListV2AdminDashboardOverviewParams {
+function toDashboardParams(
+  filters: FilterState,
+): ListV2AdminDashboardOverviewParams {
   const params: ListV2AdminDashboardOverviewParams = {
     preset: filters.preset,
   };
@@ -138,7 +148,9 @@ function formatDateLabel(value: string | null | undefined): string {
   if (!value) {
     return '-';
   }
-  const parsed = new Date(value.includes('T') ? value : `${value}T00:00:00.000Z`);
+  const parsed = new Date(
+    value.includes('T') ? value : `${value}T00:00:00.000Z`,
+  );
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }
@@ -233,7 +245,11 @@ function getStageTone(stage: string): {
       className: 'bg-[#fff4d5] text-[#a35200]',
     };
   }
-  if (stage === 'READY_TO_SHIP' || stage === 'IN_TRANSIT' || stage === 'PRODUCTION') {
+  if (
+    stage === 'READY_TO_SHIP' ||
+    stage === 'IN_TRANSIT' ||
+    stage === 'PRODUCTION'
+  ) {
     return {
       label: ORDER_STAGE_LABELS[stage] || stage,
       dot: '#66B5F3',
@@ -277,6 +293,104 @@ function StagePill({ stage }: { stage: string }) {
   );
 }
 
+function getOrderProductQuantity(order: V2AdminDashboardUrgentOrder): number {
+  return Math.max(
+    0,
+    Number(order.item_quantity_total || order.item_line_count || 0),
+  );
+}
+
+function OrderProductSummaryCell({
+  order,
+  currencyCode,
+}: {
+  order: V2AdminDashboardUrgentOrder;
+  currencyCode: string;
+}) {
+  const quantity = getOrderProductQuantity(order);
+  const items = order.items || [];
+  const visibleItems = items.slice(0, 4);
+  const hiddenItemCount = Math.max(0, items.length - visibleItems.length);
+
+  return (
+    <div className="group relative inline-flex">
+      <button
+        type="button"
+        className="rounded-[10px] bg-[#fff4d5] px-2.5 py-1 text-xs font-black text-[#a35200] transition hover:bg-[#ffe8a3] focus:outline-none focus:ring-2 focus:ring-[#f59e0b]/35"
+        aria-label={`${order.order_no || '주문'} 상품 상세 보기`}
+      >
+        {quantity > 0 ? `상품 ${formatNumber(quantity)}개` : '상품 정보 없음'}
+      </button>
+
+      <div className="pointer-events-none absolute left-0 top-full z-40 mt-2 hidden w-80 rounded-[16px] border border-[#e7e3d3] bg-white p-4 text-left shadow-[0_18px_44px_rgba(26,26,46,0.14)] group-hover:block group-focus-within:block">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-[#1a1a2e]">
+              {order.order_no || order.order_id || '주문번호 없음'}
+            </p>
+            <p className="mt-1 text-xs text-[#1a1a2e]/45">
+              {order.depositor_name || '입금자명 없음'} ·{' '}
+              {formatDateTime(order.placed_at || order.created_at)}
+            </p>
+          </div>
+          <StagePill stage={order.stage} />
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2 rounded-[12px] bg-[#f9f9ed] px-3 py-2">
+          <div>
+            <p className="text-[11px] font-semibold text-[#1a1a2e]/45">
+              상품 수량
+            </p>
+            <p className="mt-0.5 text-sm font-black text-[#1a1a2e]">
+              {formatNumber(quantity)}개
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-[#1a1a2e]/45">
+              결제 금액
+            </p>
+            <p className="mt-0.5 text-sm font-black text-[#1a1a2e]">
+              {formatCurrency(order.grand_total, currencyCode)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 space-y-2">
+          {visibleItems.length > 0 ? (
+            visibleItems.map((item, index) => (
+              <div
+                key={`${item.order_item_id || item.product_name}-${index}`}
+                className="flex items-start justify-between gap-3 border-t border-[#f1eee2] pt-2 first:border-t-0 first:pt-0"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-bold text-[#1a1a2e]">
+                    {item.product_name}
+                  </p>
+                  <p className="mt-0.5 truncate text-[11px] text-[#1a1a2e]/45">
+                    {item.variant_name || '옵션 없음'}
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs font-black text-[#a35200]">
+                  x {formatNumber(item.quantity)}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="rounded-[12px] bg-[#f9f9ed] px-3 py-3 text-center text-xs text-[#1a1a2e]/45">
+              상품 상세가 없습니다.
+            </p>
+          )}
+          {hiddenItemCount > 0 ? (
+            <p className="text-[11px] font-semibold text-[#1a1a2e]/45">
+              외 {formatNumber(hiddenItemCount)}개 상품
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function getPresetButtonClass(isActive: boolean): string {
   return isActive
     ? '!border-[#1a1a2e] !bg-[#1a1a2e] !text-white hover:!bg-[#1a1a2e]'
@@ -316,11 +430,14 @@ export default function AdminDashboardPage() {
   });
 
   const params = useMemo(() => toDashboardParams(applied), [applied]);
-  const { data, isLoading, isFetching, error, refetch } = useV2AdminDashboardOverview(params);
-  const {
-    data: activePopupCampaigns,
-    isLoading: popupsLoading,
-  } = useV2Campaigns({ status: 'ACTIVE', campaignType: 'POPUP' });
+  const { data, isLoading, isFetching, error, refetch } =
+    useV2AdminDashboardOverview(params);
+  const confirmPayment = useV2AdminOrderLinearTransitionExecute();
+  const { data: activePopupCampaigns, isLoading: popupsLoading } =
+    useV2Campaigns({ status: 'ACTIVE', campaignType: 'POPUP' });
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(
+    null,
+  );
 
   const handlePresetApply = (preset: V2AdminSalesStatsPreset) => {
     if (preset === 'CUSTOM') {
@@ -345,6 +462,36 @@ export default function AdminDashboardPage() {
     });
   };
 
+  const handleConfirmPayment = async (order: V2AdminDashboardUrgentOrder) => {
+    if (!order.order_id || order.stage !== 'PAYMENT_PENDING') {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${order.order_no || order.order_id} 주문을 입금 확인 처리할까요?`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setConfirmingOrderId(order.order_id);
+    try {
+      await confirmPayment.mutateAsync({
+        order_ids: [order.order_id],
+        target_stage:
+          order.has_digital && !order.has_physical
+            ? 'DELIVERED'
+            : 'PAYMENT_CONFIRMED',
+        reason: '관리자 대시보드 처리 우선 주문에서 입금 확인',
+      });
+      await refetch();
+    } catch (confirmError) {
+      window.alert(getErrorMessage(confirmError));
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -356,7 +503,9 @@ export default function AdminDashboardPage() {
   if (!data || error) {
     return (
       <div className="space-y-4 rounded-[18px] border border-red-200 bg-red-50 p-6">
-        <h1 className="text-xl font-semibold text-red-700">대시보드 로드 실패</h1>
+        <h1 className="text-xl font-semibold text-red-700">
+          대시보드 로드 실패
+        </h1>
         <p className="text-sm text-red-600">{getErrorMessage(error)}</p>
         <div>
           <Button type="button" size="sm" onClick={() => refetch()}>
@@ -368,9 +517,9 @@ export default function AdminDashboardPage() {
   }
 
   const currencyCode = data.metadata.currency_code || 'KRW';
-  const orderStageEntries = Object.entries(data.pipeline.order_stage_counts).filter(
-    ([stage]) => stage !== 'DELIVERED',
-  );
+  const orderStageEntries = Object.entries(
+    data.pipeline.order_stage_counts,
+  ).filter(([stage]) => stage !== 'DELIVERED');
   const stageTotal = orderStageEntries.reduce(
     (sum, [, value]) => sum + Number(value || 0),
     0,
@@ -378,8 +527,14 @@ export default function AdminDashboardPage() {
 
   const currentPopup = (() => {
     const popups = activePopupCampaigns || [];
-    const livePopups = popups.filter((campaign) => isCampaignLive(campaign, new Date()));
-    return [...(livePopups.length > 0 ? livePopups : popups)].sort(sortCampaignsByStartDate)[0] || null;
+    const livePopups = popups.filter((campaign) =>
+      isCampaignLive(campaign, new Date()),
+    );
+    return (
+      [...(livePopups.length > 0 ? livePopups : popups)].sort(
+        sortCampaignsByStartDate,
+      )[0] || null
+    );
   })();
 
   const kpiCards: KpiCard[] = [
@@ -401,7 +556,12 @@ export default function AdminDashboardPage() {
       href: '/admin/orders?stage=READY_TO_SHIP',
       icon: Truck,
       caption: '출고 준비 필요',
-      badge: alertBadge(resolveMetricAlert('ready_to_ship_count', data.kpis.ready_to_ship_count)),
+      badge: alertBadge(
+        resolveMetricAlert(
+          'ready_to_ship_count',
+          data.kpis.ready_to_ship_count,
+        ),
+      ),
     },
     {
       key: 'payment_pending_count',
@@ -412,7 +572,10 @@ export default function AdminDashboardPage() {
       icon: Clock3,
       caption: '확인 대기 주문',
       badge: alertBadge(
-        resolveMetricAlert('payment_pending_count', data.kpis.payment_pending_count),
+        resolveMetricAlert(
+          'payment_pending_count',
+          data.kpis.payment_pending_count,
+        ),
       ),
     },
     {
@@ -424,7 +587,10 @@ export default function AdminDashboardPage() {
       icon: ShieldCheck,
       caption: '관리자 액션 승인',
       badge: alertBadge(
-        resolveMetricAlert('approval_pending_count', data.kpis.approval_pending_count),
+        resolveMetricAlert(
+          'approval_pending_count',
+          data.kpis.approval_pending_count,
+        ),
       ),
     },
   ];
@@ -452,7 +618,9 @@ export default function AdminDashboardPage() {
       detail: formatCurrency(data.kpis.refund_amount, currencyCode),
       href: '/admin/refunds',
       icon: AlertTriangle,
-      badge: alertBadge(resolveMetricAlert('refund_rate', data.kpis.refund_rate)),
+      badge: alertBadge(
+        resolveMetricAlert('refund_rate', data.kpis.refund_rate),
+      ),
     },
     {
       key: 'inventory_risk_count',
@@ -462,7 +630,10 @@ export default function AdminDashboardPage() {
       href: '/admin/production-shipping',
       icon: PackageIcon,
       badge: alertBadge(
-        resolveMetricAlert('inventory_risk_count', data.kpis.inventory_risk_count),
+        resolveMetricAlert(
+          'inventory_risk_count',
+          data.kpis.inventory_risk_count,
+        ),
       ),
     },
     {
@@ -472,7 +643,12 @@ export default function AdminDashboardPage() {
       detail: `컷오버 BLOCKED ${formatNumber(data.risk.cutover.blocked_domains)}건`,
       href: '/admin/v2-ops',
       icon: BarChart3,
-      badge: alertBadge(resolveMetricAlert('approval_pending_count', data.risk.audit.failed_actions_24h)),
+      badge: alertBadge(
+        resolveMetricAlert(
+          'approval_pending_count',
+          data.risk.audit.failed_actions_24h,
+        ),
+      ),
     },
   ];
 
@@ -501,7 +677,10 @@ export default function AdminDashboardPage() {
     },
   ];
 
-  const presetButtons: Array<{ preset: V2AdminSalesStatsPreset; label: string }> = [
+  const presetButtons: Array<{
+    preset: V2AdminSalesStatsPreset;
+    label: string;
+  }> = [
     { preset: 'LAST_7_DAYS', label: '최근 7일' },
     { preset: 'LAST_30_DAYS', label: '최근 30일' },
     { preset: 'CUSTOM', label: '커스텀' },
@@ -514,8 +693,12 @@ export default function AdminDashboardPage() {
         <section className="overflow-hidden rounded-[22px] bg-[#1a1a2e] p-5 text-white shadow-[0_16px_34px_rgba(26,26,46,0.22)] sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-black text-white/60">이번 달 총 매출</p>
-              <h1 className="mt-3 text-2xl font-black sm:text-3xl">운영 대시보드</h1>
+              <p className="text-sm font-black text-white/60">
+                이번 달 총 매출
+              </p>
+              <h1 className="mt-3 text-2xl font-black sm:text-3xl">
+                운영 대시보드
+              </h1>
               <p className="mt-2 max-w-md text-sm leading-6 text-white/80">
                 매출, 주문 이행, 재고, 승인 병목을 한 화면에서 확인합니다.
               </p>
@@ -532,8 +715,12 @@ export default function AdminDashboardPage() {
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
             {salesSummaries.map((item) => (
               <div key={item.label} className="border-t border-white/30 pt-3">
-                <p className="text-xs font-medium text-white/70">{item.label}</p>
-                <p className="mt-1 text-xl font-black text-white">{item.value}</p>
+                <p className="text-xs font-medium text-white/70">
+                  {item.label}
+                </p>
+                <p className="mt-1 text-xl font-black text-white">
+                  {item.value}
+                </p>
               </div>
             ))}
           </div>
@@ -563,7 +750,9 @@ export default function AdminDashboardPage() {
                 <div className="flex items-start justify-between gap-3">
                   <span
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] ${
-                      card.primary ? 'bg-white/20 text-white' : 'bg-[#fff4d5] text-[#a35200]'
+                      card.primary
+                        ? 'bg-white/20 text-white'
+                        : 'bg-[#fff4d5] text-[#a35200]'
                     }`}
                   >
                     <Icon className="h-5 w-5" aria-hidden />
@@ -676,8 +865,12 @@ export default function AdminDashboardPage() {
           <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold text-[#1a1a2e]">처리 우선 주문</h2>
-                <p className="mt-1 text-sm text-[#1a1a2e]/50">입금 확인과 배송 전환이 필요한 주문입니다.</p>
+                <h2 className="text-lg font-bold text-[#1a1a2e]">
+                  처리 우선 주문
+                </h2>
+                <p className="mt-1 text-sm text-[#1a1a2e]/50">
+                  입금 확인과 배송 전환이 필요한 주문입니다.
+                </p>
               </div>
               <Link
                 href="/admin/orders?stage=PAYMENT_PENDING"
@@ -688,57 +881,101 @@ export default function AdminDashboardPage() {
               </Link>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] border-collapse text-sm">
+            <div className="overflow-x-auto overflow-y-visible pb-24">
+              <table className="w-full min-w-[860px] border-collapse text-sm">
                 <thead>
                   <tr className="text-left">
-                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">입금자명</th>
-                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">주문번호</th>
-                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">금액</th>
-                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">상태</th>
-                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">경과</th>
-                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">기준시각</th>
+                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">
+                      입금자명
+                    </th>
+                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">
+                      상품 수
+                    </th>
+                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">
+                      금액
+                    </th>
+                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">
+                      상태
+                    </th>
+                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">
+                      경과
+                    </th>
+                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">
+                      기준시각
+                    </th>
+                    <th className="px-3 pb-3 text-right text-xs font-semibold text-[#1a1a2e]/45">
+                      액션
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.queues.urgent_orders.length === 0 ? (
                     <tr className="border-t border-[#f1eee2]">
-                      <td colSpan={6} className="px-3 py-8 text-center text-sm text-[#1a1a2e]/45">
+                      <td
+                        colSpan={7}
+                        className="px-3 py-8 text-center text-sm text-[#1a1a2e]/45"
+                      >
                         즉시 처리 대상 주문이 없습니다.
                       </td>
                     </tr>
                   ) : (
-                    data.queues.urgent_orders.map((order, index) => (
-                      <tr
-                        key={`${order.order_id || order.order_no || 'order'}-${index}`}
-                        className="border-t border-[#f1eee2]"
-                      >
-                        <td className="whitespace-nowrap px-3 py-3 font-bold text-[#1a1a2e]">
-                          {order.depositor_name || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-3 font-semibold text-[#1a1a2e]/70">
-                          {order.order_id ? (
-                            <Link href={`/admin/orders/${order.order_id}`} className="hover:text-[#4a88b9]">
-                              {order.order_no || order.order_id}
-                            </Link>
-                          ) : (
-                            order.order_no || '-'
-                          )}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-3 font-bold text-[#1a1a2e]">
-                          {formatCurrency(order.grand_total, currencyCode)}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-3">
-                          <StagePill stage={order.stage} />
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-3 text-[#1a1a2e]/60">
-                          {formatAgeHours(order.age_hours)}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-3 text-xs text-[#1a1a2e]/45">
-                          {formatDateTime(order.placed_at || order.created_at)}
-                        </td>
-                      </tr>
-                    ))
+                    data.queues.urgent_orders.map((order, index) => {
+                      const canConfirmPayment =
+                        Boolean(order.order_id) &&
+                        order.stage === 'PAYMENT_PENDING';
+                      const isConfirming =
+                        confirmingOrderId === order.order_id &&
+                        confirmPayment.isPending;
+
+                      return (
+                        <tr
+                          key={`${order.order_id || order.order_no || 'order'}-${index}`}
+                          className="border-t border-[#f1eee2]"
+                        >
+                          <td className="whitespace-nowrap px-3 py-3 font-bold text-[#1a1a2e]">
+                            {order.depositor_name || '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 font-semibold text-[#1a1a2e]/70">
+                            <OrderProductSummaryCell
+                              order={order}
+                              currencyCode={currencyCode}
+                            />
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 font-bold text-[#1a1a2e]">
+                            {formatCurrency(order.grand_total, currencyCode)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3">
+                            <StagePill stage={order.stage} />
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-[#1a1a2e]/60">
+                            {formatAgeHours(order.age_hours)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-xs text-[#1a1a2e]/45">
+                            {formatDateTime(
+                              order.placed_at || order.created_at,
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right">
+                            <Button
+                              type="button"
+                              size="sm"
+                              intent="neutral"
+                              disabled={
+                                !canConfirmPayment || confirmPayment.isPending
+                              }
+                              className="rounded-[10px] !border-[#f59e0b] !bg-[#f59e0b] !text-white hover:!bg-[#d97706] disabled:!border-[#e7e3d3] disabled:!bg-[#f5f3e8] disabled:!text-[#9b9788]"
+                              onClick={() => handleConfirmPayment(order)}
+                            >
+                              <CheckCircle2
+                                className="h-3.5 w-3.5"
+                                aria-hidden
+                              />
+                              {isConfirming ? '처리중' : '입금 확인'}
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -748,7 +985,9 @@ export default function AdminDashboardPage() {
           <section className="rounded-[22px] border border-[#cde0f3] bg-[#f0f7ff] p-5">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold text-[#1a1a2e]">현재 진행중인 팝업</h2>
+                <h2 className="text-lg font-bold text-[#1a1a2e]">
+                  현재 진행중인 팝업
+                </h2>
                 <p className="mt-1 text-sm text-[#1a1a2e]/50">
                   활성화된 팝업 캠페인의 운영 기간과 상태를 확인합니다.
                 </p>
@@ -765,9 +1004,12 @@ export default function AdminDashboardPage() {
             ) : currentPopup ? (
               <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                 <div className="min-w-0">
-                  <p className="truncate text-xl font-black text-[#1a1a2e]">{currentPopup.name}</p>
+                  <p className="truncate text-xl font-black text-[#1a1a2e]">
+                    {currentPopup.name}
+                  </p>
                   <p className="mt-1 text-sm font-semibold text-[#4a88b9]">
-                    {formatDateLabel(currentPopup.starts_at)} ~ {formatDateLabel(currentPopup.ends_at)}
+                    {formatDateLabel(currentPopup.starts_at)} ~{' '}
+                    {formatDateLabel(currentPopup.ends_at)}
                   </p>
                   <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#1a1a2e]/60">
                     {currentPopup.description || '등록된 설명이 없습니다.'}
@@ -776,13 +1018,17 @@ export default function AdminDashboardPage() {
 
                 <div className="grid grid-cols-2 gap-3 sm:min-w-72">
                   <div>
-                    <p className="text-[11px] font-semibold text-[#1a1a2e]/50">캠페인 코드</p>
+                    <p className="text-[11px] font-semibold text-[#1a1a2e]/50">
+                      캠페인 코드
+                    </p>
                     <p className="mt-1 truncate text-lg font-black text-[#1a1a2e]">
                       {currentPopup.code || '-'}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[11px] font-semibold text-[#1a1a2e]/50">최근 수정</p>
+                    <p className="text-[11px] font-semibold text-[#1a1a2e]/50">
+                      최근 수정
+                    </p>
                     <p className="mt-1 text-lg font-black text-[#1a1a2e]">
                       {formatDateLabel(currentPopup.updated_at)}
                     </p>
@@ -799,7 +1045,9 @@ export default function AdminDashboardPage() {
               </div>
             ) : (
               <div className="rounded-[16px] border border-dashed border-[#cde0f3] bg-white/70 px-3 py-8 text-center">
-                <p className="text-sm font-bold text-[#1a1a2e]">진행중인 팝업이 없습니다.</p>
+                <p className="text-sm font-bold text-[#1a1a2e]">
+                  진행중인 팝업이 없습니다.
+                </p>
                 <Link
                   href="/admin/v2-catalog/campaigns"
                   className="mt-2 inline-flex text-xs font-bold text-[#4a88b9]"
@@ -815,23 +1063,34 @@ export default function AdminDashboardPage() {
           <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-base font-bold text-[#1a1a2e]">주문 단계</h2>
-              <span className="text-xs font-bold text-[#1a1a2e]/45">{formatNumber(stageTotal)}건</span>
+              <span className="text-xs font-bold text-[#1a1a2e]/45">
+                {formatNumber(stageTotal)}건
+              </span>
             </div>
             <div className="mt-4 space-y-3">
               {orderStageEntries.map(([stage, count]) => {
                 const numericCount = Number(count || 0);
-                const ratio = stageTotal > 0 ? Math.round((numericCount / stageTotal) * 100) : 0;
+                const ratio =
+                  stageTotal > 0
+                    ? Math.round((numericCount / stageTotal) * 100)
+                    : 0;
                 const tone = getStageTone(stage as V2AdminDashboardOrderStage);
                 return (
                   <div key={stage} className="space-y-1.5">
                     <div className="flex items-center justify-between gap-2 text-xs">
-                      <span className="font-semibold text-[#1a1a2e]/65">{tone.label}</span>
-                      <span className="font-bold text-[#1a1a2e]">{formatNumber(numericCount)}건</span>
+                      <span className="font-semibold text-[#1a1a2e]/65">
+                        {tone.label}
+                      </span>
+                      <span className="font-bold text-[#1a1a2e]">
+                        {formatNumber(numericCount)}건
+                      </span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-[#f1eee2]">
                       <div
                         className="h-full rounded-full bg-[#f59e0b]"
-                        style={{ width: `${numericCount > 0 ? Math.max(5, ratio) : 0}%` }}
+                        style={{
+                          width: `${numericCount > 0 ? Math.max(5, ratio) : 0}%`,
+                        }}
                       />
                     </div>
                   </div>
@@ -842,8 +1101,13 @@ export default function AdminDashboardPage() {
 
           <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-[#1a1a2e]">운영 리스크</h2>
-              <Link href="/admin/v2-ops" className="text-xs font-bold text-[#a35200]">
+              <h2 className="text-base font-bold text-[#1a1a2e]">
+                운영 리스크
+              </h2>
+              <Link
+                href="/admin/v2-ops"
+                className="text-xs font-bold text-[#a35200]"
+              >
                 전체보기
               </Link>
             </div>
@@ -860,11 +1124,17 @@ export default function AdminDashboardPage() {
                       <Icon className="h-4 w-4" aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-bold text-[#1a1a2e]">{item.label}</span>
-                      <span className="block truncate text-xs text-[#1a1a2e]/45">{item.detail}</span>
+                      <span className="block text-sm font-bold text-[#1a1a2e]">
+                        {item.label}
+                      </span>
+                      <span className="block truncate text-xs text-[#1a1a2e]/45">
+                        {item.detail}
+                      </span>
                     </span>
                     <span className="text-right">
-                      <span className="block text-sm font-black text-[#1a1a2e]">{item.value}</span>
+                      <span className="block text-sm font-black text-[#1a1a2e]">
+                        {item.value}
+                      </span>
                       <span className="mt-1 block">{item.badge}</span>
                     </span>
                   </Link>
@@ -876,7 +1146,10 @@ export default function AdminDashboardPage() {
           <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-base font-bold text-[#1a1a2e]">승인 대기</h2>
-              <Link href="/admin/v2-ops" className="text-xs font-bold text-[#a35200]">
+              <Link
+                href="/admin/v2-ops"
+                className="text-xs font-bold text-[#a35200]"
+              >
                 전체보기
               </Link>
             </div>
@@ -887,10 +1160,16 @@ export default function AdminDashboardPage() {
                 </li>
               ) : (
                 data.queues.pending_approvals.map((item) => (
-                  <li key={item.id} className="rounded-[14px] bg-[#f9f9ed] px-3 py-3">
-                    <p className="truncate text-sm font-bold text-[#1a1a2e]">{item.action_key}</p>
+                  <li
+                    key={item.id}
+                    className="rounded-[14px] bg-[#f9f9ed] px-3 py-3"
+                  >
+                    <p className="truncate text-sm font-bold text-[#1a1a2e]">
+                      {item.action_key}
+                    </p>
                     <p className="mt-1 text-xs text-[#1a1a2e]/50">
-                      role: {item.assignee_role_code || '-'} / 요청 {formatDateTime(item.requested_at)}
+                      role: {item.assignee_role_code || '-'} / 요청{' '}
+                      {formatDateTime(item.requested_at)}
                     </p>
                   </li>
                 ))
@@ -900,8 +1179,13 @@ export default function AdminDashboardPage() {
 
           <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-[#1a1a2e]">최근 실패 액션</h2>
-              <Link href="/admin/v2-ops" className="text-xs font-bold text-[#a35200]">
+              <h2 className="text-base font-bold text-[#1a1a2e]">
+                최근 실패 액션
+              </h2>
+              <Link
+                href="/admin/v2-ops"
+                className="text-xs font-bold text-[#a35200]"
+              >
                 감사 로그
               </Link>
             </div>
@@ -912,12 +1196,20 @@ export default function AdminDashboardPage() {
                 </li>
               ) : (
                 data.queues.failed_actions.map((item) => (
-                  <li key={item.id} className="rounded-[14px] bg-[#fff7f7] px-3 py-3">
-                    <p className="truncate text-sm font-bold text-[#1a1a2e]">{item.action_key}</p>
-                    <p className="mt-1 truncate text-xs text-[#ca2a30]">
-                      {item.resource_type || '-'} / {item.error_message || '에러 메시지 없음'}
+                  <li
+                    key={item.id}
+                    className="rounded-[14px] bg-[#fff7f7] px-3 py-3"
+                  >
+                    <p className="truncate text-sm font-bold text-[#1a1a2e]">
+                      {item.action_key}
                     </p>
-                    <p className="mt-1 text-xs text-[#1a1a2e]/45">{formatDateTime(item.created_at)}</p>
+                    <p className="mt-1 truncate text-xs text-[#ca2a30]">
+                      {item.resource_type || '-'} /{' '}
+                      {item.error_message || '에러 메시지 없음'}
+                    </p>
+                    <p className="mt-1 text-xs text-[#1a1a2e]/45">
+                      {formatDateTime(item.created_at)}
+                    </p>
                   </li>
                 ))
               )}
@@ -933,7 +1225,10 @@ export default function AdminDashboardPage() {
               {batchGroups.map((group) => (
                 <div key={group.title}>
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <Link href={group.href} className="text-sm font-bold text-[#1a1a2e] hover:text-[#a35200]">
+                    <Link
+                      href={group.href}
+                      className="text-sm font-bold text-[#1a1a2e] hover:text-[#a35200]"
+                    >
                       {group.title}
                     </Link>
                     <span className="text-xs font-bold text-[#1a1a2e]/45">
@@ -942,8 +1237,13 @@ export default function AdminDashboardPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {group.rows.map(([label, value]) => (
-                      <div key={`${group.title}-${label}`} className="rounded-[12px] bg-[#f9f9ed] px-3 py-2">
-                        <p className="text-[11px] font-semibold text-[#1a1a2e]/45">{label}</p>
+                      <div
+                        key={`${group.title}-${label}`}
+                        className="rounded-[12px] bg-[#f9f9ed] px-3 py-2"
+                      >
+                        <p className="text-[11px] font-semibold text-[#1a1a2e]/45">
+                          {label}
+                        </p>
                         <p className="mt-0.5 text-base font-black text-[#1a1a2e]">
                           {formatNumber(Number(value || 0))}
                         </p>
