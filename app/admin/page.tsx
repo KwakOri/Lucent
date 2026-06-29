@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   AlertTriangle,
@@ -51,6 +52,12 @@ type KpiCard = {
   caption: string;
   primary?: boolean;
   badge?: ReactNode;
+};
+
+type OrderProductOverlayState = {
+  order: V2AdminDashboardUrgentOrder;
+  top: number;
+  left: number;
 };
 
 const ORDER_STAGE_LABELS: Record<string, string> = {
@@ -292,93 +299,135 @@ function getOrderProductQuantity(order: V2AdminDashboardUrgentOrder): number {
 
 function OrderProductSummaryCell({
   order,
-  currencyCode,
+  onOpen,
+  onClose,
 }: {
   order: V2AdminDashboardUrgentOrder;
+  onOpen: (order: V2AdminDashboardUrgentOrder, trigger: HTMLElement) => void;
+  onClose: () => void;
+}) {
+  const quantity = getOrderProductQuantity(order);
+
+  return (
+    <button
+      type="button"
+      className="rounded-[10px] bg-[#fff4d5] px-2.5 py-1 text-xs font-black text-[#a35200] transition hover:bg-[#ffe8a3] focus:outline-none focus:ring-2 focus:ring-[#f59e0b]/35"
+      aria-label={`${order.order_no || '주문'} 상품 상세 보기`}
+      onMouseEnter={(event) => onOpen(order, event.currentTarget)}
+      onFocus={(event) => onOpen(order, event.currentTarget)}
+      onMouseLeave={onClose}
+      onBlur={onClose}
+    >
+      {quantity > 0 ? `상품 ${formatNumber(quantity)}개` : '상품 정보 없음'}
+    </button>
+  );
+}
+
+function OrderProductFloatingOverlay({
+  overlay,
+  currencyCode,
+}: {
+  overlay: OrderProductOverlayState;
   currencyCode: string;
 }) {
+  const { order, top, left } = overlay;
   const quantity = getOrderProductQuantity(order);
   const items = order.items || [];
   const visibleItems = items.slice(0, 4);
   const hiddenItemCount = Math.max(0, items.length - visibleItems.length);
 
   return (
-    <div className="group relative inline-flex">
-      <button
-        type="button"
-        className="rounded-[10px] bg-[#fff4d5] px-2.5 py-1 text-xs font-black text-[#a35200] transition hover:bg-[#ffe8a3] focus:outline-none focus:ring-2 focus:ring-[#f59e0b]/35"
-        aria-label={`${order.order_no || '주문'} 상품 상세 보기`}
-      >
-        {quantity > 0 ? `상품 ${formatNumber(quantity)}개` : '상품 정보 없음'}
-      </button>
-
-      <div className="pointer-events-none absolute left-0 top-full z-40 mt-2 hidden w-80 rounded-[16px] border border-[#e7e3d3] bg-white p-4 text-left shadow-[0_18px_44px_rgba(26,26,46,0.14)] group-hover:block group-focus-within:block">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-black text-[#1a1a2e]">
-              {order.order_no || order.order_id || '주문번호 없음'}
-            </p>
-            <p className="mt-1 text-xs text-[#1a1a2e]/45">
-              {order.depositor_name || '입금자명 없음'} ·{' '}
-              {formatDateTime(order.placed_at || order.created_at)}
-            </p>
-          </div>
-          <StagePill stage={order.stage} />
+    <div
+      className="pointer-events-none fixed z-[90] w-80 max-w-[calc(100vw-1.5rem)] rounded-[16px] border border-[#e7e3d3] bg-white p-4 text-left shadow-[0_18px_44px_rgba(26,26,46,0.14)]"
+      style={{ top, left }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black text-[#1a1a2e]">
+            {order.order_no || order.order_id || '주문번호 없음'}
+          </p>
+          <p className="mt-1 text-xs text-[#1a1a2e]/45">
+            {order.depositor_name || '입금자명 없음'} ·{' '}
+            {formatDateTime(order.placed_at || order.created_at)}
+          </p>
         </div>
+        <StagePill stage={order.stage} />
+      </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 rounded-[12px] bg-[#f9f9ed] px-3 py-2">
-          <div>
-            <p className="text-[11px] font-semibold text-[#1a1a2e]/45">
-              상품 수량
-            </p>
-            <p className="mt-0.5 text-sm font-black text-[#1a1a2e]">
-              {formatNumber(quantity)}개
-            </p>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold text-[#1a1a2e]/45">
-              결제 금액
-            </p>
-            <p className="mt-0.5 text-sm font-black text-[#1a1a2e]">
-              {formatCurrency(order.grand_total, currencyCode)}
-            </p>
-          </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 rounded-[12px] bg-[#f9f9ed] px-3 py-2">
+        <div>
+          <p className="text-[11px] font-semibold text-[#1a1a2e]/45">
+            상품 수량
+          </p>
+          <p className="mt-0.5 text-sm font-black text-[#1a1a2e]">
+            {formatNumber(quantity)}개
+          </p>
         </div>
+        <div>
+          <p className="text-[11px] font-semibold text-[#1a1a2e]/45">
+            결제 금액
+          </p>
+          <p className="mt-0.5 text-sm font-black text-[#1a1a2e]">
+            {formatCurrency(order.grand_total, currencyCode)}
+          </p>
+        </div>
+      </div>
 
-        <div className="mt-3 space-y-2">
-          {visibleItems.length > 0 ? (
-            visibleItems.map((item, index) => (
-              <div
-                key={`${item.order_item_id || item.product_name}-${index}`}
-                className="flex items-start justify-between gap-3 border-t border-[#f1eee2] pt-2 first:border-t-0 first:pt-0"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-bold text-[#1a1a2e]">
-                    {item.product_name}
-                  </p>
-                  <p className="mt-0.5 truncate text-[11px] text-[#1a1a2e]/45">
-                    {item.variant_name || '옵션 없음'}
-                  </p>
-                </div>
-                <span className="shrink-0 text-xs font-black text-[#a35200]">
-                  x {formatNumber(item.quantity)}
-                </span>
+      <div className="mt-3 space-y-2">
+        {visibleItems.length > 0 ? (
+          visibleItems.map((item, index) => (
+            <div
+              key={`${item.order_item_id || item.product_name}-${index}`}
+              className="flex items-start justify-between gap-3 border-t border-[#f1eee2] pt-2 first:border-t-0 first:pt-0"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-xs font-bold text-[#1a1a2e]">
+                  {item.product_name}
+                </p>
+                <p className="mt-0.5 truncate text-[11px] text-[#1a1a2e]/45">
+                  {item.variant_name || '옵션 없음'}
+                </p>
               </div>
-            ))
-          ) : (
-            <p className="rounded-[12px] bg-[#f9f9ed] px-3 py-3 text-center text-xs text-[#1a1a2e]/45">
-              상품 상세가 없습니다.
-            </p>
-          )}
-          {hiddenItemCount > 0 ? (
-            <p className="text-[11px] font-semibold text-[#1a1a2e]/45">
-              외 {formatNumber(hiddenItemCount)}개 상품
-            </p>
-          ) : null}
-        </div>
+              <span className="shrink-0 text-xs font-black text-[#a35200]">
+                x {formatNumber(item.quantity)}
+              </span>
+            </div>
+          ))
+        ) : (
+          <p className="rounded-[12px] bg-[#f9f9ed] px-3 py-3 text-center text-xs text-[#1a1a2e]/45">
+            상품 상세가 없습니다.
+          </p>
+        )}
+        {hiddenItemCount > 0 ? (
+          <p className="text-[11px] font-semibold text-[#1a1a2e]/45">
+            외 {formatNumber(hiddenItemCount)}개 상품
+          </p>
+        ) : null}
       </div>
     </div>
   );
+}
+
+function resolveOrderProductOverlayPosition(
+  order: V2AdminDashboardUrgentOrder,
+  trigger: HTMLElement,
+): Pick<OrderProductOverlayState, 'top' | 'left'> {
+  const rect = trigger.getBoundingClientRect();
+  const margin = 12;
+  const overlayWidth = 320;
+  const rowCount = Math.min((order.items || []).length, 4);
+  const estimatedHeight = Math.min(360, 160 + rowCount * 46);
+  const maxLeft = Math.max(margin, window.innerWidth - overlayWidth - margin);
+  const preferredTop = rect.bottom + 10;
+  const top =
+    preferredTop + estimatedHeight > window.innerHeight - margin
+      ? Math.max(margin, rect.top - estimatedHeight - 10)
+      : preferredTop;
+
+  return {
+    top,
+    left: Math.min(Math.max(margin, rect.left), maxLeft),
+  };
 }
 
 function getPresetButtonClass(isActive: boolean): string {
@@ -428,6 +477,23 @@ export default function AdminDashboardPage() {
   const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(
     null,
   );
+  const [productOverlay, setProductOverlay] =
+    useState<OrderProductOverlayState | null>(null);
+
+  useEffect(() => {
+    if (!productOverlay) {
+      return;
+    }
+
+    const closeOverlay = () => setProductOverlay(null);
+    window.addEventListener('scroll', closeOverlay, true);
+    window.addEventListener('resize', closeOverlay);
+
+    return () => {
+      window.removeEventListener('scroll', closeOverlay, true);
+      window.removeEventListener('resize', closeOverlay);
+    };
+  }, [productOverlay]);
 
   const handlePresetApply = (preset: V2AdminSalesStatsPreset) => {
     if (preset === 'CUSTOM') {
@@ -480,6 +546,18 @@ export default function AdminDashboardPage() {
     } finally {
       setConfirmingOrderId(null);
     }
+  };
+
+  const handleOpenProductOverlay = (
+    order: V2AdminDashboardUrgentOrder,
+    trigger: HTMLElement,
+  ) => {
+    const position = resolveOrderProductOverlayPosition(order, trigger);
+    setProductOverlay({ order, ...position });
+  };
+
+  const handleCloseProductOverlay = () => {
+    setProductOverlay(null);
   };
 
   if (isLoading) {
@@ -871,7 +949,7 @@ export default function AdminDashboardPage() {
               </Link>
             </div>
 
-            <div className="overflow-x-auto overflow-y-visible pb-24">
+            <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] border-collapse text-sm">
                 <thead>
                   <tr className="text-left">
@@ -922,7 +1000,8 @@ export default function AdminDashboardPage() {
                           <td className="whitespace-nowrap px-3 py-3 font-semibold text-[#1a1a2e]/70">
                             <OrderProductSummaryCell
                               order={order}
-                              currencyCode={currencyCode}
+                              onOpen={handleOpenProductOverlay}
+                              onClose={handleCloseProductOverlay}
                             />
                           </td>
                           <td className="whitespace-nowrap px-3 py-3 font-bold text-[#1a1a2e]">
@@ -959,6 +1038,16 @@ export default function AdminDashboardPage() {
               </table>
             </div>
           </section>
+
+          {productOverlay ? (
+            createPortal(
+              <OrderProductFloatingOverlay
+                overlay={productOverlay}
+                currencyCode={currencyCode}
+              />,
+              document.body,
+            )
+          ) : null}
 
           <section className="rounded-[22px] border border-[#cde0f3] bg-[#f0f7ff] p-5">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
