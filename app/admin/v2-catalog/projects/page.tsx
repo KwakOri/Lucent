@@ -10,18 +10,26 @@ import { Loading } from '@/components/ui/loading';
 import type { V2ProjectStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   CAMPAIGN_STATUS_LABELS,
+  getCampaignPeriod,
   getCampaignStatusIntent,
 } from '@/lib/client/utils/v2-campaign-admin';
+import {
+  buildCampaignProjectIdSet,
+  buildProductsByIdMap,
+} from '@/lib/client/utils/v2-campaign-targeting';
 import {
   useArchiveV2Project,
   usePublishV2Project,
   useRestoreV2Project,
   useUnpublishV2Project,
+  useV2AdminProducts,
   useV2AdminProjects,
+  useV2CampaignTargetsMap,
   useV2Campaigns,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 type ProjectFilterStatus = 'ALL' | Exclude<V2ProjectStatus, 'ARCHIVED'>;
+type ProjectListTab = 'ACTIVE_CAMPAIGNS' | 'ALL';
 
 const STATUS_VALUES: Array<Exclude<V2ProjectStatus, 'ARCHIVED'>> = ['DRAFT', 'ACTIVE'];
 const SELECT_CLASS =
@@ -60,19 +68,65 @@ export default function V2CatalogProjectsPage() {
   const [statusFilter, setStatusFilter] = useState<ProjectFilterStatus>('ALL');
   const [keyword, setKeyword] = useState('');
   const [isArchiveView, setIsArchiveView] = useState(false);
+  const [listTab, setListTab] = useState<ProjectListTab>('ACTIVE_CAMPAIGNS');
 
   const { data: projects, isLoading, error } = useV2AdminProjects(
     isArchiveView ? { status: 'ARCHIVED' } : {},
   );
   const {
+    data: campaigns,
+    isLoading: campaignsLoading,
+    error: campaignsError,
+  } = useV2Campaigns();
+  const {
     data: baseCampaigns,
     isLoading: baseCampaignsLoading,
     error: baseCampaignsError,
   } = useV2Campaigns({ campaignType: 'ALWAYS_ON' });
+  const {
+    data: products,
+    isLoading: productsLoading,
+    error: productsError,
+  } = useV2AdminProducts();
   const publishProject = usePublishV2Project();
   const unpublishProject = useUnpublishV2Project();
   const archiveProject = useArchiveV2Project();
   const restoreProject = useRestoreV2Project();
+
+  const campaignIds = useMemo(
+    () => (campaigns || []).map((campaign) => campaign.id),
+    [campaigns],
+  );
+  const targetsByCampaignId = useV2CampaignTargetsMap(campaignIds);
+  const campaignTargetsLoading = campaignIds.some(
+    (campaignId) => targetsByCampaignId[campaignId]?.isLoading,
+  );
+  const productsById = useMemo(() => buildProductsByIdMap(products || []), [products]);
+
+  const activeCampaignProjectIds = useMemo(() => {
+    const projectIds = new Set<string>();
+
+    (campaigns || []).forEach((campaign) => {
+      if (campaign.status !== 'ACTIVE') {
+        return;
+      }
+
+      const period = getCampaignPeriod(campaign.starts_at, campaign.ends_at);
+      if (period !== 'LIVE' && period !== 'NO_PERIOD') {
+        return;
+      }
+
+      const linkedProjectIds = buildCampaignProjectIdSet({
+        campaign,
+        targets: targetsByCampaignId[campaign.id]?.targets || [],
+        productsById,
+      });
+
+      linkedProjectIds.forEach((projectId) => projectIds.add(projectId));
+    });
+
+    return projectIds;
+  }, [campaigns, productsById, targetsByCampaignId]);
 
   const clearNotice = () => {
     setMessage(null);
@@ -92,17 +146,31 @@ export default function V2CatalogProjectsPage() {
     const search = keyword.trim().toLowerCase();
     return (projects || [])
       .filter((project) => {
+        if (!isArchiveView && project.status === 'ARCHIVED') {
+          return false;
+        }
+        if (!isArchiveView && listTab === 'ACTIVE_CAMPAIGNS' && !activeCampaignProjectIds.has(project.id)) {
+          return false;
+        }
         if (!isArchiveView && statusFilter !== 'ALL' && project.status !== statusFilter) {
           return false;
         }
         if (!search) {
           return true;
         }
-        const haystack = `${project.name} ${project.slug}`.toLowerCase();
+        const haystack = project.name.toLowerCase();
         return haystack.includes(search);
       })
       .sort((left, right) => left.sort_order - right.sort_order);
-  }, [isArchiveView, keyword, projects, statusFilter]);
+  }, [activeCampaignProjectIds, isArchiveView, keyword, listTab, projects, statusFilter]);
+
+  const listTabCounts = useMemo(() => {
+    const visibleProjects = (projects || []).filter((project) => project.status !== 'ARCHIVED');
+    return {
+      activeCampaigns: visibleProjects.filter((project) => activeCampaignProjectIds.has(project.id)).length,
+      all: visibleProjects.length,
+    };
+  }, [activeCampaignProjectIds, projects]);
 
   const baseCampaignByProjectId = useMemo(() => {
     const campaignMap = new Map<string, NonNullable<typeof baseCampaigns>[number]>();
@@ -159,7 +227,13 @@ export default function V2CatalogProjectsPage() {
     });
   };
 
-  if (isLoading || baseCampaignsLoading) {
+  if (
+    isLoading ||
+    campaignsLoading ||
+    campaignTargetsLoading ||
+    baseCampaignsLoading ||
+    productsLoading
+  ) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loading size="lg" text="v2 프로젝트를 불러오는 중입니다." />
@@ -167,7 +241,7 @@ export default function V2CatalogProjectsPage() {
     );
   }
 
-  if (error || baseCampaignsError) {
+  if (error || campaignsError || baseCampaignsError || productsError) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
         프로젝트 목록을 불러오지 못했습니다.
@@ -202,6 +276,7 @@ export default function V2CatalogProjectsPage() {
             onClick={() => {
               clearNotice();
               setIsArchiveView((current) => !current);
+              setListTab('ACTIVE_CAMPAIGNS');
             }}
           >
             {isArchiveView ? (
@@ -231,9 +306,43 @@ export default function V2CatalogProjectsPage() {
       )}
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
+        {!isArchiveView && (
+          <div className="mb-4 grid gap-2 sm:grid-cols-2">
+            {[
+              {
+                label: '운영중 캠페인',
+                value: 'ACTIVE_CAMPAIGNS' as const,
+                count: listTabCounts.activeCampaigns,
+              },
+              {
+                label: '전체',
+                value: 'ALL' as const,
+                count: listTabCounts.all,
+              },
+            ].map((tab) => {
+              const isSelected = listTab === tab.value;
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setListTab(tab.value)}
+                  className={`rounded-lg border px-4 py-3 text-left transition ${
+                    isSelected
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="block text-sm font-medium">{tab.label}</span>
+                  <span className="mt-1 block text-xl font-bold">{tab.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-3">
           <Input
-            placeholder="프로젝트명/slug 검색"
+            placeholder="프로젝트명 검색"
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             className="max-w-xs"
@@ -262,9 +371,6 @@ export default function V2CatalogProjectsPage() {
                   프로젝트
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  slug
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                   상태
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -278,7 +384,7 @@ export default function V2CatalogProjectsPage() {
             <tbody className="divide-y divide-gray-100 bg-white">
               {filteredProjects.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
                     {isArchiveView ? '보관된 프로젝트가 없습니다.' : '조회 결과가 없습니다.'}
                   </td>
                 </tr>
@@ -291,18 +397,14 @@ export default function V2CatalogProjectsPage() {
                     <td className="px-4 py-3">
                       <p className="text-sm font-semibold text-gray-900">{project.name}</p>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{project.slug}</td>
                     <td className="px-4 py-3 text-sm">
                       <Badge intent={resolveStatusIntent(project.status)}>{project.status}</Badge>
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {baseCampaign ? (
-                        <div className="flex flex-col items-start gap-1">
-                          <Badge intent={getCampaignStatusIntent(baseCampaign.status)}>포함</Badge>
-                          <span className="text-xs text-gray-500">
-                            {CAMPAIGN_STATUS_LABELS[baseCampaign.status]}
-                          </span>
-                        </div>
+                        <Badge intent={getCampaignStatusIntent(baseCampaign.status)}>
+                          포함 · {CAMPAIGN_STATUS_LABELS[baseCampaign.status]}
+                        </Badge>
                       ) : (
                         <Badge intent="warning">미포함</Badge>
                       )}
