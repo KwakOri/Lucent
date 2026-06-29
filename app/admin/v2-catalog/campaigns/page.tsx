@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import { useToast } from '@/src/components/toast';
 import {
-  useV2CampaignOverview,
+  useV2CampaignTargetsMap,
   useV2Campaigns,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 import type { V2Campaign } from '@/lib/client/api/v2-catalog-admin.api';
@@ -16,7 +16,6 @@ import {
   type CampaignSortKey,
   CAMPAIGN_STATUS_LABELS,
   CAMPAIGN_TYPE_LABELS,
-  formatDateRange,
   formatDateTime,
   getCampaignPeriod,
   getCampaignPeriodIntent,
@@ -36,8 +35,8 @@ const CAMPAIGN_TIMELINE_LABELS: Record<CampaignTimelineFilter, string> = {
 };
 
 const CAMPAIGN_TIMELINE_OPTIONS: CampaignTimelineFilter[] = [
-  'LIVE',
   'UPCOMING',
+  'LIVE',
   'ENDED',
   'ALL',
 ];
@@ -99,6 +98,10 @@ function sortCampaigns(left: V2Campaign, right: V2Campaign, sortKey: CampaignSor
   return right.updated_at.localeCompare(left.updated_at);
 }
 
+function formatCampaignDateLine(value: string | null, fallback: string): string {
+  return value ? formatDateTime(value) : fallback;
+}
+
 export default function V2CatalogCampaignsPage() {
   const router = useRouter();
   const { showToast } = useToast();
@@ -113,7 +116,16 @@ export default function V2CatalogCampaignsPage() {
     () => (campaigns || []).map((campaign) => campaign.id),
     [campaigns],
   );
-  const overviewByCampaignId = useV2CampaignOverview(campaignIds);
+  const targetsByCampaignId = useV2CampaignTargetsMap(campaignIds);
+
+  const targetCountByCampaignId = useMemo(() => {
+    return (campaigns || []).reduce<Record<string, number>>((accumulator, campaign) => {
+      accumulator[campaign.id] = (targetsByCampaignId[campaign.id]?.targets || [])
+        .filter((target) => !target.is_excluded)
+        .length;
+      return accumulator;
+    }, {});
+  }, [campaigns, targetsByCampaignId]);
 
   const timelineCounts = useMemo(() => {
     return (campaigns || []).reduce<Record<CampaignTimelineFilter, number>>(
@@ -279,7 +291,7 @@ export default function V2CatalogCampaignsPage() {
                   기간
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">
-                  연결
+                  상품
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">
                   최근 수정
@@ -300,10 +312,10 @@ export default function V2CatalogCampaignsPage() {
                 filteredCampaigns.map((campaign) => {
                   const timeline = getCampaignTimeline(campaign);
                   const period = getCampaignPeriod(campaign.starts_at, campaign.ends_at);
-                  const overview = overviewByCampaignId[campaign.id];
-                  const overviewText = !overview || overview.isLoading
+                  const targetMap = targetsByCampaignId[campaign.id];
+                  const productCountText = !targetMap || targetMap.isLoading
                     ? '집계 중'
-                    : `대상 ${overview.targetCount}개 · 가격 ${overview.priceListCount}개 · 프로모션 ${overview.promotionCount}개`;
+                    : `${targetCountByCampaignId[campaign.id] || 0}개`;
 
                   return (
                     <tr key={campaign.id} className="hover:bg-gray-50">
@@ -317,7 +329,6 @@ export default function V2CatalogCampaignsPage() {
                           ) : null}
                         </div>
                         <p className="mt-2 font-medium text-gray-900">{campaign.name}</p>
-                        <p className="mt-1 text-xs text-gray-500">{campaign.code}</p>
                       </td>
                       <td className="px-4 py-4">
                         <Badge intent={getCampaignTimelineIntent(timeline)}>
@@ -330,10 +341,13 @@ export default function V2CatalogCampaignsPage() {
                         </Badge>
                       </td>
                       <td className="min-w-[220px] px-4 py-4 text-sm text-gray-600">
-                        {formatDateRange(campaign.starts_at, campaign.ends_at)}
+                        <div className="space-y-1">
+                          <p>시작 {formatCampaignDateLine(campaign.starts_at, '즉시 운영')}</p>
+                          <p>종료 {formatCampaignDateLine(campaign.ends_at, '없음')}</p>
+                        </div>
                       </td>
-                      <td className="min-w-[220px] px-4 py-4 text-sm text-gray-600">
-                        {overviewText}
+                      <td className="min-w-[120px] px-4 py-4 text-sm text-gray-600">
+                        {productCountText}
                       </td>
                       <td className="min-w-[150px] px-4 py-4 text-xs text-gray-500">
                         {formatDateTime(campaign.updated_at)}
