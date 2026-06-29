@@ -191,6 +191,9 @@ export async function proxyBackendRequest(
         responseHeaders.set(headerName, value);
       }
     }
+    if (!responseHeaders.has('cache-control')) {
+      responseHeaders.set('cache-control', 'no-store, max-age=0');
+    }
 
     let status = backendResponse.status;
     if (
