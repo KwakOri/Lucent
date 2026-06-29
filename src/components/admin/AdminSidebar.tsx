@@ -228,9 +228,9 @@ export function AdminSidebar() {
         <button
           type="button"
           className={`
-            flex h-14 items-center justify-start rounded-2xl bg-white pl-4 pr-4 text-sm font-semibold text-text-secondary
+            flex h-14 items-center rounded-2xl bg-white text-sm font-semibold text-text-secondary
             shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-primary-700
-            ${desktopExpanded ? 'w-48' : 'w-14'}
+            ${desktopExpanded ? 'w-48 justify-start px-4' : 'w-14 justify-center px-0'}
           `}
           onClick={handleGoBack}
         >
@@ -249,9 +249,9 @@ export function AdminSidebar() {
         <Link
           href="/"
           className={`
-            flex h-14 items-center justify-start rounded-2xl bg-white pl-4 pr-4 text-sm font-semibold text-text-secondary
+            flex h-14 items-center rounded-2xl bg-white text-sm font-semibold text-text-secondary
             shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-primary-700
-            ${desktopExpanded ? 'w-48' : 'w-14'}
+            ${desktopExpanded ? 'w-48 justify-start px-4' : 'w-14 justify-center px-0'}
           `}
         >
           <House className="h-5 w-5 shrink-0" aria-hidden />
@@ -287,7 +287,8 @@ export function AdminSidebar() {
                   <Link
                     href={item.href}
                     className={`
-                      flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold transition-colors
+                      flex items-center rounded-2xl text-sm font-semibold transition-colors
+                      ${desktopExpanded ? 'w-full justify-start py-3 pl-3 pr-3' : 'h-12 w-12 justify-center p-0'}
                       ${isActive
                         ? 'bg-primary-600 text-white shadow-sm'
                         : 'text-neutral-500 hover:bg-primary-50 hover:text-primary-700'
