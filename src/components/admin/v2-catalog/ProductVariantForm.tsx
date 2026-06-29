@@ -32,7 +32,6 @@ import {
   useUpdateV2DigitalAsset,
   useUpdateV2Variant,
   useUploadV2MediaAssetFile,
-  useV2Campaigns,
   useV2PriceListItems,
   useV2PriceLists,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
@@ -335,37 +334,13 @@ export function ProductVariantForm({
         ? { variant_id: persistedVariantId }
         : null,
   );
-  const {
-    data: alwaysOnCampaigns,
-    isLoading: alwaysOnCampaignsLoading,
-  } = useV2Campaigns({ campaignType: 'ALWAYS_ON' });
-  const projectBaseCampaign = useMemo(() => {
-    const matchingCampaigns = (alwaysOnCampaigns || []).filter(
-      (campaign) =>
-        campaign.project_id === product.project_id &&
-        campaign.campaign_type === 'ALWAYS_ON' &&
-        campaign.status !== 'ARCHIVED',
-    );
-
-    if (matchingCampaigns.length === 0) {
-      return null;
-    }
-
-    return [...matchingCampaigns].sort((left, right) => {
-      const activeDiff = Number(right.status === 'ACTIVE') - Number(left.status === 'ACTIVE');
-      if (activeDiff !== 0) {
-        return activeDiff;
-      }
-      return right.updated_at.localeCompare(left.updated_at);
-    })[0] || null;
-  }, [alwaysOnCampaigns, product.project_id]);
   const { data: basePriceLists, isLoading: basePriceListsLoading } = useV2PriceLists({
-    campaignId: projectBaseCampaign?.id,
+    campaignId: '',
     scopeType: 'BASE',
   });
   const activeBasePriceList = useMemo(
-    () => (projectBaseCampaign ? pickLatestPriceList(basePriceLists || []) : null),
-    [basePriceLists, projectBaseCampaign],
+    () => pickLatestPriceList(basePriceLists || []),
+    [basePriceLists],
   );
   const basePriceListRef = useRef<V2PriceList | null>(null);
   const {
@@ -392,9 +367,7 @@ export function ProductVariantForm({
   );
   const isUsingInheritedBasePrice =
     Boolean(currentBasePriceItem) && currentBasePriceItem?.id !== exactBasePriceItem?.id;
-  const isBasePricingLoading =
-    alwaysOnCampaignsLoading ||
-    (Boolean(projectBaseCampaign) && (basePriceListsLoading || basePriceItemsLoading));
+  const isBasePricingLoading = basePriceListsLoading || basePriceItemsLoading;
 
   useEffect(() => {
     basePriceListRef.current = activeBasePriceList || null;
@@ -545,20 +518,16 @@ export function ProductVariantForm({
   };
 
   const ensureBasePriceList = async (): Promise<V2PriceList> => {
-    if (!projectBaseCampaign) {
-      throw new Error('이 상품의 프로젝트에 연결된 기본 캠페인을 찾을 수 없습니다.');
-    }
-
     let priceList = basePriceListRef.current || activeBasePriceList;
     if (!priceList) {
       const created = await createPriceList.mutateAsync({
-        campaign_id: projectBaseCampaign.id,
-        name: `${projectBaseCampaign.name} 기본 가격`,
+        campaign_id: null,
+        name: '상품 옵션 기준가',
         scope_type: 'BASE',
         status: 'DRAFT',
         currency_code: 'KRW',
-        starts_at: projectBaseCampaign.starts_at,
-        ends_at: projectBaseCampaign.ends_at,
+        starts_at: null,
+        ends_at: null,
         metadata: {
           source: 'v2-variant-form',
           product_id: product.id,
@@ -1072,7 +1041,7 @@ export function ProductVariantForm({
           <div>
             <h2 className="text-lg font-semibold text-gray-900">기본 판매가</h2>
             <p className="mt-1 text-sm text-gray-500">
-              옵션의 상시 판매 가격입니다. 캠페인 화면에서는 포함 여부와 할인/특가를 관리합니다.
+              옵션의 기본 판매 가격입니다. 캠페인 화면에서는 포함 여부와 할인/특가만 관리합니다.
             </p>
           </div>
           <Badge intent="info">BASE</Badge>
@@ -1104,21 +1073,14 @@ export function ProductVariantForm({
 
           {!isSingleDefaultVariant && (
             <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 lg:col-span-5">
-              <p className="text-sm font-medium text-gray-900">연결 기본 캠페인</p>
+              <p className="text-sm font-medium text-gray-900">상품 옵션 기준가</p>
               <p className="mt-2 text-sm text-gray-700">
-                {alwaysOnCampaignsLoading
-                  ? '기본 캠페인 확인 중'
-                  : projectBaseCampaign?.name || '연결된 기본 캠페인 없음'}
+                {activeBasePriceList?.name || '저장 시 기준가 가격표가 생성됩니다.'}
               </p>
               {currentBasePriceItem && (
                 <p className="mt-2 text-xs text-gray-500">
                   현재 기본가 {formatCurrency(currentBasePriceItem.unit_amount)}
                   {isUsingInheritedBasePrice ? ' · 상품 단위 가격에서 상속됨' : ''}
-                </p>
-              )}
-              {!alwaysOnCampaignsLoading && !projectBaseCampaign && (
-                <p className="mt-2 text-xs text-red-600">
-                  저장하려면 이 프로젝트의 기본 캠페인이 먼저 필요합니다.
                 </p>
               )}
               {isBasePricingLoading && (
