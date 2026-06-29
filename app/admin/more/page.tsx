@@ -5,9 +5,11 @@ import {
   ArrowRight,
   FileText,
   ImageIcon,
+  Megaphone,
   Package,
   RotateCcw,
   ShieldCheck,
+  ShoppingBag,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -20,6 +22,18 @@ type MoreEntry = {
 };
 
 const moreEntries: MoreEntry[] = [
+  {
+    title: '캠페인 관리',
+    description: '전역 캠페인 목록을 확인하고 프로젝트 밖 캠페인 흐름을 관리합니다.',
+    href: '/admin/v2-catalog/campaigns',
+    icon: Megaphone,
+  },
+  {
+    title: '상품 관리',
+    description: '전역 상품 목록과 프로젝트별 상품 관리 화면으로 이동합니다.',
+    href: '/admin/v2-catalog/products',
+    icon: ShoppingBag,
+  },
   {
     title: '아티스트 관리',
     description: '아티스트 등록과 프로젝트 연결 정보를 관리합니다.',
