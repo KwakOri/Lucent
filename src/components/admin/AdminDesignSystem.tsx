@@ -96,6 +96,29 @@ export const adminTableHeadCellClass =
 
 export const adminTableBodyClass = 'divide-y divide-[#eee7d6] bg-white';
 
+export const adminLegacyBridgeClass = [
+  'text-[#1a1a2e]',
+  '[&_.border-gray-200]:!border-[#e7e3d3]',
+  '[&_.border-gray-100]:!border-[#eee7d6]',
+  '[&_.bg-gray-50]:!bg-[#faf9f3]',
+  '[&_.text-gray-900]:!text-[#1a1a2e]',
+  '[&_.text-gray-800]:!text-[#1a1a2e]',
+  '[&_.text-gray-700]:!text-[#1a1a2e]/70',
+  '[&_.text-gray-600]:!text-[#1a1a2e]/60',
+  '[&_.text-gray-500]:!text-[#1a1a2e]/50',
+  '[&_section.rounded-xl]:!rounded-[22px]',
+  '[&_section.rounded-lg]:!rounded-[22px]',
+  '[&_.rounded-xl.border]:!rounded-[16px]',
+  '[&_.rounded-lg.border]:!rounded-[14px]',
+  '[&_thead.bg-gray-50]:!bg-[#faf9f3]',
+  '[&_input.border-neutral-200]:!border-[#e7e3d3]',
+  '[&_input.border-neutral-200]:!bg-[#fdfcf4]',
+  '[&_textarea.border-neutral-200]:!border-[#e7e3d3]',
+  '[&_textarea.border-neutral-200]:!bg-[#fdfcf4]',
+  '[&_select.border-neutral-200]:!border-[#e7e3d3]',
+  '[&_select.border-neutral-200]:!bg-[#fdfcf4]',
+].join(' ');
+
 export function AdminSurface({
   children,
   className,

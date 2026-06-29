@@ -57,7 +57,7 @@ Legend:
 
 - [x] `/admin` - dashboard renewed
 - [x] `/admin/more` - 기타 관리 hub
-- [ ] `/admin/layout.tsx` - keep shell aligned with floating sidebar
+- [x] `/admin/layout.tsx` - shell aligned with warm background and floating sidebar
 
 ### Core Operations
 
@@ -113,12 +113,12 @@ Legend:
 
 - [x] `/admin/v2-catalog/campaigns`
 - [x] `/admin/v2-catalog/campaigns/new`
-- [ ] `/admin/v2-catalog/campaigns/[id]`
+- [x] `/admin/v2-catalog/campaigns/[id]`
 - [x] `/admin/v2-catalog/campaigns/[id]/edit`
 - [x] `/admin/v2-catalog/campaigns/[id]/targets/new`
 - [x] `/admin/v2-catalog/campaigns/[id]/targets/[targetId]/edit`
-- [hold] `/admin/v2-catalog/campaigns/[id]/pricing` - redirect route
-- [hold] `/admin/v2-catalog/pricing` - redirect route
+- [hold] `/admin/v2-catalog/campaigns/[id]/pricing` - redirect route, no visible UI
+- [hold] `/admin/v2-catalog/pricing` - redirect route, no visible UI
 
 ### V2 Catalog Misc
 
@@ -131,9 +131,9 @@ Legend:
 
 ### V2 Ops
 
-- [ ] `/admin/v2-ops`
-- [ ] `/admin/v2-ops/rbac`
-- [ ] `/admin/v2-ops/stats`
+- [x] `/admin/v2-ops`
+- [x] `/admin/v2-ops/rbac`
+- [x] `/admin/v2-ops/stats`
 
 ## Page Redesign Order
 

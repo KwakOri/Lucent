@@ -8,6 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  AdminStatCard,
+  adminButtonClass,
+  adminLegacyBridgeClass,
+  adminPrimaryButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type {
   V2CampaignTarget,
   V2PriceList,
@@ -969,10 +976,10 @@ export default function V2CatalogCampaignDetailPage() {
   ) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 p-4 font-medium text-red-700">
           캠페인 상세 정보를 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push(campaignListPath)}>
+        <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(campaignListPath)}>
           목록으로
         </Button>
       </div>
@@ -1002,8 +1009,29 @@ export default function V2CatalogCampaignDetailPage() {
       : '기간 제한 없음';
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="campaign detail"
+        title={campaign.name}
+        description={`${formatDateRange(campaign.starts_at, campaign.ends_at)} · 현재 상태: ${CAMPAIGN_STATUS_LABELS[campaign.status]}${campaign.status === 'CLOSED' ? ' (필요 시 재활성화 가능)' : ''}`}
+        actions={
+          <>
+            <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(campaignListPath)}>
+              목록으로
+            </Button>
+            <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/edit`)}>
+              캠페인 수정
+            </Button>
+            {!isAlwaysOnCampaign && (
+              <Button className={adminPrimaryButtonClass} onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/targets/new`)}>
+                대상 추가
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      <div className="flex flex-col gap-3 rounded-[18px] border border-[#e7e3d3] bg-white p-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex flex-wrap gap-2">
             <Badge intent={getCampaignStatusIntent(campaign.status)}>
@@ -1012,96 +1040,63 @@ export default function V2CatalogCampaignDetailPage() {
             <Badge intent={getCampaignPeriodIntent(period)}>기간: {periodChipLabel}</Badge>
             <Badge intent="default">유형: {CAMPAIGN_TYPE_LABELS[campaign.campaign_type]}</Badge>
           </div>
-          <h1 className="mt-3 text-2xl font-bold text-gray-900">{campaign.name}</h1>
-          <p className="mt-1 text-sm text-gray-500">{formatDateRange(campaign.starts_at, campaign.ends_at)}</p>
-          <p className="mt-1 text-sm font-medium text-gray-700">
-            현재 상태: {CAMPAIGN_STATUS_LABELS[campaign.status]}
-            {campaign.status === 'CLOSED' ? ' (필요 시 재활성화 가능)' : ''}
-          </p>
         </div>
-
         <div className="flex flex-wrap gap-2">
-          <Button intent="neutral" onClick={() => router.push(campaignListPath)}>
-            목록으로
+          <Button
+            size="sm"
+            className={adminPrimaryButtonClass}
+            onClick={() => handleRunAction(() => activateCampaign.mutateAsync(campaign.id))}
+            disabled={!canActivate}
+          >
+            {activateButtonLabel}
           </Button>
-          <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/edit`)}>
-            캠페인 수정
+          <Button
+            size="sm"
+            intent="neutral"
+            className={adminButtonClass}
+            onClick={() => handleRunAction(() => suspendCampaign.mutateAsync(campaign.id))}
+            disabled={!canSuspend}
+          >
+            일시 중지
           </Button>
-          {!isAlwaysOnCampaign && (
-            <Button onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/targets/new`)}>
-              대상 추가
-            </Button>
-          )}
+          <Button
+            size="sm"
+            intent="neutral"
+            className={adminButtonClass}
+            onClick={() => {
+              if (!window.confirm('캠페인을 종료 상태로 전환하시겠습니까? 종료 후에도 재활성화할 수 있습니다.')) {
+                return;
+              }
+              void handleRunAction(() => closeCampaign.mutateAsync(campaign.id));
+            }}
+            disabled={!canClose}
+          >
+            종료
+          </Button>
         </div>
       </div>
 
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       )}
       {successMessage && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-[14px] border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
           {successMessage}
         </div>
       )}
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">후보 상품</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{candidateProducts.length}</p>
-          <p className="mt-1 text-xs text-gray-500">{linkedTargetSummary}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">캠페인 포함 옵션</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{includedVariantCount}</p>
-          <p className="mt-1 text-xs text-gray-500">기본가 사용 {baseUsingVariantCount}개</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">할인/특가 적용</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{overrideVariantCount}</p>
-          <p className="mt-1 text-xs text-gray-500">캠페인 가격 변경 옵션</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">캠페인 미포함</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{notIncludedVariantCount}</p>
-          <p className="mt-1 text-xs text-gray-500">옵션 단위로 포함 가능</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">운영 상태</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{CAMPAIGN_STATUS_LABELS[campaign.status]}</p>
-          <p className="mt-2 text-xs text-gray-500">채널 범위: {formatChannelScope(campaign.channel_scope_json)}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              onClick={() => handleRunAction(() => activateCampaign.mutateAsync(campaign.id))}
-              disabled={!canActivate}
-            >
-              {activateButtonLabel}
-            </Button>
-            <Button
-              size="sm"
-              intent="neutral"
-              onClick={() => handleRunAction(() => suspendCampaign.mutateAsync(campaign.id))}
-              disabled={!canSuspend}
-            >
-              일시 중지
-            </Button>
-            <Button
-              size="sm"
-              intent="neutral"
-              onClick={() => {
-                if (!window.confirm('캠페인을 종료 상태로 전환하시겠습니까? 종료 후에도 재활성화할 수 있습니다.')) {
-                  return;
-                }
-                void handleRunAction(() => closeCampaign.mutateAsync(campaign.id));
-              }}
-              disabled={!canClose}
-            >
-              종료
-            </Button>
-          </div>
-        </div>
+        <AdminStatCard label="후보 상품" value={candidateProducts.length} caption={linkedTargetSummary} />
+        <AdminStatCard label="캠페인 포함 옵션" value={includedVariantCount} caption={`기본가 사용 ${baseUsingVariantCount}개`} />
+        <AdminStatCard label="할인/특가 적용" value={overrideVariantCount} caption="캠페인 가격 변경 옵션" />
+        <AdminStatCard label="캠페인 미포함" value={notIncludedVariantCount} caption="옵션 단위로 포함 가능" />
+        <AdminStatCard
+          label="운영 상태"
+          value={CAMPAIGN_STATUS_LABELS[campaign.status]}
+          caption={`채널 범위: ${formatChannelScope(campaign.channel_scope_json)}`}
+        />
       </section>
 
       {missingBaseVariantCount > 0 && (
