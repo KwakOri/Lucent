@@ -228,14 +228,16 @@ export function AdminSidebar() {
         <button
           type="button"
           className={`
-            flex h-14 items-center rounded-2xl bg-white text-sm font-semibold text-text-secondary
+            flex h-14 items-center justify-start rounded-2xl bg-white pl-4 pr-4 text-sm font-semibold text-text-secondary
             shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-primary-700
-            ${desktopExpanded ? 'w-48 justify-start px-4' : 'w-14 justify-center px-0'}
+            ${desktopExpanded ? 'w-48' : 'w-14'}
           `}
           onClick={handleGoBack}
         >
           <span className="sr-only">이전 페이지로 이동</span>
-          <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
+          <span className="flex w-6 shrink-0 justify-center">
+            <ArrowLeft className="h-5 w-5" aria-hidden />
+          </span>
           <span
             className={`
               overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
@@ -249,12 +251,14 @@ export function AdminSidebar() {
         <Link
           href="/"
           className={`
-            flex h-14 items-center rounded-2xl bg-white text-sm font-semibold text-text-secondary
+            flex h-14 items-center justify-start rounded-2xl bg-white pl-4 pr-4 text-sm font-semibold text-text-secondary
             shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-primary-700
-            ${desktopExpanded ? 'w-48 justify-start px-4' : 'w-14 justify-center px-0'}
+            ${desktopExpanded ? 'w-48' : 'w-14'}
           `}
         >
-          <House className="h-5 w-5 shrink-0" aria-hidden />
+          <span className="flex w-6 shrink-0 justify-center">
+            <House className="h-5 w-5" aria-hidden />
+          </span>
           <span
             className={`
               overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
@@ -287,21 +291,22 @@ export function AdminSidebar() {
                   <Link
                     href={item.href}
                     className={`
-                      flex items-center rounded-2xl text-sm font-semibold transition-colors
-                      ${desktopExpanded ? 'w-full justify-start py-3 pl-3 pr-3' : 'h-12 w-12 justify-center p-0'}
+                      flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold transition-colors
                       ${isActive
                         ? 'bg-primary-600 text-white shadow-sm'
                         : 'text-neutral-500 hover:bg-primary-50 hover:text-primary-700'
                       }
                     `}
                   >
-                    <item.icon
-                      className={`
-                        h-5 w-5 shrink-0
-                        ${isActive ? 'text-white' : 'text-neutral-500'}
-                      `}
-                      aria-hidden
-                    />
+                    <span className="flex w-6 shrink-0 justify-center">
+                      <item.icon
+                        className={`
+                          h-5 w-5
+                          ${isActive ? 'text-white' : 'text-neutral-500'}
+                        `}
+                        aria-hidden
+                      />
+                    </span>
                     <span
                       className={`
                         overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
