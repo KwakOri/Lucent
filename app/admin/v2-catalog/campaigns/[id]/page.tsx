@@ -338,11 +338,10 @@ export default function V2CatalogCampaignDetailPage() {
   const deactivatePriceListItem = useDeactivateV2PriceListItem();
 
   const isAlwaysOnCampaign = campaign?.campaign_type === 'ALWAYS_ON';
-  const campaignScopeType = isAlwaysOnCampaign ? 'BASE' : 'OVERRIDE';
 
   const campaignScopedPriceLists = useMemo(
-    () => (priceLists || []).filter((list) => list.scope_type === campaignScopeType),
-    [campaignScopeType, priceLists],
+    () => (priceLists || []).filter((list) => list.scope_type === 'OVERRIDE'),
+    [priceLists],
   );
   const activeCampaignPriceList = useMemo(() => {
     const published = campaignScopedPriceLists.find((list) => list.status === 'PUBLISHED');
@@ -576,8 +575,8 @@ export default function V2CatalogCampaignDetailPage() {
     if (!priceList) {
       const created = await createPriceList.mutateAsync({
         campaign_id: campaign.id,
-        name: isAlwaysOnCampaign ? `${campaign.name} 기본 가격` : `${campaign.name} 캠페인 가격`,
-        scope_type: campaignScopeType,
+        name: `${campaign.name} 캠페인 가격`,
+        scope_type: 'OVERRIDE',
         status: 'DRAFT',
         currency_code: 'KRW',
         starts_at: campaign.starts_at,
@@ -686,7 +685,7 @@ export default function V2CatalogCampaignDetailPage() {
     row: VariantCampaignRow,
     draft: DiscountDraft,
   ) => {
-    if (!row.baseItem && !isAlwaysOnCampaign) {
+    if (!row.baseItem) {
       throw new Error('기본가가 없는 옵션은 캠페인에 포함할 수 없습니다.');
     }
 
@@ -1022,7 +1021,7 @@ export default function V2CatalogCampaignDetailPage() {
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-sm font-medium text-gray-500">할인/특가 적용</p>
           <p className="mt-2 text-2xl font-bold text-gray-900">{overrideVariantCount}</p>
-          <p className="mt-1 text-xs text-gray-500">캠페인 OVERRIDE 옵션</p>
+          <p className="mt-1 text-xs text-gray-500">캠페인 가격 변경 옵션</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-sm font-medium text-gray-500">캠페인 미포함</p>
@@ -1222,7 +1221,7 @@ export default function V2CatalogCampaignDetailPage() {
                                       <SlidersHorizontal className="h-4 w-4" aria-hidden />
                                       가격 설정
                                     </Button>
-                                    {variantRow.campaignItem && !isAlwaysOnCampaign && (
+                                    {variantRow.campaignItem && (
                                       <Button
                                         size="sm"
                                         intent="neutral"
@@ -1244,7 +1243,7 @@ export default function V2CatalogCampaignDetailPage() {
                                           mode: event.target.value as DiscountInputMode,
                                         })
                                       }
-                                      disabled={!variantRow.baseItem || isAlwaysOnCampaign}
+                                      disabled={!variantRow.baseItem}
                                     >
                                       <option value="NONE">할인 없음</option>
                                       <option value="PERCENT">% 할인</option>
@@ -1261,7 +1260,7 @@ export default function V2CatalogCampaignDetailPage() {
                                           value: event.target.value,
                                         })
                                       }
-                                      disabled={draft.mode === 'NONE' || !variantRow.baseItem || isAlwaysOnCampaign}
+                                      disabled={draft.mode === 'NONE' || !variantRow.baseItem}
                                     />
                                     <span className="min-w-28 text-xs text-gray-500">
                                       예상 {previewAmount === null ? '-' : formatCurrency(previewAmount)}
@@ -1270,7 +1269,7 @@ export default function V2CatalogCampaignDetailPage() {
                                       size="sm"
                                       onClick={() => handleIncludeVariant(row.product, variantRow)}
                                       loading={isSavingRow}
-                                      disabled={!variantRow.baseItem && !isAlwaysOnCampaign}
+                                      disabled={!variantRow.baseItem}
                                     >
                                       저장
                                     </Button>
