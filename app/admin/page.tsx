@@ -506,6 +506,7 @@ export default function AdminDashboardPage() {
     { preset: 'LAST_30_DAYS', label: '최근 30일' },
     { preset: 'CUSTOM', label: '커스텀' },
   ];
+  const isCustomRangeVisible = draft.preset === 'CUSTOM';
 
   return (
     <div className="space-y-5 text-[#1a1a2e]">
@@ -610,7 +611,7 @@ export default function AdminDashboardPage() {
                 type="button"
                 size="sm"
                 intent="neutral"
-                className={`rounded-[11px] ${getPresetButtonClass(applied.preset === item.preset)}`}
+                className={`rounded-[11px] ${getPresetButtonClass(draft.preset === item.preset)}`}
                 onClick={() => handlePresetApply(item.preset)}
               >
                 {item.label}
@@ -628,42 +629,45 @@ export default function AdminDashboardPage() {
             </Button>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-[10rem_10rem_auto]">
-            <Input
-              type="date"
-              size="sm"
-              value={draft.from}
-              className="rounded-[11px] border-[#e7e3d3] bg-[#fdfcf4]"
-              onChange={(event) =>
-                setDraft((prev) => ({
-                  ...prev,
-                  preset: 'CUSTOM',
-                  from: event.target.value,
-                }))
-              }
-            />
-            <Input
-              type="date"
-              size="sm"
-              value={draft.to}
-              className="rounded-[11px] border-[#e7e3d3] bg-[#fdfcf4]"
-              onChange={(event) =>
-                setDraft((prev) => ({
-                  ...prev,
-                  preset: 'CUSTOM',
-                  to: event.target.value,
-                }))
-              }
-            />
-            <Button
-              type="button"
-              size="sm"
-              className="rounded-[11px] bg-[#1a1a2e] text-white hover:bg-[#2c2c43]"
-              onClick={handleApplyCustomRange}
-            >
-              기간 적용
-            </Button>
-          </div>
+          {isCustomRangeVisible ? (
+            <div className="grid gap-2 sm:grid-cols-[10rem_10rem_auto]">
+              <Input
+                type="date"
+                size="sm"
+                value={draft.from}
+                className="rounded-[11px] border-[#e7e3d3] bg-[#fdfcf4]"
+                onChange={(event) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    preset: 'CUSTOM',
+                    from: event.target.value,
+                  }))
+                }
+              />
+              <Input
+                type="date"
+                size="sm"
+                value={draft.to}
+                className="rounded-[11px] border-[#e7e3d3] bg-[#fdfcf4]"
+                onChange={(event) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    preset: 'CUSTOM',
+                    to: event.target.value,
+                  }))
+                }
+              />
+              <Button
+                type="button"
+                size="sm"
+                intent="neutral"
+                className="rounded-[11px] !border-[#f59e0b] !bg-[#f59e0b] !text-white hover:!bg-[#d97706]"
+                onClick={handleApplyCustomRange}
+              >
+                기간 적용
+              </Button>
+            </div>
+          ) : null}
         </div>
       </section>
 
