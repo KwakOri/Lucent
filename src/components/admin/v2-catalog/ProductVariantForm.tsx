@@ -85,6 +85,7 @@ type ProductVariantFormProps = {
   variantCount?: number;
   primaryAsset?: V2DigitalAsset | null;
   isAssetsLoading?: boolean;
+  compact?: boolean;
   hideActions?: boolean;
   registerSaveHandler?: (handler: VariantSaveHandler | null) => void;
   onCancel: () => void;
@@ -362,6 +363,26 @@ function toUploadState(
   };
 }
 
+const defaultSectionClassName =
+  "rounded-2xl border border-gray-200 bg-white p-5 shadow-sm";
+const compactWarmSectionClassName =
+  "rounded-[14px] border border-[#eee7d6] bg-[#faf9f3] p-4 shadow-none";
+const compactBlueSectionClassName =
+  "rounded-[14px] border border-[#cde0f3] bg-[#f0f7ff] p-4 shadow-none lg:col-span-2";
+
+function getCompactStatusButtonClass(active: boolean, status: V2VariantStatus): string {
+  if (!active) {
+    return "h-9 flex-1 rounded-[8px] border-0 bg-transparent px-3 text-xs font-bold text-[#9b9788] hover:bg-[#f5f3e8]";
+  }
+  if (status === "ACTIVE") {
+    return "h-9 flex-1 rounded-[8px] border-0 bg-[#297c3b] px-3 text-xs font-bold text-white hover:bg-[#297c3b]";
+  }
+  if (status === "DRAFT") {
+    return "h-9 flex-1 rounded-[8px] border-0 bg-[#a35200] px-3 text-xs font-bold text-white hover:bg-[#a35200]";
+  }
+  return "h-9 flex-1 rounded-[8px] border-0 bg-[#6f6a5e] px-3 text-xs font-bold text-white hover:bg-[#6f6a5e]";
+}
+
 export function ProductVariantForm({
   mode,
   product,
@@ -369,6 +390,7 @@ export function ProductVariantForm({
   variantCount = 0,
   primaryAsset,
   isAssetsLoading = false,
+  compact = false,
   hideActions = false,
   registerSaveHandler,
   onCancel,
@@ -1192,38 +1214,58 @@ export function ProductVariantForm({
     abortUpload();
   };
 
+  const formLayoutClassName = compact ? "grid gap-4 lg:grid-cols-2" : "space-y-6";
+  const optionBasicsSectionClassName = compact
+    ? compactWarmSectionClassName
+    : defaultSectionClassName;
+  const basePriceSectionClassName = compact
+    ? compactWarmSectionClassName
+    : defaultSectionClassName;
+  const digitalSectionClassName = compact
+    ? compactBlueSectionClassName
+    : defaultSectionClassName;
+
   return (
     <>
-      <form className="space-y-6" onSubmit={handleSubmit}>
+      <form className={formLayoutClassName} onSubmit={handleSubmit}>
         {errorMessage && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className={`rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 ${compact ? "lg:col-span-2" : ""}`}>
             {errorMessage}
           </div>
         )}
 
-        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <section className={optionBasicsSectionClassName}>
+          {compact ? (
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                옵션 기본 설정
-              </h2>
-              <p className="mt-1 text-sm text-gray-500">
-                {isSingleDefaultVariant
-                  ? "단일 기본 옵션은 판매 상태와 가격만 관리합니다."
-                  : "이름과 노출 상태만 먼저 정리하면 나머지 설정은 아래에서 이어서 처리할 수 있습니다."}
+              <p className="text-sm font-black text-[#1a1a2e]">노출 상태</p>
+              <p className="mt-1 text-xs font-medium text-[#1a1a2e]/50">
+                고객에게 지금 보여줄지 정합니다.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge intent={mode === "create" ? "info" : "default"}>
-                {mode === "create" ? "새 옵션" : "옵션 수정"}
-              </Badge>
-              {!isSingleDefaultVariant && (
-                <Badge intent="default">{product.title}</Badge>
-              )}
+          ) : (
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  옵션 기본 설정
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {isSingleDefaultVariant
+                    ? "단일 기본 옵션은 판매 상태와 가격만 관리합니다."
+                    : "이름과 노출 상태만 먼저 정리하면 나머지 설정은 아래에서 이어서 처리할 수 있습니다."}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge intent={mode === "create" ? "info" : "default"}>
+                  {mode === "create" ? "새 옵션" : "옵션 수정"}
+                </Badge>
+                {!isSingleDefaultVariant && (
+                  <Badge intent="default">{product.title}</Badge>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-12">
+          <div className={compact ? "mt-4" : "mt-6 grid gap-4 lg:grid-cols-12"}>
             {!isSingleDefaultVariant && (
               <div className="lg:col-span-7">
                 <FormField
@@ -1298,25 +1340,30 @@ export function ProductVariantForm({
             )}
 
             <div
-              className={`space-y-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 ${
-                canEditFulfillmentType && !isSingleDefaultVariant
-                  ? "lg:col-span-5"
-                  : "lg:col-span-12"
-              }`}
+              className={
+                compact
+                  ? "space-y-3"
+                  : `space-y-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 ${
+                      canEditFulfillmentType && !isSingleDefaultVariant
+                        ? "lg:col-span-5"
+                        : "lg:col-span-12"
+                    }`
+              }
             >
-              <div>
+              <div className={compact ? "sr-only" : ""}>
                 <p className="text-sm font-medium text-gray-900">노출 상태</p>
                 <p className="mt-1 text-sm text-gray-500">
                   고객에게 지금 보여줄지 정합니다.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className={compact ? "grid grid-cols-3 gap-1 rounded-[11px] border border-[#e7e3d3] bg-white p-1" : "flex flex-wrap gap-2"}>
                 {VARIANT_STATUS_VALUES.map((value) => (
                   <Button
                     key={value}
                     type="button"
                     size="sm"
-                    intent={status === value ? "primary" : "neutral"}
+                    intent={compact ? "neutral" : status === value ? "primary" : "neutral"}
+                    className={compact ? getCompactStatusButtonClass(status === value, value) : undefined}
                     onClick={() => setStatus(value)}
                   >
                     {VARIANT_STATUS_LABELS[value]}
@@ -1327,21 +1374,26 @@ export function ProductVariantForm({
           </div>
         </section>
 
-        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <section className={basePriceSectionClassName}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className={compact ? "text-sm font-black text-[#1a1a2e]" : "text-lg font-semibold text-gray-900"}>
                 기본 판매가
               </h2>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className={compact ? "mt-1 text-xs font-medium text-[#1a1a2e]/50" : "mt-1 text-sm text-gray-500"}>
                 옵션의 기본 판매 가격입니다. 캠페인 화면에서는 포함 여부와
                 할인/특가만 관리합니다.
               </p>
             </div>
-            <Badge intent="info">BASE</Badge>
+            <Badge
+              intent="info"
+              className={compact ? "rounded-[7px] bg-white px-2 py-0.5 text-[10px] font-bold text-[#4a88b9]" : undefined}
+            >
+              BASE
+            </Badge>
           </div>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-12">
+          <div className={compact ? "mt-4" : "mt-5 grid gap-4 lg:grid-cols-12"}>
             <div
               className={
                 isSingleDefaultVariant ? "lg:col-span-12" : "lg:col-span-7"
@@ -1398,7 +1450,7 @@ export function ProductVariantForm({
         </section>
 
         {isBundleProduct && !isSingleDefaultVariant && (
-          <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <section className={defaultSectionClassName}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">
@@ -1419,7 +1471,7 @@ export function ProductVariantForm({
         )}
 
         {!isBundleProduct && fulfillmentType === "PHYSICAL" ? (
-          <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <section className={compact ? `${compactWarmSectionClassName} lg:col-span-2` : defaultSectionClassName}>
             <div className="grid gap-4 lg:grid-cols-12">
               <div className="lg:col-span-4">
                 <FormField
@@ -1570,20 +1622,25 @@ export function ProductVariantForm({
             </div>
           </section>
         ) : !isBundleProduct ? (
-          <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <section className={digitalSectionClassName}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className={compact ? "text-sm font-black text-[#1a1a2e]" : "text-lg font-semibold text-gray-900"}>
                   디지털 파일
                 </h2>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className={compact ? "mt-1 text-xs font-medium text-[#4a88b9]" : "mt-1 text-sm text-gray-500"}>
                   디지털 옵션에 파일 업로드 또는 다운로드 링크를 연결합니다.
                 </p>
               </div>
-              <Badge intent="info">디지털</Badge>
+              <Badge
+                intent="info"
+                className={compact ? "rounded-[7px] border border-[#cde0f3] bg-white px-2 py-0.5 text-[10px] font-bold text-[#4a88b9]" : undefined}
+              >
+                디지털
+              </Badge>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4">
+            <div className={compact ? "mt-4" : "mt-5 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4"}>
               <p className="text-sm font-medium text-blue-900">
                 {mode === "create"
                   ? "디지털 파일 연결 (선택)"
