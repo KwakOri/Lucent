@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
@@ -243,47 +243,29 @@ export default function V2CatalogProductDetailPage() {
 
   return (
     <div className="space-y-5 text-[#1a1a2e]">
-      <div className="flex flex-col gap-3 rounded-[22px] border border-[#e7e3d3] bg-white px-4 py-3 shadow-none lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-[#f5f3e8] text-[#1a1a2e] transition hover:bg-[#ece8d9]"
-            aria-label="이전 페이지로 이동"
-          >
-            <ArrowLeft className="h-5 w-5" aria-hidden />
-          </button>
-          <div className="flex min-w-0 items-center gap-2 text-sm font-bold">
-            <span className="hidden text-[#1a1a2e]/45 sm:inline">상품 관리</span>
-            <ChevronRight className="hidden h-4 w-4 text-[#9b9788] sm:block" aria-hidden />
-            <span className="truncate text-[#1a1a2e]">상품 상세</span>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 lg:justify-end">
-          <Button
-            intent="neutral"
-            className={toolbarButtonClass}
-            onClick={() => router.push(listPath)}
-          >
-            목록으로
-          </Button>
-          <Button
-            className={primaryToolbarButtonClass}
-            onClick={() => router.push(`/admin/v2-catalog/products/${product.id}/edit`)}
-          >
-            상품 정보 수정
-          </Button>
-          <Button
-            intent="danger"
-            className="!h-11 !w-11 !rounded-[14px] !border !border-[#f3d6d6] !bg-white !px-0 !text-[#ca2a30] hover:!bg-[#fff0f0]"
-            onClick={handleDeleteProduct}
-            loading={deleteProduct.isPending}
-            aria-label="상품 삭제"
-          >
-            <Trash2 className="h-5 w-5" aria-hidden />
-          </Button>
-        </div>
+      <div className="flex flex-wrap justify-end gap-2 px-1">
+        <Button
+          intent="neutral"
+          className={toolbarButtonClass}
+          onClick={() => router.push(listPath)}
+        >
+          목록으로
+        </Button>
+        <Button
+          className={primaryToolbarButtonClass}
+          onClick={() => router.push(`/admin/v2-catalog/products/${product.id}/edit`)}
+        >
+          상품 정보 수정
+        </Button>
+        <Button
+          intent="danger"
+          className="!h-11 !w-11 !rounded-[14px] !border !border-[#f3d6d6] !bg-white !px-0 !text-[#ca2a30] hover:!bg-[#fff0f0]"
+          onClick={handleDeleteProduct}
+          loading={deleteProduct.isPending}
+          aria-label="상품 삭제"
+        >
+          <Trash2 className="h-5 w-5" aria-hidden />
+        </Button>
       </div>
 
       <section className="px-1 py-2">

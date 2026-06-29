@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type FocusEvent } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Archive,
+  ArrowLeft,
   ArrowLeftRight,
   BarChart3,
   FileText,
@@ -120,9 +121,20 @@ function isNavItemActive(pathname: string, href: string): boolean {
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopExpanded, setDesktopExpanded] = useState(false);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
+  const openDesktopMenu = () => setDesktopExpanded(true);
+  const closeDesktopMenu = () => setDesktopExpanded(false);
+  const handleGoBack = () => router.back();
+
+  const handleDesktopBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      closeDesktopMenu();
+    }
+  };
 
   return (
     <>
@@ -225,19 +237,49 @@ export function AdminSidebar() {
       )}
 
       {/* Desktop Sidebar */}
-      <div className="hidden lg:fixed lg:bottom-6 lg:left-5 lg:top-6 lg:z-50 lg:flex">
-        <nav className="flex w-[72px] flex-col items-center rounded-[24px] bg-white px-3 py-3 shadow-[0_18px_40px_rgba(26,26,46,0.12)] ring-1 ring-[#e7e3d3]">
-          <Link
-            href="/admin"
-            className="mb-5 flex h-10 w-10 items-center justify-center rounded-[13px] bg-[#1a1a2e] text-lg font-black text-[#ffcd27] shadow-[0_10px_22px_rgba(26,26,46,0.22)]"
-            aria-label="관리자 대시보드"
-            title="관리자 대시보드"
+      <div
+        className="hidden lg:fixed lg:left-6 lg:top-6 lg:z-50 lg:flex lg:flex-col lg:gap-4"
+        onMouseEnter={openDesktopMenu}
+        onMouseLeave={closeDesktopMenu}
+        onFocusCapture={openDesktopMenu}
+        onBlurCapture={handleDesktopBlur}
+      >
+        <button
+          type="button"
+          className={`
+            flex h-14 items-center justify-start rounded-2xl bg-white pl-4 pr-4 text-sm font-semibold text-text-secondary
+            shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-[#a35200]
+            ${desktopExpanded ? 'w-48' : 'w-14'}
+          `}
+          onClick={handleGoBack}
+        >
+          <span className="sr-only">이전 페이지로 이동</span>
+          <span className="flex w-6 shrink-0 justify-center">
+            <ArrowLeft className="h-5 w-5" aria-hidden />
+          </span>
+          <span
+            className={`
+              overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
+              ${desktopExpanded ? 'ml-3 max-w-[9rem] opacity-100' : 'ml-0 max-w-0 opacity-0'}
+            `}
           >
-            L
-          </Link>
+            뒤로가기
+          </span>
+        </button>
+
+        <nav
+          className={`
+            flex flex-col overflow-hidden rounded-[28px] bg-white p-3 shadow-lg ring-1 ring-neutral-200/90
+            transition-[width] duration-300 ease-out
+            ${desktopExpanded ? 'w-60' : 'w-[4.5rem]'}
+          `}
+        >
           <ul
             role="list"
-            className="scrollbar-none flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto"
+            className={`
+              scrollbar-none max-h-[calc(100vh-17rem)] space-y-1 overflow-y-auto
+              ${desktopExpanded ? 'pr-1' : 'pr-0'}
+            `}
           >
             {desktopNavigationItems.map((item) => {
               const isActive = isNavItemActive(pathname, item.href);
@@ -246,32 +288,52 @@ export function AdminSidebar() {
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    aria-label={item.name}
-                    title={item.name}
                     className={`
-                      group flex h-10 w-10 items-center justify-center rounded-[13px] transition-colors
+                      group flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold transition-colors
                       ${isActive
-                        ? 'bg-[#f59e0b] text-white shadow-[0_10px_22px_rgba(245,158,11,0.26)]'
-                        : 'text-[#9b9788] hover:bg-[#fff4d5] hover:text-[#a35200]'
+                        ? 'bg-[#f59e0b] text-white shadow-sm'
+                        : 'text-neutral-500 hover:bg-[#fff4d5] hover:text-[#a35200]'
                       }
                     `}
                   >
-                    <item.icon className="h-[18px] w-[18px]" aria-hidden />
-                    <span className="sr-only">{item.name}</span>
+                    <span className="flex w-6 shrink-0 justify-center">
+                      <item.icon
+                        className={`
+                          h-5 w-5
+                          ${isActive ? 'text-white' : 'text-neutral-500 group-hover:text-[#a35200]'}
+                        `}
+                        aria-hidden
+                      />
+                    </span>
+                    <span
+                      className={`
+                        overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
+                        ${desktopExpanded ? 'ml-3 max-w-[11rem] opacity-100' : 'ml-0 max-w-0 opacity-0'}
+                      `}
+                    >
+                      {item.name}
+                    </span>
                   </Link>
                 </li>
               );
             })}
           </ul>
-          <div className="mt-3 w-full border-t border-[#eee7d6] pt-3">
+          <div className="mt-3 border-t border-neutral-100 pt-3">
             <Link
               href="/"
-              aria-label="사이트로 나가기"
-              title="사이트로 나가기"
-              className="group flex h-10 w-10 items-center justify-center rounded-[13px] text-[#9b9788] transition-colors hover:bg-[#fff4d5] hover:text-[#a35200]"
+              className="group flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold text-neutral-500 transition-colors hover:bg-[#fff4d5] hover:text-[#a35200]"
             >
-              <LogOut className="h-[18px] w-[18px]" aria-hidden />
-              <span className="sr-only">나가기</span>
+              <span className="flex w-6 shrink-0 justify-center">
+                <LogOut className="h-5 w-5 group-hover:text-[#a35200]" aria-hidden />
+              </span>
+              <span
+                className={`
+                  overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
+                  ${desktopExpanded ? 'ml-3 max-w-[11rem] opacity-100' : 'ml-0 max-w-0 opacity-0'}
+                `}
+              >
+                나가기
+              </span>
             </Link>
           </div>
         </nav>
