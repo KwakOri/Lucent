@@ -44,7 +44,6 @@ const primaryNavigationItems: NavigationItem[] = [
     href: '/admin/production-shipping',
     icon: ArrowLeftRight,
   },
-  { name: '환불 관리', href: '/admin/refunds', icon: RotateCcw },
   { name: '프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderOpen },
   { name: '아티스트 관리', href: '/admin/v2-catalog/artists', icon: Users },
   { name: '상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBag },
@@ -54,6 +53,7 @@ const primaryNavigationItems: NavigationItem[] = [
 ];
 
 const moreNavigationItems: NavigationItem[] = [
+  { name: '환불 관리', href: '/admin/refunds', icon: RotateCcw },
   { name: '로그 조회', href: '/admin/logs', icon: FileText },
   { name: '번들 관리', href: '/admin/v2-catalog/bundles', icon: Package },
   { name: '전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowLeftRight },
