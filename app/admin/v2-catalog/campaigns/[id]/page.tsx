@@ -87,6 +87,14 @@ const EMPTY_PRODUCTS: V2Product[] = [];
 const EMPTY_VARIANTS_BY_PRODUCT_ID: Record<string, V2Variant[]> = {};
 const EMPTY_MEDIA_BY_PRODUCT_ID: Record<string, V2ProductMedia[]> = {};
 
+type PriceItemWithJoinedPriceList = V2PriceListItem & {
+  price_list?: Pick<V2PriceList, 'priority'> | null;
+};
+
+function getJoinedPriceListPriority(item: V2PriceListItem): number {
+  return ((item as PriceItemWithJoinedPriceList).price_list?.priority ?? 0);
+}
+
 function pickLatestPriceList(lists: V2PriceList[]): V2PriceList | null {
   if (lists.length === 0) {
     return null;
@@ -103,7 +111,17 @@ function pickBestPriceItem(items: V2PriceListItem[]): V2PriceListItem | null {
   if (exactActiveItems.length === 0) {
     return null;
   }
-  return [...exactActiveItems].sort((a, b) => b.created_at.localeCompare(a.created_at))[0] || null;
+  return [...exactActiveItems].sort((a, b) => {
+    const priorityDiff = getJoinedPriceListPriority(b) - getJoinedPriceListPriority(a);
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+    const updatedDiff = b.updated_at.localeCompare(a.updated_at);
+    if (updatedDiff !== 0) {
+      return updatedDiff;
+    }
+    return b.created_at.localeCompare(a.created_at);
+  })[0] || null;
 }
 
 function findVariantPriceItem(params: {

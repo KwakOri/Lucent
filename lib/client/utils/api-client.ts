@@ -48,16 +48,21 @@ class APIClient {
     const requestStartedAt = performance.now();
     console.log(`[apiClient] ${method} ${resolvedUrl}`);
 
+    const fetchInit: RequestInit = {
+      credentials: 'include',
+      ...requestInit,
+      method,
+      headers,
+    };
+    if (method === 'GET' && fetchInit.cache === undefined) {
+      fetchInit.cache = 'no-store';
+    }
+
     let response: Response;
     try {
       response = await this.fetchWithRetry(
         resolvedUrl,
-        {
-          credentials: 'include',
-          ...requestInit,
-          method,
-          headers,
-        },
+        fetchInit,
         {
           enabled:
             retryOnNetworkError &&

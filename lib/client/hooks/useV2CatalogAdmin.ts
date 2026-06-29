@@ -1544,6 +1544,8 @@ export function useV2CampaignDetailContext(
       return response.data;
     },
     enabled: !!campaignId,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 }
 
