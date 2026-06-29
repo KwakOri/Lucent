@@ -138,6 +138,24 @@ function hasDownloadPath(path: string | null | undefined): boolean {
   return Boolean(path && path.trim().length > 0);
 }
 
+function isInternalLabel(value: string): boolean {
+  const normalizedValue = value.trim();
+  const uuidPattern =
+    '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+
+  return new RegExp(`^(legacy-)?${uuidPattern}(\\.[a-z0-9]+)?$`, 'i').test(
+    normalizedValue,
+  );
+}
+
+function resolveCardDescription(optionTitle: string, showOptionTitle: boolean): string {
+  if (showOptionTitle && optionTitle && !isInternalLabel(optionTitle)) {
+    return optionTitle;
+  }
+
+  return '보이스팩';
+}
+
 function sortByRecent(left: V2DigitalEntitlementItem, right: V2DigitalEntitlementItem) {
   const leftTime =
     new Date(left.order.placed_at || left.granted_at || 0).getTime() || 0;
@@ -271,9 +289,10 @@ export default function MyDigitalProductsPage() {
                 const productPath = item.order_item.product_id
                   ? `/shop/${item.order_item.product_id}`
                   : null;
-                const description = showOptionTitle
-                  ? optionTitle
-                  : item.digital_asset?.file_name || 'Voice Pack';
+                const description = resolveCardDescription(
+                  optionTitle,
+                  showOptionTitle,
+                );
 
                 return (
                   <article
