@@ -5,6 +5,10 @@ import { useParams } from 'next/navigation';
 import { Loading } from '@/components/ui/loading';
 import { ProductsAPI } from '@/lib/client/api/products.api';
 import { useProjects } from '@/lib/client/hooks/useProjects';
+import {
+  AdminPageHeader,
+  adminLegacyBridgeClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { ProductForm } from '@/src/components/admin/products/ProductForm';
 
 export default function EditProductPage() {
@@ -45,13 +49,12 @@ export default function EditProductPage() {
   }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">상품 수정</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {product.name} 정보를 수정합니다
-        </p>
-      </div>
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="legacy form"
+        title="상품 수정"
+        description={`${product.name} 정보를 수정합니다.`}
+      />
 
       <ProductForm projects={projects || []} product={product} />
     </div>

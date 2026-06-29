@@ -1,16 +1,19 @@
 "use client";
 
 import { ContentPostForm } from "@/src/components/admin/content/ContentPostForm";
+import {
+  AdminPageHeader,
+  adminLegacyBridgeClass,
+} from "@/src/components/admin/AdminDesignSystem";
 
 export default function NewContentPostPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">새 게시글</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          초안으로 저장한 뒤 검토 후 발행할 수 있습니다.
-        </p>
-      </div>
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="content form"
+        title="새 게시글"
+        description="초안으로 저장한 뒤 검토 후 발행할 수 있습니다."
+      />
       <ContentPostForm mode="create" />
     </div>
   );

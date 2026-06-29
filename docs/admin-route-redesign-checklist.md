@@ -72,22 +72,22 @@ Legend:
 
 ### Content
 
-- [ ] `/admin/content/posts`
-- [ ] `/admin/content/posts/new`
-- [ ] `/admin/content/posts/[id]`
+- [x] `/admin/content/posts`
+- [x] `/admin/content/posts/new`
+- [x] `/admin/content/posts/[id]`
 
 ### Legacy Admin
 
-- [ ] `/admin/legacy`
-- [ ] `/admin/artists`
-- [ ] `/admin/artists/new`
-- [ ] `/admin/artists/[id]/edit`
-- [ ] `/admin/projects`
-- [ ] `/admin/projects/new`
-- [ ] `/admin/projects/[id]/edit`
-- [ ] `/admin/products`
-- [ ] `/admin/products/new`
-- [ ] `/admin/products/[id]/edit`
+- [x] `/admin/legacy`
+- [x] `/admin/artists`
+- [x] `/admin/artists/new`
+- [x] `/admin/artists/[id]/edit`
+- [x] `/admin/projects`
+- [x] `/admin/projects/new`
+- [x] `/admin/projects/[id]/edit`
+- [x] `/admin/products`
+- [x] `/admin/products/new`
+- [x] `/admin/products/[id]/edit`
 
 ### V2 Catalog Hub
 
@@ -148,11 +148,11 @@ Legend:
 ## Per-Page Acceptance Checklist
 
 Each redesigned page should satisfy:
-- [ ] Uses the new admin surface language: white card, beige border, navy text, amber accent
-- [ ] Primary actions are visually clear and right-aligned in page headers where appropriate
-- [ ] Tables/lists use scan-friendly row density and stable empty/loading/error states
-- [ ] Back/list links preserve the current project or workflow context where available
-- [ ] Mobile layout keeps controls readable without horizontal text overlap
-- [ ] No `next/image`; render images with `<img>` when needed
-- [ ] Route remains reachable from sidebar, `/admin/more`, dashboard, or contextual links
-- [ ] Lint/build pass after the page batch
+- [x] Uses the new admin surface language: white card, beige border, navy text, amber accent
+- [x] Primary actions are visually clear and right-aligned in page headers where appropriate
+- [x] Tables/lists use scan-friendly row density and stable empty/loading/error states
+- [x] Back/list links preserve the current project or workflow context where available
+- [x] Mobile layout keeps controls readable without horizontal text overlap
+- [x] No `next/image`; render images with `<img>` when needed
+- [x] Route remains reachable from sidebar, `/admin/more`, dashboard, or contextual links
+- [x] Lint/build pass after the page batch
