@@ -231,6 +231,38 @@ export interface V2DigitalEntitlementsResult {
   total: number;
 }
 
+export interface GetV2DigitalOwnershipParams {
+  variant_ids?: string[];
+  product_ids?: string[];
+}
+
+export interface V2DigitalOwnershipRecord {
+  variant_id: string | null;
+  product_id: string | null;
+  owned: true;
+  ownership_status: 'OWNED' | 'PENDING';
+  entitlement_id: string;
+  entitlement_status: string;
+  order_id: string;
+  order_no: string | null;
+  order_status: string | null;
+  payment_status: string | null;
+  granted_at: string | null;
+  expires_at: string | null;
+}
+
+export interface V2DigitalOwnershipResult {
+  requested: {
+    variant_ids: string[];
+    product_ids: string[];
+  };
+  items: V2DigitalOwnershipRecord[];
+  by_variant_id: Record<string, V2DigitalOwnershipRecord>;
+  by_product_id: Record<string, V2DigitalOwnershipRecord>;
+  owned_variant_ids: string[];
+  owned_product_ids: string[];
+}
+
 export const V2CheckoutAPI = {
   async getCart(): Promise<ApiResponse<V2CartSummary>> {
     return apiClient.get("/api/v2/checkout/cart");
@@ -292,6 +324,26 @@ export const V2CheckoutAPI = {
     ApiResponse<V2DigitalEntitlementsResult>
   > {
     return apiClient.get('/api/v2/checkout/me/digital-entitlements');
+  },
+
+  async getDigitalOwnership(
+    params: GetV2DigitalOwnershipParams = {},
+  ): Promise<ApiResponse<V2DigitalOwnershipResult>> {
+    const searchParams = new URLSearchParams();
+    const variantIds = params.variant_ids?.filter(Boolean) ?? [];
+    const productIds = params.product_ids?.filter(Boolean) ?? [];
+
+    if (variantIds.length > 0) {
+      searchParams.set('variant_ids', variantIds.join(','));
+    }
+    if (productIds.length > 0) {
+      searchParams.set('product_ids', productIds.join(','));
+    }
+
+    const query = searchParams.toString();
+    return apiClient.get(
+      `/api/v2/checkout/me/digital-ownership${query ? `?${query}` : ''}`,
+    );
   },
 
   async cancelOrder(

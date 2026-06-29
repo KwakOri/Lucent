@@ -130,6 +130,7 @@ export {
   useV2CreateOrder,
   useV2CheckoutOrders,
   useV2DigitalEntitlements,
+  useV2DigitalOwnership,
   useV2CheckoutOrder,
   useV2CancelOrder,
   useV2ApplyPaymentCallback,
