@@ -24,7 +24,9 @@ import {
   type V2AdminDashboardOrderStage,
   type V2AdminSalesStatsPreset,
 } from '@/lib/client/api/v2-admin-ops.api';
+import { type V2Campaign } from '@/lib/client/api/v2-catalog-admin.api';
 import { useV2AdminDashboardOverview } from '@/lib/client/hooks/useV2AdminOps';
+import { useV2Campaigns } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 type FilterState = {
   preset: V2AdminSalesStatsPreset;
@@ -136,7 +138,7 @@ function formatDateLabel(value: string | null | undefined): string {
   if (!value) {
     return '-';
   }
-  const parsed = new Date(`${value}T00:00:00.000Z`);
+  const parsed = new Date(value.includes('T') ? value : `${value}T00:00:00.000Z`);
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }
@@ -144,14 +146,6 @@ function formatDateLabel(value: string | null | undefined): string {
     month: '2-digit',
     day: '2-digit',
   });
-}
-
-function formatTrendDayLabel(isoDate: string): string {
-  const day = isoDate.split('-')[2];
-  if (!day) {
-    return '-';
-  }
-  return String(Number(day));
 }
 
 function formatAgeHours(value: number | null): string {
@@ -289,6 +283,25 @@ function getPresetButtonClass(isActive: boolean): string {
     : 'border-[#e7e3d3] bg-[#f5f3e8] text-[#1a1a2e] hover:bg-[#ece8d9]';
 }
 
+function isCampaignLive(campaign: V2Campaign, now: Date): boolean {
+  const startsAt = campaign.starts_at ? new Date(campaign.starts_at) : null;
+  const endsAt = campaign.ends_at ? new Date(campaign.ends_at) : null;
+
+  if (startsAt && !Number.isNaN(startsAt.getTime()) && startsAt > now) {
+    return false;
+  }
+  if (endsAt && !Number.isNaN(endsAt.getTime()) && endsAt < now) {
+    return false;
+  }
+  return true;
+}
+
+function sortCampaignsByStartDate(left: V2Campaign, right: V2Campaign): number {
+  const leftTime = left.starts_at ? Date.parse(left.starts_at) : 0;
+  const rightTime = right.starts_at ? Date.parse(right.starts_at) : 0;
+  return rightTime - leftTime;
+}
+
 export default function AdminDashboardPage() {
   const initialRange = resolvePresetRange('LAST_7_DAYS');
   const [draft, setDraft] = useState<FilterState>({
@@ -304,6 +317,10 @@ export default function AdminDashboardPage() {
 
   const params = useMemo(() => toDashboardParams(applied), [applied]);
   const { data, isLoading, isFetching, error, refetch } = useV2AdminDashboardOverview(params);
+  const {
+    data: activePopupCampaigns,
+    isLoading: popupsLoading,
+  } = useV2Campaigns({ status: 'ACTIVE', campaignType: 'POPUP' });
 
   const handlePresetApply = (preset: V2AdminSalesStatsPreset) => {
     if (preset === 'CUSTOM') {
@@ -351,29 +368,16 @@ export default function AdminDashboardPage() {
   }
 
   const currencyCode = data.metadata.currency_code || 'KRW';
-  const trendRows = data.trends.daily || [];
-  const trendMaxValue = Math.max(
-    1,
-    ...trendRows.flatMap((row) => [
-      Math.max(0, Number(row.order_gross_amount || 0)),
-      Math.max(0, Number(row.net_settlement_amount || 0)),
-    ]),
-  );
-  const getBarHeight = (value: number) => {
-    const next = Math.round((Math.max(0, value || 0) / trendMaxValue) * 168);
-    return `${Math.max(value > 0 ? 8 : 3, next)}px`;
-  };
-  const chartRows = trendRows.map((row) => ({
-    label: formatTrendDayLabel(row.date),
-    grossAmount: Number(row.order_gross_amount || 0),
-    netAmount: Number(row.net_settlement_amount || 0),
-    orders: Number(row.orders_count || 0),
-  }));
-
   const stageTotal = Object.values(data.pipeline.order_stage_counts).reduce(
     (sum, value) => sum + Number(value || 0),
     0,
   );
+
+  const currentPopup = (() => {
+    const popups = activePopupCampaigns || [];
+    const livePopups = popups.filter((campaign) => isCampaignLive(campaign, new Date()));
+    return [...(livePopups.length > 0 ? livePopups : popups)].sort(sortCampaignsByStartDate)[0] || null;
+  })();
 
   const kpiCards: KpiCard[] = [
     {
@@ -503,10 +507,10 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-5 text-[#1a1a2e]">
       <div className="grid gap-5 xl:grid-cols-[1.05fr_1.7fr]">
-        <section className="overflow-hidden rounded-[22px] bg-[#66B5F3] p-5 text-white shadow-[0_16px_34px_rgba(74,136,185,0.22)] sm:p-6">
+        <section className="overflow-hidden rounded-[22px] bg-[#1a1a2e] p-5 text-white shadow-[0_16px_34px_rgba(26,26,46,0.22)] sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-black text-[#ffcd27]">LUCENT ADMIN</p>
+              <p className="text-sm font-black text-white/60">이번 달 총 매출</p>
               <h1 className="mt-3 text-2xl font-black sm:text-3xl">운영 대시보드</h1>
               <p className="mt-2 max-w-md text-sm leading-6 text-white/80">
                 매출, 주문 이행, 재고, 승인 병목을 한 화면에서 확인합니다.
@@ -514,7 +518,7 @@ export default function AdminDashboardPage() {
             </div>
             <Link
               href="/admin/v2-ops/stats"
-              className="inline-flex items-center gap-1.5 rounded-[11px] bg-white/20 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/30"
+              className="inline-flex items-center gap-1.5 rounded-[11px] bg-[#ffcd27] px-3 py-2 text-xs font-black text-[#1a1a2e] transition hover:bg-[#ffd84d]"
             >
               상세 통계
               <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
@@ -548,14 +552,14 @@ export default function AdminDashboardPage() {
                 href={card.href}
                 className={`group rounded-[18px] border p-4 transition hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(26,26,46,0.08)] ${
                   card.primary
-                    ? 'border-[#66B5F3] bg-[#66B5F3] text-white'
+                    ? 'border-[#f59e0b] bg-[#f59e0b] text-white shadow-[0_14px_28px_rgba(245,158,11,0.20)]'
                     : 'border-[#e7e3d3] bg-white text-[#1a1a2e]'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <span
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] ${
-                      card.primary ? 'bg-white/20 text-white' : 'bg-[#f0f7ff] text-[#4a88b9]'
+                      card.primary ? 'bg-white/20 text-white' : 'bg-[#fff4d5] text-[#a35200]'
                     }`}
                   >
                     <Icon className="h-5 w-5" aria-hidden />
@@ -663,57 +667,6 @@ export default function AdminDashboardPage() {
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.62fr)_minmax(320px,0.78fr)]">
         <div className="space-y-5">
           <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-bold text-[#1a1a2e]">매출 추이</h2>
-                <p className="mt-1 text-sm text-[#1a1a2e]/50">총 매출과 순정산 흐름을 비교합니다.</p>
-              </div>
-              <div className="flex items-center gap-3 text-xs font-bold">
-                <span className="inline-flex items-center gap-1.5 text-[#4a88b9]">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#66B5F3]" aria-hidden />
-                  총 매출
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-[#9a7a00]">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#ffcd27]" aria-hidden />
-                  순정산
-                </span>
-              </div>
-            </div>
-
-            {chartRows.length === 0 ? (
-              <p className="mt-5 rounded-[16px] border border-dashed border-[#e7e3d3] bg-[#f9f9ed] px-3 py-8 text-center text-sm text-[#1a1a2e]/50">
-                선택한 기간의 추세 데이터가 없습니다.
-              </p>
-            ) : (
-              <div className="mt-5 overflow-x-auto">
-                <div className="flex min-w-[640px] items-end gap-3 rounded-[16px] bg-[#f9f9ed] px-4 pb-3 pt-5">
-                  {chartRows.map((row, index) => (
-                    <div
-                      key={`${row.label}-${index}`}
-                      className="flex min-w-9 flex-1 flex-col items-center gap-2"
-                      title={`${row.label}일 주문 ${formatNumber(row.orders)}건`}
-                    >
-                      <div className="flex h-44 items-end gap-1.5">
-                        <span
-                          className="w-2.5 rounded-t-full bg-[#66B5F3]"
-                          style={{ height: getBarHeight(row.grossAmount) }}
-                          aria-hidden
-                        />
-                        <span
-                          className="w-2.5 rounded-t-full bg-[#ffcd27]"
-                          style={{ height: getBarHeight(row.netAmount) }}
-                          aria-hidden
-                        />
-                      </div>
-                      <span className="text-[11px] font-semibold text-[#1a1a2e]/45">{row.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-
-          <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-[#1a1a2e]">처리 우선 주문</h2>
@@ -784,6 +737,71 @@ export default function AdminDashboardPage() {
               </table>
             </div>
           </section>
+
+          <section className="rounded-[22px] border border-[#cde0f3] bg-[#f0f7ff] p-5">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-[#1a1a2e]">현재 진행중인 팝업</h2>
+                <p className="mt-1 text-sm text-[#1a1a2e]/50">
+                  활성화된 팝업 캠페인의 운영 기간과 상태를 확인합니다.
+                </p>
+              </div>
+              <span className="rounded-[8px] bg-[#66B5F3] px-2.5 py-1 text-[11px] font-black text-white">
+                진행중
+              </span>
+            </div>
+
+            {popupsLoading ? (
+              <p className="rounded-[16px] border border-dashed border-[#cde0f3] bg-white/70 px-3 py-8 text-center text-sm text-[#1a1a2e]/50">
+                팝업 정보를 불러오는 중입니다.
+              </p>
+            ) : currentPopup ? (
+              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                <div className="min-w-0">
+                  <p className="truncate text-xl font-black text-[#1a1a2e]">{currentPopup.name}</p>
+                  <p className="mt-1 text-sm font-semibold text-[#4a88b9]">
+                    {formatDateLabel(currentPopup.starts_at)} ~ {formatDateLabel(currentPopup.ends_at)}
+                  </p>
+                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#1a1a2e]/60">
+                    {currentPopup.description || '등록된 설명이 없습니다.'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 sm:min-w-72">
+                  <div>
+                    <p className="text-[11px] font-semibold text-[#1a1a2e]/50">캠페인 코드</p>
+                    <p className="mt-1 truncate text-lg font-black text-[#1a1a2e]">
+                      {currentPopup.code || '-'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] font-semibold text-[#1a1a2e]/50">최근 수정</p>
+                    <p className="mt-1 text-lg font-black text-[#1a1a2e]">
+                      {formatDateLabel(currentPopup.updated_at)}
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href={`/admin/v2-catalog/campaigns/${currentPopup.id}`}
+                  className="inline-flex w-fit items-center gap-1.5 rounded-[11px] bg-[#1a1a2e] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#2c2c43] md:col-span-2"
+                >
+                  팝업 상세 보기
+                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+                </Link>
+              </div>
+            ) : (
+              <div className="rounded-[16px] border border-dashed border-[#cde0f3] bg-white/70 px-3 py-8 text-center">
+                <p className="text-sm font-bold text-[#1a1a2e]">진행중인 팝업이 없습니다.</p>
+                <Link
+                  href="/admin/v2-catalog/campaigns"
+                  className="mt-2 inline-flex text-xs font-bold text-[#4a88b9]"
+                >
+                  캠페인 관리로 이동
+                </Link>
+              </div>
+            )}
+          </section>
         </div>
 
         <aside className="space-y-5">
@@ -805,7 +823,7 @@ export default function AdminDashboardPage() {
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-[#f1eee2]">
                       <div
-                        className="h-full rounded-full bg-[#66B5F3]"
+                        className="h-full rounded-full bg-[#f59e0b]"
                         style={{ width: `${numericCount > 0 ? Math.max(5, ratio) : 0}%` }}
                       />
                     </div>
@@ -818,7 +836,7 @@ export default function AdminDashboardPage() {
           <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-base font-bold text-[#1a1a2e]">운영 리스크</h2>
-              <Link href="/admin/v2-ops" className="text-xs font-bold text-[#4a88b9]">
+              <Link href="/admin/v2-ops" className="text-xs font-bold text-[#a35200]">
                 전체보기
               </Link>
             </div>
@@ -831,7 +849,7 @@ export default function AdminDashboardPage() {
                     href={item.href}
                     className="flex items-center gap-3 rounded-[14px] bg-[#f9f9ed] px-3 py-3 transition hover:bg-[#f5f3e8]"
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-white text-[#4a88b9]">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-white text-[#a35200]">
                       <Icon className="h-4 w-4" aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -851,7 +869,7 @@ export default function AdminDashboardPage() {
           <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-base font-bold text-[#1a1a2e]">승인 대기</h2>
-              <Link href="/admin/v2-ops" className="text-xs font-bold text-[#4a88b9]">
+              <Link href="/admin/v2-ops" className="text-xs font-bold text-[#a35200]">
                 전체보기
               </Link>
             </div>
@@ -876,7 +894,7 @@ export default function AdminDashboardPage() {
           <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-base font-bold text-[#1a1a2e]">최근 실패 액션</h2>
-              <Link href="/admin/v2-ops" className="text-xs font-bold text-[#4a88b9]">
+              <Link href="/admin/v2-ops" className="text-xs font-bold text-[#a35200]">
                 감사 로그
               </Link>
             </div>
@@ -902,13 +920,13 @@ export default function AdminDashboardPage() {
           <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-base font-bold text-[#1a1a2e]">배치 상태</h2>
-              <Banknote className="h-4 w-4 text-[#66B5F3]" aria-hidden />
+              <Banknote className="h-4 w-4 text-[#f59e0b]" aria-hidden />
             </div>
             <div className="space-y-4">
               {batchGroups.map((group) => (
                 <div key={group.title}>
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <Link href={group.href} className="text-sm font-bold text-[#1a1a2e] hover:text-[#4a88b9]">
+                    <Link href={group.href} className="text-sm font-bold text-[#1a1a2e] hover:text-[#a35200]">
                       {group.title}
                     </Link>
                     <span className="text-xs font-bold text-[#1a1a2e]/45">
