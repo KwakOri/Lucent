@@ -9,6 +9,8 @@ import { Loading } from '@/components/ui/loading';
 import { ProductBundleManager } from '@/src/components/admin/v2-catalog/ProductBundleManager';
 import { ProductMediaManager } from '@/src/components/admin/v2-catalog/ProductMediaManager';
 import { ProductVariantManager } from '@/src/components/admin/v2-catalog/ProductVariantManager';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
+import { adminActionRowClass } from '@/src/components/admin/AdminDesignSystem';
 import {
   useDeleteV2Product,
   useV2AdminProduct,
@@ -124,6 +126,7 @@ function resolveFulfillmentSummary(product: {
 
 export default function V2CatalogProductDetailPage() {
   const router = useRouter();
+  const { confirm } = useAdminFeedback();
   const params = useParams<{ id: string }>();
   const deleteProduct = useDeleteV2Product();
   const [pageErrorMessage, setPageErrorMessage] = useState<string | null>(null);
@@ -169,7 +172,14 @@ export default function V2CatalogProductDetailPage() {
     if (!product) {
       return;
     }
-    if (!window.confirm(`"${product.title}" 상품을 삭제하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '상품 삭제',
+      message: `"${product.title}" 상품을 삭제하시겠습니까?`,
+      description: '상품과 연결된 운영 데이터에 영향이 있을 수 있습니다.',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -243,7 +253,7 @@ export default function V2CatalogProductDetailPage() {
 
   return (
     <div className="space-y-5 text-[#1a1a2e]">
-      <div className="flex flex-wrap justify-end gap-2 px-1">
+      <div className={`px-1 ${adminActionRowClass}`}>
         <Button
           intent="neutral"
           className={toolbarButtonClass}

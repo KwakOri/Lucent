@@ -139,23 +139,23 @@ export function AdminSidebar() {
   return (
     <>
       {/* Mobile Menu Button */}
-      <div className="sticky top-0 z-40 flex items-center gap-x-6 bg-white px-4 py-4 shadow-sm sm:px-6 lg:hidden">
+      <div className="sticky top-0 z-40 flex items-center gap-x-3 border-b border-[#e7e3d3] bg-white/95 px-4 py-3 shadow-[0_8px_24px_rgba(26,26,46,0.06)] backdrop-blur sm:px-6 lg:hidden">
         <button
           type="button"
-          className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[#f5f3e8] text-[#1a1a2e] lg:hidden"
           onClick={() => setMobileMenuOpen(true)}
         >
           <span className="sr-only">메뉴 열기</span>
           <Menu className="h-6 w-6" aria-hidden />
         </button>
-        <div className="flex-1 text-sm font-semibold leading-6 text-gray-900">
+        <div className="min-w-0 flex-1 truncate text-sm font-black leading-6 text-[#1a1a2e]">
           Lucent Admin
         </div>
         <Link
           href="/"
-          className="text-sm font-semibold leading-6 text-gray-900 hover:text-[#a35200]"
+          className="shrink-0 rounded-[12px] bg-[#f5f3e8] px-3 py-2 text-xs font-black leading-5 text-[#1a1a2e] hover:bg-[#ece8d9] hover:text-[#a35200] sm:text-sm"
         >
-          사이트로 돌아가기
+          사이트
         </Link>
       </div>
 
@@ -164,19 +164,19 @@ export function AdminSidebar() {
         <div className="relative z-50 lg:hidden">
           {/* Background overlay */}
           <div
-            className="fixed inset-0 bg-gray-900/80"
+            className="fixed inset-0 bg-[#1a1a2e]/55 backdrop-blur-sm"
             onClick={closeMobileMenu}
           />
 
           {/* Sidebar panel */}
-          <div className="fixed inset-y-0 left-0 z-50 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
+          <div className="fixed inset-y-0 left-0 z-50 w-[min(100vw,24rem)] overflow-y-auto border-r border-[#e7e3d3] bg-[#f9f9ed] px-5 py-5 shadow-[0_24px_70px_rgba(26,26,46,0.22)] sm:px-6 sm:py-6">
             <div className="flex items-center justify-between">
-              <Link href="/" className="text-xl font-bold text-gray-900" onClick={closeMobileMenu}>
+              <Link href="/" className="text-xl font-black text-[#1a1a2e]" onClick={closeMobileMenu}>
                 Lucent Admin
               </Link>
               <button
                 type="button"
-                className="-m-2.5 rounded-md p-2.5 text-gray-700"
+                className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#1a1a2e] ring-1 ring-[#e7e3d3]"
                 onClick={closeMobileMenu}
               >
                 <span className="sr-only">메뉴 닫기</span>
@@ -187,7 +187,7 @@ export function AdminSidebar() {
               <div className="space-y-6">
                 {navigationSections.map((section) => (
                   <div key={section.title}>
-                    <p className="px-2 text-xs font-bold uppercase tracking-wide text-gray-400">
+                    <p className="px-2 text-xs font-black uppercase tracking-wide text-[#1a1a2e]/35">
                       {section.title}
                     </p>
                     <ul role="list" className="-mx-2 mt-2 space-y-1">
@@ -200,16 +200,16 @@ export function AdminSidebar() {
                               href={item.href}
                               onClick={closeMobileMenu}
                               className={`
-                                group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6
+                                group flex gap-x-3 rounded-[14px] px-3 py-2.5 text-sm font-bold leading-6
                                 ${isActive
                                   ? 'bg-[#fff4d5] text-[#a35200]'
-                                  : 'text-gray-700 hover:bg-[#fff4d5] hover:text-[#a35200]'
+                                  : 'text-[#1a1a2e]/70 hover:bg-white hover:text-[#a35200]'
                                 }
                               `}
                             >
                               <item.icon
                                 className={`h-6 w-6 shrink-0 ${
-                                  isActive ? 'text-[#a35200]' : 'text-gray-400 group-hover:text-[#a35200]'
+                                  isActive ? 'text-[#a35200]' : 'text-[#1a1a2e]/35 group-hover:text-[#a35200]'
                                 }`}
                                 aria-hidden
                               />
@@ -222,11 +222,11 @@ export function AdminSidebar() {
                   </div>
                 ))}
               </div>
-              <div className="mt-8 pt-8 border-t border-gray-200">
+              <div className="mt-8 border-t border-[#e7e3d3] pt-8">
                 <Link
                   href="/"
                   onClick={closeMobileMenu}
-                  className="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-700 hover:bg-[#fff4d5] hover:text-[#a35200]"
+                  className="group flex gap-x-3 rounded-[14px] px-3 py-2.5 text-sm font-bold leading-6 text-[#1a1a2e]/70 hover:bg-white hover:text-[#a35200]"
                 >
                   사이트로 돌아가기
                 </Link>

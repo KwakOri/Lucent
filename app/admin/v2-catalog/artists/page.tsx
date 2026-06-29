@@ -18,6 +18,7 @@ import {
   adminTableHeadCellClass,
   adminTableHeadClass,
 } from '@/src/components/admin/AdminDesignSystem';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import type {
   V2Artist,
   V2ArtistStatus,
@@ -98,6 +99,7 @@ function isProjectArtist(item: unknown): item is V2ProjectArtist {
 
 export default function V2CatalogArtistsPage() {
   const router = useRouter();
+  const { confirm } = useAdminFeedback();
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -250,7 +252,14 @@ export default function V2CatalogArtistsPage() {
     if (!activeProjectId) {
       return;
     }
-    if (!window.confirm(`"${artistName}" 연결을 해제하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '아티스트 연결 해제',
+      message: `"${artistName}" 연결을 해제하시겠습니까?`,
+      description: '선택한 프로젝트와 아티스트의 연결만 해제됩니다.',
+      confirmText: '해제',
+      tone: 'warning',
+    });
+    if (!confirmed) {
       return;
     }
     await runAction(async () => {

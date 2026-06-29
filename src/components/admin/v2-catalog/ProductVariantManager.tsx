@@ -18,6 +18,7 @@ import {
   useV2AdminVariantAssets,
   useV2AdminVariants,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import { FULFILLMENT_TYPE_LABELS, VARIANT_STATUS_LABELS } from '@/lib/client/utils/v2-product-admin-form';
 import { ProductVariantForm } from './ProductVariantForm';
 
@@ -219,13 +220,14 @@ const sectionClassName =
   'rounded-[20px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
 const mutedTextClassName = 'text-[#1a1a2e]/55';
 const addButtonClassName =
-  '!h-10 !rounded-[12px] !bg-[#66B5F3] !px-4 !text-sm !font-bold !text-white hover:!bg-[#5aa3dd]';
+  '!h-10 !rounded-[12px] !bg-[#1a1a2e] !px-4 !text-sm !font-bold !text-white hover:!bg-[#272743]';
 
 export function ProductVariantManager({
   product,
   registerSaveHandler,
 }: ProductVariantManagerProps) {
   const router = useRouter();
+  const { confirm } = useAdminFeedback();
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expandedVariantId, setExpandedVariantId] = useState<string | null>(null);
@@ -240,7 +242,14 @@ export function ProductVariantManager({
   const isSingleVariant = variantList.length === 1;
 
   const handleDeleteVariant = async (variantId: string, variantTitle: string) => {
-    if (!window.confirm(`"${variantTitle}" 옵션을 삭제하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '옵션 삭제',
+      message: `"${variantTitle}" 옵션을 삭제하시겠습니까?`,
+      description: '옵션과 연결된 디지털/이행 데이터에 영향이 있을 수 있습니다.',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 

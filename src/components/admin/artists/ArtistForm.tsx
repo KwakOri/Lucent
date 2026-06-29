@@ -10,6 +10,8 @@ import type {
   UpdateArtistData,
 } from '@/lib/client/api/artists.api';
 import type { ProjectWithDetails } from '@/lib/client/api/projects.api';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
+import { adminActionRowClass } from '@/src/components/admin/AdminDesignSystem';
 import { ImageUpload } from '@/src/components/admin/ImageUpload';
 
 type Project = Pick<ProjectWithDetails, 'id' | 'name' | 'slug'>;
@@ -23,6 +25,7 @@ interface ArtistFormProps {
 
 export function ArtistForm({ projects, artist }: ArtistFormProps) {
   const router = useRouter();
+  const { notify } = useAdminFeedback();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -54,7 +57,9 @@ export function ArtistForm({ projects, artist }: ArtistFormProps) {
       router.push('/admin/artists');
       router.refresh();
     } catch (error) {
-      alert(error instanceof Error ? error.message : '저장에 실패했습니다');
+      notify(error instanceof Error ? error.message : '저장에 실패했습니다', {
+        type: 'error',
+      });
       setIsSubmitting(false);
     }
   };
@@ -172,7 +177,7 @@ export function ArtistForm({ projects, artist }: ArtistFormProps) {
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-x-3 mt-6">
+      <div className={`mt-6 ${adminActionRowClass}`}>
         <Link
           href="/admin/artists"
           className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"

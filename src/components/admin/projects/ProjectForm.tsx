@@ -9,6 +9,8 @@ import type {
   CreateProjectData,
   UpdateProjectData,
 } from '@/lib/client/api/projects.api';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
+import { adminActionRowClass } from '@/src/components/admin/AdminDesignSystem';
 import { ImageUpload } from '@/src/components/admin/ImageUpload';
 
 interface ProjectFormProps {
@@ -17,6 +19,7 @@ interface ProjectFormProps {
 
 export function ProjectForm({ project }: ProjectFormProps) {
   const router = useRouter();
+  const { notify } = useAdminFeedback();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Helper to safely access external_links
@@ -63,7 +66,9 @@ export function ProjectForm({ project }: ProjectFormProps) {
       router.push('/admin/projects');
       router.refresh();
     } catch (error) {
-      alert(error instanceof Error ? error.message : '저장에 실패했습니다');
+      notify(error instanceof Error ? error.message : '저장에 실패했습니다', {
+        type: 'error',
+      });
       setIsSubmitting(false);
     }
   };
@@ -235,7 +240,7 @@ export function ProjectForm({ project }: ProjectFormProps) {
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-x-3 mt-6">
+      <div className={`mt-6 ${adminActionRowClass}`}>
         <Link
           href="/admin/projects"
           className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"

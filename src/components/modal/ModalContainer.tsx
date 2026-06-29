@@ -5,24 +5,27 @@ import { clsx } from 'clsx';
 import type { ModalContainerProps } from './types';
 
 const modalContainerVariants = cva(
-  'bg-white rounded-lg shadow-xl overflow-hidden animate-modal-in',
+  [
+    'relative flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden border border-[#e7e3d3] bg-white shadow-[0_24px_70px_rgba(26,26,46,0.22)] animate-modal-in',
+    'w-full rounded-[22px]',
+  ],
   {
     variants: {
       size: {
-        sm: 'w-full max-w-sm',
-        md: 'w-full max-w-md',
-        lg: 'w-full max-w-lg',
-        full: 'w-full h-full',
+        sm: 'max-w-sm',
+        md: 'max-w-md',
+        lg: 'max-w-2xl',
+        full: 'h-[calc(100dvh-1.5rem)] max-w-5xl',
       },
       position: {
         center: '',
-        bottom: 'absolute bottom-0 left-0 right-0 rounded-b-none',
+        bottom: 'absolute bottom-0 left-0 right-0 max-h-[calc(100dvh-0.75rem)] rounded-b-none sm:relative sm:rounded-[22px]',
       },
       tone: {
         default: '',
-        danger: 'border-2 border-red-500',
-        success: 'border-2 border-green-500',
-        warning: 'border-2 border-yellow-500',
+        danger: 'border-[#f3d6d6]',
+        success: 'border-[#cfead1]',
+        warning: 'border-[#ead8a4]',
       },
     },
     defaultVariants: {

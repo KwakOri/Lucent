@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ProductsAPI } from '@/lib/client/api/products.api';
 import type { ProductWithDetails } from '@/lib/client/api/products.api';
 import type { ProjectWithDetails } from '@/lib/client/api/projects.api';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 
 type Product = ProductWithDetails;
 
@@ -24,6 +25,7 @@ const typeLabels: Record<string, string> = {
 
 export function ProductsTable({ products: initialProducts, projects }: ProductsTableProps) {
   const router = useRouter();
+  const { confirm, notify } = useAdminFeedback();
   const [products, setProducts] = useState(initialProducts);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -33,7 +35,14 @@ export function ProductsTable({ products: initialProducts, projects }: ProductsT
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const handleDelete = async (product: Product) => {
-    if (!confirm(`"${product.name}" 상품을 삭제하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '상품 삭제',
+      message: `"${product.name}" 상품을 삭제하시겠습니까?`,
+      description: '삭제 후에는 레거시 상품 목록에서 제거됩니다.',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -45,7 +54,7 @@ export function ProductsTable({ products: initialProducts, projects }: ProductsT
       setProducts((prev) => prev.filter((p) => p.id !== product.id));
       router.refresh();
     } catch (error) {
-      alert('상품 삭제에 실패했습니다.');
+      notify('상품 삭제에 실패했습니다.', { type: 'error' });
       console.error(error);
     } finally {
       setDeletingId(null);

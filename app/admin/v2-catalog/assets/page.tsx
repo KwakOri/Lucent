@@ -14,6 +14,7 @@ import {
   adminPrimaryButtonClass,
   adminSelectClass,
 } from '@/src/components/admin/AdminDesignSystem';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import type {
   V2MediaAsset,
   V2MediaAssetKind,
@@ -123,6 +124,7 @@ function getReferenceSummary(asset: V2MediaAsset) {
 }
 
 export default function V2CatalogAssetsPage() {
+  const { confirm } = useAdminFeedback();
   const [search, setSearch] = useState('');
   const [kindFilter, setKindFilter] = useState<V2MediaAssetKind | 'ALL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<V2MediaAssetStatus | 'ALL'>('ALL');
@@ -179,9 +181,13 @@ export default function V2CatalogAssetsPage() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `\"${asset.file_name}\" 고아 파일을 레지스트리에서 제거할까요? R2 원본 파일도 함께 삭제됩니다.`,
-    );
+    const confirmed = await confirm({
+      title: '미디어 에셋 삭제',
+      message: `"${asset.file_name}" 고아 파일을 레지스트리에서 제거할까요?`,
+      description: 'R2 원본 파일도 함께 삭제됩니다.',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
     if (!confirmed) {
       return;
     }

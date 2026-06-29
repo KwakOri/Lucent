@@ -33,7 +33,7 @@ export function Toast({ toast }: ToastProps) {
     removeToast(toast.id);
   };
 
-  const { icon, bgClass, iconClass } = getToastStyles(toast.type);
+  const { icon, iconWrapClass } = getToastStyles(toast.type);
 
   return (
     <div
@@ -42,19 +42,17 @@ export function Toast({ toast }: ToastProps) {
       aria-atomic="true"
       className={clsx(
         'pointer-events-auto',
-        'flex items-start gap-3 p-4 rounded-lg shadow-lg',
-        'min-w-[320px] max-w-[480px]',
+        'flex w-[calc(100vw-1.5rem)] items-start gap-3 rounded-[16px] border border-[#e7e3d3] bg-white p-4 shadow-[0_18px_44px_rgba(26,26,46,0.14)] sm:w-auto sm:min-w-[320px] sm:max-w-[480px]',
         'animate-slide-in',
-        bgClass
       )}
     >
       {/* Icon */}
-      <div className={clsx('flex-shrink-0', iconClass)}>
+      <div className={clsx('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[12px]', iconWrapClass)}>
         {icon}
       </div>
 
       {/* Message */}
-      <div className="flex-1 text-sm font-medium text-gray-900">
+      <div className="min-w-0 flex-1 break-words pt-1 text-sm font-bold leading-6 text-[#1a1a2e]">
         {toast.message}
       </div>
 
@@ -63,7 +61,7 @@ export function Toast({ toast }: ToastProps) {
         <button
           onClick={handleDismiss}
           aria-label="알림 닫기"
-          className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+          className="-mr-1 -mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] text-[#1a1a2e]/35 transition-colors hover:bg-[#f5f3e8] hover:text-[#1a1a2e]"
         >
           <X size={18} />
         </button>
@@ -76,23 +74,19 @@ function getToastStyles(type: ToastTypeEnum) {
   const styles = {
     success: {
       icon: <CheckCircle size={20} />,
-      bgClass: 'bg-green-50 border border-green-200',
-      iconClass: 'text-green-600',
+      iconWrapClass: 'bg-[#eafaea] text-[#297c3b]',
     },
     error: {
       icon: <XCircle size={20} />,
-      bgClass: 'bg-red-50 border border-red-200',
-      iconClass: 'text-red-600',
+      iconWrapClass: 'bg-[#fff0f0] text-[#ca2a30]',
     },
     warning: {
       icon: <AlertTriangle size={20} />,
-      bgClass: 'bg-yellow-50 border border-yellow-200',
-      iconClass: 'text-yellow-600',
+      iconWrapClass: 'bg-[#fff4d5] text-[#a35200]',
     },
     info: {
       icon: <Info size={20} />,
-      bgClass: 'bg-blue-50 border border-blue-200',
-      iconClass: 'text-blue-600',
+      iconWrapClass: 'bg-[#eaf3fc] text-[#4a88b9]',
     },
   };
 

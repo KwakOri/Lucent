@@ -16,6 +16,7 @@ import {
   adminTableHeadCellClass,
   adminTableHeadClass,
 } from '@/src/components/admin/AdminDesignSystem';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import {
   useArchiveV2BundleDefinition,
   useV2AdminProducts,
@@ -123,6 +124,7 @@ function resolveStatusBadgeIntent(status: V2BundleStatus): 'warning' | 'success'
 }
 
 export default function V2CatalogBundlesPage() {
+  const { confirm } = useAdminFeedback();
   const [selectedDefinitionId, setSelectedDefinitionId] = useState<string | null>(null);
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -405,7 +407,14 @@ export default function V2CatalogBundlesPage() {
   };
 
   const handleDeleteComponent = async (componentId: string) => {
-    if (!window.confirm('이 component를 삭제하시겠습니까?')) {
+    const confirmed = await confirm({
+      title: '번들 구성 삭제',
+      message: '이 component를 삭제하시겠습니까?',
+      description: '해당 번들 구성과 연결된 option도 함께 영향을 받을 수 있습니다.',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -467,7 +476,13 @@ export default function V2CatalogBundlesPage() {
   };
 
   const handleDeleteOption = async (optionId: string) => {
-    if (!window.confirm('이 option을 삭제하시겠습니까?')) {
+    const confirmed = await confirm({
+      title: '번들 옵션 삭제',
+      message: '이 option을 삭제하시겠습니까?',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 

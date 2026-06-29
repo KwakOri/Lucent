@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
+  adminActionRowClass,
   adminButtonClass,
   adminInputClass,
   adminPrimaryButtonClass,
@@ -1871,7 +1872,7 @@ export function ProductVariantForm({
         ) : null}
 
         {!hideActions && (
-          <div className="flex flex-wrap gap-2">
+          <div className={adminActionRowClass}>
             <Button type="submit" className={adminPrimaryButtonClass} loading={isSubmitting}>
               {mode === "create" ? "옵션 추가" : "옵션 저장"}
             </Button>
@@ -2043,7 +2044,7 @@ export function ProductVariantForm({
               </div>
             )}
 
-            <div className="flex flex-wrap justify-end gap-2 border-t border-gray-200 px-5 py-4">
+            <div className={`border-t border-[#e7e3d3] px-5 py-4 ${adminActionRowClass}`}>
               <Button
                 type="button"
                 intent="neutral"

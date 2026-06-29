@@ -8,6 +8,9 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
+import { ModalContainer } from "./ModalContainer";
+import { Overlay } from "./Overlay";
 import type { Modal, ModalContextValue, ModalOptions } from "./types";
 
 const ModalContext = createContext<ModalContextValue | null>(null);
@@ -58,8 +61,31 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     [modals, openModal, closeModal]
   );
 
+  const renderModalPortal = () => {
+    if (typeof document === "undefined" || modals.length === 0) {
+      return null;
+    }
+
+    const modalRoot = document.getElementById("modal-root");
+    if (!modalRoot) {
+      return null;
+    }
+
+    return createPortal(
+      <>
+        {modals.map((modal) => (
+          <ModalRenderer key={modal.id} modal={modal} closeModal={closeModal} />
+        ))}
+      </>,
+      modalRoot,
+    );
+  };
+
   return (
-    <ModalContext.Provider value={value}>{children}</ModalContext.Provider>
+    <ModalContext.Provider value={value}>
+      {children}
+      {renderModalPortal()}
+    </ModalContext.Provider>
   );
 }
 
@@ -69,4 +95,53 @@ export function useModalContext() {
     throw new Error("useModalContext must be used within ModalProvider");
   }
   return context;
+}
+
+function ModalRenderer<T = unknown>({
+  modal,
+  closeModal,
+}: {
+  modal: Modal<T>;
+  closeModal: (id: string) => void;
+}) {
+  const { id, component: Component, options, resolve, reject } = modal;
+
+  const handleSubmit = useCallback(
+    (value: T) => {
+      resolve(value);
+      closeModal(id);
+    },
+    [closeModal, id, resolve],
+  );
+
+  const handleAbort = useCallback(
+    (reason?: unknown) => {
+      reject(reason ?? "aborted");
+      closeModal(id);
+    },
+    [closeModal, id, reject],
+  );
+
+  return (
+    <Overlay
+      id={id}
+      onClose={() => handleAbort("backdrop")}
+      disableBackdropClick={options?.disableBackdropClick}
+      disableEscapeKey={options?.disableEscapeKey}
+      zIndex={options?.zIndex}
+    >
+      <ModalContainer
+        size={options?.size}
+        position={options?.position}
+        tone={options?.tone}
+        className={options?.className}
+      >
+        <Component
+          onSubmit={handleSubmit}
+          onAbort={handleAbort}
+          {...options}
+        />
+      </ModalContainer>
+    </Overlay>
+  );
 }

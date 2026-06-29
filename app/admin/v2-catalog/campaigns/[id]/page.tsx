@@ -15,6 +15,7 @@ import {
   adminLegacyBridgeClass,
   adminPrimaryButtonClass,
 } from '@/src/components/admin/AdminDesignSystem';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import type {
   V2CampaignTarget,
   V2PriceList,
@@ -313,6 +314,7 @@ function getDiscountMetadata(baseAmount: number, draft: DiscountDraft) {
 export default function V2CatalogCampaignDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { confirm } = useAdminFeedback();
   const params = useParams<{ id: string }>();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -944,7 +946,14 @@ export default function V2CatalogCampaignDetailPage() {
   };
 
   const handleDeleteTarget = async (targetId: string) => {
-    if (!window.confirm('이 대상을 캠페인에서 제거하시겠습니까?')) {
+    const confirmed = await confirm({
+      title: '캠페인 대상 제거',
+      message: '이 대상을 캠페인에서 제거하시겠습니까?',
+      description: '대상 연결과 관련 가격 적용 범위가 변경될 수 있습니다.',
+      confirmText: '제거',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
     await handleRunAction(async () => {
@@ -1063,8 +1072,15 @@ export default function V2CatalogCampaignDetailPage() {
             size="sm"
             intent="neutral"
             className={adminButtonClass}
-            onClick={() => {
-              if (!window.confirm('캠페인을 종료 상태로 전환하시겠습니까? 종료 후에도 재활성화할 수 있습니다.')) {
+            onClick={async () => {
+              const confirmed = await confirm({
+                title: '캠페인 종료',
+                message: '캠페인을 종료 상태로 전환하시겠습니까?',
+                description: '종료 후에도 재활성화할 수 있습니다.',
+                confirmText: '종료',
+                tone: 'warning',
+              });
+              if (!confirmed) {
                 return;
               }
               void handleRunAction(() => closeCampaign.mutateAsync(campaign.id));

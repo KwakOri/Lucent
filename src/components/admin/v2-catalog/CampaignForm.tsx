@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 import { Input, Textarea } from '@/components/ui/input';
 import {
+  adminActionRowClass,
   adminButtonClass,
   adminInputClass,
   adminPrimaryButtonClass,
@@ -527,7 +528,7 @@ export function CampaignForm({
         </section>
       )}
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className={adminActionRowClass}>
         <Button intent="neutral" className={adminButtonClass} onClick={onCancel} disabled={isSubmitting}>
           취소
         </Button>

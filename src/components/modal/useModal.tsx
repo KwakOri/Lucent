@@ -1,11 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useModalContext } from './ModalProvider';
-import { Overlay } from './Overlay';
-import { ModalContainer } from './ModalContainer';
-import type { Modal, ModalOptions, ModalProps } from './types';
+import type { ModalOptions } from './types';
 
 interface UseModalReturn {
   openModal: <T = void>(
@@ -70,81 +67,24 @@ export function useModal(): UseModalReturn {
 
   // cleanup (컴포넌트 언마운트 시에만 실행)
   useEffect(() => {
+    const modalIds = modalIdsRef.current;
     return () => {
       // cleanup: 모든 모달 닫기
-      modalIdsRef.current.forEach((id) => {
+      modalIds.forEach((id) => {
         closeModalRef.current(id);
       });
-      modalIdsRef.current.clear();
+      modalIds.clear();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 빈 배열: 마운트/언마운트 시에만 실행
 
   // renderModal
   const renderModal = useCallback(() => {
-    if (context.modals.length === 0) return null;
-
-    // SSR 체크: 서버 사이드에서는 렌더링하지 않음
-    if (typeof window === 'undefined') return null;
-
-    const modalRoot = document.getElementById('modal-root');
-    if (!modalRoot) {
-      console.warn('modal-root element not found');
-      return null;
-    }
-
-    return createPortal(
-      <>
-        {context.modals.map((modal) => (
-          <ModalRenderer key={modal.id} modal={modal} />
-        ))}
-      </>,
-      modalRoot
-    );
-  }, [context.modals]);
+    return null;
+  }, []);
 
   return {
     openModal,
     closeModal,
     renderModal,
   };
-}
-
-// ModalRenderer 내부 컴포넌트
-function ModalRenderer<T = unknown>({ modal }: { modal: Modal<T> }) {
-  const { id, component: Component, options, resolve, reject } = modal;
-  const context = useModalContext();
-
-  const handleSubmit = useCallback(
-    (value: T) => {
-      resolve(value);
-      context.closeModal(id);
-    },
-    [resolve, context, id]
-  );
-
-  const handleAbort = useCallback(
-    (reason?: unknown) => {
-      reject(reason ?? 'aborted');
-      context.closeModal(id);
-    },
-    [reject, context, id]
-  );
-
-  return (
-    <Overlay
-      id={id}
-      onClose={() => handleAbort('backdrop')}
-      disableBackdropClick={options?.disableBackdropClick}
-      disableEscapeKey={options?.disableEscapeKey}
-    >
-      <ModalContainer>
-        <Component
-          onSubmit={handleSubmit}
-          onAbort={handleAbort}
-          {...options}
-        />
-      </ModalContainer>
-    </Overlay>
-  );
 }
