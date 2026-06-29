@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import { useToast } from '@/src/components/toast';
+import { adminLegacyBridgeClass } from '@/src/components/admin/AdminDesignSystem';
 import type {
   V2AdminShippingBatchPackageRow,
   V2AdminShippingBatchStatus,
@@ -1358,7 +1359,7 @@ export function ShippingManagementContent({
   };
 
   return (
-    <div className="space-y-8">
+    <div className={`${adminLegacyBridgeClass} space-y-8`}>
       {!embedded && (
         <header className="space-y-2">
           <h1 className="text-2xl font-bold text-gray-900">배송 관리</h1>

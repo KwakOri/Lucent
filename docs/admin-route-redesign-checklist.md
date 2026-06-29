@@ -61,14 +61,14 @@ Legend:
 
 ### Core Operations
 
-- [ ] `/admin/orders`
-- [ ] `/admin/orders/[id]`
-- [ ] `/admin/production-shipping`
-- [ ] `/admin/production`
-- [ ] `/admin/shipping`
+- [x] `/admin/orders`
+- [x] `/admin/orders/[id]`
+- [x] `/admin/production-shipping`
+- [hold] `/admin/production` - redirect route to unified fulfillment screen, no visible UI
+- [hold] `/admin/shipping` - redirect route to unified fulfillment screen, no visible UI
 - [hold] `/admin/shipping/print/[batchId]` - print layout, preserve print-first UI
-- [ ] `/admin/refunds`
-- [ ] `/admin/logs`
+- [x] `/admin/refunds`
+- [x] `/admin/logs`
 
 ### Content
 

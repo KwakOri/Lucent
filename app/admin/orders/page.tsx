@@ -7,6 +7,13 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
 import { Input } from '@/components/ui/input';
+import {
+  AdminPageHeader,
+  adminButtonClass,
+  adminInputClass,
+  adminLegacyBridgeClass,
+  adminPrimaryButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type { V2AdminOrderLinearStage, V2AdminOrderQueueRow } from '@/lib/client/api/v2-admin-ops.api';
 import { useV2AdminOrderQueue } from '@/lib/client/hooks/useV2AdminOps';
 import {
@@ -186,15 +193,14 @@ export default function AdminOrdersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-gray-900">주문 조회</h1>
-        <p className="text-sm text-gray-500">
-          주문 흐름 현황을 조회하는 전용 화면입니다. 실행 액션은 별도 화면에서 처리합니다.
-        </p>
-      </header>
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="orders"
+        title="주문 조회"
+        description="주문 흐름 현황을 조회하는 전용 화면입니다. 실행 액션은 별도 화면에서 처리합니다."
+      />
 
-      <section className="rounded-xl border border-gray-200 bg-white p-4">
+      <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-4">
         <div className="flex flex-wrap gap-2">
           {STAGE_TABS.map((tab) => {
             const isActive = stageTab === tab.key;
@@ -203,16 +209,16 @@ export default function AdminOrdersPage() {
                 key={tab.key}
                 type="button"
                 onClick={() => handleStageTabChange(tab.key)}
-                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-bold transition-colors ${
                   isActive
-                    ? 'border-blue-600 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-800'
+                    ? 'border-[#1a1a2e] bg-[#1a1a2e] text-white'
+                    : 'border-[#e7e3d3] bg-white text-[#1a1a2e]/65 hover:border-[#d8d1bd] hover:bg-[#faf9f3] hover:text-[#1a1a2e]'
                 }`}
               >
                 {tab.label}
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs ${
-                    isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                    isActive ? 'bg-white/15 text-white' : 'bg-[#f5f3e8] text-[#1a1a2e]/55'
                   }`}
                 >
                   {stageCounts[tab.key]}
@@ -230,17 +236,18 @@ export default function AdminOrdersPage() {
               setCurrentPage(1);
             }}
             placeholder="주문번호 / 주문 ID / 입금자명 검색"
+            className={adminInputClass}
           />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
           <Link href="/admin/production-shipping?tab=payment-confirm">
-            <Button intent="secondary" size="sm">
+            <Button intent="secondary" size="sm" className={adminButtonClass}>
               입금 확인 화면으로 이동
             </Button>
           </Link>
           <Link href="/admin/refunds">
-            <Button intent="secondary" size="sm">
+            <Button intent="secondary" size="sm" className={adminButtonClass}>
               환불 관리로 이동
             </Button>
           </Link>
@@ -335,7 +342,7 @@ export default function AdminOrdersPage() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <Link href={`/admin/orders/${row.order_id}`}>
-                            <Button intent="secondary" size="sm">
+                            <Button intent="secondary" size="sm" className={adminPrimaryButtonClass}>
                               상세 보기
                             </Button>
                           </Link>
@@ -355,6 +362,7 @@ export default function AdminOrdersPage() {
                 <Button
                   intent="secondary"
                   size="sm"
+                  className={adminButtonClass}
                   disabled={currentPageClamped <= 1}
                   onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 >
@@ -363,6 +371,7 @@ export default function AdminOrdersPage() {
                 <Button
                   intent="secondary"
                   size="sm"
+                  className={adminButtonClass}
                   disabled={currentPageClamped >= totalPages}
                   onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                 >
