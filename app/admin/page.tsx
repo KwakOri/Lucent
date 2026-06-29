@@ -279,7 +279,7 @@ function StagePill({ stage }: { stage: string }) {
 
 function getPresetButtonClass(isActive: boolean): string {
   return isActive
-    ? 'border-[#1a1a2e] bg-[#1a1a2e] text-white hover:bg-[#1a1a2e]'
+    ? '!border-[#1a1a2e] !bg-[#1a1a2e] !text-white hover:!bg-[#1a1a2e]'
     : 'border-[#e7e3d3] bg-[#f5f3e8] text-[#1a1a2e] hover:bg-[#ece8d9]';
 }
 
@@ -368,8 +368,11 @@ export default function AdminDashboardPage() {
   }
 
   const currencyCode = data.metadata.currency_code || 'KRW';
-  const stageTotal = Object.values(data.pipeline.order_stage_counts).reduce(
-    (sum, value) => sum + Number(value || 0),
+  const orderStageEntries = Object.entries(data.pipeline.order_stage_counts).filter(
+    ([stage]) => stage !== 'DELIVERED',
+  );
+  const stageTotal = orderStageEntries.reduce(
+    (sum, [, value]) => sum + Number(value || 0),
     0,
   );
 
@@ -811,7 +814,7 @@ export default function AdminDashboardPage() {
               <span className="text-xs font-bold text-[#1a1a2e]/45">{formatNumber(stageTotal)}건</span>
             </div>
             <div className="mt-4 space-y-3">
-              {Object.entries(data.pipeline.order_stage_counts).map(([stage, count]) => {
+              {orderStageEntries.map(([stage, count]) => {
                 const numericCount = Number(count || 0);
                 const ratio = stageTotal > 0 ? Math.round((numericCount / stageTotal) * 100) : 0;
                 const tone = getStageTone(stage as V2AdminDashboardOrderStage);
