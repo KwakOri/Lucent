@@ -17,10 +17,7 @@ export type V2PaymentStatus =
   | "PARTIALLY_REFUNDED"
   | "REFUNDED";
 export type V2FulfillmentStatus =
-  | "UNFULFILLED"
-  | "PARTIAL"
-  | "FULFILLED"
-  | "CANCELED";
+  "UNFULFILLED" | "PARTIAL" | "FULFILLED" | "CANCELED";
 
 export interface V2CartItem {
   id: string;
@@ -171,9 +168,25 @@ export interface V2CreateOrderResult {
   order: V2CheckoutOrder;
 }
 
+export interface V2CheckoutPriceMismatch {
+  cart_item_id: string;
+  product_id: string | null;
+  variant_id: string;
+  campaign_id: string | null;
+  quantity: number;
+  product_title: string | null;
+  variant_title: string | null;
+  snapshot_unit_amount: number;
+  current_unit_amount: number;
+  snapshot_line_total: number;
+  current_line_total: number;
+}
+
 export interface V2ValidateCheckoutResult {
   cart: V2CartSummary;
   quote: Record<string, unknown>;
+  price_mismatches?: V2CheckoutPriceMismatch[];
+  price_mismatch_count?: number;
 }
 
 export interface V2CheckoutOrdersListResult {
@@ -240,7 +253,7 @@ export interface V2DigitalOwnershipRecord {
   variant_id: string | null;
   product_id: string | null;
   owned: true;
-  ownership_status: 'OWNED' | 'PENDING';
+  ownership_status: "OWNED" | "PENDING";
   entitlement_id: string;
   entitlement_status: string;
   order_id: string;
@@ -301,29 +314,31 @@ export const V2CheckoutAPI = {
     return apiClient.get(`/api/v2/checkout/orders/${orderId}`);
   },
 
-  async getOrders(params: {
-    page?: number;
-    limit?: number;
-    order_status?: V2OrderStatus;
-  } = {}): Promise<ApiResponse<V2CheckoutOrdersListResult>> {
+  async getOrders(
+    params: {
+      page?: number;
+      limit?: number;
+      order_status?: V2OrderStatus;
+    } = {},
+  ): Promise<ApiResponse<V2CheckoutOrdersListResult>> {
     const searchParams = new URLSearchParams();
     if (params.page !== undefined) {
-      searchParams.set('page', String(params.page));
+      searchParams.set("page", String(params.page));
     }
     if (params.limit !== undefined) {
-      searchParams.set('limit', String(params.limit));
+      searchParams.set("limit", String(params.limit));
     }
     if (params.order_status) {
-      searchParams.set('order_status', params.order_status);
+      searchParams.set("order_status", params.order_status);
     }
     const query = searchParams.toString();
-    return apiClient.get(`/api/v2/checkout/orders${query ? `?${query}` : ''}`);
+    return apiClient.get(`/api/v2/checkout/orders${query ? `?${query}` : ""}`);
   },
 
   async getDigitalEntitlements(): Promise<
     ApiResponse<V2DigitalEntitlementsResult>
   > {
-    return apiClient.get('/api/v2/checkout/me/digital-entitlements');
+    return apiClient.get("/api/v2/checkout/me/digital-entitlements");
   },
 
   async getDigitalOwnership(
@@ -334,15 +349,15 @@ export const V2CheckoutAPI = {
     const productIds = params.product_ids?.filter(Boolean) ?? [];
 
     if (variantIds.length > 0) {
-      searchParams.set('variant_ids', variantIds.join(','));
+      searchParams.set("variant_ids", variantIds.join(","));
     }
     if (productIds.length > 0) {
-      searchParams.set('product_ids', productIds.join(','));
+      searchParams.set("product_ids", productIds.join(","));
     }
 
     const query = searchParams.toString();
     return apiClient.get(
-      `/api/v2/checkout/me/digital-ownership${query ? `?${query}` : ''}`,
+      `/api/v2/checkout/me/digital-ownership${query ? `?${query}` : ""}`,
     );
   },
 

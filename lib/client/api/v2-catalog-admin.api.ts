@@ -4,72 +4,58 @@
  * v2 catalog 운영 API 호출
  */
 
-import { apiClient } from '@/lib/client/utils/api-client';
-import type { ApiResponse } from '@/types';
+import { apiClient } from "@/lib/client/utils/api-client";
+import type { ApiResponse } from "@/types";
 
-export type V2ProjectStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
-export type V2ArtistStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
-export type V2ProductKind = 'STANDARD' | 'BUNDLE';
-export type V2ProductStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
-export type V2FulfillmentType = 'DIGITAL' | 'PHYSICAL';
-export type V2VariantStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE';
-export type V2MediaType = 'IMAGE' | 'VIDEO';
-export type V2MediaRole = 'PRIMARY' | 'GALLERY' | 'DETAIL';
-export type V2MediaStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
-export type V2AssetRole = 'PRIMARY' | 'BONUS';
-export type V2DigitalAssetStatus = 'DRAFT' | 'READY' | 'RETIRED';
-export type V2MediaAssetKind = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'ARCHIVE' | 'FILE';
-export type V2MediaAssetStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
-export type V2BundleMode = 'FIXED' | 'CUSTOMIZABLE';
-export type V2BundleStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
-export type V2BundlePricingStrategy = 'WEIGHTED' | 'FIXED_AMOUNT';
-export type V2CampaignType = 'POPUP' | 'EVENT' | 'SALE' | 'DROP' | 'ALWAYS_ON';
+export type V2ProjectStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
+export type V2ArtistStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
+export type V2ProductKind = "STANDARD" | "BUNDLE";
+export type V2ProductStatus = "DRAFT" | "ACTIVE" | "INACTIVE" | "ARCHIVED";
+export type V2FulfillmentType = "DIGITAL" | "PHYSICAL";
+export type V2VariantStatus = "DRAFT" | "ACTIVE" | "INACTIVE";
+export type V2MediaType = "IMAGE" | "VIDEO";
+export type V2MediaRole = "PRIMARY" | "GALLERY" | "DETAIL";
+export type V2MediaStatus = "DRAFT" | "ACTIVE" | "INACTIVE" | "ARCHIVED";
+export type V2AssetRole = "PRIMARY" | "BONUS";
+export type V2DigitalAssetStatus = "DRAFT" | "READY" | "RETIRED";
+export type V2MediaAssetKind =
+  "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT" | "ARCHIVE" | "FILE";
+export type V2MediaAssetStatus = "ACTIVE" | "INACTIVE" | "ARCHIVED";
+export type V2BundleMode = "FIXED" | "CUSTOMIZABLE";
+export type V2BundleStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";
+export type V2BundlePricingStrategy = "WEIGHTED" | "FIXED_AMOUNT";
+export type V2CampaignType = "POPUP" | "EVENT" | "SALE" | "DROP" | "ALWAYS_ON";
 export type V2CampaignStatus =
-  | 'DRAFT'
-  | 'ACTIVE'
-  | 'SUSPENDED'
-  | 'CLOSED'
-  | 'ARCHIVED';
+  "DRAFT" | "ACTIVE" | "SUSPENDED" | "CLOSED" | "ARCHIVED";
 export type V2CampaignTargetType =
-  | 'PROJECT'
-  | 'PRODUCT'
-  | 'VARIANT'
-  | 'BUNDLE_DEFINITION';
-export type V2PriceListScope = 'BASE' | 'OVERRIDE';
-export type V2PriceListStatus = 'DRAFT' | 'PUBLISHED' | 'ROLLED_BACK' | 'ARCHIVED';
-export type V2PriceItemStatus = 'ACTIVE' | 'INACTIVE';
+  "PROJECT" | "PRODUCT" | "VARIANT" | "BUNDLE_DEFINITION";
+export type V2PriceListScope = "BASE" | "OVERRIDE";
+export type V2PriceListStatus =
+  "DRAFT" | "PUBLISHED" | "ROLLED_BACK" | "ARCHIVED";
+export type V2PriceItemStatus = "ACTIVE" | "INACTIVE";
 export type V2PromotionType =
-  | 'ITEM_PERCENT'
-  | 'ITEM_FIXED'
-  | 'ORDER_PERCENT'
-  | 'ORDER_FIXED'
-  | 'SHIPPING_PERCENT'
-  | 'SHIPPING_FIXED';
-export type V2PromotionStatus = 'DRAFT' | 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
-export type V2CombinabilityMode = 'STACKABLE' | 'EXCLUSIVE';
+  | "ITEM_PERCENT"
+  | "ITEM_FIXED"
+  | "ORDER_PERCENT"
+  | "ORDER_FIXED"
+  | "SHIPPING_PERCENT"
+  | "SHIPPING_FIXED";
+export type V2PromotionStatus = "DRAFT" | "ACTIVE" | "SUSPENDED" | "ARCHIVED";
+export type V2CombinabilityMode = "STACKABLE" | "EXCLUSIVE";
 export type V2PromotionRuleType =
-  | 'MIN_ORDER_AMOUNT'
-  | 'MIN_ITEM_QUANTITY'
-  | 'TARGET_PROJECT'
-  | 'TARGET_PRODUCT'
-  | 'TARGET_VARIANT'
-  | 'TARGET_BUNDLE'
-  | 'CHANNEL'
-  | 'USER_SEGMENT';
+  | "MIN_ORDER_AMOUNT"
+  | "MIN_ITEM_QUANTITY"
+  | "TARGET_PROJECT"
+  | "TARGET_PRODUCT"
+  | "TARGET_VARIANT"
+  | "TARGET_BUNDLE"
+  | "CHANNEL"
+  | "USER_SEGMENT";
 export type V2CouponStatus =
-  | 'DRAFT'
-  | 'ACTIVE'
-  | 'PAUSED'
-  | 'EXHAUSTED'
-  | 'EXPIRED'
-  | 'ARCHIVED';
+  "DRAFT" | "ACTIVE" | "PAUSED" | "EXHAUSTED" | "EXPIRED" | "ARCHIVED";
 export type V2CouponRedemptionStatus =
-  | 'RESERVED'
-  | 'APPLIED'
-  | 'RELEASED'
-  | 'CANCELED'
-  | 'EXPIRED';
-export type MigrationCheckSeverity = 'BLOCKING' | 'ADVISORY';
+  "RESERVED" | "APPLIED" | "RELEASED" | "CANCELED" | "EXPIRED";
+export type MigrationCheckSeverity = "BLOCKING" | "ADVISORY";
 
 export interface V2Project {
   id: string;
@@ -251,13 +237,13 @@ export interface V2BundleComponent {
   options?: V2BundleComponentOption[];
   variant?: Pick<
     V2Variant,
-    | 'id'
-    | 'sku'
-    | 'title'
-    | 'fulfillment_type'
-    | 'requires_shipping'
-    | 'track_inventory'
-    | 'status'
+    | "id"
+    | "sku"
+    | "title"
+    | "fulfillment_type"
+    | "requires_shipping"
+    | "track_inventory"
+    | "status"
   > | null;
 }
 
@@ -299,14 +285,14 @@ export interface V2BundleResolveResult {
   mode: V2BundleMode;
   status: V2BundleStatus;
   parent_line: {
-    line_type: 'BUNDLE_PARENT';
+    line_type: "BUNDLE_PARENT";
     bundle_definition_id_snapshot: string;
     parent_variant_id: string | null;
     quantity: number;
     parent_unit_amount: number | null;
   };
   component_lines: Array<{
-    line_type: 'BUNDLE_COMPONENT';
+    line_type: "BUNDLE_COMPONENT";
     bundle_component_id_snapshot: string;
     component_variant_id: string;
     component_variant_sku: string;
@@ -341,7 +327,7 @@ export interface V2BundleOpsContractResult {
   status: V2BundleStatus;
   policy_version: string;
   parent_line_contract: {
-    line_type: 'BUNDLE_PARENT';
+    line_type: "BUNDLE_PARENT";
     direct_refund_supported: boolean;
     direct_reship_supported: boolean;
     reason: string;
@@ -355,20 +341,20 @@ export interface V2BundleOpsContractResult {
     quantity: number;
     refund_contract: {
       supported: boolean;
-      basis: 'COMPONENT_LINE';
+      basis: "COMPONENT_LINE";
       quantity_field: string;
       amount_fields: string[];
       snapshot_field: string;
     };
     reship_contract: {
       supported: boolean;
-      basis: 'COMPONENT_LINE';
+      basis: "COMPONENT_LINE";
       quantity_field: string;
       snapshot_field: string;
     };
     digital_regrant_contract: {
       supported: boolean;
-      basis: 'COMPONENT_LINE';
+      basis: "COMPONENT_LINE";
       snapshot_field: string;
     };
   }>;
@@ -382,7 +368,7 @@ export interface V2BundleOpsContractResult {
 
 export interface V2BundleCanaryReportResult {
   generated_at: string;
-  source: 'EXPLICIT' | 'ACTIVE_DEFAULT';
+  source: "EXPLICIT" | "ACTIVE_DEFAULT";
   sample_parent_quantity: number;
   sample_parent_unit_amount: number | null;
   target_count: number;
@@ -413,7 +399,7 @@ export interface V2BundleCanaryReportResult {
       component_missing_snapshot: number;
       snapshot_integrity_passed: boolean | null;
     };
-    canary_status: 'READY' | 'MONITORING' | 'BLOCKED';
+    canary_status: "READY" | "MONITORING" | "BLOCKED";
   }>;
 }
 
@@ -539,7 +525,7 @@ export interface V2Campaign {
   deleted_at: string | null;
   shop_banner_media_asset?: Pick<
     V2MediaAsset,
-    'id' | 'asset_kind' | 'status' | 'file_name' | 'public_url'
+    "id" | "asset_kind" | "status" | "file_name" | "public_url"
   > | null;
 }
 
@@ -627,16 +613,79 @@ export interface V2PriceListItem {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
-  product?: Pick<V2Product, 'id' | 'title' | 'slug' | 'status' | 'product_kind'>;
+  product?: Pick<
+    V2Product,
+    "id" | "title" | "slug" | "status" | "product_kind"
+  >;
   variant?: Pick<
     V2Variant,
-    | 'id'
-    | 'sku'
-    | 'title'
-    | 'status'
-    | 'fulfillment_type'
-    | 'requires_shipping'
+    "id" | "sku" | "title" | "status" | "fulfillment_type" | "requires_shipping"
   > | null;
+}
+
+export type V2CampaignOverridePricingMode =
+  "PERCENT_DISCOUNT" | "FIXED_DISCOUNT" | "DIRECT_PRICE" | "UNKNOWN";
+
+export type V2BasePriceOverrideAction =
+  "PROPAGATE" | "KEEP" | "SET_CUSTOM" | "SKIP";
+
+export interface V2BasePriceChangeImpact {
+  price_list_item_id: string;
+  price_list_id: string;
+  campaign_id: string | null;
+  campaign: {
+    id: string;
+    code: string | null;
+    name: string;
+    campaign_type: string;
+    status: string;
+  } | null;
+  product_id: string;
+  variant_id: string | null;
+  scope_level: "VARIANT" | "PRODUCT";
+  pricing_mode: V2CampaignOverridePricingMode;
+  current_unit_amount: number;
+  compare_at_amount: number | null;
+  configured_base_amount: number | null;
+  current_base_amount: number | null;
+  next_base_amount: number;
+  discount_value: number | null;
+  next_unit_amount: number | null;
+  next_compare_at_amount: number | null;
+  can_auto_propagate: boolean;
+  default_action: V2BasePriceOverrideAction;
+  warning: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface V2BasePriceChangeAnalysis {
+  product: {
+    id: string;
+    title: string;
+    project_id: string | null;
+  };
+  variant: {
+    id: string;
+    title: string;
+    sku: string;
+  };
+  current_base: {
+    price_list_item_id: string;
+    price_list_id: string;
+    unit_amount: number;
+    compare_at_amount: number | null;
+    scope_level: "VARIANT" | "PRODUCT";
+    pricing_mode: string;
+    updated_at: string;
+  } | null;
+  next_base_amount: number;
+  impacts: V2BasePriceChangeImpact[];
+  summary: {
+    total_count: number;
+    propagatable_count: number;
+    direct_price_count: number;
+    unknown_count: number;
+  };
 }
 
 export interface V2Promotion {
@@ -762,11 +811,11 @@ export interface V2PriceQuoteLineResult {
     line_total_after_item_discounts: number;
   };
   adjustments: Array<{
-    source_type: 'PROMOTION' | 'COUPON';
+    source_type: "PROMOTION" | "COUPON";
     source_id: string;
     label_snapshot: string;
     amount: number;
-    phase: 'auto' | 'coupon' | 'shipping';
+    phase: "auto" | "coupon" | "shipping";
   }>;
   discounts: {
     auto: number;
@@ -804,7 +853,7 @@ export interface V2PriceQuoteResult {
   promotion_evaluations: Array<{
     promotion_id: string;
     name: string;
-    phase: 'auto' | 'coupon' | 'shipping';
+    phase: "auto" | "coupon" | "shipping";
     promotion_type: V2PromotionType;
     combinability_mode: V2CombinabilityMode;
     eligible: boolean;
@@ -820,7 +869,7 @@ export interface V2PriceQuoteResult {
   applied_promotions: Array<{
     promotion_id: string;
     name: string;
-    phase: 'auto' | 'coupon' | 'shipping';
+    phase: "auto" | "coupon" | "shipping";
     promotion_type: V2PromotionType;
     applied_discount_amount: number;
   }>;
@@ -1098,9 +1147,7 @@ export interface UploadV2MediaAssetFileData {
 }
 
 export type V2MediaAssetUploadProgressStage =
-  | 'preparing'
-  | 'uploading'
-  | 'finalizing';
+  "preparing" | "uploading" | "finalizing";
 
 export interface V2MediaAssetUploadProgress {
   stage: V2MediaAssetUploadProgressStage;
@@ -1125,7 +1172,7 @@ export interface V2MediaAssetUploadSession {
   mime_type: string;
   file_size: number;
   upload_url: string;
-  upload_method: 'PUT';
+  upload_method: "PUT";
   upload_headers: Record<string, string>;
   expires_in_seconds: number;
   expires_at: string;
@@ -1375,6 +1422,28 @@ export interface UpdateV2PriceListItemData {
   metadata?: Record<string, unknown>;
 }
 
+export interface AnalyzeV2BasePriceChangeData {
+  product_id: string;
+  variant_id: string;
+  next_base_amount: number;
+}
+
+export interface ApplyV2BasePriceChangeData extends AnalyzeV2BasePriceChangeData {
+  base_price_item_id: string;
+  override_decisions: Array<{
+    price_list_item_id: string;
+    action: V2BasePriceOverrideAction;
+    unit_amount?: number;
+  }>;
+}
+
+export interface ApplyV2BasePriceChangeResult {
+  analysis: V2BasePriceChangeAnalysis;
+  updated_base_price_item: V2PriceListItem;
+  updated_override_price_items: V2PriceListItem[];
+  rollback_performed: boolean;
+}
+
 export interface CreateV2PromotionData {
   campaign_id?: string | null;
   name: string;
@@ -1515,9 +1584,7 @@ export interface PreviewV2BundleData {
   selected_components?: V2BundleComponentSelectionData[];
 }
 
-function buildSearchParams(
-  values: Record<string, string | undefined>,
-): string {
+function buildSearchParams(values: Record<string, string | undefined>): string {
   const searchParams = new URLSearchParams();
   Object.entries(values).forEach(([key, value]) => {
     if (value !== undefined) {
@@ -1525,7 +1592,7 @@ function buildSearchParams(
     }
   });
   const queryString = searchParams.toString();
-  return queryString ? `?${queryString}` : '';
+  return queryString ? `?${queryString}` : "";
 }
 
 function normalizeIdList(ids: string[]): string[] {
@@ -1535,33 +1602,33 @@ function normalizeIdList(ids: string[]): string[] {
 function buildIdsSearchParams(key: string, ids: string[]): string {
   const normalizedIds = normalizeIdList(ids);
   return buildSearchParams({
-    [key]: normalizedIds.length > 0 ? normalizedIds.join(',') : undefined,
+    [key]: normalizedIds.length > 0 ? normalizedIds.join(",") : undefined,
   });
 }
 
 function buildProductIdsSearchParams(productIds: string[]): string {
-  return buildIdsSearchParams('productIds', productIds);
+  return buildIdsSearchParams("productIds", productIds);
 }
 
 function buildCampaignIdsSearchParams(campaignIds: string[]): string {
-  return buildIdsSearchParams('campaignIds', campaignIds);
+  return buildIdsSearchParams("campaignIds", campaignIds);
 }
 
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MULTIPART_UPLOAD_MAX_ATTEMPTS = 3;
 
-function createUploadAbortedError(): Error & { code: 'UPLOAD_ABORTED' } {
-  const abortError = new Error('오디오 업로드를 취소했습니다.');
-  return Object.assign(abortError, { code: 'UPLOAD_ABORTED' as const });
+function createUploadAbortedError(): Error & { code: "UPLOAD_ABORTED" } {
+  const abortError = new Error("오디오 업로드를 취소했습니다.");
+  return Object.assign(abortError, { code: "UPLOAD_ABORTED" as const });
 }
 
 function isUploadAbortedError(error: unknown): boolean {
   return (
     !!error &&
-    typeof error === 'object' &&
-    'code' in error &&
-    (error as { code?: string }).code === 'UPLOAD_ABORTED'
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { code?: string }).code === "UPLOAD_ABORTED"
   );
 }
 
@@ -1573,7 +1640,7 @@ function emitUploadProgress(
 }
 
 function buildProgress(
-  stage: V2MediaAssetUploadProgress['stage'],
+  stage: V2MediaAssetUploadProgress["stage"],
   loaded: number,
   total: number,
 ): V2MediaAssetUploadProgress {
@@ -1584,7 +1651,9 @@ function buildProgress(
     loaded: safeLoaded,
     total: safeTotal,
     percent:
-      safeTotal > 0 ? Math.min(100, Math.round((safeLoaded / safeTotal) * 100)) : 0,
+      safeTotal > 0
+        ? Math.min(100, Math.round((safeLoaded / safeTotal) * 100))
+        : 0,
   };
 }
 
@@ -1594,18 +1663,18 @@ async function uploadFileToSinglePresignedUrl(
   options?: UploadV2MediaAssetFileOptions,
 ): Promise<void> {
   const total = file.size || session.file_size || 0;
-  emitUploadProgress(options, buildProgress('preparing', 0, total));
+  emitUploadProgress(options, buildProgress("preparing", 0, total));
 
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open(session.upload_method || 'PUT', session.upload_url, true);
+    xhr.open(session.upload_method || "PUT", session.upload_url, true);
     options?.onAbortReady?.(() => {
       xhr.abort();
     });
 
     const headers = new Headers(session.upload_headers || {});
-    if (!headers.has('Content-Type') && file.type) {
-      headers.set('Content-Type', file.type);
+    if (!headers.has("Content-Type") && file.type) {
+      headers.set("Content-Type", file.type);
     }
     headers.forEach((value, key) => {
       xhr.setRequestHeader(key, value);
@@ -1616,14 +1685,14 @@ async function uploadFileToSinglePresignedUrl(
         event.lengthComputable && event.total > 0 ? event.total : total;
       emitUploadProgress(
         options,
-        buildProgress('uploading', event.loaded, nextTotal),
+        buildProgress("uploading", event.loaded, nextTotal),
       );
     };
 
     xhr.onload = () => {
       options?.onAbortReady?.(null);
       if (xhr.status >= 200 && xhr.status < 300) {
-        emitUploadProgress(options, buildProgress('finalizing', total, total));
+        emitUploadProgress(options, buildProgress("finalizing", total, total));
         resolve();
         return;
       }
@@ -1632,14 +1701,14 @@ async function uploadFileToSinglePresignedUrl(
         new Error(
           xhr.responseText
             ? `R2 업로드에 실패했습니다: ${xhr.responseText}`
-            : 'R2 업로드에 실패했습니다.',
+            : "R2 업로드에 실패했습니다.",
         ),
       );
     };
 
     xhr.onerror = () => {
       options?.onAbortReady?.(null);
-      reject(new Error('R2 업로드 중 네트워크 오류가 발생했습니다.'));
+      reject(new Error("R2 업로드 중 네트워크 오류가 발생했습니다."));
     };
 
     xhr.onabort = () => {
@@ -1663,13 +1732,12 @@ async function signMultipartUploadParts(
   sessionId: string,
   partNumbers: number[],
 ): Promise<V2MediaAssetMultipartUploadPart[]> {
-  const response = await apiClient.post<ApiResponse<V2MediaAssetMultipartUploadPartBatch>>(
-    '/api/v2/catalog/admin/media-assets/multipart/sign-parts',
-    {
-      session_id: sessionId,
-      part_numbers: partNumbers,
-    },
-  );
+  const response = await apiClient.post<
+    ApiResponse<V2MediaAssetMultipartUploadPartBatch>
+  >("/api/v2/catalog/admin/media-assets/multipart/sign-parts", {
+    session_id: sessionId,
+    part_numbers: partNumbers,
+  });
 
   return response.data.parts;
 }
@@ -1684,7 +1752,7 @@ async function uploadMultipartPart(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     activeRequests.set(part.partNumber, xhr);
-    xhr.open('PUT', part.uploadUrl, true);
+    xhr.open("PUT", part.uploadUrl, true);
 
     xhr.upload.onprogress = (event) => {
       inFlightLoaded.set(part.partNumber, event.loaded);
@@ -1701,17 +1769,18 @@ async function uploadMultipartPart(
           new Error(
             xhr.responseText
               ? `R2 multipart 업로드에 실패했습니다: ${xhr.responseText}`
-              : 'R2 multipart 업로드에 실패했습니다.',
+              : "R2 multipart 업로드에 실패했습니다.",
           ),
         );
         return;
       }
 
-      const etag = xhr.getResponseHeader('ETag') || xhr.getResponseHeader('etag');
+      const etag =
+        xhr.getResponseHeader("ETag") || xhr.getResponseHeader("etag");
       if (!etag) {
         reject(
           new Error(
-            'R2 업로드 응답에서 ETag를 찾지 못했습니다. 버킷 CORS의 ExposeHeaders에 ETag가 포함되어 있는지 확인해 주세요.',
+            "R2 업로드 응답에서 ETag를 찾지 못했습니다. 버킷 CORS의 ExposeHeaders에 ETag가 포함되어 있는지 확인해 주세요.",
           ),
         );
         return;
@@ -1727,7 +1796,7 @@ async function uploadMultipartPart(
       activeRequests.delete(part.partNumber);
       inFlightLoaded.delete(part.partNumber);
       onLoadedChange();
-      reject(new Error('R2 multipart 업로드 중 네트워크 오류가 발생했습니다.'));
+      reject(new Error("R2 multipart 업로드 중 네트워크 오류가 발생했습니다."));
     };
 
     xhr.onabort = () => {
@@ -1747,37 +1816,51 @@ async function uploadFileToMultipartPresignedUrls(
   options?: UploadV2MediaAssetFileOptions,
 ): Promise<Array<{ part_number: number; etag: string }>> {
   const total = file.size || session.file_size || 0;
-  emitUploadProgress(options, buildProgress('preparing', 0, total));
+  emitUploadProgress(options, buildProgress("preparing", 0, total));
 
-  const partNumbers = Array.from({ length: session.total_parts }, (_, index) => index + 1);
-  const signedParts = await signMultipartUploadParts(session.session_id, partNumbers);
+  const partNumbers = Array.from(
+    { length: session.total_parts },
+    (_, index) => index + 1,
+  );
+  const signedParts = await signMultipartUploadParts(
+    session.session_id,
+    partNumbers,
+  );
   const uploadUrlByPartNumber = new Map(
     signedParts.map((part) => [part.part_number, part.upload_url]),
   );
-  const localParts: MultipartLocalPart[] = partNumbers.map((partNumber, index) => {
-    const start = index * session.part_size;
-    const end = Math.min(start + session.part_size, total);
-    const uploadUrl = uploadUrlByPartNumber.get(partNumber);
-    if (!uploadUrl) {
-      throw new Error(`multipart 업로드 URL을 찾지 못했습니다. part ${partNumber}`);
-    }
-    return {
-      partNumber,
-      start,
-      end,
-      size: end - start,
-      uploadUrl,
-    };
-  });
+  const localParts: MultipartLocalPart[] = partNumbers.map(
+    (partNumber, index) => {
+      const start = index * session.part_size;
+      const end = Math.min(start + session.part_size, total);
+      const uploadUrl = uploadUrlByPartNumber.get(partNumber);
+      if (!uploadUrl) {
+        throw new Error(
+          `multipart 업로드 URL을 찾지 못했습니다. part ${partNumber}`,
+        );
+      }
+      return {
+        partNumber,
+        start,
+        end,
+        size: end - start,
+        uploadUrl,
+      };
+    },
+  );
 
   const activeRequests = new Map<number, XMLHttpRequest>();
   const inFlightLoaded = new Map<number, number>();
-  const completedParts = new Map<number, { part_number: number; etag: string }>();
+  const completedParts = new Map<
+    number,
+    { part_number: number; etag: string }
+  >();
   let abortRequested = false;
 
   const emitOverallProgress = () => {
     const completedBytes = localParts.reduce(
-      (sum, part) => sum + (completedParts.has(part.partNumber) ? part.size : 0),
+      (sum, part) =>
+        sum + (completedParts.has(part.partNumber) ? part.size : 0),
       0,
     );
     const inflightBytes = Array.from(inFlightLoaded.values()).reduce(
@@ -1786,7 +1869,7 @@ async function uploadFileToMultipartPresignedUrls(
     );
     emitUploadProgress(
       options,
-      buildProgress('uploading', completedBytes + inflightBytes, total),
+      buildProgress("uploading", completedBytes + inflightBytes, total),
     );
   };
 
@@ -1811,9 +1894,10 @@ async function uploadFileToMultipartPresignedUrls(
       }
 
       if (attempt > 1) {
-        const [refreshedPart] = await signMultipartUploadParts(session.session_id, [
-          part.partNumber,
-        ]);
+        const [refreshedPart] = await signMultipartUploadParts(
+          session.session_id,
+          [part.partNumber],
+        );
         part.uploadUrl = refreshedPart.upload_url;
       }
 
@@ -1835,7 +1919,7 @@ async function uploadFileToMultipartPresignedUrls(
 
     throw lastError instanceof Error
       ? lastError
-      : new Error('R2 multipart 업로드에 실패했습니다.');
+      : new Error("R2 multipart 업로드에 실패했습니다.");
   };
 
   let fatalError: unknown = null;
@@ -1868,7 +1952,7 @@ async function uploadFileToMultipartPresignedUrls(
     throw fatalError;
   }
 
-  emitUploadProgress(options, buildProgress('finalizing', total, total));
+  emitUploadProgress(options, buildProgress("finalizing", total, total));
 
   return [...completedParts.values()].sort(
     (left, right) => left.part_number - right.part_number,
@@ -1893,7 +1977,7 @@ export const V2CatalogAdminAPI = {
   async createProject(
     data: CreateV2ProjectData,
   ): Promise<ApiResponse<V2Project>> {
-    return apiClient.post('/api/v2/catalog/admin/projects', data);
+    return apiClient.post("/api/v2/catalog/admin/projects", data);
   },
 
   async updateProject(
@@ -1908,7 +1992,10 @@ export const V2CatalogAdminAPI = {
   },
 
   async unpublishProject(id: string): Promise<ApiResponse<V2Project>> {
-    return apiClient.patch(`/api/v2/catalog/admin/projects/${id}/unpublish`, {});
+    return apiClient.patch(
+      `/api/v2/catalog/admin/projects/${id}/unpublish`,
+      {},
+    );
   },
 
   async archiveProject(id: string): Promise<ApiResponse<V2Project>> {
@@ -1938,7 +2025,7 @@ export const V2CatalogAdminAPI = {
   },
 
   async createArtist(data: CreateV2ArtistData): Promise<ApiResponse<V2Artist>> {
-    return apiClient.post('/api/v2/catalog/admin/artists', data);
+    return apiClient.post("/api/v2/catalog/admin/artists", data);
   },
 
   async updateArtist(
@@ -1994,8 +2081,10 @@ export const V2CatalogAdminAPI = {
     return apiClient.get(`/api/v2/catalog/admin/products/${id}`);
   },
 
-  async createProduct(data: CreateV2ProductData): Promise<ApiResponse<V2Product>> {
-    return apiClient.post('/api/v2/catalog/admin/products', data);
+  async createProduct(
+    data: CreateV2ProductData,
+  ): Promise<ApiResponse<V2Product>> {
+    return apiClient.post("/api/v2/catalog/admin/products", data);
   },
 
   async updateProduct(
@@ -2008,7 +2097,7 @@ export const V2CatalogAdminAPI = {
   async bulkUpdateProductStatus(
     data: BulkUpdateV2ProductStatusData,
   ): Promise<ApiResponse<V2Product[]>> {
-    return apiClient.patch('/api/v2/catalog/admin/products/bulk-status', data);
+    return apiClient.patch("/api/v2/catalog/admin/products/bulk-status", data);
   },
 
   async deleteProduct(id: string): Promise<ApiResponse<{ message: string }>> {
@@ -2016,7 +2105,9 @@ export const V2CatalogAdminAPI = {
   },
 
   async getVariants(productId: string): Promise<ApiResponse<V2Variant[]>> {
-    return apiClient.get(`/api/v2/catalog/admin/products/${productId}/variants`);
+    return apiClient.get(
+      `/api/v2/catalog/admin/products/${productId}/variants`,
+    );
   },
 
   async getVariantsMap(
@@ -2031,7 +2122,10 @@ export const V2CatalogAdminAPI = {
     productId: string,
     data: CreateV2VariantData,
   ): Promise<ApiResponse<V2Variant>> {
-    return apiClient.post(`/api/v2/catalog/admin/products/${productId}/variants`, data);
+    return apiClient.post(
+      `/api/v2/catalog/admin/products/${productId}/variants`,
+      data,
+    );
   },
 
   async updateVariant(
@@ -2063,38 +2157,45 @@ export const V2CatalogAdminAPI = {
     mediaAssetId: string,
     data: UpdateV2MediaAssetData,
   ): Promise<ApiResponse<V2MediaAsset>> {
-    return apiClient.patch(`/api/v2/catalog/admin/media-assets/${mediaAssetId}`, data);
+    return apiClient.patch(
+      `/api/v2/catalog/admin/media-assets/${mediaAssetId}`,
+      data,
+    );
   },
 
   async deleteMediaAsset(
     mediaAssetId: string,
   ): Promise<ApiResponse<V2MediaAsset>> {
-    return apiClient.delete(`/api/v2/catalog/admin/media-assets/${mediaAssetId}`);
+    return apiClient.delete(
+      `/api/v2/catalog/admin/media-assets/${mediaAssetId}`,
+    );
   },
 
   async createExternalMediaAsset(
     data: CreateExternalV2MediaAssetData,
   ): Promise<ApiResponse<V2MediaAsset>> {
-    return apiClient.post('/api/v2/catalog/admin/media-assets/external-link', data);
+    return apiClient.post(
+      "/api/v2/catalog/admin/media-assets/external-link",
+      data,
+    );
   },
 
   async uploadMediaAssetFile(
     data: UploadV2MediaAssetFileData,
     options?: UploadV2MediaAssetFileOptions,
   ): Promise<ApiResponse<V2MediaAsset>> {
-    const mimeType = data.file.type || 'application/octet-stream';
+    const mimeType = data.file.type || "application/octet-stream";
     if (data.file.size >= MULTIPART_UPLOAD_THRESHOLD_BYTES) {
-      const session = await apiClient.post<ApiResponse<V2MediaAssetMultipartUploadSession>>(
-        '/api/v2/catalog/admin/media-assets/multipart/init',
-        {
-          file_name: data.file.name,
-          mime_type: mimeType,
-          file_size: data.file.size,
-          asset_kind: data.asset_kind,
-          status: data.status,
-          metadata: data.metadata,
-        },
-      );
+      const session = await apiClient.post<
+        ApiResponse<V2MediaAssetMultipartUploadSession>
+      >("/api/v2/catalog/admin/media-assets/multipart/init", {
+        file_name: data.file.name,
+        mime_type: mimeType,
+        file_size: data.file.size,
+        asset_kind: data.asset_kind,
+        status: data.status,
+        metadata: data.metadata,
+      });
       let finishedUploadingParts = false;
 
       try {
@@ -2105,16 +2206,22 @@ export const V2CatalogAdminAPI = {
         );
         finishedUploadingParts = true;
 
-        return apiClient.post('/api/v2/catalog/admin/media-assets/multipart/complete', {
-          session_id: session.data.session_id,
-          parts,
-        });
+        return apiClient.post(
+          "/api/v2/catalog/admin/media-assets/multipart/complete",
+          {
+            session_id: session.data.session_id,
+            parts,
+          },
+        );
       } catch (error) {
         if (!finishedUploadingParts) {
           try {
-            await apiClient.post('/api/v2/catalog/admin/media-assets/multipart/abort', {
-              session_id: session.data.session_id,
-            });
+            await apiClient.post(
+              "/api/v2/catalog/admin/media-assets/multipart/abort",
+              {
+                session_id: session.data.session_id,
+              },
+            );
           } catch {
             // Cleanup failure should not hide the original upload error.
           }
@@ -2125,32 +2232,36 @@ export const V2CatalogAdminAPI = {
       }
     }
 
-    const presigned = await apiClient.post<ApiResponse<V2MediaAssetUploadSession>>(
-      '/api/v2/catalog/admin/media-assets/presign-upload',
+    const presigned = await apiClient.post<
+      ApiResponse<V2MediaAssetUploadSession>
+    >("/api/v2/catalog/admin/media-assets/presign-upload", {
+      file_name: data.file.name,
+      mime_type: mimeType,
+      file_size: data.file.size,
+      asset_kind: data.asset_kind,
+      status: data.status,
+      metadata: data.metadata,
+    });
+
+    await uploadFileToSinglePresignedUrl(presigned.data, data.file, options);
+
+    return apiClient.post(
+      "/api/v2/catalog/admin/media-assets/complete-upload",
       {
+        storage_path: presigned.data.storage_path,
         file_name: data.file.name,
         mime_type: mimeType,
         file_size: data.file.size,
-        asset_kind: data.asset_kind,
+        asset_kind: presigned.data.asset_kind,
         status: data.status,
         metadata: data.metadata,
       },
     );
-
-    await uploadFileToSinglePresignedUrl(presigned.data, data.file, options);
-
-    return apiClient.post('/api/v2/catalog/admin/media-assets/complete-upload', {
-      storage_path: presigned.data.storage_path,
-      file_name: data.file.name,
-      mime_type: mimeType,
-      file_size: data.file.size,
-      asset_kind: presigned.data.asset_kind,
-      status: data.status,
-      metadata: data.metadata,
-    });
   },
 
-  async getProductMedia(productId: string): Promise<ApiResponse<V2ProductMedia[]>> {
+  async getProductMedia(
+    productId: string,
+  ): Promise<ApiResponse<V2ProductMedia[]>> {
     return apiClient.get(`/api/v2/catalog/admin/products/${productId}/media`);
   },
 
@@ -2166,7 +2277,10 @@ export const V2CatalogAdminAPI = {
     productId: string,
     data: CreateV2MediaData,
   ): Promise<ApiResponse<V2ProductMedia>> {
-    return apiClient.post(`/api/v2/catalog/admin/products/${productId}/media`, data);
+    return apiClient.post(
+      `/api/v2/catalog/admin/products/${productId}/media`,
+      data,
+    );
   },
 
   async updateProductMedia(
@@ -2179,7 +2293,10 @@ export const V2CatalogAdminAPI = {
   async deactivateProductMedia(
     mediaId: string,
   ): Promise<ApiResponse<V2ProductMedia>> {
-    return apiClient.post(`/api/v2/catalog/admin/media/${mediaId}/deactivate`, {});
+    return apiClient.post(
+      `/api/v2/catalog/admin/media/${mediaId}/deactivate`,
+      {},
+    );
   },
 
   async getVariantAssets(
@@ -2192,7 +2309,10 @@ export const V2CatalogAdminAPI = {
     variantId: string,
     data: CreateV2DigitalAssetData,
   ): Promise<ApiResponse<V2DigitalAsset>> {
-    return apiClient.post(`/api/v2/catalog/admin/variants/${variantId}/assets`, data);
+    return apiClient.post(
+      `/api/v2/catalog/admin/variants/${variantId}/assets`,
+      data,
+    );
   },
 
   async updateDigitalAsset(
@@ -2205,13 +2325,19 @@ export const V2CatalogAdminAPI = {
   async activateDigitalAsset(
     assetId: string,
   ): Promise<ApiResponse<V2DigitalAsset>> {
-    return apiClient.post(`/api/v2/catalog/admin/assets/${assetId}/activate`, {});
+    return apiClient.post(
+      `/api/v2/catalog/admin/assets/${assetId}/activate`,
+      {},
+    );
   },
 
   async deactivateDigitalAsset(
     assetId: string,
   ): Promise<ApiResponse<V2DigitalAsset>> {
-    return apiClient.post(`/api/v2/catalog/admin/assets/${assetId}/deactivate`, {});
+    return apiClient.post(
+      `/api/v2/catalog/admin/assets/${assetId}/deactivate`,
+      {},
+    );
   },
 
   async getBundleDefinitions(
@@ -2228,13 +2354,15 @@ export const V2CatalogAdminAPI = {
   async getBundleDefinition(
     definitionId: string,
   ): Promise<ApiResponse<V2BundleDefinition>> {
-    return apiClient.get(`/api/v2/catalog/admin/bundles/definitions/${definitionId}`);
+    return apiClient.get(
+      `/api/v2/catalog/admin/bundles/definitions/${definitionId}`,
+    );
   },
 
   async createBundleDefinition(
     data: CreateV2BundleDefinitionData,
   ): Promise<ApiResponse<V2BundleDefinition>> {
-    return apiClient.post('/api/v2/catalog/admin/bundles/definitions', data);
+    return apiClient.post("/api/v2/catalog/admin/bundles/definitions", data);
   },
 
   async updateBundleDefinition(
@@ -2297,33 +2425,46 @@ export const V2CatalogAdminAPI = {
     componentId: string,
     data: UpdateV2BundleComponentData,
   ): Promise<ApiResponse<V2BundleComponent>> {
-    return apiClient.patch(`/api/v2/catalog/admin/bundles/components/${componentId}`, data);
+    return apiClient.patch(
+      `/api/v2/catalog/admin/bundles/components/${componentId}`,
+      data,
+    );
   },
 
   async deleteBundleComponent(
     componentId: string,
   ): Promise<ApiResponse<{ message: string }>> {
-    return apiClient.delete(`/api/v2/catalog/admin/bundles/components/${componentId}`);
+    return apiClient.delete(
+      `/api/v2/catalog/admin/bundles/components/${componentId}`,
+    );
   },
 
   async createBundleComponentOption(
     componentId: string,
     data: CreateV2BundleComponentOptionData,
   ): Promise<ApiResponse<V2BundleComponentOption>> {
-    return apiClient.post(`/api/v2/catalog/admin/bundles/components/${componentId}/options`, data);
+    return apiClient.post(
+      `/api/v2/catalog/admin/bundles/components/${componentId}/options`,
+      data,
+    );
   },
 
   async updateBundleComponentOption(
     optionId: string,
     data: UpdateV2BundleComponentOptionData,
   ): Promise<ApiResponse<V2BundleComponentOption>> {
-    return apiClient.patch(`/api/v2/catalog/admin/bundles/component-options/${optionId}`, data);
+    return apiClient.patch(
+      `/api/v2/catalog/admin/bundles/component-options/${optionId}`,
+      data,
+    );
   },
 
   async deleteBundleComponentOption(
     optionId: string,
   ): Promise<ApiResponse<{ message: string }>> {
-    return apiClient.delete(`/api/v2/catalog/admin/bundles/component-options/${optionId}`);
+    return apiClient.delete(
+      `/api/v2/catalog/admin/bundles/component-options/${optionId}`,
+    );
   },
 
   async validateBundleDefinition(
@@ -2339,25 +2480,25 @@ export const V2CatalogAdminAPI = {
   async previewBundle(
     data: PreviewV2BundleData,
   ): Promise<ApiResponse<V2BundleResolveResult>> {
-    return apiClient.post('/api/v2/catalog/admin/bundles/preview', data);
+    return apiClient.post("/api/v2/catalog/admin/bundles/preview", data);
   },
 
   async resolveBundle(
     data: ResolveV2BundleData,
   ): Promise<ApiResponse<V2BundleResolveResult>> {
-    return apiClient.post('/api/v2/catalog/admin/bundles/resolve', data);
+    return apiClient.post("/api/v2/catalog/admin/bundles/resolve", data);
   },
 
   async buildBundleOpsContract(
     data: BuildV2BundleOpsContractData,
   ): Promise<ApiResponse<V2BundleOpsContractResult>> {
-    return apiClient.post('/api/v2/catalog/admin/bundles/ops-contract', data);
+    return apiClient.post("/api/v2/catalog/admin/bundles/ops-contract", data);
   },
 
   async buildBundleCanaryReport(
     data: BuildV2BundleCanaryReportData = {},
   ): Promise<ApiResponse<V2BundleCanaryReportResult>> {
-    return apiClient.post('/api/v2/catalog/admin/bundles/canary-report', data);
+    return apiClient.post("/api/v2/catalog/admin/bundles/canary-report", data);
   },
 
   async getProductPublishReadiness(
@@ -2386,7 +2527,9 @@ export const V2CatalogAdminAPI = {
   async getCampaignDetailContext(
     id: string,
   ): Promise<ApiResponse<V2CampaignDetailContext>> {
-    return apiClient.get(`/api/v2/catalog/admin/campaigns/${id}/detail-context`);
+    return apiClient.get(
+      `/api/v2/catalog/admin/campaigns/${id}/detail-context`,
+    );
   },
 
   async getCampaignOverviewMap(
@@ -2408,7 +2551,7 @@ export const V2CatalogAdminAPI = {
   async createCampaign(
     data: CreateV2CampaignData,
   ): Promise<ApiResponse<V2Campaign>> {
-    return apiClient.post('/api/v2/catalog/admin/campaigns', data);
+    return apiClient.post("/api/v2/catalog/admin/campaigns", data);
   },
 
   async updateCampaign(
@@ -2433,27 +2576,37 @@ export const V2CatalogAdminAPI = {
   async getCampaignTargets(
     campaignId: string,
   ): Promise<ApiResponse<V2CampaignTarget[]>> {
-    return apiClient.get(`/api/v2/catalog/admin/campaigns/${campaignId}/targets`);
+    return apiClient.get(
+      `/api/v2/catalog/admin/campaigns/${campaignId}/targets`,
+    );
   },
 
   async createCampaignTarget(
     campaignId: string,
     data: CreateV2CampaignTargetData,
   ): Promise<ApiResponse<V2CampaignTarget>> {
-    return apiClient.post(`/api/v2/catalog/admin/campaigns/${campaignId}/targets`, data);
+    return apiClient.post(
+      `/api/v2/catalog/admin/campaigns/${campaignId}/targets`,
+      data,
+    );
   },
 
   async updateCampaignTarget(
     targetId: string,
     data: UpdateV2CampaignTargetData,
   ): Promise<ApiResponse<V2CampaignTarget>> {
-    return apiClient.patch(`/api/v2/catalog/admin/campaign-targets/${targetId}`, data);
+    return apiClient.patch(
+      `/api/v2/catalog/admin/campaign-targets/${targetId}`,
+      data,
+    );
   },
 
   async deleteCampaignTarget(
     targetId: string,
   ): Promise<ApiResponse<{ message: string }>> {
-    return apiClient.delete(`/api/v2/catalog/admin/campaign-targets/${targetId}`);
+    return apiClient.delete(
+      `/api/v2/catalog/admin/campaign-targets/${targetId}`,
+    );
   },
 
   async getPriceLists(
@@ -2475,7 +2628,7 @@ export const V2CatalogAdminAPI = {
   async createPriceList(
     data: CreateV2PriceListData,
   ): Promise<ApiResponse<V2PriceList>> {
-    return apiClient.post('/api/v2/catalog/admin/price-lists', data);
+    return apiClient.post("/api/v2/catalog/admin/price-lists", data);
   },
 
   async updatePriceList(
@@ -2486,44 +2639,77 @@ export const V2CatalogAdminAPI = {
   },
 
   async publishPriceList(id: string): Promise<ApiResponse<V2PriceList>> {
-    return apiClient.post(`/api/v2/catalog/admin/price-lists/${id}/publish`, {});
+    return apiClient.post(
+      `/api/v2/catalog/admin/price-lists/${id}/publish`,
+      {},
+    );
   },
 
-  async rollbackPriceList(
-    id: string,
-  ): Promise<
+  async rollbackPriceList(id: string): Promise<
     ApiResponse<{
       rolled_back_price_list: V2PriceList;
       restored_price_list: V2PriceList;
     }>
   > {
-    return apiClient.post(`/api/v2/catalog/admin/price-lists/${id}/rollback`, {});
+    return apiClient.post(
+      `/api/v2/catalog/admin/price-lists/${id}/rollback`,
+      {},
+    );
   },
 
   async getPriceListItems(
     priceListId: string,
   ): Promise<ApiResponse<V2PriceListItem[]>> {
-    return apiClient.get(`/api/v2/catalog/admin/price-lists/${priceListId}/items`);
+    return apiClient.get(
+      `/api/v2/catalog/admin/price-lists/${priceListId}/items`,
+    );
   },
 
   async createPriceListItem(
     priceListId: string,
     data: CreateV2PriceListItemData,
   ): Promise<ApiResponse<V2PriceListItem>> {
-    return apiClient.post(`/api/v2/catalog/admin/price-lists/${priceListId}/items`, data);
+    return apiClient.post(
+      `/api/v2/catalog/admin/price-lists/${priceListId}/items`,
+      data,
+    );
   },
 
   async updatePriceListItem(
     itemId: string,
     data: UpdateV2PriceListItemData,
   ): Promise<ApiResponse<V2PriceListItem>> {
-    return apiClient.patch(`/api/v2/catalog/admin/price-list-items/${itemId}`, data);
+    return apiClient.patch(
+      `/api/v2/catalog/admin/price-list-items/${itemId}`,
+      data,
+    );
   },
 
   async deactivatePriceListItem(
     itemId: string,
   ): Promise<ApiResponse<V2PriceListItem>> {
-    return apiClient.post(`/api/v2/catalog/admin/price-list-items/${itemId}/deactivate`, {});
+    return apiClient.post(
+      `/api/v2/catalog/admin/price-list-items/${itemId}/deactivate`,
+      {},
+    );
+  },
+
+  async analyzeBasePriceChange(
+    data: AnalyzeV2BasePriceChangeData,
+  ): Promise<ApiResponse<V2BasePriceChangeAnalysis>> {
+    return apiClient.post(
+      "/api/v2/catalog/admin/pricing/base-price-change/analyze",
+      data,
+    );
+  },
+
+  async applyBasePriceChange(
+    data: ApplyV2BasePriceChangeData,
+  ): Promise<ApiResponse<ApplyV2BasePriceChangeResult>> {
+    return apiClient.post(
+      "/api/v2/catalog/admin/pricing/base-price-change/apply",
+      data,
+    );
   },
 
   async getPromotions(
@@ -2548,7 +2734,7 @@ export const V2CatalogAdminAPI = {
   async createPromotion(
     data: CreateV2PromotionData,
   ): Promise<ApiResponse<V2Promotion>> {
-    return apiClient.post('/api/v2/catalog/admin/promotions', data);
+    return apiClient.post("/api/v2/catalog/admin/promotions", data);
   },
 
   async updatePromotion(
@@ -2561,21 +2747,29 @@ export const V2CatalogAdminAPI = {
   async getPromotionRules(
     promotionId: string,
   ): Promise<ApiResponse<V2PromotionRule[]>> {
-    return apiClient.get(`/api/v2/catalog/admin/promotions/${promotionId}/rules`);
+    return apiClient.get(
+      `/api/v2/catalog/admin/promotions/${promotionId}/rules`,
+    );
   },
 
   async createPromotionRule(
     promotionId: string,
     data: CreateV2PromotionRuleData,
   ): Promise<ApiResponse<V2PromotionRule>> {
-    return apiClient.post(`/api/v2/catalog/admin/promotions/${promotionId}/rules`, data);
+    return apiClient.post(
+      `/api/v2/catalog/admin/promotions/${promotionId}/rules`,
+      data,
+    );
   },
 
   async updatePromotionRule(
     ruleId: string,
     data: UpdateV2PromotionRuleData,
   ): Promise<ApiResponse<V2PromotionRule>> {
-    return apiClient.patch(`/api/v2/catalog/admin/promotion-rules/${ruleId}`, data);
+    return apiClient.patch(
+      `/api/v2/catalog/admin/promotion-rules/${ruleId}`,
+      data,
+    );
   },
 
   async getCoupons(
@@ -2594,7 +2788,7 @@ export const V2CatalogAdminAPI = {
   },
 
   async createCoupon(data: CreateV2CouponData): Promise<ApiResponse<V2Coupon>> {
-    return apiClient.post('/api/v2/catalog/admin/coupons', data);
+    return apiClient.post("/api/v2/catalog/admin/coupons", data);
   },
 
   async updateCoupon(
@@ -2620,7 +2814,7 @@ export const V2CatalogAdminAPI = {
   async validateCoupon(
     data: ValidateV2CouponData,
   ): Promise<ApiResponse<V2CouponValidationResult>> {
-    return apiClient.post('/api/v2/catalog/admin/coupons/validate', data);
+    return apiClient.post("/api/v2/catalog/admin/coupons/validate", data);
   },
 
   async reserveCoupon(
@@ -2632,7 +2826,10 @@ export const V2CatalogAdminAPI = {
       redemption: V2CouponRedemption;
     }>
   > {
-    return apiClient.post(`/api/v2/catalog/admin/coupons/${couponId}/reserve`, data);
+    return apiClient.post(
+      `/api/v2/catalog/admin/coupons/${couponId}/reserve`,
+      data,
+    );
   },
 
   async releaseCouponRedemption(
@@ -2668,32 +2865,37 @@ export const V2CatalogAdminAPI = {
   async buildPriceQuote(
     data: BuildV2PriceQuoteData,
   ): Promise<ApiResponse<V2PriceQuoteResult>> {
-    return apiClient.post('/api/v2/catalog/admin/pricing/quote', data);
+    return apiClient.post("/api/v2/catalog/admin/pricing/quote", data);
   },
 
-  async evaluatePromotions(
-    data: BuildV2PriceQuoteData,
-  ): Promise<
+  async evaluatePromotions(data: BuildV2PriceQuoteData): Promise<
     ApiResponse<{
       quote_reference: string;
       evaluated_at: string;
       coupon: V2CouponValidationResult | null;
-      promotion_evaluations: V2PriceQuoteResult['promotion_evaluations'];
-      applied_promotions: V2PriceQuoteResult['applied_promotions'];
-      summary: V2PriceQuoteResult['summary'];
+      promotion_evaluations: V2PriceQuoteResult["promotion_evaluations"];
+      applied_promotions: V2PriceQuoteResult["applied_promotions"];
+      summary: V2PriceQuoteResult["summary"];
     }>
   > {
-    return apiClient.post('/api/v2/catalog/admin/pricing/promotions/evaluate', data);
+    return apiClient.post(
+      "/api/v2/catalog/admin/pricing/promotions/evaluate",
+      data,
+    );
   },
 
   async getPricingDebugTrace(
     data: BuildV2PriceQuoteData,
   ): Promise<ApiResponse<V2PriceQuoteResult>> {
-    return apiClient.post('/api/v2/catalog/admin/pricing/debug', data);
+    return apiClient.post("/api/v2/catalog/admin/pricing/debug", data);
   },
 
-  async getOrderSnapshotContract(): Promise<ApiResponse<V2OrderSnapshotContract>> {
-    return apiClient.get('/api/v2/catalog/admin/pricing/order-snapshot-contract');
+  async getOrderSnapshotContract(): Promise<
+    ApiResponse<V2OrderSnapshotContract>
+  > {
+    return apiClient.get(
+      "/api/v2/catalog/admin/pricing/order-snapshot-contract",
+    );
   },
 
   async getMigrationCompareReport(
@@ -2710,9 +2912,11 @@ export const V2CatalogAdminAPI = {
     sampleLimit = 20,
   ): Promise<ApiResponse<ReadSwitchChecklist>> {
     return apiClient.get(
-      `/api/v2/catalog/admin/migration/read-switch-checklist${buildSearchParams({
-        sampleLimit: String(sampleLimit),
-      })}`,
+      `/api/v2/catalog/admin/migration/read-switch-checklist${buildSearchParams(
+        {
+          sampleLimit: String(sampleLimit),
+        },
+      )}`,
     );
   },
 
