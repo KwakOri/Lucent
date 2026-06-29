@@ -169,9 +169,6 @@ export default function V2ProjectCampaignsPage() {
                 <Button size="sm" intent="neutral" onClick={() => router.push(`/admin/v2-catalog/campaigns/${baseCampaign.id}`)}>
                   상세
                 </Button>
-                <Button size="sm" onClick={() => router.push(`/admin/v2-catalog/campaigns/${baseCampaign.id}/pricing`)}>
-                  가격 설정
-                </Button>
               </div>
             </article>
           )}
@@ -212,9 +209,6 @@ export default function V2ProjectCampaignsPage() {
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" intent="neutral" onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}`)}>
                       상세
-                    </Button>
-                    <Button size="sm" onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/pricing`)}>
-                      가격 설정
                     </Button>
                   </div>
                 </div>
