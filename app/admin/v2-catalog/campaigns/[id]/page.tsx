@@ -911,15 +911,6 @@ export default function V2CatalogCampaignDetailPage() {
     });
   };
 
-  const openPricingForProduct = (productId: string, pendingOnly = false) => {
-    const searchParams = new URLSearchParams();
-    searchParams.set('productId', productId);
-    if (pendingOnly) {
-      searchParams.set('pendingOnly', '1');
-    }
-    router.push(`/admin/v2-catalog/campaigns/${campaignId}/pricing?${searchParams.toString()}`);
-  };
-
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -1003,9 +994,6 @@ export default function V2CatalogCampaignDetailPage() {
               대상 추가
             </Button>
           )}
-          <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/pricing`)}>
-            가격 설정
-          </Button>
         </div>
       </div>
 
@@ -1080,7 +1068,7 @@ export default function V2CatalogCampaignDetailPage() {
 
       {missingBaseVariantCount > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          기본가가 없는 포함 옵션이 {missingBaseVariantCount}개 있습니다. 먼저 기본 캠페인 가격을 등록해야 판매 가능 상태가 됩니다.
+          기본가가 없는 포함 옵션이 {missingBaseVariantCount}개 있습니다. 상품 옵션 상세에서 기본 판매가를 먼저 등록해야 판매 가능 상태가 됩니다.
         </div>
       )}
 
@@ -1427,9 +1415,13 @@ export default function V2CatalogCampaignDetailPage() {
                                       <Button
                                         size="sm"
                                         intent="neutral"
-                                        onClick={() => openPricingForProduct(row.product.id, true)}
+                                        onClick={() =>
+                                          router.push(
+                                            `/admin/v2-catalog/products/${row.product.id}/variants/${variantRow.variant.id}/edit`,
+                                          )
+                                        }
                                       >
-                                        가격 상세
+                                        옵션 편집
                                       </Button>
                                     </div>
                                   </div>

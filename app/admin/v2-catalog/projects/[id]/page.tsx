@@ -368,14 +368,6 @@ export default function V2CatalogProjectDetailPage() {
                           >
                             상세
                           </Button>
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              router.push(`/admin/v2-catalog/campaigns/${campaign.id}/pricing`)
-                            }
-                          >
-                            가격
-                          </Button>
                         </div>
                       </td>
                     </tr>
