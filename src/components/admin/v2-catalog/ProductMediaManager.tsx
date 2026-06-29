@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { ImageIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
@@ -79,6 +80,12 @@ function isImageFile(file: File): boolean {
 type ProductMediaManagerProps = {
   product: V2Product;
 };
+
+const sectionClassName =
+  'rounded-[20px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
+const uploadTriggerClassName =
+  'h-11 rounded-[11px] border-0 bg-[#f5f3e8] px-4 text-sm font-bold text-[#1a1a2e] hover:bg-[#ece8d9]';
+const mutedTextClassName = 'text-[#1a1a2e]/55';
 
 export function ProductMediaManager({ product }: ProductMediaManagerProps) {
   const { data, isLoading, error } = useV2AdminProductMedia(product.id);
@@ -264,7 +271,7 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
 
   if (isLoading) {
     return (
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <section className={sectionClassName}>
         <div className="flex min-h-[180px] items-center justify-center">
           <Loading size="md" text="상품 이미지 정보를 불러오는 중입니다." />
         </div>
@@ -274,22 +281,27 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
 
   if (error) {
     return (
-      <section className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700 shadow-sm">
+      <section className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm text-red-700 shadow-none sm:p-6">
         상품 이미지 정보를 불러오지 못했습니다.
       </section>
     );
   }
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <section className={sectionClassName}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">상품 이미지</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            커버(대표) 이미지 1장과 상세 이미지를 분리해 관리합니다.
+          <h2 className="text-lg font-black text-[#1a1a2e]">상품 이미지</h2>
+          <p className={`mt-2 text-sm font-medium ${mutedTextClassName}`}>
+            커버 이미지 1장과 상세 이미지를 분리해 관리합니다.
           </p>
         </div>
-        <Badge intent="info">상세 {detailMedia.length}장</Badge>
+        <Badge
+          intent="info"
+          className="rounded-[8px] border border-[#cde0f3] bg-[#eaf3fc] px-3 py-1 text-xs font-bold text-[#4a88b9]"
+        >
+          상세 {detailMedia.length}장
+        </Badge>
       </div>
 
       {message && (
@@ -303,12 +315,14 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
         </div>
       )}
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <article className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-          <h3 className="text-sm font-semibold text-gray-900">커버 이미지</h3>
-          <p className="mt-1 text-xs text-gray-500">상점 목록/상세 상단에 보이는 대표 이미지</p>
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+        <article>
+          <h3 className="text-sm font-black text-[#1a1a2e]">커버 이미지</h3>
+          <p className={`mt-1 text-xs font-medium ${mutedTextClassName}`}>
+            목록·상세 상단의 대표 이미지
+          </p>
 
-          <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white">
+          <div className="mt-4 overflow-hidden rounded-[14px] border border-[#e7e3d3] bg-white">
             {coverMedia?.public_url ? (
               <img
                 src={coverMedia.public_url}
@@ -316,8 +330,11 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
                 className="aspect-square h-full w-full object-cover"
               />
             ) : (
-              <div className="flex aspect-square items-center justify-center text-sm text-gray-400">
-                등록된 커버 이미지가 없습니다.
+              <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-[#dcecfb] to-[#f0e6ff] text-[#7c93ad]">
+                <div className="text-center">
+                  <ImageIcon className="mx-auto h-10 w-10" strokeWidth={1.6} aria-hidden />
+                  <div className="mt-2 text-xs font-bold">커버 이미지</div>
+                </div>
               </div>
             )}
           </div>
@@ -325,6 +342,7 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
           <div className="mt-4 space-y-2">
             <FileInput
               triggerLabel={isMutating ? '커버 이미지 업로드 중...' : '커버 이미지 선택'}
+              triggerClassName={uploadTriggerClassName}
               accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
               disabled={isMutating}
               onChange={(event) => {
@@ -340,6 +358,7 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
               type="button"
               intent="danger"
               size="sm"
+              className="rounded-[11px] border border-[#f3d6d6] bg-white text-[#ca2a30] hover:bg-[#fff0f0]"
               disabled={!coverMedia}
               loading={deactivateProductMedia.isPending}
               onClick={() => {
@@ -354,31 +373,17 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
           </div>
         </article>
 
-        <article className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-          <h3 className="text-sm font-semibold text-gray-900">상세 이미지</h3>
-          <p className="mt-1 text-xs text-gray-500">
-            상세 페이지에서 순서대로 노출됩니다. (위/아래 버튼으로 순서 변경)
+        <article>
+          <h3 className="text-sm font-black text-[#1a1a2e]">상세 이미지</h3>
+          <p className={`mt-1 text-xs font-medium ${mutedTextClassName}`}>
+            상세 페이지에 순서대로 노출됩니다.
           </p>
 
-          <div className="mt-4">
-            <FileInput
-              triggerLabel={isMutating ? '상세 이미지 업로드 중...' : '상세 이미지 선택 (여러 장)'}
-              accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
-              multiple
-              disabled={isMutating}
-              onChange={(event) => {
-                const fileList = event.target.files;
-                if (fileList && fileList.length > 0) {
-                  void uploadDetailImages(Array.from(fileList));
-                }
-                event.target.value = '';
-              }}
-            />
-          </div>
-
           {detailMedia.length === 0 ? (
-            <div className="mt-4 rounded-xl border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-500">
-              등록된 상세 이미지가 없습니다.
+            <div className="mt-4 flex aspect-square items-center justify-center rounded-[14px] border border-dashed border-[#d9d4c3] bg-[#faf9f3] px-4 py-6 text-center text-sm font-bold text-[#b3aea2]">
+              등록된 상세 이미지가
+              <br />
+              없습니다
             </div>
           ) : (
             <div className="mt-4 space-y-3">
@@ -389,10 +394,10 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
                 return (
                   <div
                     key={media.id}
-                    className="rounded-xl border border-gray-200 bg-white p-3"
+                    className="rounded-[14px] border border-[#e7e3d3] bg-white p-3"
                   >
                     <div className="flex gap-3">
-                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-[10px] border border-[#e7e3d3] bg-[#faf9f3]">
                         {media.public_url ? (
                           <img
                             src={media.public_url}
@@ -446,6 +451,7 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
                         type="button"
                         size="sm"
                         intent="danger"
+                        className="border border-[#f3d6d6] bg-white text-[#ca2a30] hover:bg-[#fff0f0]"
                         loading={deactivateProductMedia.isPending}
                         onClick={() =>
                           void deactivateMedia(media.id, '상세 이미지를 제거했습니다.')
@@ -459,6 +465,23 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
               })}
             </div>
           )}
+
+          <div className="mt-4">
+            <FileInput
+              triggerLabel={isMutating ? '상세 이미지 업로드 중...' : '상세 이미지 선택 (여러 장)'}
+              triggerClassName={uploadTriggerClassName}
+              accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+              multiple
+              disabled={isMutating}
+              onChange={(event) => {
+                const fileList = event.target.files;
+                if (fileList && fileList.length > 0) {
+                  void uploadDetailImages(Array.from(fileList));
+                }
+                event.target.value = '';
+              }}
+            />
+          </div>
         </article>
       </div>
     </section>
