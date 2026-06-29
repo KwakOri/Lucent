@@ -12,6 +12,7 @@ import {
   type AddV2CartItemData,
   type CancelV2OrderData,
   type CreateV2OrderData,
+  type GetV2DigitalOwnershipParams,
   type V2OrderStatus,
   type PaymentCallbackData,
   type RefundV2OrderData,
@@ -156,6 +157,40 @@ export function useV2DigitalEntitlements() {
       const response = await V2CheckoutAPI.getDigitalEntitlements();
       return response.data;
     },
+  });
+}
+
+interface UseV2DigitalOwnershipOptions {
+  enabled?: boolean;
+}
+
+function normalizeDigitalOwnershipParams(
+  params: GetV2DigitalOwnershipParams,
+): GetV2DigitalOwnershipParams {
+  return {
+    variant_ids: Array.from(new Set(params.variant_ids ?? [])).sort(),
+    product_ids: Array.from(new Set(params.product_ids ?? [])).sort(),
+  };
+}
+
+export function useV2DigitalOwnership(
+  params: GetV2DigitalOwnershipParams,
+  options: UseV2DigitalOwnershipOptions = {},
+) {
+  const { isAuthenticated } = useSession();
+  const normalizedParams = normalizeDigitalOwnershipParams(params);
+  const hasLookupTarget =
+    (normalizedParams.variant_ids?.length ?? 0) > 0 ||
+    (normalizedParams.product_ids?.length ?? 0) > 0;
+
+  return useQuery({
+    queryKey: queryKeys.v2Checkout.digitalOwnership(normalizedParams),
+    queryFn: async () => {
+      const response = await V2CheckoutAPI.getDigitalOwnership(normalizedParams);
+      return response.data;
+    },
+    enabled: isAuthenticated && hasLookupTarget && (options.enabled ?? true),
+    staleTime: 30_000,
   });
 }
 

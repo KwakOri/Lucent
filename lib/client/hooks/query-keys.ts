@@ -86,6 +86,9 @@ export const queryKeys = {
     cart: () => [...queryKeys.v2Checkout.all, 'cart'] as const,
     digitalEntitlements: () =>
       [...queryKeys.v2Checkout.all, 'digital-entitlements'] as const,
+    digitalOwnership: (
+      params: { variant_ids?: string[]; product_ids?: string[] } = {},
+    ) => [...queryKeys.v2Checkout.all, 'digital-ownership', params] as const,
     orders: {
       all: ['v2-checkout', 'orders'] as const,
       list: (
