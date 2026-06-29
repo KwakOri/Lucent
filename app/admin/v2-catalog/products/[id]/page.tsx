@@ -40,9 +40,9 @@ const adminSurfaceClass =
   'rounded-[20px] border border-[#e7e3d3] bg-white shadow-none';
 const mutedTextClass = 'text-[#1a1a2e]/55';
 const toolbarButtonClass =
-  'h-11 rounded-[12px] border-0 bg-[#f5f3e8] px-4 text-sm font-bold text-[#1a1a2e] hover:bg-[#ece8d9]';
+  '!h-11 !rounded-[12px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]';
 const primaryToolbarButtonClass =
-  'h-11 rounded-[12px] bg-[#1a1a2e] px-4 text-sm font-bold text-white hover:bg-[#272743]';
+  '!h-11 !rounded-[12px] !bg-[#1a1a2e] !px-4 !text-sm !font-bold !text-white hover:!bg-[#272743]';
 
 function resolveProductStatusIntent(
   status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED',
@@ -276,7 +276,7 @@ export default function V2CatalogProductDetailPage() {
           </Button>
           <Button
             intent="danger"
-            className="h-11 w-11 rounded-[14px] border border-[#f3d6d6] bg-white px-0 text-[#ca2a30] hover:bg-[#fff0f0]"
+            className="!h-11 !w-11 !rounded-[14px] !border !border-[#f3d6d6] !bg-white !px-0 !text-[#ca2a30] hover:!bg-[#fff0f0]"
             onClick={handleDeleteProduct}
             loading={deleteProduct.isPending}
             aria-label="상품 삭제"
@@ -348,7 +348,7 @@ export default function V2CatalogProductDetailPage() {
           <Button
             size="sm"
             intent="neutral"
-            className="h-9 rounded-[12px] border-0 bg-[#f5f3e8] px-4 text-sm font-bold text-[#1a1a2e] hover:bg-[#ece8d9]"
+            className="!h-9 !rounded-[12px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]"
             onClick={() => router.push(`/admin/v2-catalog/products/${product.id}/edit`)}
           >
             수정
@@ -395,7 +395,7 @@ export default function V2CatalogProductDetailPage() {
         </Button>
         <Button
           loading={isBottomSavePending}
-          className="h-12 rounded-[13px] bg-[#1a1a2e] px-6 text-sm font-bold text-white hover:bg-[#272743]"
+          className="!h-12 !rounded-[13px] !bg-[#1a1a2e] !px-6 !text-sm !font-bold !text-white hover:!bg-[#272743]"
           onClick={handleSaveAndBack}
         >
           저장하고 목록으로
