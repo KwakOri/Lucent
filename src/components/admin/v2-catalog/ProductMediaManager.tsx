@@ -84,7 +84,7 @@ type ProductMediaManagerProps = {
 const sectionClassName =
   'rounded-[20px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
 const uploadTriggerClassName =
-  'h-11 rounded-[11px] border-0 bg-[#f5f3e8] px-4 text-sm font-bold text-[#1a1a2e] hover:bg-[#ece8d9]';
+  '!h-11 !rounded-[11px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]';
 const mutedTextClassName = 'text-[#1a1a2e]/55';
 
 export function ProductMediaManager({ product }: ProductMediaManagerProps) {
@@ -358,7 +358,7 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
               type="button"
               intent="danger"
               size="sm"
-              className="rounded-[11px] border border-[#f3d6d6] bg-white text-[#ca2a30] hover:bg-[#fff0f0]"
+              className="!rounded-[11px] !border !border-[#f3d6d6] !bg-white !text-[#ca2a30] hover:!bg-[#fff0f0]"
               disabled={!coverMedia}
               loading={deactivateProductMedia.isPending}
               onClick={() => {
@@ -451,7 +451,7 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
                         type="button"
                         size="sm"
                         intent="danger"
-                        className="border border-[#f3d6d6] bg-white text-[#ca2a30] hover:bg-[#fff0f0]"
+                        className="!border !border-[#f3d6d6] !bg-white !text-[#ca2a30] hover:!bg-[#fff0f0]"
                         loading={deactivateProductMedia.isPending}
                         onClick={() =>
                           void deactivateMedia(media.id, '상세 이미지를 제거했습니다.')

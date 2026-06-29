@@ -219,7 +219,7 @@ const sectionClassName =
   'rounded-[20px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
 const mutedTextClassName = 'text-[#1a1a2e]/55';
 const addButtonClassName =
-  'h-10 rounded-[12px] bg-[#66B5F3] px-4 text-sm font-bold text-white hover:bg-[#5aa3dd]';
+  '!h-10 !rounded-[12px] !bg-[#66B5F3] !px-4 !text-sm !font-bold !text-white hover:!bg-[#5aa3dd]';
 
 export function ProductVariantManager({
   product,
@@ -424,14 +424,14 @@ export function ProductVariantManager({
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <Button
                       intent={isExpanded ? 'secondary' : 'neutral'}
-                      className="rounded-[10px] border-0 bg-[#f5f3e8] px-4 text-sm font-bold text-[#1a1a2e] hover:bg-[#ece8d9]"
+                      className="!rounded-[10px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]"
                       onClick={() => handleToggleVariant(variant.id)}
                     >
                       {isExpanded ? '접기' : '펼치기'}
                     </Button>
                     <Button
                       intent="danger"
-                      className="rounded-[10px] border border-[#f3d6d6] bg-white px-3 text-[#ca2a30] hover:bg-[#fff0f0]"
+                      className="!rounded-[10px] !border !border-[#f3d6d6] !bg-white !px-3 !text-[#ca2a30] hover:!bg-[#fff0f0]"
                       loading={deleteVariant.isPending}
                       onClick={() => handleDeleteVariant(variant.id, variant.title)}
                       aria-label={`${variant.title} 옵션 삭제`}

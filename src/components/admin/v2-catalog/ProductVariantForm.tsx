@@ -372,15 +372,15 @@ const compactBlueSectionClassName =
 
 function getCompactStatusButtonClass(active: boolean, status: V2VariantStatus): string {
   if (!active) {
-    return "h-9 flex-1 rounded-[8px] border-0 bg-transparent px-3 text-xs font-bold text-[#9b9788] hover:bg-[#f5f3e8]";
+    return "!h-9 !flex-1 !rounded-[8px] !border-0 !bg-transparent !px-3 !text-xs !font-bold !text-[#9b9788] hover:!bg-[#f5f3e8]";
   }
   if (status === "ACTIVE") {
-    return "h-9 flex-1 rounded-[8px] border-0 bg-[#297c3b] px-3 text-xs font-bold text-white hover:bg-[#297c3b]";
+    return "!h-9 !flex-1 !rounded-[8px] !border-0 !bg-[#297c3b] !px-3 !text-xs !font-bold !text-white hover:!bg-[#297c3b]";
   }
   if (status === "DRAFT") {
-    return "h-9 flex-1 rounded-[8px] border-0 bg-[#a35200] px-3 text-xs font-bold text-white hover:bg-[#a35200]";
+    return "!h-9 !flex-1 !rounded-[8px] !border-0 !bg-[#a35200] !px-3 !text-xs !font-bold !text-white hover:!bg-[#a35200]";
   }
-  return "h-9 flex-1 rounded-[8px] border-0 bg-[#6f6a5e] px-3 text-xs font-bold text-white hover:bg-[#6f6a5e]";
+  return "!h-9 !flex-1 !rounded-[8px] !border-0 !bg-[#6f6a5e] !px-3 !text-xs !font-bold !text-white hover:!bg-[#6f6a5e]";
 }
 
 export function ProductVariantForm({
