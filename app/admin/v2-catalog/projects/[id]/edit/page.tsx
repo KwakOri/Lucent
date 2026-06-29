@@ -274,7 +274,7 @@ export default function V2CatalogProjectEditPage() {
           프로젝트 정보를 불러오지 못했습니다.
         </div>
         <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/projects')}>
-          목록으로
+          프로젝트 목록
         </Button>
       </div>
     );
@@ -288,15 +288,15 @@ export default function V2CatalogProjectEditPage() {
           <p className="mt-1 text-sm text-gray-500">{project.name} 정보를 수정합니다.</p>
         </div>
         <div className="mt-3 sm:mt-0">
-          <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/projects')}>
-            목록으로
+          <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}`)}>
+            상세로 돌아가기
           </Button>
         </div>
       </div>
 
       <ProjectEditForm
         project={project}
-        onCancel={() => router.push('/admin/v2-catalog/projects')}
+        onCancel={() => router.push(`/admin/v2-catalog/projects/${project.id}`)}
       />
     </div>
   );
