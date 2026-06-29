@@ -6,6 +6,7 @@ import {
   FileText,
   ImageIcon,
   Package,
+  RotateCcw,
   ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
@@ -18,6 +19,12 @@ type MoreEntry = {
 };
 
 const moreEntries: MoreEntry[] = [
+  {
+    title: '환불 관리',
+    description: '환불 가능 주문을 확인하고 수동 환불을 처리합니다.',
+    href: '/admin/refunds',
+    icon: RotateCcw,
+  },
   {
     title: '로그 조회',
     description: 'legacy와 v2 운영/감사 로그를 확인합니다.',
