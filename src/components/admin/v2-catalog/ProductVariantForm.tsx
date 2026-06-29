@@ -124,6 +124,22 @@ function parseOptionalBasePrice(value: string): number | null {
   return parseNonNegativeInteger(trimmed, "기본 판매가");
 }
 
+function normalizePriceInputValue(value: string): string {
+  const digitsOnly = value.replace(/\D/g, "");
+  if (!digitsOnly) {
+    return "";
+  }
+  return digitsOnly.replace(/^0+(?=\d)/, "");
+}
+
+function formatPriceInputValue(value: string): string {
+  const normalized = normalizePriceInputValue(value);
+  if (!normalized) {
+    return "";
+  }
+  return normalized.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 function parseNullableNonNegativeInteger(
   value: string,
   fieldName: string,
@@ -1407,15 +1423,15 @@ export function ProductVariantForm({
               >
                 <Input
                   id="variant-base-price"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={basePrice}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9,]*"
+                  value={formatPriceInputValue(basePrice)}
                   onChange={(event) => {
                     setBasePriceTouched(true);
-                    setBasePrice(event.target.value);
+                    setBasePrice(normalizePriceInputValue(event.target.value));
                   }}
-                  placeholder="예: 10000"
+                  placeholder="예: 10,000"
                   disabled={isBasePricingLoading}
                 />
               </FormField>
