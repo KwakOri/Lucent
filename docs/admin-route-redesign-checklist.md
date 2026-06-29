@@ -101,7 +101,7 @@ Legend:
 
 ### V2 Products
 
-- [ ] `/admin/v2-catalog/products`
+- [x] `/admin/v2-catalog/products`
 - [ ] `/admin/v2-catalog/products/new`
 - [x] `/admin/v2-catalog/products/[id]` - product detail renewed
 - [ ] `/admin/v2-catalog/products/[id]/edit`
@@ -111,7 +111,7 @@ Legend:
 
 ### V2 Campaigns
 
-- [ ] `/admin/v2-catalog/campaigns`
+- [x] `/admin/v2-catalog/campaigns`
 - [ ] `/admin/v2-catalog/campaigns/new`
 - [ ] `/admin/v2-catalog/campaigns/[id]`
 - [ ] `/admin/v2-catalog/campaigns/[id]/edit`
@@ -122,12 +122,12 @@ Legend:
 
 ### V2 Catalog Misc
 
-- [ ] `/admin/v2-catalog/artists`
+- [x] `/admin/v2-catalog/artists`
 - [ ] `/admin/v2-catalog/artists/new`
 - [ ] `/admin/v2-catalog/artists/[id]/edit`
-- [ ] `/admin/v2-catalog/assets`
-- [ ] `/admin/v2-catalog/bundles`
-- [ ] `/admin/v2-catalog/readiness`
+- [x] `/admin/v2-catalog/assets`
+- [x] `/admin/v2-catalog/bundles`
+- [x] `/admin/v2-catalog/readiness`
 
 ### V2 Ops
 
