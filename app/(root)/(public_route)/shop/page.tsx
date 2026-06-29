@@ -44,6 +44,10 @@ function buildDisplayPriceSnapshot(displayPrice: V2ShopDisplayPrice | null) {
     compare_at_amount: displayPrice.compare_at_amount,
     currency_code: displayPrice.currency_code,
     source: displayPrice.source,
+    campaign_id: displayPrice.campaign_id ?? null,
+    selling_campaign_id: displayPrice.selling_campaign_id ?? null,
+    price_list_id: displayPrice.price_list_id ?? null,
+    price_list_item_id: displayPrice.price_list_item_id ?? null,
   };
 }
 
@@ -310,16 +314,21 @@ function ShopPageContent() {
     setAddingToCart(item.product_id);
 
     try {
+      const cartCampaignId =
+        selectedCampaignId ||
+        item.display_price?.selling_campaign_id ||
+        item.display_price?.campaign_id ||
+        null;
       await addCartItem.mutateAsync({
         variant_id: item.primary_variant_id,
         quantity: 1,
-        campaign_id: selectedCampaignId || null,
+        campaign_id: cartCampaignId,
         display_price_snapshot: buildDisplayPriceSnapshot(item.display_price),
         added_via: "SHOP_LIST",
         metadata: {
           source: "shop-list",
           product_id: item.product_id,
-          campaign_id: selectedCampaignId || null,
+          campaign_id: cartCampaignId,
         },
       });
 

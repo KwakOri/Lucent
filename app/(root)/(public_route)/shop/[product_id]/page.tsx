@@ -56,6 +56,10 @@ function buildDisplayPriceSnapshot(displayPrice: V2ShopDisplayPrice | null) {
     compare_at_amount: displayPrice.compare_at_amount,
     currency_code: displayPrice.currency_code,
     source: displayPrice.source,
+    campaign_id: displayPrice.campaign_id ?? null,
+    selling_campaign_id: displayPrice.selling_campaign_id ?? null,
+    price_list_id: displayPrice.price_list_id ?? null,
+    price_list_item_id: displayPrice.price_list_item_id ?? null,
   };
 }
 
@@ -266,10 +270,15 @@ export default function ProductDetailPage() {
 
     setPendingAction(buyNow ? "BUY_NOW" : "ADD");
     try {
+      const cartCampaignId =
+        selectedCampaignId ||
+        selectedVariant.display_price?.selling_campaign_id ||
+        selectedVariant.display_price?.campaign_id ||
+        null;
       await addCartItem.mutateAsync({
         variant_id: selectedVariant.id,
         quantity: normalizedQuantity,
-        campaign_id: selectedCampaignId || null,
+        campaign_id: cartCampaignId,
         display_price_snapshot: buildDisplayPriceSnapshot(
           selectedVariant.display_price,
         ),
@@ -277,7 +286,7 @@ export default function ProductDetailPage() {
         metadata: {
           source: "shop-detail",
           product_id: data?.product.id || productId,
-          campaign_id: selectedCampaignId || null,
+          campaign_id: cartCampaignId,
         },
       });
 

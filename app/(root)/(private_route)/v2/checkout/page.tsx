@@ -434,12 +434,10 @@ export default function V2CheckoutPage() {
       return;
     }
 
-    const ensuredQuote =
-      quoteSnapshot ||
-      (await runCheckoutValidation({
-        shippingPostcodeOverride: shippingPostcode,
-        silent: true,
-      }));
+    const ensuredQuote = await runCheckoutValidation({
+      shippingPostcodeOverride: shippingPostcode,
+      silent: true,
+    });
     if (!ensuredQuote) {
       return;
     }
