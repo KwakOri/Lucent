@@ -12,6 +12,7 @@ import {
   FolderOpen,
   House,
   ImageIcon,
+  LogOut,
   Menu,
   Megaphone,
   Newspaper,
@@ -266,30 +267,9 @@ export function AdminSidebar() {
           </span>
         </button>
 
-        <Link
-          href="/"
-          className={`
-            flex h-14 items-center justify-start rounded-2xl bg-white pl-4 pr-4 text-sm font-semibold text-text-secondary
-            shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-primary-700
-            ${desktopExpanded ? 'w-48' : 'w-14'}
-          `}
-        >
-          <span className="flex w-6 shrink-0 justify-center">
-            <House className="h-5 w-5" aria-hidden />
-          </span>
-          <span
-            className={`
-              overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
-              ${desktopExpanded ? 'ml-3 max-w-[9rem] opacity-100' : 'ml-0 max-w-0 opacity-0'}
-            `}
-          >
-            홈으로
-          </span>
-        </Link>
-
         <nav
           className={`
-            overflow-hidden rounded-[28px] bg-white p-3 shadow-lg ring-1 ring-neutral-200/90
+            flex flex-col overflow-hidden rounded-[28px] bg-white p-3 shadow-lg ring-1 ring-neutral-200/90
             transition-[width] duration-300 ease-out
             ${desktopExpanded ? 'w-60' : 'w-[4.5rem]'}
           `}
@@ -338,6 +318,24 @@ export function AdminSidebar() {
               );
             })}
           </ul>
+          <div className="mt-3 border-t border-neutral-100 pt-3">
+            <Link
+              href="/"
+              className="flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold text-neutral-500 transition-colors hover:bg-primary-50 hover:text-primary-700"
+            >
+              <span className="flex w-6 shrink-0 justify-center">
+                <LogOut className="h-5 w-5" aria-hidden />
+              </span>
+              <span
+                className={`
+                  overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
+                  ${desktopExpanded ? 'ml-3 max-w-[11rem] opacity-100' : 'ml-0 max-w-0 opacity-0'}
+                `}
+              >
+                나가기
+              </span>
+            </Link>
+          </div>
         </nav>
       </div>
     </>
