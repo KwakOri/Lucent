@@ -36,41 +36,47 @@ type NavigationSection = {
   items: NavigationItem[];
 };
 
+const primaryNavigationItems: NavigationItem[] = [
+  { name: '대시보드', href: '/admin', icon: House },
+  { name: '주문 조회', href: '/admin/orders', icon: ShoppingCart },
+  {
+    name: '주문 이행 관리',
+    href: '/admin/production-shipping',
+    icon: ArrowLeftRight,
+  },
+  { name: '환불 관리', href: '/admin/refunds', icon: RotateCcw },
+  { name: '프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderOpen },
+  { name: '아티스트 관리', href: '/admin/v2-catalog/artists', icon: Users },
+  { name: '상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBag },
+  { name: '캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: Megaphone },
+  { name: '게시글 관리', href: '/admin/content/posts', icon: Newspaper },
+  { name: '통계', href: '/admin/v2-ops/stats', icon: BarChart3 },
+];
+
+const moreNavigationItems: NavigationItem[] = [
+  { name: '로그 조회', href: '/admin/logs', icon: FileText },
+  { name: '번들 관리', href: '/admin/v2-catalog/bundles', icon: Package },
+  { name: '전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowLeftRight },
+  { name: '미디어·에셋', href: '/admin/v2-catalog/assets', icon: ImageIcon },
+  { name: 'Admin Ops', href: '/admin/v2-ops', icon: ShieldCheck },
+  { name: '권한 관리', href: '/admin/v2-ops/rbac', icon: ShieldCheck },
+  { name: '레거시', href: '/admin/legacy', icon: Archive },
+];
+
+const moreNavigationItem: NavigationItem = { name: '기타', href: '/admin/more', icon: Menu };
+
 const navigationSections: NavigationSection[] = [
   {
     title: '주요 관리',
-    items: [
-      { name: '대시보드', href: '/admin', icon: House },
-      { name: '주문 조회', href: '/admin/orders', icon: ShoppingCart },
-      {
-        name: '주문 이행 관리',
-        href: '/admin/production-shipping',
-        icon: ArrowLeftRight,
-      },
-      { name: '환불 관리', href: '/admin/refunds', icon: RotateCcw },
-      { name: '프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderOpen },
-      { name: '아티스트 관리', href: '/admin/v2-catalog/artists', icon: Users },
-      { name: '상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBag },
-      { name: '캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: Megaphone },
-      { name: '게시글 관리', href: '/admin/content/posts', icon: Newspaper },
-      { name: '통계', href: '/admin/v2-ops/stats', icon: BarChart3 },
-    ],
+    items: primaryNavigationItems,
   },
   {
     title: '기타',
-    items: [
-      { name: '로그 조회', href: '/admin/logs', icon: FileText },
-      { name: '번들 관리', href: '/admin/v2-catalog/bundles', icon: Package },
-      { name: '전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowLeftRight },
-      { name: '미디어·에셋', href: '/admin/v2-catalog/assets', icon: ImageIcon },
-      { name: 'Admin Ops', href: '/admin/v2-ops', icon: ShieldCheck },
-      { name: '권한 관리', href: '/admin/v2-ops/rbac', icon: ShieldCheck },
-      { name: '레거시', href: '/admin/legacy', icon: Archive },
-    ],
+    items: [moreNavigationItem],
   },
 ];
 
-const desktopNavigationItems = navigationSections.flatMap((section) => section.items);
+const desktopNavigationItems = [...primaryNavigationItems, moreNavigationItem];
 const legacyAdminPathPrefixes = ['/admin/artists', '/admin/projects', '/admin/products'];
 
 function isLegacyAdminPath(pathname: string): boolean {
@@ -79,13 +85,9 @@ function isLegacyAdminPath(pathname: string): boolean {
   );
 }
 
-function isNavItemActive(pathname: string, href: string): boolean {
+function isDirectNavItemActive(pathname: string, href: string): boolean {
   if (pathname === href) {
     return true;
-  }
-
-  if (href === '/admin/legacy') {
-    return isLegacyAdminPath(pathname);
   }
 
   // 대시보드는 해당 경로에서만 활성화합니다.
@@ -97,6 +99,23 @@ function isNavItemActive(pathname: string, href: string): boolean {
   }
 
   return pathname.startsWith(href);
+}
+
+function isMoreNavItemActive(pathname: string): boolean {
+  if (pathname === moreNavigationItem.href || isLegacyAdminPath(pathname)) {
+    return true;
+  }
+  if (primaryNavigationItems.some((item) => isDirectNavItemActive(pathname, item.href))) {
+    return false;
+  }
+  return moreNavigationItems.some((item) => isDirectNavItemActive(pathname, item.href));
+}
+
+function isNavItemActive(pathname: string, href: string): boolean {
+  if (href === moreNavigationItem.href) {
+    return isMoreNavItemActive(pathname);
+  }
+  return isDirectNavItemActive(pathname, href);
 }
 
 export function AdminSidebar() {
@@ -278,7 +297,7 @@ export function AdminSidebar() {
           <ul
             role="list"
             className={`
-              scrollbar-none max-h-[calc(100vh-12rem)] space-y-1 overflow-y-auto
+              scrollbar-none max-h-[calc(100vh-17rem)] space-y-1 overflow-y-auto
               ${desktopExpanded ? 'pr-1' : 'pr-0'}
             `}
           >
