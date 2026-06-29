@@ -1,11 +1,23 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import { Select } from '@/components/ui/select';
+import {
+  AdminPageHeader,
+  adminButtonClass,
+  adminInputClass,
+  adminLegacyBridgeClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+  adminTableBodyClass,
+  adminTableContainerClass,
+  adminTableHeadCellClass,
+  adminTableHeadClass,
+} from '@/src/components/admin/AdminDesignSystem';
+import { V2OpsNavTabs } from '@/src/components/admin/v2-ops/V2OpsNavTabs';
 import {
   type ListV2AdminSalesStatsParams,
   type V2AdminSalesStatsPreset,
@@ -84,6 +96,13 @@ function formatCurrency(value: number, currencyCode: string): string {
     return `${formatNumber(value)}원`;
   }
 }
+
+const statCardClassName = 'rounded-[16px] border border-[#e7e3d3] bg-white p-4';
+const statLabelClassName = 'text-xs font-black uppercase tracking-wide text-[#1a1a2e]/40';
+const statValueClassName = 'mt-1 text-2xl font-black text-[#1a1a2e]';
+const tableSectionClassName = 'rounded-[22px] border border-[#e7e3d3] bg-white p-4 shadow-none';
+const tableCellClassName = 'px-3 py-2 text-[#1a1a2e]';
+const tableCellRightClassName = `${tableCellClassName} text-right`;
 
 function toSalesStatsParams(filters: FilterState): ListV2AdminSalesStatsParams {
   const params: ListV2AdminSalesStatsParams = {
@@ -294,31 +313,24 @@ export default function V2AdminSalesStatsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">v2 통계</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            프로젝트/캠페인 매출과 정산 기준 데이터를 조회합니다.
-          </p>
-        </div>
-        <Link
-          href="/admin/v2-ops"
-          className="text-sm font-semibold text-blue-600 hover:text-blue-700"
-        >
-          v2 Admin Ops로 돌아가기
-        </Link>
-      </div>
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="v2 ops"
+        title="v2 통계"
+        description="프로젝트/캠페인 매출과 정산 기준 데이터를 조회합니다."
+      />
 
-      <section className="rounded-lg border border-gray-200 bg-white p-4">
+      <V2OpsNavTabs />
+
+      <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-4 shadow-none">
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" intent="secondary" size="sm" onClick={() => handlePresetApply('LAST_7_DAYS')}>
+          <Button type="button" intent="secondary" size="sm" className={adminButtonClass} onClick={() => handlePresetApply('LAST_7_DAYS')}>
             최근 7일
           </Button>
-          <Button type="button" intent="secondary" size="sm" onClick={() => handlePresetApply('LAST_30_DAYS')}>
+          <Button type="button" intent="secondary" size="sm" className={adminButtonClass} onClick={() => handlePresetApply('LAST_30_DAYS')}>
             최근 30일
           </Button>
-          <Button type="button" intent="secondary" size="sm" onClick={() => handlePresetApply('CUSTOM')}>
+          <Button type="button" intent="secondary" size="sm" className={adminButtonClass} onClick={() => handlePresetApply('CUSTOM')}>
             기간 직접 선택
           </Button>
         </div>
@@ -335,6 +347,7 @@ export default function V2AdminSalesStatsPage() {
                 from: event.target.value,
               }))
             }
+            className={adminInputClass}
           />
           <Input
             type="date"
@@ -347,6 +360,7 @@ export default function V2AdminSalesStatsPage() {
                 to: event.target.value,
               }))
             }
+            className={adminInputClass}
           />
           <Input
             type="text"
@@ -356,6 +370,7 @@ export default function V2AdminSalesStatsPage() {
             onChange={(event) =>
               setDraft((prev) => ({ ...prev, salesChannelId: event.target.value }))
             }
+            className={adminInputClass}
           />
           <Select
             size="sm"
@@ -365,6 +380,7 @@ export default function V2AdminSalesStatsPage() {
             onChange={(event) =>
               setDraft((prev) => ({ ...prev, projectId: event.target.value }))
             }
+            className={adminSelectClass}
           />
           <Select
             size="sm"
@@ -374,6 +390,7 @@ export default function V2AdminSalesStatsPage() {
             onChange={(event) =>
               setDraft((prev) => ({ ...prev, campaignId: event.target.value }))
             }
+            className={adminSelectClass}
           />
           <Input
             type="text"
@@ -383,28 +400,29 @@ export default function V2AdminSalesStatsPage() {
             onChange={(event) =>
               setDraft((prev) => ({ ...prev, campaignType: event.target.value }))
             }
+            className={adminInputClass}
           />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" size="sm" onClick={handleSearch}>
+          <Button type="button" size="sm" className={adminPrimaryButtonClass} onClick={handleSearch}>
             조회
           </Button>
-          <Button type="button" intent="secondary" size="sm" onClick={handleDownload} disabled={!data}>
+          <Button type="button" intent="secondary" size="sm" className={adminButtonClass} onClick={handleDownload} disabled={!data}>
             CSV 다운로드
           </Button>
-          {isFetching ? <span className="text-sm text-gray-500">갱신 중...</span> : null}
+          {isFetching ? <span className="text-sm font-medium text-[#1a1a2e]/50">갱신 중...</span> : null}
         </div>
       </section>
 
       {isLoading ? (
-        <div className="rounded-lg border border-gray-200 bg-white p-8">
+        <div className="rounded-[22px] border border-[#e7e3d3] bg-white p-8">
           <Loading text="통계를 불러오는 중입니다..." />
         </div>
       ) : null}
 
       {statsError ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
           {getErrorMessage(statsError)}
         </div>
       ) : null}
@@ -412,67 +430,67 @@ export default function V2AdminSalesStatsPage() {
       {data ? (
         <>
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <p className="text-xs font-semibold text-gray-500">주문 수</p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">{formatNumber(data.summary.orders_count)}</p>
+            <div className={statCardClassName}>
+              <p className={statLabelClassName}>주문 수</p>
+              <p className={statValueClassName}>{formatNumber(data.summary.orders_count)}</p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <p className="text-xs font-semibold text-gray-500">판매 수량</p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">{formatNumber(data.summary.units_sold)}</p>
+            <div className={statCardClassName}>
+              <p className={statLabelClassName}>판매 수량</p>
+              <p className={statValueClassName}>{formatNumber(data.summary.units_sold)}</p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <p className="text-xs font-semibold text-gray-500">주문 매출</p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
+            <div className={statCardClassName}>
+              <p className={statLabelClassName}>주문 매출</p>
+              <p className={statValueClassName}>
                 {formatCurrency(data.summary.order_gross_amount, currencyCode)}
               </p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <p className="text-xs font-semibold text-gray-500">결제 매출</p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
+            <div className={statCardClassName}>
+              <p className={statLabelClassName}>결제 매출</p>
+              <p className={statValueClassName}>
                 {formatCurrency(data.summary.captured_amount, currencyCode)}
               </p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <p className="text-xs font-semibold text-gray-500">환불 차감</p>
-              <p className="mt-1 text-2xl font-bold text-red-600">
+            <div className={statCardClassName}>
+              <p className={statLabelClassName}>환불 차감</p>
+              <p className="mt-1 text-2xl font-black text-[#ca2a30]">
                 {formatCurrency(data.summary.refund_amount, currencyCode)}
               </p>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <p className="text-xs font-semibold text-gray-500">정산 기준 순매출</p>
-              <p className="mt-1 text-2xl font-bold text-blue-700">
+            <div className={statCardClassName}>
+              <p className={statLabelClassName}>정산 기준 순매출</p>
+              <p className="mt-1 text-2xl font-black text-[#4a88b9]">
                 {formatCurrency(data.summary.net_settlement_amount, currencyCode)}
               </p>
             </div>
           </section>
 
-          <section className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="text-lg font-semibold text-gray-900">일별 추이</h2>
-            <div className="mt-3 overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <section className={tableSectionClassName}>
+            <h2 className="text-lg font-black text-[#1a1a2e]">일별 추이</h2>
+            <div className={`mt-3 ${adminTableContainerClass}`}>
+              <table className="min-w-full text-sm">
+                <thead className={adminTableHeadClass}>
                   <tr>
-                    <th className="px-3 py-2">날짜</th>
-                    <th className="px-3 py-2 text-right">주문수</th>
-                    <th className="px-3 py-2 text-right">판매수량</th>
-                    <th className="px-3 py-2 text-right">주문매출</th>
-                    <th className="px-3 py-2 text-right">결제매출</th>
-                    <th className="px-3 py-2 text-right">환불</th>
-                    <th className="px-3 py-2 text-right">순매출</th>
+                    <th className={adminTableHeadCellClass}>날짜</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>주문수</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>판매수량</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>주문매출</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>결제매출</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>환불</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>순매출</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className={adminTableBodyClass}>
                   {data.daily.map((row) => (
                     <tr key={row.date}>
-                      <td className="px-3 py-2">{row.date}</td>
-                      <td className="px-3 py-2 text-right">{formatNumber(row.orders_count)}</td>
-                      <td className="px-3 py-2 text-right">{formatNumber(row.units_sold)}</td>
-                      <td className="px-3 py-2 text-right">{formatCurrency(row.order_gross_amount, currencyCode)}</td>
-                      <td className="px-3 py-2 text-right">{formatCurrency(row.captured_amount, currencyCode)}</td>
-                      <td className="px-3 py-2 text-right text-red-600">
+                      <td className={tableCellClassName}>{row.date}</td>
+                      <td className={tableCellRightClassName}>{formatNumber(row.orders_count)}</td>
+                      <td className={tableCellRightClassName}>{formatNumber(row.units_sold)}</td>
+                      <td className={tableCellRightClassName}>{formatCurrency(row.order_gross_amount, currencyCode)}</td>
+                      <td className={tableCellRightClassName}>{formatCurrency(row.captured_amount, currencyCode)}</td>
+                      <td className="px-3 py-2 text-right text-[#ca2a30]">
                         {formatCurrency(row.refund_amount, currencyCode)}
                       </td>
-                      <td className="px-3 py-2 text-right font-semibold">
+                      <td className="px-3 py-2 text-right font-bold text-[#1a1a2e]">
                         {formatCurrency(row.net_settlement_amount, currencyCode)}
                       </td>
                     </tr>
@@ -482,33 +500,33 @@ export default function V2AdminSalesStatsPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="text-lg font-semibold text-gray-900">프로젝트별</h2>
-            <div className="mt-3 overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <section className={tableSectionClassName}>
+            <h2 className="text-lg font-black text-[#1a1a2e]">프로젝트별</h2>
+            <div className={`mt-3 ${adminTableContainerClass}`}>
+              <table className="min-w-full text-sm">
+                <thead className={adminTableHeadClass}>
                   <tr>
-                    <th className="px-3 py-2">프로젝트</th>
-                    <th className="px-3 py-2 text-right">주문수</th>
-                    <th className="px-3 py-2 text-right">판매수량</th>
-                    <th className="px-3 py-2 text-right">주문매출</th>
-                    <th className="px-3 py-2 text-right">결제매출</th>
-                    <th className="px-3 py-2 text-right">환불</th>
-                    <th className="px-3 py-2 text-right">순매출</th>
+                    <th className={adminTableHeadCellClass}>프로젝트</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>주문수</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>판매수량</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>주문매출</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>결제매출</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>환불</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>순매출</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className={adminTableBodyClass}>
                   {data.by_project.map((row) => (
                     <tr key={row.project_id || row.project_name}>
-                      <td className="px-3 py-2">{row.project_name}</td>
-                      <td className="px-3 py-2 text-right">{formatNumber(row.order_count)}</td>
-                      <td className="px-3 py-2 text-right">{formatNumber(row.units_sold)}</td>
-                      <td className="px-3 py-2 text-right">{formatCurrency(row.order_gross_amount, currencyCode)}</td>
-                      <td className="px-3 py-2 text-right">{formatCurrency(row.captured_amount, currencyCode)}</td>
-                      <td className="px-3 py-2 text-right text-red-600">
+                      <td className={tableCellClassName}>{row.project_name}</td>
+                      <td className={tableCellRightClassName}>{formatNumber(row.order_count)}</td>
+                      <td className={tableCellRightClassName}>{formatNumber(row.units_sold)}</td>
+                      <td className={tableCellRightClassName}>{formatCurrency(row.order_gross_amount, currencyCode)}</td>
+                      <td className={tableCellRightClassName}>{formatCurrency(row.captured_amount, currencyCode)}</td>
+                      <td className="px-3 py-2 text-right text-[#ca2a30]">
                         {formatCurrency(row.refund_amount, currencyCode)}
                       </td>
-                      <td className="px-3 py-2 text-right font-semibold">
+                      <td className="px-3 py-2 text-right font-bold text-[#1a1a2e]">
                         {formatCurrency(row.net_settlement_amount, currencyCode)}
                       </td>
                     </tr>
@@ -518,35 +536,35 @@ export default function V2AdminSalesStatsPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="text-lg font-semibold text-gray-900">캠페인별</h2>
-            <div className="mt-3 overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <section className={tableSectionClassName}>
+            <h2 className="text-lg font-black text-[#1a1a2e]">캠페인별</h2>
+            <div className={`mt-3 ${adminTableContainerClass}`}>
+              <table className="min-w-full text-sm">
+                <thead className={adminTableHeadClass}>
                   <tr>
-                    <th className="px-3 py-2">캠페인</th>
-                    <th className="px-3 py-2">유형</th>
-                    <th className="px-3 py-2 text-right">주문수</th>
-                    <th className="px-3 py-2 text-right">판매수량</th>
-                    <th className="px-3 py-2 text-right">주문매출</th>
-                    <th className="px-3 py-2 text-right">결제매출</th>
-                    <th className="px-3 py-2 text-right">환불</th>
-                    <th className="px-3 py-2 text-right">순매출</th>
+                    <th className={adminTableHeadCellClass}>캠페인</th>
+                    <th className={adminTableHeadCellClass}>유형</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>주문수</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>판매수량</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>주문매출</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>결제매출</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>환불</th>
+                    <th className={`${adminTableHeadCellClass} text-right`}>순매출</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className={adminTableBodyClass}>
                   {data.by_campaign.map((row) => (
                     <tr key={row.campaign_id || row.campaign_name}>
-                      <td className="px-3 py-2">{row.campaign_name}</td>
-                      <td className="px-3 py-2">{row.campaign_type || '-'}</td>
-                      <td className="px-3 py-2 text-right">{formatNumber(row.order_count)}</td>
-                      <td className="px-3 py-2 text-right">{formatNumber(row.units_sold)}</td>
-                      <td className="px-3 py-2 text-right">{formatCurrency(row.order_gross_amount, currencyCode)}</td>
-                      <td className="px-3 py-2 text-right">{formatCurrency(row.captured_amount, currencyCode)}</td>
-                      <td className="px-3 py-2 text-right text-red-600">
+                      <td className={tableCellClassName}>{row.campaign_name}</td>
+                      <td className={tableCellClassName}>{row.campaign_type || '-'}</td>
+                      <td className={tableCellRightClassName}>{formatNumber(row.order_count)}</td>
+                      <td className={tableCellRightClassName}>{formatNumber(row.units_sold)}</td>
+                      <td className={tableCellRightClassName}>{formatCurrency(row.order_gross_amount, currencyCode)}</td>
+                      <td className={tableCellRightClassName}>{formatCurrency(row.captured_amount, currencyCode)}</td>
+                      <td className="px-3 py-2 text-right text-[#ca2a30]">
                         {formatCurrency(row.refund_amount, currencyCode)}
                       </td>
-                      <td className="px-3 py-2 text-right font-semibold">
+                      <td className="px-3 py-2 text-right font-bold text-[#1a1a2e]">
                         {formatCurrency(row.net_settlement_amount, currencyCode)}
                       </td>
                     </tr>
@@ -556,8 +574,8 @@ export default function V2AdminSalesStatsPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            <p className="font-semibold">정산 계산 기준</p>
+          <section className="rounded-[16px] border border-[#d9e6f2] bg-[#f0f7ff] p-4 text-sm font-medium text-[#1a1a2e]">
+            <p className="font-black">정산 계산 기준</p>
             <p className="mt-1">
               판매 지표는 <code>placed_at</code> 기준, 정산 지표는 financial event의 <code>occurred_at</code> 기준으로 계산됩니다.
             </p>

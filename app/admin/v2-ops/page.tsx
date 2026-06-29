@@ -6,6 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input, Textarea } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import {
+  AdminPageHeader,
+  AdminStatCard,
+  adminLegacyBridgeClass,
+} from '@/src/components/admin/AdminDesignSystem';
+import {
   useV2AdminActionCatalog,
   useV2AdminActionLogs,
   useV2AdminApprovals,
@@ -607,50 +612,34 @@ export default function V2AdminOpsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">V2 Admin / Ops</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Action 기반 운영 큐 조회와 고위험 액션 실행 화면입니다.
-        </p>
-      </div>
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="v2 ops"
+        title="V2 Admin / Ops"
+        description="Action 기반 운영 큐 조회와 고위험 액션 실행 화면입니다."
+      />
 
       <V2OpsNavTabs />
 
       {message ? (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-[14px] border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
           {message}
         </div>
       ) : null}
       {errorMessage ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       ) : null}
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="text-sm text-gray-500">내 권한 수</div>
-          <div className="mt-2 text-2xl font-semibold text-gray-900">
-            {myRbac?.permissions?.length ?? 0}
-          </div>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="text-sm text-gray-500">주문 큐</div>
-          <div className="mt-2 text-2xl font-semibold text-gray-900">{queueSummary.orders}</div>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="text-sm text-gray-500">Fulfillment 큐</div>
-          <div className="mt-2 text-2xl font-semibold text-gray-900">
-            {queueSummary.fulfillment}
-          </div>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="text-sm text-gray-500">승인 대기</div>
-          <div className="mt-2 text-2xl font-semibold text-amber-600">
-            {queueSummary.approvals}
-          </div>
-        </div>
+        <AdminStatCard label="내 권한 수" value={myRbac?.permissions?.length ?? 0} />
+        <AdminStatCard label="주문 큐" value={queueSummary.orders} />
+        <AdminStatCard label="Fulfillment 큐" value={queueSummary.fulfillment} />
+        <AdminStatCard
+          label="승인 대기"
+          value={<span className="text-[#a35200]">{queueSummary.approvals}</span>}
+        />
       </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
