@@ -15,6 +15,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  AdminStatCard,
+  AdminSurface,
+  adminButtonClass,
+  adminPrimaryButtonClass,
+  adminTableBodyClass,
+  adminTableContainerClass,
+  adminTableHeadCellClass,
+  adminTableHeadClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type {
   V2ProductStatus,
   V2ProjectStatus,
@@ -190,29 +201,24 @@ export default function V2CatalogProjectDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <Button intent="ghost" size="sm" onClick={() => router.push('/admin/v2-catalog/projects')}>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="project detail"
+        title={project.name}
+        description={project.description || '등록된 프로젝트 설명이 없습니다.'}
+        actions={
+          <>
+          <Button
+            intent="neutral"
+            className={adminButtonClass}
+            onClick={() => router.push('/admin/v2-catalog/projects')}
+          >
             <ArrowLeft className="h-4 w-4" />
             프로젝트 목록
           </Button>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Badge intent={getProjectStatusIntent(project.status)} size="md">
-              {project.status}
-            </Badge>
-            <Badge intent="default" size="md">
-              /{project.slug}
-            </Badge>
-          </div>
-          <h1 className="mt-3 text-2xl font-bold text-gray-900">{project.name}</h1>
-          <p className="mt-1 max-w-3xl text-sm text-gray-500">
-            {project.description || '등록된 프로젝트 설명이 없습니다.'}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
           <Button
             intent="neutral"
+            className={adminButtonClass}
             onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}/edit`)}
           >
             <Pencil className="h-4 w-4" />
@@ -220,17 +226,28 @@ export default function V2CatalogProjectDetailPage() {
           </Button>
           <Button
             intent="neutral"
+            className={adminButtonClass}
             aria-label="프로젝트 설정"
             onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}/settings`)}
           >
             <Settings className="h-4 w-4" />
             설정
           </Button>
-        </div>
+          </>
+        }
+      />
+
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <Badge intent={getProjectStatusIntent(project.status)} size="md">
+          {project.status}
+        </Badge>
+        <Badge intent="default" size="md" className="bg-[#f5f3e8] text-[#1a1a2e]/65">
+          /{project.slug}
+        </Badge>
       </div>
 
       {project.cover_media_asset?.public_url ? (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="overflow-hidden rounded-[22px] border border-[#e7e3d3] bg-white">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={project.cover_media_asset.public_url}
@@ -241,40 +258,30 @@ export default function V2CatalogProjectDetailPage() {
       ) : null}
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">운영중 캠페인</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{operatingCampaignCount}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">전체 캠페인</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{relatedCampaigns.length}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">상품</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{productSummary.total}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">최근 수정</p>
-          <p className="mt-2 text-sm font-semibold text-gray-900">
-            {formatDateTime(project.updated_at)}
-          </p>
-        </div>
+        <AdminStatCard label="운영중 캠페인" value={operatingCampaignCount} />
+        <AdminStatCard label="전체 캠페인" value={relatedCampaigns.length} />
+        <AdminStatCard label="상품" value={productSummary.total} />
+        <AdminStatCard
+          label="최근 수정"
+          value={<span className="text-base">{formatDateTime(project.updated_at)}</span>}
+        />
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <AdminSurface padding="md">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <Megaphone className="h-5 w-5 text-gray-500" />
-              <h2 className="text-lg font-semibold text-gray-900">캠페인</h2>
+              <Megaphone className="h-5 w-5 text-[#a35200]" />
+              <h2 className="text-lg font-black text-[#1a1a2e]">캠페인</h2>
             </div>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
               기본 캠페인과 프로젝트에 연결된 판매 정책입니다.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
               intent="neutral"
+              className={adminButtonClass}
               onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}/campaigns`)}
             >
               <ExternalLink className="h-4 w-4" />
@@ -283,6 +290,7 @@ export default function V2CatalogProjectDetailPage() {
             {!baseCampaign && (
               <Button
                 intent="neutral"
+                className={adminButtonClass}
                 onClick={() =>
                   router.push(
                     `/admin/v2-catalog/campaigns/new?type=ALWAYS_ON&projectId=${project.id}`,
@@ -292,14 +300,17 @@ export default function V2CatalogProjectDetailPage() {
                 기본 캠페인 생성
               </Button>
             )}
-            <Button onClick={() => router.push(`/admin/v2-catalog/campaigns/new?projectId=${project.id}`)}>
+            <Button
+              className={adminPrimaryButtonClass}
+              onClick={() => router.push(`/admin/v2-catalog/campaigns/new?projectId=${project.id}`)}
+            >
               <Plus className="h-4 w-4" />
               캠페인 생성
             </Button>
           </div>
         </div>
 
-        <div className="mt-5 overflow-hidden rounded-lg border border-gray-200">
+        <div className={`mt-5 ${adminTableContainerClass}`}>
           {relatedCampaigns.length === 0 ? (
             <EmptyState
               title="연결된 캠페인이 없습니다."
@@ -311,35 +322,35 @@ export default function V2CatalogProjectDetailPage() {
               }
             />
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full">
+              <thead className={adminTableHeadClass}>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className={adminTableHeadCellClass}>
                     캠페인
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className={adminTableHeadCellClass}>
                     상태
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className={adminTableHeadCellClass}>
                     기간
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className={adminTableHeadCellClass}>
                     상품
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className={`${adminTableHeadCellClass} text-right`}>
                     작업
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody className={adminTableBodyClass}>
                 {relatedCampaigns.map((campaign) => {
                   const period = getCampaignPeriod(campaign.starts_at, campaign.ends_at);
                   const overview = overviewByCampaignId[campaign.id];
                   return (
                     <tr key={campaign.id}>
                       <td className="px-4 py-3">
-                        <p className="text-sm font-semibold text-gray-900">{campaign.name}</p>
-                        <p className="mt-1 text-xs text-gray-500">
+                        <p className="text-sm font-black text-[#1a1a2e]">{campaign.name}</p>
+                        <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">
                           {CAMPAIGN_TYPE_LABELS[campaign.campaign_type]}
                         </p>
                       </td>
@@ -348,15 +359,15 @@ export default function V2CatalogProjectDetailPage() {
                           {CAMPAIGN_STATUS_LABELS[campaign.status]}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-sm font-medium text-[#1a1a2e]/60">
                         <Badge intent={getCampaignPeriodIntent(period)}>
                           {getPeriodLabel(period)}
                         </Badge>
-                        <p className="mt-1 text-xs text-gray-500">
+                        <p className="mt-1 text-xs text-[#1a1a2e]/45">
                           {formatDateRange(campaign.starts_at, campaign.ends_at)}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-sm font-semibold text-[#1a1a2e]/65">
                         {overview?.targetCount || 0}개
                       </td>
                       <td className="px-4 py-3">
@@ -364,6 +375,7 @@ export default function V2CatalogProjectDetailPage() {
                           <Button
                             size="sm"
                             intent="neutral"
+                            className="!rounded-[10px] !border-0 !bg-[#f5f3e8] !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]"
                             onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}`)}
                           >
                             상세
@@ -377,35 +389,39 @@ export default function V2CatalogProjectDetailPage() {
             </table>
           )}
         </div>
-      </section>
+      </AdminSurface>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <AdminSurface padding="md">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-gray-500" />
-              <h2 className="text-lg font-semibold text-gray-900">상품</h2>
+              <Package className="h-5 w-5 text-[#a35200]" />
+              <h2 className="text-lg font-black text-[#1a1a2e]">상품</h2>
             </div>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
               프로젝트에 소속된 상품과 판매 상태입니다.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
               intent="neutral"
+              className={adminButtonClass}
               onClick={() => router.push(`/admin/v2-catalog/products/projects/${project.id}`)}
             >
               <ExternalLink className="h-4 w-4" />
               상품 관리
             </Button>
-            <Button onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}>
+            <Button
+              className={adminPrimaryButtonClass}
+              onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}
+            >
               <Plus className="h-4 w-4" />
               상품 추가
             </Button>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 border-y border-gray-100 py-4 md:grid-cols-5">
+        <div className="mt-5 grid gap-4 border-y border-[#eee7d6] py-4 md:grid-cols-5">
           {[
             ['전체', productSummary.total],
             ['판매 중', productSummary.active],
@@ -414,13 +430,13 @@ export default function V2CatalogProjectDetailPage() {
             ['보관됨', productSummary.archived],
           ].map(([label, count]) => (
             <div key={label}>
-              <p className="text-xs font-medium text-gray-500">{label}</p>
-              <p className="mt-1 text-xl font-bold text-gray-900">{count}</p>
+              <p className="text-xs font-black uppercase tracking-wide text-[#1a1a2e]/40">{label}</p>
+              <p className="mt-1 text-xl font-black text-[#1a1a2e]">{count}</p>
             </div>
           ))}
         </div>
 
-        <div className="mt-5 overflow-hidden rounded-lg border border-gray-200">
+        <div className={`mt-5 ${adminTableContainerClass}`}>
           {recentProducts.length === 0 ? (
             <EmptyState
               title="등록된 상품이 없습니다."
@@ -432,34 +448,34 @@ export default function V2CatalogProjectDetailPage() {
               }
             />
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full">
+              <thead className={adminTableHeadClass}>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className={adminTableHeadCellClass}>
                     상품
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className={adminTableHeadCellClass}>
                     유형
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className={adminTableHeadCellClass}>
                     상태
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className={adminTableHeadCellClass}>
                     최근 수정
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className={`${adminTableHeadCellClass} text-right`}>
                     작업
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody className={adminTableBodyClass}>
                 {recentProducts.map((product) => (
                   <tr key={product.id}>
                     <td className="px-4 py-3">
-                      <p className="text-sm font-semibold text-gray-900">{product.title}</p>
-                      <p className="mt-1 text-xs text-gray-500">/{product.slug}</p>
+                      <p className="text-sm font-black text-[#1a1a2e]">{product.title}</p>
+                      <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">/{product.slug}</p>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-4 py-3 text-sm font-semibold text-[#1a1a2e]/65">
                       {PRODUCT_KIND_LABELS[product.product_kind]}
                     </td>
                     <td className="px-4 py-3">
@@ -467,7 +483,7 @@ export default function V2CatalogProjectDetailPage() {
                         {PRODUCT_STATUS_LABELS[product.status]}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-4 py-3 text-sm font-medium text-[#1a1a2e]/60">
                       {formatDateTime(product.updated_at)}
                     </td>
                     <td className="px-4 py-3">
@@ -475,6 +491,7 @@ export default function V2CatalogProjectDetailPage() {
                         <Button
                           size="sm"
                           intent="neutral"
+                          className="!rounded-[10px] !border-0 !bg-[#f5f3e8] !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]"
                           onClick={() => router.push(`/admin/v2-catalog/products/${product.id}`)}
                         >
                           상세
@@ -487,7 +504,7 @@ export default function V2CatalogProjectDetailPage() {
             </table>
           )}
         </div>
-      </section>
+      </AdminSurface>
     </div>
   );
 }

@@ -9,6 +9,15 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import { Select } from '@/components/ui/select';
+import {
+  AdminPageHeader,
+  AdminStatCard,
+  AdminSurface,
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { ProjectProductsBulkTable } from '@/src/components/admin/v2-catalog/ProjectProductsBulkTable';
 import type { V2ProductStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
@@ -236,52 +245,42 @@ export default function V2CatalogProjectProductsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="text-sm text-gray-500">프로젝트 상품 관리</p>
-          <h1 className="mt-1 text-2xl font-bold text-gray-900">{project.name}</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            /{project.slug} 프로젝트 상품을 리스트에서 바로 미리 보고 빠르게 수정합니다.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}`)}>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="project products"
+        title={project.name}
+        description={`/${project.slug} 프로젝트 상품을 리스트에서 바로 미리 보고 빠르게 수정합니다.`}
+        actions={
+          <>
+          <Button
+            intent="neutral"
+            className={adminButtonClass}
+            onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}`)}
+          >
             프로젝트 상세
           </Button>
-          <Button onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}>
+          <Button
+            className={adminPrimaryButtonClass}
+            onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}
+          >
             이 프로젝트에 새 상품
           </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">전체</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.total}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">ACTIVE</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.active}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">DRAFT</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.draft}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">INACTIVE</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.inactive}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">ARCHIVED</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.archived}</p>
-        </div>
+        <AdminStatCard label="전체" value={summary.total} />
+        <AdminStatCard label="ACTIVE" value={summary.active} />
+        <AdminStatCard label="DRAFT" value={summary.draft} />
+        <AdminStatCard label="INACTIVE" value={summary.inactive} />
+        <AdminStatCard label="ARCHIVED" value={summary.archived} />
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <AdminSurface padding="md">
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold text-gray-900">상품 찾기</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-black text-[#1a1a2e]">상품 찾기</h2>
+          <p className="text-sm font-medium text-[#1a1a2e]/55">
             검색/필터로 대상을 줄인 뒤 상품 상태와 옵션 구성을 빠르게 확인합니다.
           </p>
         </div>
@@ -295,6 +294,7 @@ export default function V2CatalogProjectProductsPage() {
               setSelectedProductIds([]);
               setBulkFeedback(null);
             }}
+            className={adminInputClass}
           />
           <Select
             value={statusFilter}
@@ -310,6 +310,7 @@ export default function V2CatalogProjectProductsPage() {
                 label: PRODUCT_STATUS_LABELS[status],
               })),
             ]}
+            className={adminSelectClass}
           />
           <Select
             value={sortKey}
@@ -320,15 +321,16 @@ export default function V2CatalogProjectProductsPage() {
               { value: 'UPDATED_DESC', label: '최근 수정순' },
               { value: 'TITLE_ASC', label: '이름순' },
             ]}
+            className={adminSelectClass}
           />
         </div>
-      </section>
+      </AdminSurface>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <AdminSurface padding="md">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">상품 목록</h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <h2 className="text-lg font-black text-[#1a1a2e]">상품 목록</h2>
+            <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
               대략적인 상품 정보를 확인하고 편집 아이콘으로 상세 화면에 들어갑니다.
             </p>
           </div>
@@ -336,12 +338,12 @@ export default function V2CatalogProjectProductsPage() {
         </div>
 
         {selectedProducts.length > 0 && (
-          <div className="mt-5 flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="mt-5 flex flex-col gap-3 rounded-[16px] border border-[#cde0f3] bg-[#eaf3fc] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-sm font-semibold text-blue-900">
+              <p className="text-sm font-black text-[#1a1a2e]">
                 상품 {selectedProducts.length}개 선택됨
               </p>
-              <p className="mt-1 text-xs text-blue-700">
+              <p className="mt-1 text-xs font-medium text-[#1a1a2e]/55">
                 변경 대상 {productsToBulkUpdate.length}개
                 {selectedUnchangedCount > 0 ? ` · 같은 상태 ${selectedUnchangedCount}개 제외` : ''}
                 {blockedBulkProducts.length > 0
@@ -358,7 +360,7 @@ export default function V2CatalogProjectProductsPage() {
                   setBulkStatus(event.target.value as V2ProductStatus);
                   setBulkFeedback(null);
                 }}
-                className="min-w-[160px]"
+                className={`min-w-[160px] ${adminSelectClass}`}
                 options={PRODUCT_STATUS_VALUES.map((status) => ({
                   value: status,
                   label: PRODUCT_STATUS_LABELS[status],
@@ -366,6 +368,7 @@ export default function V2CatalogProjectProductsPage() {
               />
               <Button
                 size="sm"
+                className="!rounded-[10px] !bg-[#1a1a2e] !font-bold !text-white hover:!bg-[#272743]"
                 loading={bulkUpdateProductStatus.isPending}
                 onClick={handleBulkStatusChange}
               >
@@ -375,6 +378,7 @@ export default function V2CatalogProjectProductsPage() {
               <Button
                 size="sm"
                 intent="neutral"
+                className="!rounded-[10px] !border-0 !bg-white !font-bold !text-[#1a1a2e] hover:!bg-[#f5f3e8]"
                 disabled={bulkUpdateProductStatus.isPending}
                 onClick={() => {
                   setSelectedProductIds([]);
@@ -390,7 +394,7 @@ export default function V2CatalogProjectProductsPage() {
 
         {bulkFeedback && (
           <div
-            className={`mt-4 rounded-lg border px-4 py-3 text-sm ${
+            className={`mt-4 rounded-[14px] border px-4 py-3 text-sm font-medium ${
               bulkFeedback.intent === 'error'
                 ? 'border-red-200 bg-red-50 text-red-700'
                 : bulkFeedback.intent === 'success'
@@ -408,7 +412,10 @@ export default function V2CatalogProjectProductsPage() {
               title="조건에 맞는 상품이 없어요"
               description="검색어나 필터를 바꾸거나 새 상품을 만들어 주세요."
               action={
-                <Button onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}>
+                <Button
+                  className={adminPrimaryButtonClass}
+                  onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}
+                >
                   새 상품 만들기
                 </Button>
               }
@@ -428,11 +435,14 @@ export default function V2CatalogProjectProductsPage() {
         </div>
 
         <div className="mt-4 flex justify-end">
-          <Button onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}>
+          <Button
+            className={adminPrimaryButtonClass}
+            onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}
+          >
             상품 추가
           </Button>
         </div>
-      </section>
+      </AdminSurface>
     </div>
   );
 }

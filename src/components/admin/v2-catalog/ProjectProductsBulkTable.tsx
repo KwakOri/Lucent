@@ -5,6 +5,13 @@ import { Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  adminButtonClass,
+  adminTableBodyClass,
+  adminTableContainerClass,
+  adminTableHeadCellClass,
+  adminTableHeadClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type {
   V2ProjectProductListItem,
   V2VariantStatus,
@@ -83,11 +90,11 @@ export function ProjectProductsBulkTable({
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto rounded-xl border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
+      <div className={`overflow-x-auto ${adminTableContainerClass}`}>
+        <table className="min-w-full text-sm">
+          <thead className={adminTableHeadClass}>
             <tr>
-              <th className="w-12 px-3 py-2 text-left font-semibold text-gray-700">
+              <th className="w-12 px-3 py-2 text-left font-bold text-[#1a1a2e]/55">
                 <Checkbox
                   size="sm"
                   checked={allProductsSelected}
@@ -97,15 +104,15 @@ export function ProjectProductsBulkTable({
                   onChange={(event) => onToggleAllProducts(event.target.checked)}
                 />
               </th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-700">커버</th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-700">상품</th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-700">상태</th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-700">한 줄 설명</th>
-              <th className="px-3 py-2 text-left font-semibold text-gray-700">옵션</th>
-              <th className="px-3 py-2 text-right font-semibold text-gray-700">편집</th>
+              <th className={adminTableHeadCellClass}>커버</th>
+              <th className={adminTableHeadCellClass}>상품</th>
+              <th className={adminTableHeadCellClass}>상태</th>
+              <th className={adminTableHeadCellClass}>한 줄 설명</th>
+              <th className={adminTableHeadCellClass}>옵션</th>
+              <th className={`${adminTableHeadCellClass} text-right`}>편집</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody className={adminTableBodyClass}>
             {products.map((product) => {
               const coverMedia = product.cover_media;
 
@@ -123,7 +130,7 @@ export function ProjectProductsBulkTable({
                     />
                   </td>
                   <td className="px-3 py-3">
-                    <div className="h-14 w-14 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                    <div className="h-14 w-14 overflow-hidden rounded-[12px] border border-[#e7e3d3] bg-[#faf9f3]">
                       {coverMedia?.public_url ? (
                         // eslint-disable-next-line @next/next/no-img-element -- project policy uses native img instead of next/image.
                         <img
@@ -132,7 +139,7 @@ export function ProjectProductsBulkTable({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-400">
+                        <div className="flex h-full w-full items-center justify-center text-[10px] font-bold text-[#1a1a2e]/35">
                           없음
                         </div>
                       )}
@@ -144,10 +151,10 @@ export function ProjectProductsBulkTable({
                         <Badge intent={resolveProductKindIntent(product.product_kind)}>
                           {PRODUCT_KIND_LABELS[product.product_kind]}
                         </Badge>
-                        <p className="font-semibold text-gray-900">{product.title}</p>
+                        <p className="font-black text-[#1a1a2e]">{product.title}</p>
                       </div>
-                      <p className="mt-1 text-xs text-gray-500">/{product.slug}</p>
-                      <p className="mt-1 text-xs text-gray-500">
+                      <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">/{product.slug}</p>
+                      <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">
                         최근 수정 {formatDateTime(product.updated_at)}
                       </p>
                     </div>
@@ -158,14 +165,14 @@ export function ProjectProductsBulkTable({
                     </Badge>
                   </td>
                   <td className="px-3 py-3">
-                    <p className="min-w-[240px] max-w-[360px] text-sm leading-6 text-gray-600">
+                    <p className="min-w-[240px] max-w-[360px] text-sm font-medium leading-6 text-[#1a1a2e]/60">
                       {product.short_description || '한 줄 설명이 없습니다.'}
                     </p>
                   </td>
                   <td className="px-3 py-3">
                     <div className="min-w-[160px]">
                       <Badge intent="info" size="sm">{product.variant_count}개</Badge>
-                      <p className="mt-2 text-xs text-gray-500">
+                      <p className="mt-2 text-xs font-medium text-[#1a1a2e]/45">
                         {summarizeVariantStatuses(
                           product.variant_count,
                           product.variant_status_counts,
@@ -177,7 +184,7 @@ export function ProjectProductsBulkTable({
                     <Button
                       size="sm"
                       intent="neutral"
-                      className="h-9 w-9 px-0"
+                      className={`${adminButtonClass} !h-9 !w-9 !px-0`}
                       aria-label={`${product.title} 상세 편집`}
                       title="상세 편집"
                       onClick={() => onOpenDetail(product.id)}
