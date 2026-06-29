@@ -19,6 +19,7 @@ import type {
   V2ShopDisplayPrice,
   V2ShopProductDetail,
 } from "@/lib/client/api/v2-shop.api";
+import type { V2DigitalOwnershipRecord } from "@/lib/client/api/v2-checkout.api";
 import { ApiError } from "@/lib/client/utils/api-error";
 import { useToast } from "@/src/components/toast";
 
@@ -66,6 +67,21 @@ function getErrorMessage(error: unknown): string {
     return error.message;
   }
   return "요청 처리 중 오류가 발생했습니다.";
+}
+
+type DigitalPurchaseState = "pending" | "owned";
+
+function getDigitalPurchaseState(
+  record: V2DigitalOwnershipRecord | null | undefined,
+): DigitalPurchaseState | null {
+  if (!record) {
+    return null;
+  }
+  return record.ownership_status === "OWNED" ? "owned" : "pending";
+}
+
+function getDigitalPurchaseLabel(state: DigitalPurchaseState): string {
+  return state === "owned" ? "구매 완료" : "구매 신청 완료";
 }
 
 export default function ProductDetailPage() {
@@ -122,7 +138,7 @@ export default function ProductDetailPage() {
     { variant_ids: digitalVariantIds },
     { enabled: digitalVariantIds.length > 0 },
   );
-  const ownedDigitalVariantIds = useMemo(
+  const guardedDigitalVariantIds = useMemo(
     () => new Set(digitalOwnershipQuery.data?.owned_variant_ids ?? []),
     [digitalOwnershipQuery.data?.owned_variant_ids],
   );
@@ -185,14 +201,21 @@ export default function ProductDetailPage() {
     selectedVariant?.purchase_constraints.max_quantity ||
     data.purchase_constraints.max_quantity;
   const hasSelectedVariant = !!selectedVariant;
-  const selectedVariantOwned = Boolean(
-    selectedVariant && ownedDigitalVariantIds.has(selectedVariant.id),
+  const getVariantPurchaseState = (variantId: string | null | undefined) =>
+    getDigitalPurchaseState(
+      variantId ? digitalOwnershipQuery.data?.by_variant_id[variantId] : null,
+    );
+  const selectedVariantPurchaseState = getVariantPurchaseState(
+    selectedVariant?.id,
+  );
+  const selectedVariantGuarded = Boolean(
+    selectedVariant && guardedDigitalVariantIds.has(selectedVariant.id),
   );
   const canPurchase =
     hasSelectedVariant &&
     selectedVariant.availability.sellable &&
     !soldOut &&
-    !selectedVariantOwned;
+    !selectedVariantGuarded;
   const shouldShowOptionSelector = data.variants.length > 1;
 
   const requestLogin = () => {
@@ -222,10 +245,13 @@ export default function ProductDetailPage() {
       return;
     }
 
-    if (selectedVariantOwned) {
-      showToast("이미 구매한 디지털 상품입니다. 마이페이지에서 다운로드할 수 있어요.", {
-        type: "info",
-      });
+    if (selectedVariantPurchaseState) {
+      showToast(
+        selectedVariantPurchaseState === "owned"
+          ? "이미 구매한 디지털 상품입니다. 마이페이지에서 다운로드할 수 있어요."
+          : "구매 신청이 완료된 디지털 상품입니다.",
+        { type: "info" },
+      );
       return;
     }
 
@@ -274,7 +300,7 @@ export default function ProductDetailPage() {
         submitError instanceof ApiError &&
         submitError.errorCode === "DIGITAL_ENTITLEMENT_ALREADY_OWNED"
       ) {
-        showToast("이미 구매한 디지털 상품입니다. 마이페이지에서 다운로드할 수 있어요.", {
+        showToast("이미 구매했거나 구매 신청이 완료된 디지털 상품입니다.", {
           type: "info",
         });
         return;
@@ -335,8 +361,16 @@ export default function ProductDetailPage() {
                 {selectedCampaign && (
                   <Badge intent="info">{selectedCampaign.name}</Badge>
                 )}
-                {selectedVariantOwned && (
-                  <Badge intent="success">구매 완료</Badge>
+                {selectedVariantPurchaseState && (
+                  <Badge
+                    intent={
+                      selectedVariantPurchaseState === "owned"
+                        ? "success"
+                        : "warning"
+                    }
+                  >
+                    {getDigitalPurchaseLabel(selectedVariantPurchaseState)}
+                  </Badge>
                 )}
                 {!data.product.availability.sellable && (
                   <Badge intent="error">
@@ -366,7 +400,7 @@ export default function ProductDetailPage() {
                   {data.variants.map((variant) => {
                     const selected = selectedVariant?.id === variant.id;
                     const stockLabel = variantStockLabel(variant);
-                    const variantOwned = ownedDigitalVariantIds.has(variant.id);
+                    const variantPurchaseState = getVariantPurchaseState(variant.id);
 
                     return (
                       <button
@@ -399,8 +433,16 @@ export default function ProductDetailPage() {
                             <p className="text-sm font-semibold text-text-primary">
                               {formatPrice(variant.display_price)}
                             </p>
-                            {variantOwned && (
-                              <p className="text-xs text-emerald-600">구매 완료</p>
+                            {variantPurchaseState && (
+                              <p
+                                className={
+                                  variantPurchaseState === "owned"
+                                    ? "text-xs text-emerald-600"
+                                    : "text-xs text-amber-600"
+                                }
+                              >
+                                {getDigitalPurchaseLabel(variantPurchaseState)}
+                              </p>
                             )}
                             {stockLabel && (
                               <p className="text-xs text-red-600">{stockLabel}</p>
@@ -437,7 +479,7 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {!selectedVariantOwned && (
+            {!selectedVariantPurchaseState && (
               <div className="rounded-xl border border-neutral-200 bg-white p-5">
                 <p className="mb-3 text-sm font-semibold text-text-primary">수량</p>
                 <div className="flex items-center gap-2">
@@ -478,14 +520,37 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {selectedVariantOwned ? (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-                <p className="mb-4 text-sm font-semibold text-emerald-800">
-                  이미 구매한 디지털 상품입니다. 마이페이지에서 바로 다운로드할 수 있어요.
+            {selectedVariantPurchaseState ? (
+              <div
+                className={`rounded-xl border p-5 ${
+                  selectedVariantPurchaseState === "owned"
+                    ? "border-emerald-200 bg-emerald-50"
+                    : "border-amber-200 bg-amber-50"
+                }`}
+              >
+                <p
+                  className={`mb-4 text-sm font-semibold ${
+                    selectedVariantPurchaseState === "owned"
+                      ? "text-emerald-800"
+                      : "text-amber-800"
+                  }`}
+                >
+                  {selectedVariantPurchaseState === "owned"
+                    ? "이미 구매한 디지털 상품입니다. 마이페이지에서 바로 다운로드할 수 있어요."
+                    : "구매 신청이 완료된 디지털 상품입니다. 처리 완료 후 마이페이지에서 확인할 수 있어요."}
                 </p>
-                <Link href="/mypage/digital-products" className="block">
+                <Link
+                  href={
+                    selectedVariantPurchaseState === "owned"
+                      ? "/mypage/digital-products"
+                      : "/mypage"
+                  }
+                  className="block"
+                >
                   <Button intent="primary" size="lg" fullWidth>
-                    내 디지털 상품 보기
+                    {selectedVariantPurchaseState === "owned"
+                      ? "내 디지털 상품 보기"
+                      : "내 주문 확인하기"}
                   </Button>
                 </Link>
               </div>

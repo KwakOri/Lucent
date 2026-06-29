@@ -1,5 +1,6 @@
 'use client';
 
+import { Check, Clock3 } from 'lucide-react';
 import { useState } from 'react';
 
 interface VoicePackCoverProps {
@@ -7,6 +8,7 @@ interface VoicePackCoverProps {
   name?: string;
   thumbnail?: string | null;
   appearance?: 'gradient' | 'media';
+  purchaseState?: 'pending' | 'owned' | null;
 }
 
 const GRADIENTS = [
@@ -22,10 +24,13 @@ export function VoicePackCover({
   name,
   thumbnail,
   appearance = 'gradient',
+  purchaseState = null,
 }: VoicePackCoverProps) {
   const gradient = GRADIENTS[index % GRADIENTS.length];
   const [isHovered, setIsHovered] = useState(false);
   const usesMediaBackground = appearance === 'media';
+  const showPendingOverlay = purchaseState === 'pending';
+  const showOwnedOverlay = purchaseState === 'owned';
 
   return (
     <div
@@ -214,6 +219,27 @@ export function VoicePackCover({
           />
         </svg>
       </div>
+
+      {showPendingOverlay || showOwnedOverlay ? (
+        <div
+          className={`absolute inset-0 z-10 flex items-center justify-center ${
+            showOwnedOverlay ? 'bg-[rgba(10,12,24,0.6)]' : 'bg-[rgba(20,14,4,0.62)]'
+          }`}
+          aria-hidden="true"
+        >
+          <div
+            className={`flex h-12 w-12 items-center justify-center rounded-full border-[2.5px] sm:h-[60px] sm:w-[60px] ${
+              showOwnedOverlay ? 'border-white text-white' : 'border-[#fbbf24] text-[#fbbf24]'
+            }`}
+          >
+            {showOwnedOverlay ? (
+              <Check className="h-7 w-7 sm:h-[34px] sm:w-[34px]" strokeWidth={2.6} />
+            ) : (
+              <Clock3 className="h-7 w-7 sm:h-8 sm:w-8" strokeWidth={2.4} />
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
