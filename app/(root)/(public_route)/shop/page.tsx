@@ -16,8 +16,9 @@ import type {
   V2ShopDisplayPrice,
   V2ShopListItem,
 } from "@/lib/client/api/v2-shop.api";
+import type { V2DigitalOwnershipRecord } from "@/lib/client/api/v2-checkout.api";
 import { ApiError } from "@/lib/client/utils/api-error";
-import { CheckCircle2, ShoppingCart } from "lucide-react";
+import { CheckCircle2, Clock3, ShoppingCart } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/src/components/toast";
@@ -74,6 +75,21 @@ function getErrorMessage(error: unknown): string {
     return error.message;
   }
   return "요청 처리 중 오류가 발생했습니다.";
+}
+
+type DigitalPurchaseState = "pending" | "owned";
+
+function getDigitalPurchaseState(
+  record: V2DigitalOwnershipRecord | null | undefined,
+): DigitalPurchaseState | null {
+  if (!record) {
+    return null;
+  }
+  return record.ownership_status === "OWNED" ? "owned" : "pending";
+}
+
+function getDigitalPurchaseLabel(state: DigitalPurchaseState): string {
+  return state === "owned" ? "구매 완료" : "구매 신청 완료";
 }
 
 interface SectionPaginationProps {
@@ -175,7 +191,7 @@ function ShopPageContent() {
     { variant_ids: voicePackVariantIds },
     { enabled: voicePackVariantIds.length > 0 },
   );
-  const ownedDigitalVariantIds = useMemo(
+  const guardedDigitalVariantIds = useMemo(
     () => new Set(digitalOwnershipQuery.data?.owned_variant_ids ?? []),
     [digitalOwnershipQuery.data?.owned_variant_ids],
   );
@@ -237,15 +253,27 @@ function ShopPageContent() {
     router.push(buildProductDetailPath(productId));
   };
 
-  const isOwnedDigitalItem = (item: V2ShopListItem) =>
+  const getDigitalOwnershipRecord = (item: V2ShopListItem) => {
+    if (item.fulfillment_type !== "DIGITAL" || !item.primary_variant_id) {
+      return null;
+    }
+    return (
+      digitalOwnershipQuery.data?.by_variant_id[item.primary_variant_id] ?? null
+    );
+  };
+
+  const getDigitalItemPurchaseState = (item: V2ShopListItem) =>
+    getDigitalPurchaseState(getDigitalOwnershipRecord(item));
+
+  const isGuardedDigitalItem = (item: V2ShopListItem) =>
     item.fulfillment_type === "DIGITAL" &&
     !!item.primary_variant_id &&
-    ownedDigitalVariantIds.has(item.primary_variant_id);
+    guardedDigitalVariantIds.has(item.primary_variant_id);
 
   const canAddToCart = (item: V2ShopListItem) =>
     item.availability.sellable &&
     !!item.primary_variant_id &&
-    !isOwnedDigitalItem(item);
+    !isGuardedDigitalItem(item);
 
   async function handleAddToCart(
     event: React.MouseEvent,
@@ -263,10 +291,14 @@ function ShopPageContent() {
       return;
     }
 
-    if (isOwnedDigitalItem(item)) {
-      showToast("이미 구매한 디지털 상품입니다. 마이페이지에서 다운로드할 수 있어요.", {
-        type: "info",
-      });
+    const purchaseState = getDigitalItemPurchaseState(item);
+    if (purchaseState) {
+      showToast(
+        purchaseState === "owned"
+          ? "이미 구매한 디지털 상품입니다. 마이페이지에서 다운로드할 수 있어요."
+          : "구매 신청이 완료된 디지털 상품입니다.",
+        { type: "info" },
+      );
       return;
     }
 
@@ -301,7 +333,7 @@ function ShopPageContent() {
         submitError instanceof ApiError &&
         submitError.errorCode === "DIGITAL_ENTITLEMENT_ALREADY_OWNED"
       ) {
-        showToast("이미 구매한 디지털 상품입니다. 마이페이지에서 다운로드할 수 있어요.", {
+        showToast("이미 구매했거나 구매 신청이 완료된 디지털 상품입니다.", {
           type: "info",
         });
         return;
@@ -404,7 +436,11 @@ function ShopPageContent() {
 
             <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
               {paginatedVoicePacks.map((pack, index) => {
-                const isOwned = isOwnedDigitalItem(pack);
+                const purchaseState = getDigitalItemPurchaseState(pack);
+                const isGuarded = isGuardedDigitalItem(pack);
+                const purchaseLabel = purchaseState
+                  ? getDigitalPurchaseLabel(purchaseState)
+                  : null;
 
                 return (
                   <div
@@ -417,6 +453,7 @@ function ShopPageContent() {
                       name={pack.title}
                       thumbnail={pack.thumbnail_url}
                       appearance="media"
+                      purchaseState={purchaseState}
                     />
 
                     <div className="p-3 sm:p-6">
@@ -430,9 +467,15 @@ function ShopPageContent() {
                         {formatDisplayPrice(pack)}
                       </p>
                       <div className="mb-3">
-                        {isOwned ? (
-                          <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
-                            구매 완료
+                        {purchaseLabel ? (
+                          <span
+                            className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                              purchaseState === "owned"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {purchaseLabel}
                           </span>
                         ) : (
                           renderSellableBadge(pack)
@@ -453,22 +496,30 @@ function ShopPageContent() {
                           자세히 보기
                         </Button>
                         <Button
-                          intent={isOwned ? "secondary" : "primary"}
+                          intent={isGuarded ? "secondary" : "primary"}
                           size="sm"
                           className="shrink-0 px-3 sm:h-11 sm:rounded-lg sm:px-4"
                           disabled={
                             !canAddToCart(pack) || addingToCart === pack.product_id
                           }
                           aria-label={
-                            isOwned
-                              ? `${pack.title} 이미 구매함`
+                            purchaseLabel
+                              ? `${pack.title} ${purchaseLabel}`
                               : `${pack.title} 장바구니에 담기`
                           }
-                          title={isOwned ? "이미 구매한 디지털 상품입니다" : undefined}
+                          title={
+                            purchaseState === "owned"
+                              ? "이미 구매한 디지털 상품입니다"
+                              : purchaseState === "pending"
+                                ? "구매 신청이 완료된 디지털 상품입니다"
+                                : undefined
+                          }
                           onClick={(event) => void handleAddToCart(event, pack)}
                         >
-                          {isOwned ? (
+                          {purchaseState === "owned" ? (
                             <CheckCircle2 className="h-4 w-4" />
+                          ) : purchaseState === "pending" ? (
+                            <Clock3 className="h-4 w-4" />
                           ) : (
                             <ShoppingCart className="h-4 w-4" />
                           )}
