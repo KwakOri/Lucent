@@ -38,14 +38,9 @@ type NavigationSection = {
 
 const navigationSections: NavigationSection[] = [
   {
-    title: '공통',
-    items: [
-      { name: '대시보드', href: '/admin', icon: House },
-    ],
-  },
-  {
     title: '주요 관리',
     items: [
+      { name: '대시보드', href: '/admin', icon: House },
       { name: '주문 조회', href: '/admin/orders', icon: ShoppingCart },
       {
         name: '주문 이행 관리',
@@ -70,11 +65,6 @@ const navigationSections: NavigationSection[] = [
       { name: '미디어·에셋', href: '/admin/v2-catalog/assets', icon: ImageIcon },
       { name: 'Admin Ops', href: '/admin/v2-ops', icon: ShieldCheck },
       { name: '권한 관리', href: '/admin/v2-ops/rbac', icon: ShieldCheck },
-    ],
-  },
-  {
-    title: '레거시',
-    items: [
       { name: '레거시', href: '/admin/legacy', icon: Archive },
     ],
   },
