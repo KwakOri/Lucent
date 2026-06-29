@@ -47,8 +47,8 @@ const primaryNavigationItems: NavigationItem[] = [
   },
   { name: '프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderOpen },
   { name: '아티스트 관리', href: '/admin/v2-catalog/artists', icon: Users },
-  { name: '상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBag },
   { name: '캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: Megaphone },
+  { name: '상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBag },
   { name: '게시글 관리', href: '/admin/content/posts', icon: Newspaper },
   { name: '통계', href: '/admin/v2-ops/stats', icon: BarChart3 },
 ];
@@ -153,7 +153,7 @@ export function AdminSidebar() {
         </div>
         <Link
           href="/"
-          className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600"
+          className="text-sm font-semibold leading-6 text-gray-900 hover:text-[#a35200]"
         >
           사이트로 돌아가기
         </Link>
@@ -202,14 +202,14 @@ export function AdminSidebar() {
                               className={`
                                 group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6
                                 ${isActive
-                                  ? 'bg-primary-50 text-primary-700'
-                                  : 'text-gray-700 hover:bg-gray-50 hover:text-primary-700'
+                                  ? 'bg-[#fff4d5] text-[#a35200]'
+                                  : 'text-gray-700 hover:bg-[#fff4d5] hover:text-[#a35200]'
                                 }
                               `}
                             >
                               <item.icon
                                 className={`h-6 w-6 shrink-0 ${
-                                  isActive ? 'text-primary-700' : 'text-gray-400 group-hover:text-primary-700'
+                                  isActive ? 'text-[#a35200]' : 'text-gray-400 group-hover:text-[#a35200]'
                                 }`}
                                 aria-hidden
                               />
@@ -226,7 +226,7 @@ export function AdminSidebar() {
                 <Link
                   href="/"
                   onClick={closeMobileMenu}
-                  className="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-700 hover:bg-gray-50 hover:text-primary-700"
+                  className="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-700 hover:bg-[#fff4d5] hover:text-[#a35200]"
                 >
                   사이트로 돌아가기
                 </Link>
@@ -248,7 +248,7 @@ export function AdminSidebar() {
           type="button"
           className={`
             flex h-14 items-center justify-start rounded-2xl bg-white pl-4 pr-4 text-sm font-semibold text-text-secondary
-            shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-primary-700
+            shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-[#a35200]
             ${desktopExpanded ? 'w-48' : 'w-14'}
           `}
           onClick={handleGoBack}
@@ -289,10 +289,10 @@ export function AdminSidebar() {
                   <Link
                     href={item.href}
                     className={`
-                      flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold transition-colors
+                      group flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold transition-colors
                       ${isActive
-                        ? 'bg-primary-600 text-white shadow-sm'
-                        : 'text-neutral-500 hover:bg-primary-50 hover:text-primary-700'
+                        ? 'bg-[#f59e0b] text-white shadow-sm'
+                        : 'text-neutral-500 hover:bg-[#fff4d5] hover:text-[#a35200]'
                       }
                     `}
                   >
@@ -300,7 +300,7 @@ export function AdminSidebar() {
                       <item.icon
                         className={`
                           h-5 w-5
-                          ${isActive ? 'text-white' : 'text-neutral-500'}
+                          ${isActive ? 'text-white' : 'text-neutral-500 group-hover:text-[#a35200]'}
                         `}
                         aria-hidden
                       />
@@ -321,10 +321,10 @@ export function AdminSidebar() {
           <div className="mt-3 border-t border-neutral-100 pt-3">
             <Link
               href="/"
-              className="flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold text-neutral-500 transition-colors hover:bg-primary-50 hover:text-primary-700"
+              className="group flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold text-neutral-500 transition-colors hover:bg-[#fff4d5] hover:text-[#a35200]"
             >
               <span className="flex w-6 shrink-0 justify-center">
-                <LogOut className="h-5 w-5" aria-hidden />
+                <LogOut className="h-5 w-5 group-hover:text-[#a35200]" aria-hidden />
               </span>
               <span
                 className={`
