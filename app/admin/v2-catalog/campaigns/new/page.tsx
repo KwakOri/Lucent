@@ -32,6 +32,9 @@ export default function V2CatalogCampaignCreatePage() {
   }, [searchParams]);
 
   const prefilledProjectId = useMemo(() => searchParams.get('projectId') || '', [searchParams]);
+  const listPath = prefilledProjectId
+    ? `/admin/v2-catalog/projects/${prefilledProjectId}/campaigns`
+    : '/admin/v2-catalog/campaigns';
   const prefilledProject = useMemo(() => {
     if (!projects || !prefilledProjectId) {
       return null;
@@ -78,7 +81,7 @@ export default function V2CatalogCampaignCreatePage() {
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
           캠페인 생성에 필요한 데이터를 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/campaigns')}>
+        <Button intent="neutral" onClick={() => router.push(listPath)}>
           목록으로
         </Button>
       </div>
@@ -95,7 +98,7 @@ export default function V2CatalogCampaignCreatePage() {
           </p>
         </div>
         <div className="mt-3 sm:mt-0">
-          <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/campaigns')}>
+          <Button intent="neutral" onClick={() => router.push(listPath)}>
             목록으로
           </Button>
         </div>
@@ -114,7 +117,7 @@ export default function V2CatalogCampaignCreatePage() {
         lockCampaignType={shouldLockAlwaysOnPreset}
         lockTargetType={shouldLockAlwaysOnPreset}
         allowAdvancedTargets={!shouldLockAlwaysOnPreset}
-        onCancel={() => router.push('/admin/v2-catalog/campaigns')}
+        onCancel={() => router.push(listPath)}
         onSuccess={(campaignId) => router.push(`/admin/v2-catalog/campaigns/${campaignId}`)}
       />
     </div>

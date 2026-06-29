@@ -583,7 +583,7 @@ export default function V2CatalogBundlesPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">번들 버전 관리 (DRAFT 중심)</h1>
         <p className="mt-1 text-sm text-gray-500">
-          상품 관리 탭에서 기본 구성을 확정한 뒤, 이 화면에서는 버전별 미세 조정과 검증을 진행합니다.
+          프로젝트의 상품 관리 화면에서 기본 구성을 확정한 뒤, 이 화면에서는 버전별 미세 조정과 검증을 진행합니다.
         </p>
       </div>
 
@@ -624,7 +624,7 @@ export default function V2CatalogBundlesPage() {
           />
           {!productsLoading && bundleProductOptions.length === 0 && (
             <p className="text-xs text-amber-700">
-              선택 가능한 BUNDLE 상품이 없습니다. 먼저 상품 관리에서 BUNDLE 상품을 생성해 주세요.
+              선택 가능한 BUNDLE 상품이 없습니다. 먼저 프로젝트의 상품 관리 화면에서 BUNDLE 상품을 생성해 주세요.
             </p>
           )}
           <div className="grid grid-cols-2 gap-2">
@@ -748,7 +748,7 @@ export default function V2CatalogBundlesPage() {
         <div className="rounded-lg border border-gray-200 bg-white p-4 xl:col-span-8 space-y-4">
           <h2 className="text-base font-semibold text-gray-900">4) 구성품 편집</h2>
           <p className="text-xs text-gray-500">
-            상품 관리 탭에서 생성된 기본 구성을 여기서 버전별로 세밀하게 조정합니다.
+            프로젝트의 상품 관리 화면에서 생성된 기본 구성을 여기서 버전별로 세밀하게 조정합니다.
           </p>
           {componentsLoading && (
             <div className="py-8 flex justify-center">

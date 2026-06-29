@@ -64,8 +64,8 @@ export default function V2ProjectCampaignsPage() {
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
           프로젝트 캠페인 정보를 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/campaigns')}>
-          캠페인 메인으로
+        <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/projects/${projectId}`)}>
+          프로젝트 상세로
         </Button>
       </div>
     );
@@ -98,8 +98,8 @@ export default function V2ProjectCampaignsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/campaigns')}>
-            캠페인 메인
+          <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}`)}>
+            프로젝트 상세
           </Button>
           <Button
             intent="neutral"

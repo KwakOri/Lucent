@@ -46,13 +46,13 @@ const primaryNavigationItems: NavigationItem[] = [
     icon: ArrowLeftRight,
   },
   { name: '프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderOpen },
-  { name: '캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: Megaphone },
-  { name: '상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBag },
   { name: '게시글 관리', href: '/admin/content/posts', icon: Newspaper },
   { name: '통계', href: '/admin/v2-ops/stats', icon: BarChart3 },
 ];
 
 const moreNavigationItems: NavigationItem[] = [
+  { name: '캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: Megaphone },
+  { name: '상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBag },
   { name: '아티스트 관리', href: '/admin/v2-catalog/artists', icon: Users },
   { name: '환불 관리', href: '/admin/refunds', icon: RotateCcw },
   { name: '로그 조회', href: '/admin/logs', icon: FileText },

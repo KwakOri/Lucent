@@ -380,6 +380,27 @@ export default function V2CatalogCampaignDetailPage() {
     return Array.from(map.entries());
   }, [targets]);
 
+  const campaignListPath = useMemo(() => {
+    if (!campaign) {
+      return '/admin/v2-catalog/campaigns';
+    }
+
+    const projectScopeIds = new Set<string>();
+    if (campaign.project_id) {
+      projectScopeIds.add(campaign.project_id);
+    }
+    targets
+      .filter((target) => !target.is_excluded && target.target_type === 'PROJECT')
+      .forEach((target) => projectScopeIds.add(target.target_id));
+
+    if (projectScopeIds.size === 1) {
+      const [projectId] = Array.from(projectScopeIds);
+      return `/admin/v2-catalog/projects/${projectId}/campaigns`;
+    }
+
+    return '/admin/v2-catalog/campaigns';
+  }, [campaign, targets]);
+
   const candidateProducts = useMemo(() => {
     if (!campaign) {
       return [];
@@ -951,7 +972,7 @@ export default function V2CatalogCampaignDetailPage() {
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
           캠페인 상세 정보를 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/campaigns')}>
+        <Button intent="neutral" onClick={() => router.push(campaignListPath)}>
           목록으로
         </Button>
       </div>
@@ -1000,7 +1021,7 @@ export default function V2CatalogCampaignDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/campaigns')}>
+          <Button intent="neutral" onClick={() => router.push(campaignListPath)}>
             목록으로
           </Button>
           <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/edit`)}>
