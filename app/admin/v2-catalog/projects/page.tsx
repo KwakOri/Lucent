@@ -9,11 +9,16 @@ import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import type { V2ProjectStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
+  CAMPAIGN_STATUS_LABELS,
+  getCampaignStatusIntent,
+} from '@/lib/client/utils/v2-campaign-admin';
+import {
   useArchiveV2Project,
   usePublishV2Project,
   useRestoreV2Project,
   useUnpublishV2Project,
   useV2AdminProjects,
+  useV2Campaigns,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 type ProjectFilterStatus = 'ALL' | Exclude<V2ProjectStatus, 'ARCHIVED'>;
@@ -59,6 +64,11 @@ export default function V2CatalogProjectsPage() {
   const { data: projects, isLoading, error } = useV2AdminProjects(
     isArchiveView ? { status: 'ARCHIVED' } : {},
   );
+  const {
+    data: baseCampaigns,
+    isLoading: baseCampaignsLoading,
+    error: baseCampaignsError,
+  } = useV2Campaigns({ campaignType: 'ALWAYS_ON' });
   const publishProject = usePublishV2Project();
   const unpublishProject = useUnpublishV2Project();
   const archiveProject = useArchiveV2Project();
@@ -88,11 +98,32 @@ export default function V2CatalogProjectsPage() {
         if (!search) {
           return true;
         }
-        const haystack = `${project.name} ${project.slug} ${project.id}`.toLowerCase();
+        const haystack = `${project.name} ${project.slug}`.toLowerCase();
         return haystack.includes(search);
       })
       .sort((left, right) => left.sort_order - right.sort_order);
   }, [isArchiveView, keyword, projects, statusFilter]);
+
+  const baseCampaignByProjectId = useMemo(() => {
+    const campaignMap = new Map<string, NonNullable<typeof baseCampaigns>[number]>();
+    const sortedBaseCampaigns = [...(baseCampaigns || [])].sort((left, right) => {
+      if (left.status === 'ACTIVE' && right.status !== 'ACTIVE') {
+        return -1;
+      }
+      if (left.status !== 'ACTIVE' && right.status === 'ACTIVE') {
+        return 1;
+      }
+      return right.updated_at.localeCompare(left.updated_at);
+    });
+
+    sortedBaseCampaigns.forEach((campaign) => {
+      if (campaign.project_id && !campaignMap.has(campaign.project_id)) {
+        campaignMap.set(campaign.project_id, campaign);
+      }
+    });
+
+    return campaignMap;
+  }, [baseCampaigns]);
 
   const handlePublish = async (projectId: string) => {
     await runAction(async () => {
@@ -128,7 +159,7 @@ export default function V2CatalogProjectsPage() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading || baseCampaignsLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loading size="lg" text="v2 프로젝트를 불러오는 중입니다." />
@@ -136,7 +167,7 @@ export default function V2CatalogProjectsPage() {
     );
   }
 
-  if (error) {
+  if (error || baseCampaignsError) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
         프로젝트 목록을 불러오지 못했습니다.
@@ -237,7 +268,7 @@ export default function V2CatalogProjectsPage() {
                   상태
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  정렬
+                  기본 캠페인
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
                   작업
@@ -252,70 +283,84 @@ export default function V2CatalogProjectsPage() {
                   </td>
                 </tr>
               )}
-              {filteredProjects.map((project) => (
-                <tr key={project.id}>
-                  <td className="px-4 py-3">
-                    <p className="text-sm font-semibold text-gray-900">{project.name}</p>
-                    <p className="mt-1 text-xs text-gray-500">{project.id}</p>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{project.slug}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <Badge intent={resolveStatusIntent(project.status)}>{project.status}</Badge>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{project.sort_order}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        intent="neutral"
-                        size="sm"
-                        onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}/edit`)}
-                      >
-                        수정
-                      </Button>
-                      {project.status === 'ARCHIVED' ? (
-                        <Button
-                          size="sm"
-                          onClick={() => handleRestore(project.id, project.name)}
-                          loading={restoreProject.isPending}
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                          복귀
-                        </Button>
+              {filteredProjects.map((project) => {
+                const baseCampaign = baseCampaignByProjectId.get(project.id);
+
+                return (
+                  <tr key={project.id}>
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-semibold text-gray-900">{project.name}</p>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{project.slug}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <Badge intent={resolveStatusIntent(project.status)}>{project.status}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {baseCampaign ? (
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge intent={getCampaignStatusIntent(baseCampaign.status)}>포함</Badge>
+                          <span className="text-xs text-gray-500">
+                            {CAMPAIGN_STATUS_LABELS[baseCampaign.status]}
+                          </span>
+                        </div>
                       ) : (
-                        <>
-                          {project.status !== 'ACTIVE' ? (
-                            <Button
-                              size="sm"
-                              onClick={() => handlePublish(project.id)}
-                              loading={publishProject.isPending}
-                            >
-                              활성화
-                            </Button>
-                          ) : (
-                            <Button
-                              intent="secondary"
-                              size="sm"
-                              onClick={() => handleUnpublish(project.id)}
-                              loading={unpublishProject.isPending}
-                            >
-                              비활성화
-                            </Button>
-                          )}
-                          <Button
-                            intent="neutral"
-                            size="sm"
-                            onClick={() => handleArchive(project.id, project.name)}
-                            loading={archiveProject.isPending}
-                          >
-                            <Archive className="h-4 w-4" />
-                            보관
-                          </Button>
-                        </>
+                        <Badge intent="warning">미포함</Badge>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          intent="neutral"
+                          size="sm"
+                          onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}/edit`)}
+                        >
+                          수정
+                        </Button>
+                        {project.status === 'ARCHIVED' ? (
+                          <Button
+                            size="sm"
+                            onClick={() => handleRestore(project.id, project.name)}
+                            loading={restoreProject.isPending}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                            복귀
+                          </Button>
+                        ) : (
+                          <>
+                            {project.status !== 'ACTIVE' ? (
+                              <Button
+                                size="sm"
+                                onClick={() => handlePublish(project.id)}
+                                loading={publishProject.isPending}
+                              >
+                                활성화
+                              </Button>
+                            ) : (
+                              <Button
+                                intent="secondary"
+                                size="sm"
+                                onClick={() => handleUnpublish(project.id)}
+                                loading={unpublishProject.isPending}
+                              >
+                                비활성화
+                              </Button>
+                            )}
+                            <Button
+                              intent="neutral"
+                              size="sm"
+                              onClick={() => handleArchive(project.id, project.name)}
+                              loading={archiveProject.isPending}
+                            >
+                              <Archive className="h-4 w-4" />
+                              보관
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
