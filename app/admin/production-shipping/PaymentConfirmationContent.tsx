@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import {
+  adminInputClass,
+  adminLegacyBridgeClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type {
   V2AdminOrderLinearStage,
   V2AdminOrderLinearTransitionResult,
@@ -396,7 +400,7 @@ export function PaymentConfirmationContent({
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
       {!embedded && (
         <header>
           <h2 className="text-xl font-bold text-gray-900">입금 확인</h2>
@@ -415,6 +419,7 @@ export function PaymentConfirmationContent({
               setCurrentPage(1);
             }}
             placeholder="주문번호 / 주문 ID / 입금자명 검색"
+            className={adminInputClass}
           />
           <Button intent="secondary" onClick={toggleAllVisible} disabled={pagedRows.length === 0}>
             {allVisibleSelected ? '현재 페이지 전체 해제' : '현재 페이지 전체 선택'}

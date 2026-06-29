@@ -99,6 +99,8 @@ export const adminTableBodyClass = 'divide-y divide-[#eee7d6] bg-white';
 export const adminLegacyBridgeClass = [
   'text-[#1a1a2e]',
   '[&_.border-gray-200]:!border-[#e7e3d3]',
+  '[&_.border-gray-300]:!border-[#e7e3d3]',
+  '[&_.border-gray-400]:!border-[#d8d1bd]',
   '[&_.border-gray-100]:!border-[#eee7d6]',
   '[&_.bg-gray-50]:!bg-[#faf9f3]',
   '[&_.text-gray-900]:!text-[#1a1a2e]',

@@ -5,6 +5,10 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ProductionManagementContent } from '@/app/admin/production/ProductionManagementContent';
 import { ShippingManagementContent } from '@/app/admin/shipping/ShippingManagementContent';
 import { isCanceledOrder, resolveLinearStageFromRow } from '@/app/admin/orders/order-stage';
+import {
+  AdminPageHeader,
+  adminLegacyBridgeClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { useV2AdminOrderQueue } from '@/lib/client/hooks/useV2AdminOps';
 import {
   useV2AdminProductionBatches,
@@ -95,15 +99,14 @@ export default function AdminProductionShippingPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-gray-900">주문 이행 관리</h1>
-        <p className="text-sm text-gray-600">
-          입금 확인부터 제작/배송 운영까지 주문 이행 단계를 한 페이지에서 관리합니다.
-        </p>
-      </header>
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="fulfillment"
+        title="주문 이행 관리"
+        description="입금 확인부터 제작/배송 운영까지 주문 이행 단계를 한 페이지에서 관리합니다."
+      />
 
-      <section className="rounded-xl border border-gray-200 bg-white p-1">
+      <section className="rounded-[18px] border border-[#e7e3d3] bg-white p-1">
         <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-5">
           {TAB_OPTIONS.map((option) => {
             const isActive = option.key === activeTab;
@@ -112,15 +115,15 @@ export default function AdminProductionShippingPage() {
                 key={option.key}
                 type="button"
                 onClick={() => handleTabChange(option.key)}
-                className={`rounded-lg px-4 py-3 text-left text-sm font-semibold transition ${
+                className={`rounded-[14px] px-4 py-3 text-left text-sm font-bold transition ${
                   isActive
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                    ? 'bg-[#1a1a2e] text-white'
+                    : 'bg-white text-[#1a1a2e]/70 hover:bg-[#faf9f3] hover:text-[#1a1a2e]'
                 }`}
               >
                 <p className="flex items-center gap-2">
                   <span>{option.label}</span>
-                  <span className={`${isActive ? 'text-blue-100' : 'text-gray-500'}`}>
+                  <span className={`${isActive ? 'text-white/70' : 'text-[#1a1a2e]/45'}`}>
                     {tabCounts[option.key].toLocaleString()}
                   </span>
                 </p>

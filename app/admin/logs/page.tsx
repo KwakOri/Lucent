@@ -2,6 +2,11 @@
 
 import { Loading } from '@/components/ui/loading';
 import { useV2AdminUnifiedAuditLogs } from '@/lib/client/hooks/useV2AdminOps';
+import {
+  AdminPageHeader,
+  AdminStatCard,
+  adminLegacyBridgeClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { LogsTable } from '@/src/components/admin/logs/LogsTable';
 
 export default function AdminLogsPage() {
@@ -47,59 +52,21 @@ export default function AdminLogsPage() {
   };
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">로그 조회</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          legacy + v2 운영/감사 로그를 통합 조회합니다
-        </p>
-      </div>
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="audit logs"
+        title="로그 조회"
+        description="legacy + v2 운영/감사 로그를 통합 조회합니다."
+      />
 
-      <div className="mb-8 bg-white shadow sm:rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-base font-semibold leading-6 text-gray-900 mb-4">
-            로그 통계
-          </h3>
-          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-6">
-            <div className="overflow-hidden rounded-lg bg-gray-50 px-4 py-5">
-              <dt className="truncate text-sm font-medium text-gray-500">총 이벤트</dt>
-              <dd className="mt-1 text-3xl font-semibold tracking-tight text-gray-900">
-                {statsView.total}
-              </dd>
-            </div>
-            <div className="overflow-hidden rounded-lg bg-blue-50 px-4 py-5">
-              <dt className="truncate text-sm font-medium text-blue-600">Legacy Logs</dt>
-              <dd className="mt-1 text-3xl font-semibold tracking-tight text-blue-900">
-                {statsView.legacy}
-              </dd>
-            </div>
-            <div className="overflow-hidden rounded-lg bg-green-50 px-4 py-5">
-              <dt className="truncate text-sm font-medium text-green-600">Action</dt>
-              <dd className="mt-1 text-3xl font-semibold tracking-tight text-green-900">
-                {statsView.actions}
-              </dd>
-            </div>
-            <div className="overflow-hidden rounded-lg bg-indigo-50 px-4 py-5">
-              <dt className="truncate text-sm font-medium text-indigo-600">Transition</dt>
-              <dd className="mt-1 text-3xl font-semibold tracking-tight text-indigo-900">
-                {statsView.transitions}
-              </dd>
-            </div>
-            <div className="overflow-hidden rounded-lg bg-amber-50 px-4 py-5">
-              <dt className="truncate text-sm font-medium text-amber-700">Approval</dt>
-              <dd className="mt-1 text-3xl font-semibold tracking-tight text-amber-900">
-                {statsView.approvals}
-              </dd>
-            </div>
-            <div className="overflow-hidden rounded-lg bg-rose-50 px-4 py-5">
-              <dt className="truncate text-sm font-medium text-rose-700">도메인 이벤트</dt>
-              <dd className="mt-1 text-3xl font-semibold tracking-tight text-rose-900">
-                {statsView.domainEvents}
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </div>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <AdminStatCard label="총 이벤트" value={statsView.total} />
+        <AdminStatCard label="Legacy Logs" value={statsView.legacy} />
+        <AdminStatCard label="Action" value={statsView.actions} />
+        <AdminStatCard label="Transition" value={statsView.transitions} />
+        <AdminStatCard label="Approval" value={statsView.approvals} />
+        <AdminStatCard label="도메인 이벤트" value={statsView.domainEvents} />
+      </section>
 
       <LogsTable logs={logs} />
     </div>
