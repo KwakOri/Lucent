@@ -4,6 +4,7 @@ import { useState, type FocusEvent } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  Archive,
   ArrowLeft,
   ArrowLeftRight,
   BarChart3,
@@ -40,13 +41,11 @@ const navigationSections: NavigationSection[] = [
     title: '공통',
     items: [
       { name: '대시보드', href: '/admin', icon: House },
-      { name: '로그 조회', href: '/admin/logs', icon: FileText },
     ],
   },
   {
     title: '주요 관리',
     items: [
-      { name: '운영 홈', href: '/admin/v2-catalog', icon: House },
       { name: '주문 조회', href: '/admin/orders', icon: ShoppingCart },
       {
         name: '주문 이행 관리',
@@ -65,6 +64,7 @@ const navigationSections: NavigationSection[] = [
   {
     title: '기타',
     items: [
+      { name: '로그 조회', href: '/admin/logs', icon: FileText },
       { name: '번들 관리', href: '/admin/v2-catalog/bundles', icon: Package },
       { name: '전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowLeftRight },
       { name: '미디어·에셋', href: '/admin/v2-catalog/assets', icon: ImageIcon },
@@ -75,22 +75,31 @@ const navigationSections: NavigationSection[] = [
   {
     title: '레거시',
     items: [
-      { name: '[LEGACY] 아티스트 관리', href: '/admin/artists', icon: Users },
-      { name: '[LEGACY] 프로젝트 관리', href: '/admin/projects', icon: FolderOpen },
-      { name: '[LEGACY] 상품 관리', href: '/admin/products', icon: ShoppingBag },
+      { name: '레거시', href: '/admin/legacy', icon: Archive },
     ],
   },
 ];
 
 const desktopNavigationItems = navigationSections.flatMap((section) => section.items);
+const legacyAdminPathPrefixes = ['/admin/artists', '/admin/projects', '/admin/products'];
+
+function isLegacyAdminPath(pathname: string): boolean {
+  return legacyAdminPathPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 function isNavItemActive(pathname: string, href: string): boolean {
   if (pathname === href) {
     return true;
   }
 
-  // 대시보드/운영 홈은 해당 경로에서만 활성화합니다.
-  if (href === '/admin' || href === '/admin/v2-catalog') {
+  if (href === '/admin/legacy') {
+    return isLegacyAdminPath(pathname);
+  }
+
+  // 대시보드는 해당 경로에서만 활성화합니다.
+  if (href === '/admin') {
     return false;
   }
   if (href === '/admin/v2-ops' && pathname.startsWith('/admin/v2-ops/rbac')) {
