@@ -160,16 +160,6 @@ function formatDateLabel(value: string | null | undefined): string {
   });
 }
 
-function formatAgeHours(value: number | null): string {
-  if (value === null || Number.isNaN(value)) {
-    return '-';
-  }
-  if (value < 1) {
-    return `${Math.max(1, Math.round(value * 60))}분`;
-  }
-  return `${value.toFixed(1)}h`;
-}
-
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
     const maybeError = error as {
@@ -882,7 +872,7 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="overflow-x-auto overflow-y-visible pb-24">
-              <table className="w-full min-w-[860px] border-collapse text-sm">
+              <table className="w-full min-w-[720px] border-collapse text-sm">
                 <thead>
                   <tr className="text-left">
                     <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">
@@ -893,12 +883,6 @@ export default function AdminDashboardPage() {
                     </th>
                     <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">
                       금액
-                    </th>
-                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">
-                      상태
-                    </th>
-                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">
-                      경과
                     </th>
                     <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">
                       기준시각
@@ -912,7 +896,7 @@ export default function AdminDashboardPage() {
                   {data.queues.urgent_orders.length === 0 ? (
                     <tr className="border-t border-[#f1eee2]">
                       <td
-                        colSpan={7}
+                        colSpan={5}
                         className="px-3 py-8 text-center text-sm text-[#1a1a2e]/45"
                       >
                         즉시 처리 대상 주문이 없습니다.
@@ -943,12 +927,6 @@ export default function AdminDashboardPage() {
                           </td>
                           <td className="whitespace-nowrap px-3 py-3 font-bold text-[#1a1a2e]">
                             {formatCurrency(order.grand_total, currencyCode)}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-3">
-                            <StagePill stage={order.stage} />
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-3 text-[#1a1a2e]/60">
-                            {formatAgeHours(order.age_hours)}
                           </td>
                           <td className="whitespace-nowrap px-3 py-3 text-xs text-[#1a1a2e]/45">
                             {formatDateTime(
