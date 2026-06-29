@@ -6,6 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  AdminSurface,
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+  adminTableBodyClass,
+  adminTableContainerClass,
+  adminTableHeadCellClass,
+  adminTableHeadClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { useToast } from '@/src/components/toast';
 import {
   useV2CampaignTargetsMap,
@@ -21,9 +33,6 @@ import {
   getCampaignPeriodIntent,
   getCampaignStatusIntent,
 } from '@/lib/client/utils/v2-campaign-admin';
-
-const SELECT_CLASS =
-  'h-11 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20';
 
 type CampaignTimelineFilter = 'ALL' | 'UPCOMING' | 'LIVE' | 'ENDED';
 
@@ -195,37 +204,40 @@ export default function V2CatalogCampaignsPage() {
 
   if (error || !campaigns) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+      <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
         캠페인 정보를 불러오지 못했습니다.
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">v2 캠페인 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">캠페인 목록</p>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2 sm:mt-0">
-          <Button onClick={() => router.push('/admin/v2-catalog/campaigns/new')}>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="campaign catalog"
+        title="v2 캠페인 관리"
+        description="전역 캠페인 목록을 일정과 운영 상태 기준으로 빠르게 훑고 상세 관리로 들어갑니다."
+        actions={
+          <Button
+            className={adminPrimaryButtonClass}
+            onClick={() => router.push('/admin/v2-catalog/campaigns/new')}
+          >
             새 캠페인 만들기
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <AdminSurface padding="md">
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
           <Input
             placeholder="캠페인명, 코드, 설명 검색"
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
+            className={adminInputClass}
           />
           <select
             value={sortKey}
             onChange={(event) => setSortKey(event.target.value as CampaignSortKey)}
-            className={SELECT_CLASS}
+            className={adminSelectClass}
             aria-label="정렬 기준"
           >
             {CAMPAIGN_SORT_OPTIONS.map((option) => (
@@ -244,28 +256,28 @@ export default function V2CatalogCampaignsPage() {
                 key={timeline}
                 type="button"
                 onClick={() => setTimelineFilter(timeline)}
-                className={`rounded-lg border px-4 py-3 text-left transition ${
+                className={`rounded-[16px] border px-4 py-3 text-left transition ${
                   isSelected
-                    ? 'border-primary-500 bg-primary-50 text-primary-700'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                    ? 'border-[#1a1a2e] bg-[#1a1a2e] text-white'
+                    : 'border-[#e7e3d3] bg-[#fdfcf4] text-[#1a1a2e] hover:border-[#d8d1bd]'
                 }`}
               >
-                <span className="block text-sm font-medium">
+                <span className="block text-sm font-black">
                   {CAMPAIGN_TIMELINE_LABELS[timeline]}
                 </span>
-                <span className="mt-1 block text-xl font-bold">
+                <span className="mt-1 block text-xl font-black">
                   {timelineCounts[timeline]}
                 </span>
               </button>
             );
           })}
         </div>
-      </section>
+      </AdminSurface>
 
-      <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="border-b border-gray-100 px-5 py-4">
+      <section className={adminTableContainerClass}>
+        <div className="border-b border-[#eee7d6] px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-black text-[#1a1a2e]">
               {CAMPAIGN_TIMELINE_LABELS[timelineFilter]} 캠페인
             </h2>
             <Badge intent="info" size="md">
@@ -275,36 +287,36 @@ export default function V2CatalogCampaignsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
+          <table className="min-w-full text-sm">
+            <thead className={adminTableHeadClass}>
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
+                <th className={adminTableHeadCellClass}>
                   캠페인
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
+                <th className={adminTableHeadCellClass}>
                   캠페인 상태
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
+                <th className={adminTableHeadCellClass}>
                   운영 상태
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
+                <th className={adminTableHeadCellClass}>
                   기간
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
+                <th className={adminTableHeadCellClass}>
                   상품
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
+                <th className={adminTableHeadCellClass}>
                   최근 수정
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">
+                <th className={`${adminTableHeadCellClass} text-right`}>
                   작업
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className={adminTableBodyClass}>
               {filteredCampaigns.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="px-4 py-12 text-center text-sm font-medium text-[#1a1a2e]/45">
                     조건에 맞는 캠페인이 없습니다.
                   </td>
                 </tr>
@@ -318,7 +330,7 @@ export default function V2CatalogCampaignsPage() {
                     : `${targetCountByCampaignId[campaign.id] || 0}개`;
 
                   return (
-                    <tr key={campaign.id} className="hover:bg-gray-50">
+                    <tr key={campaign.id} className="hover:bg-[#faf9f3]">
                       <td className="min-w-[260px] px-4 py-4">
                         <div className="flex flex-wrap gap-2">
                           <Badge intent="default">
@@ -328,7 +340,7 @@ export default function V2CatalogCampaignsPage() {
                             <Badge intent={getCampaignPeriodIntent(period)}>상시</Badge>
                           ) : null}
                         </div>
-                        <p className="mt-2 font-medium text-gray-900">{campaign.name}</p>
+                        <p className="mt-2 font-black text-[#1a1a2e]">{campaign.name}</p>
                       </td>
                       <td className="px-4 py-4">
                         <Badge intent={getCampaignTimelineIntent(timeline)}>
@@ -340,16 +352,16 @@ export default function V2CatalogCampaignsPage() {
                           {CAMPAIGN_STATUS_LABELS[campaign.status]}
                         </Badge>
                       </td>
-                      <td className="min-w-[220px] px-4 py-4 text-sm text-gray-600">
+                      <td className="min-w-[220px] px-4 py-4 text-sm font-medium text-[#1a1a2e]/60">
                         <div className="space-y-1">
                           <p>시작 {formatCampaignDateLine(campaign.starts_at, '즉시 운영')}</p>
                           <p>종료 {formatCampaignDateLine(campaign.ends_at, '없음')}</p>
                         </div>
                       </td>
-                      <td className="min-w-[120px] px-4 py-4 text-sm text-gray-600">
+                      <td className="min-w-[120px] px-4 py-4 text-sm font-semibold text-[#1a1a2e]/65">
                         {productCountText}
                       </td>
-                      <td className="min-w-[150px] px-4 py-4 text-xs text-gray-500">
+                      <td className="min-w-[150px] px-4 py-4 text-xs font-medium text-[#1a1a2e]/45">
                         {formatDateTime(campaign.updated_at)}
                       </td>
                       <td className="px-4 py-4">
@@ -357,6 +369,7 @@ export default function V2CatalogCampaignsPage() {
                           <Button
                             size="sm"
                             intent="neutral"
+                            className={adminButtonClass}
                             onClick={() => void handleCopyCampaignLink(campaign.id, campaign.name)}
                           >
                             링크 복사
@@ -364,12 +377,14 @@ export default function V2CatalogCampaignsPage() {
                           <Button
                             size="sm"
                             intent="neutral"
+                            className={adminButtonClass}
                             onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/edit`)}
                           >
                             수정
                           </Button>
                           <Button
                             size="sm"
+                            className="!rounded-[10px] !bg-[#1a1a2e] !font-bold !text-white hover:!bg-[#272743]"
                             onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}`)}
                           >
                             상세

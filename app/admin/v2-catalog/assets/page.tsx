@@ -5,6 +5,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  AdminStatCard,
+  AdminSurface,
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type {
   V2MediaAsset,
   V2MediaAssetKind,
@@ -43,8 +52,6 @@ const MEDIA_ASSET_STATUS_LABELS: Record<V2MediaAssetStatus, string> = {
   INACTIVE: '비활성',
   ARCHIVED: '보관됨',
 };
-const SELECT_CLASS =
-  'h-11 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20';
 
 function formatBytes(value: number | null): string {
   if (!value || value <= 0) {
@@ -200,71 +207,53 @@ export default function V2CatalogAssetsPage() {
 
   if (error || !mediaAssets) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+      <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
         미디어 에셋 레지스트리를 불러오지 못했습니다.
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">v2 미디어 에셋 개요</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            중요 상태와 참조 현황만 먼저 보여주고, 경로 같은 세부 정보는 펼쳐서 확인할 수 있습니다.
-          </p>
-        </div>
-        <div className="mt-3 sm:mt-0">
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="media assets"
+        title="v2 미디어 에셋 개요"
+        description="중요 상태와 참조 현황만 먼저 보여주고, 경로 같은 세부 정보는 펼쳐서 확인할 수 있습니다."
+        actions={
           <Badge intent="info" size="md">필터 결과 {filteredAssets.length}개</Badge>
-        </div>
-      </div>
+        }
+      />
 
       {message && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-[14px] border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
           {message}
         </div>
       )}
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       )}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">전체 파일</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.total}</p>
-          <p className="mt-1 text-xs text-gray-500">현재 레지스트리에 등록된 파일 수</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">참조 중</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.referencedCount}</p>
-          <p className="mt-1 text-xs text-gray-500">상품 또는 디지털 에셋과 연결된 파일</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">고아 파일</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.orphanCount}</p>
-          <p className="mt-1 text-xs text-gray-500">다른 곳에서 쓰지 않아 정리할 수 있는 파일</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">사용 가능</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.activeCount}</p>
-          <p className="mt-1 text-xs text-gray-500">현재 ACTIVE 상태인 파일</p>
-        </div>
+        <AdminStatCard label="전체 파일" value={summary.total} caption="현재 레지스트리에 등록된 파일 수" />
+        <AdminStatCard label="참조 중" value={summary.referencedCount} caption="상품 또는 디지털 에셋과 연결된 파일" />
+        <AdminStatCard label="고아 파일" value={summary.orphanCount} caption="다른 곳에서 쓰지 않아 정리할 수 있는 파일" />
+        <AdminStatCard label="사용 가능" value={summary.activeCount} caption="현재 ACTIVE 상태인 파일" />
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <AdminSurface padding="md">
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_220px_220px_auto]">
           <Input
             placeholder="파일명, 경로, MIME 타입으로 검색"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
+            className={adminInputClass}
           />
           <select
             value={kindFilter}
             onChange={(event) => setKindFilter(event.target.value as V2MediaAssetKind | 'ALL')}
-            className={SELECT_CLASS}
+            className={adminSelectClass}
           >
             {MEDIA_ASSET_KIND_VALUES.map((value) => (
               <option key={value} value={value}>
@@ -277,7 +266,7 @@ export default function V2CatalogAssetsPage() {
             onChange={(event) =>
               setStatusFilter(event.target.value as V2MediaAssetStatus | 'ALL')
             }
-            className={SELECT_CLASS}
+            className={adminSelectClass}
           >
             {MEDIA_ASSET_STATUS_VALUES.map((value) => (
               <option key={value} value={value}>
@@ -287,25 +276,26 @@ export default function V2CatalogAssetsPage() {
           </select>
           <Button
             intent={showOrphansOnly ? 'primary' : 'neutral'}
+            className={showOrphansOnly ? adminPrimaryButtonClass : adminButtonClass}
             onClick={() => setShowOrphansOnly((current) => !current)}
           >
             {showOrphansOnly ? '고아 파일만 보는 중' : '고아 파일만 보기'}
           </Button>
         </div>
-      </section>
+      </AdminSurface>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <AdminSurface padding="md">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">레지스트리 목록</h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <h2 className="text-lg font-black text-[#1a1a2e]">레지스트리 목록</h2>
+            <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
               리스트에서는 이름, 상태, 연결 여부 같은 핵심 정보만 먼저 보여줍니다.
             </p>
           </div>
         </div>
 
         {filteredAssets.length === 0 ? (
-          <div className="mt-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-500">
+          <div className="mt-4 rounded-[16px] border border-dashed border-[#e7e3d3] bg-[#faf9f3] px-6 py-10 text-center text-sm font-medium text-[#1a1a2e]/55">
             조건에 맞는 media asset이 없습니다.
           </div>
         ) : (
@@ -315,12 +305,12 @@ export default function V2CatalogAssetsPage() {
               return (
                 <article
                   key={asset.id}
-                  className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                  className="rounded-[18px] border border-[#e7e3d3] bg-white p-4 shadow-none"
                 >
                   <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_220px_220px_auto] xl:items-start">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-base font-semibold text-gray-900 break-all">
+                        <h3 className="break-all text-base font-black text-[#1a1a2e]">
                           {asset.file_name}
                         </h3>
                         <Badge intent="default">{MEDIA_ASSET_KIND_LABELS[asset.asset_kind]}</Badge>
@@ -332,7 +322,7 @@ export default function V2CatalogAssetsPage() {
                         </Badge>
                       </div>
 
-                      <p className="mt-2 text-sm text-gray-600">
+                      <p className="mt-2 text-sm font-medium text-[#1a1a2e]/60">
                         {formatBytes(asset.file_size)}
                         {asset.mime_type ? ` · ${asset.mime_type}` : ''}
                         {asset.updated_at ? ` · ${formatDate(asset.updated_at)} 갱신` : ''}
@@ -344,35 +334,35 @@ export default function V2CatalogAssetsPage() {
                             href={asset.public_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="font-medium text-blue-600 hover:underline"
+                            className="font-bold text-[#a35200] hover:underline"
                           >
                             파일 열기
                           </a>
                         ) : (
-                          <span className="text-gray-400">public URL 없음</span>
+                          <span className="font-medium text-[#1a1a2e]/35">public URL 없음</span>
                         )}
                       </div>
                     </div>
 
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <p className="text-xs font-black uppercase tracking-wide text-[#1a1a2e]/40">
                         연결 요약
                       </p>
-                      <p className="mt-2 text-sm font-medium text-gray-900">
+                      <p className="mt-2 text-sm font-black text-[#1a1a2e]">
                         {referenceSummary.is_orphan
                           ? '현재 연결된 위치가 없습니다.'
                           : `총 ${referenceSummary.total_reference_count}곳에서 사용 중`}
                       </p>
-                      <p className="mt-1 text-sm text-gray-600">
+                      <p className="mt-1 text-sm font-medium text-[#1a1a2e]/60">
                         상품 {referenceSummary.product_media_count} · 디지털 {referenceSummary.digital_asset_count}
                       </p>
                     </div>
 
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <p className="text-xs font-black uppercase tracking-wide text-[#1a1a2e]/40">
                         정리 판단
                       </p>
-                      <p className="mt-2 text-sm text-gray-700">
+                      <p className="mt-2 text-sm font-medium text-[#1a1a2e]/60">
                         {referenceSummary.is_orphan
                           ? '다른 곳에서 쓰지 않으므로 정리 후보입니다.'
                           : '현재 연결 중이라 이 화면에서는 제거할 수 없습니다.'}
@@ -384,32 +374,33 @@ export default function V2CatalogAssetsPage() {
                         <Button
                           intent="danger"
                           size="sm"
+                          className="!rounded-[10px] !bg-[#ca2a30] !font-bold !text-white hover:!bg-[#b0242a]"
                           onClick={() => handleDeleteMediaAsset(asset)}
                           loading={deleteMediaAsset.isPending}
                         >
                           고아 파일 제거
                         </Button>
                       ) : (
-                        <Button intent="neutral" size="sm" disabled>
+                        <Button intent="neutral" size="sm" className={adminButtonClass} disabled>
                           참조 중
                         </Button>
                       )}
                     </div>
                   </div>
 
-                  <details className="mt-4 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
-                    <summary className="cursor-pointer list-none text-sm font-medium text-gray-700">
+                  <details className="mt-4 rounded-[14px] border border-[#eee7d6] bg-[#faf9f3] px-4 py-3">
+                    <summary className="cursor-pointer list-none text-sm font-bold text-[#1a1a2e]/65">
                       세부 정보 보기
                     </summary>
-                    <div className="mt-3 grid gap-3 text-sm text-gray-600 sm:grid-cols-2">
+                    <div className="mt-3 grid gap-3 text-sm font-medium text-[#1a1a2e]/60 sm:grid-cols-2">
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                        <p className="text-xs font-black uppercase tracking-wide text-[#1a1a2e]/40">
                           저장 경로
                         </p>
                         <p className="mt-1 break-all">{asset.storage_path}</p>
                       </div>
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                        <p className="text-xs font-black uppercase tracking-wide text-[#1a1a2e]/40">
                           등록 정보
                         </p>
                         <p className="mt-1">스토리지 {asset.storage_provider}</p>
@@ -422,7 +413,7 @@ export default function V2CatalogAssetsPage() {
             })}
           </div>
         )}
-      </section>
+      </AdminSurface>
     </div>
   );
 }
