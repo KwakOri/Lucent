@@ -512,6 +512,9 @@ export function ProductVariantForm({
         queryKey: queryKeys.v2CatalogAdmin.pricing.all,
       }),
       queryClient.invalidateQueries({
+        queryKey: queryKeys.v2CatalogAdmin.campaigns.all,
+      }),
+      queryClient.invalidateQueries({
         queryKey: queryKeys.v2Shop.all,
       }),
     ]);
