@@ -3,7 +3,6 @@
 import type { ComponentType } from 'react';
 import Link from 'next/link';
 import {
-  UserGroupIcon,
   FolderIcon,
   ShoppingBagIcon,
   MegaphoneIcon,
@@ -27,13 +26,6 @@ const entries: V2Entry[] = [
     href: '/admin/v2-catalog/projects',
     icon: FolderIcon,
     tone: 'bg-blue-100 text-blue-700',
-  },
-  {
-    title: 'v2 아티스트 관리',
-    description: '아티스트 등록과 프로젝트 연결(Primary/정렬)을 운영합니다.',
-    href: '/admin/v2-catalog/artists',
-    icon: UserGroupIcon,
-    tone: 'bg-cyan-100 text-cyan-700',
   },
   {
     title: 'v2 상품 관리',

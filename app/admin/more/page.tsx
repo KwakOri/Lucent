@@ -8,6 +8,7 @@ import {
   Package,
   RotateCcw,
   ShieldCheck,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -19,6 +20,12 @@ type MoreEntry = {
 };
 
 const moreEntries: MoreEntry[] = [
+  {
+    title: '아티스트 관리',
+    description: '아티스트 등록과 프로젝트 연결 정보를 관리합니다.',
+    href: '/admin/v2-catalog/artists',
+    icon: Users,
+  },
   {
     title: '환불 관리',
     description: '환불 가능 주문을 확인하고 수동 환불을 처리합니다.',
