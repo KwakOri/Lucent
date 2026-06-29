@@ -7,7 +7,7 @@ export function Footer({ className, children }: FooterProps) {
   return (
     <div
       className={clsx(
-        'flex items-center justify-end gap-2 px-6 py-4 border-t bg-gray-50',
+        'flex flex-col-reverse gap-2 border-t border-[#e7e3d3] bg-[#faf9f3] px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6 [&>button]:w-full sm:[&>button]:w-auto',
         className
       )}
     >

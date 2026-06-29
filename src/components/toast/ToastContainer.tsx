@@ -42,15 +42,15 @@ export function ToastContainer({ toasts }: ToastContainerProps) {
 }
 
 function getPositionClass(position: ToastPosition): string {
-  const baseClass = 'fixed z-[9999] flex flex-col gap-2 p-4 pointer-events-none';
+  const baseClass = 'fixed z-[9999] flex flex-col gap-2 p-3 pointer-events-none sm:p-4';
 
   const positionClasses: Record<ToastPosition, string> = {
-    'top-right': 'top-0 right-0',
-    'top-left': 'top-0 left-0',
-    'top-center': 'top-0 left-1/2 -translate-x-1/2',
-    'bottom-right': 'bottom-0 right-0',
-    'bottom-left': 'bottom-0 left-0',
-    'bottom-center': 'bottom-0 left-1/2 -translate-x-1/2',
+    'top-right': 'top-0 left-0 right-0 items-center sm:left-auto sm:items-end',
+    'top-left': 'top-0 left-0 right-0 items-center sm:right-auto sm:items-start',
+    'top-center': 'top-0 left-0 right-0 items-center sm:left-1/2 sm:right-auto sm:-translate-x-1/2',
+    'bottom-right': 'bottom-0 left-0 right-0 items-center sm:left-auto sm:items-end',
+    'bottom-left': 'bottom-0 left-0 right-0 items-center sm:right-auto sm:items-start',
+    'bottom-center': 'bottom-0 left-0 right-0 items-center sm:left-1/2 sm:right-auto sm:-translate-x-1/2',
   };
 
   return `${baseClass} ${positionClasses[position]}`;

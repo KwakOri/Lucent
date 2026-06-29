@@ -8,6 +8,7 @@ import {
   AdminPageHeader,
   adminButtonClass,
 } from '@/src/components/admin/AdminDesignSystem';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import { ProductBasicsForm } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
 import type { ProductBasicsFormValues } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
 import {
@@ -38,6 +39,7 @@ function getErrorMessage(error: unknown): string {
 
 export default function V2CatalogProductCreatePage() {
   const router = useRouter();
+  const { notify } = useAdminFeedback();
   const searchParams = useSearchParams();
   const createProduct = useCreateV2Product();
   const createVariant = useCreateV2Variant();
@@ -107,8 +109,9 @@ export default function V2CatalogProductCreatePage() {
           },
         });
       } catch (defaultVariantError) {
-        window.alert(
-          `상품은 생성되었지만 기본 옵션 자동 생성에 실패했습니다. 상세 화면에서 옵션을 추가해 주세요.\n\n${getErrorMessage(defaultVariantError)}`,
+        notify(
+          `상품은 생성되었지만 기본 옵션 자동 생성에 실패했습니다. 상세 화면에서 옵션을 추가해 주세요. ${getErrorMessage(defaultVariantError)}`,
+          { type: 'warning', duration: 10000 },
         );
         router.push(`/admin/v2-catalog/products/${createdProduct.id}`);
         return;

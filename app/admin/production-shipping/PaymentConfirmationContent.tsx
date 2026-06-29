@@ -10,6 +10,7 @@ import {
   adminInputClass,
   adminLegacyBridgeClass,
 } from '@/src/components/admin/AdminDesignSystem';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import type {
   V2AdminOrderLinearStage,
   V2AdminOrderLinearTransitionResult,
@@ -142,6 +143,7 @@ function getErrorMessage(error: unknown): string {
 export function PaymentConfirmationContent({
   embedded = false,
 }: PaymentConfirmationContentProps = {}) {
+  const { confirm } = useAdminFeedback();
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
@@ -311,9 +313,13 @@ export function PaymentConfirmationContent({
       return;
     }
 
-    const confirmed = window.confirm(
-      `선택한 ${effectiveSelectedOrderIds.length}건 주문을 입금 확인 처리할까요?`,
-    );
+    const confirmed = await confirm({
+      title: '입금 확인 처리',
+      message: `선택한 ${effectiveSelectedOrderIds.length}건 주문을 입금 확인 처리할까요?`,
+      description: '디지털 전용 주문은 완료 단계로, 실물 포함 주문은 입금 확인 단계로 이동합니다.',
+      confirmText: '처리',
+      tone: 'warning',
+    });
     if (!confirmed) {
       return;
     }

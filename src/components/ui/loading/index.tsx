@@ -48,7 +48,7 @@ export const Loading = ({
   const content = (
     <div
       className={clsx(
-        "flex flex-col items-center justify-center gap-3",
+        "flex min-w-0 flex-col items-center justify-center gap-3 text-center",
         className
       )}
       role="status"
@@ -57,10 +57,12 @@ export const Loading = ({
       {...props}
     >
       <Loader2
-        className={clsx(sizeClasses[size], "animate-spin text-primary-600")}
+        className={clsx(sizeClasses[size], "animate-spin text-[#f59e0b]")}
       />
       {text && (
-        <p className="text-sm text-text-secondary">{text}</p>
+        <p className="max-w-[min(22rem,calc(100vw-3rem))] text-sm font-medium leading-6 text-[#1a1a2e]/60">
+          {text}
+        </p>
       )}
       <span className="sr-only">로딩 중</span>
     </div>
@@ -68,8 +70,10 @@ export const Loading = ({
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-0/80 backdrop-blur-sm">
-        {content}
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#f9f9ed]/85 px-4 backdrop-blur-sm">
+        <div className="rounded-[22px] border border-[#e7e3d3] bg-white px-8 py-7 shadow-[0_18px_44px_rgba(26,26,46,0.10)]">
+          {content}
+        </div>
       </div>
     );
   }

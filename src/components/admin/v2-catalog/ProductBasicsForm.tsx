@@ -6,6 +6,7 @@ import { FormField } from '@/components/ui/form-field';
 import { Input, Textarea } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import {
+  adminActionRowClass,
   adminButtonClass,
   adminInputClass,
   adminPrimaryButtonClass,
@@ -397,7 +398,7 @@ export function ProductBasicsForm({
             </section>
           )}
 
-          <div className="flex flex-wrap gap-2">
+          <div className={adminActionRowClass}>
             <Button type="submit" className={adminPrimaryButtonClass} loading={isSubmitting}>
               {submitLabel}
             </Button>

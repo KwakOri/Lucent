@@ -12,6 +12,7 @@ import {
   adminButtonClass,
   adminPrimaryButtonClass,
 } from '@/src/components/admin/AdminDesignSystem';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import type { V2ProjectStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useArchiveV2Project,
@@ -49,6 +50,7 @@ function getProjectStatusIntent(status: V2ProjectStatus) {
 
 export default function V2CatalogProjectSettingsPage() {
   const router = useRouter();
+  const { confirm } = useAdminFeedback();
   const params = useParams<{ id: string }>();
 
   const projectId = useMemo(() => {
@@ -93,7 +95,14 @@ export default function V2CatalogProjectSettingsPage() {
     if (!project) {
       return;
     }
-    if (!window.confirm(`"${project.name}" 프로젝트를 비활성화하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '프로젝트 비활성화',
+      message: `"${project.name}" 프로젝트를 비활성화하시겠습니까?`,
+      description: '비활성화 후 일반 판매/노출 흐름에서 제외됩니다.',
+      confirmText: '비활성화',
+      tone: 'warning',
+    });
+    if (!confirmed) {
       return;
     }
     await runAction(async () => {
@@ -106,7 +115,14 @@ export default function V2CatalogProjectSettingsPage() {
     if (!project) {
       return;
     }
-    if (!window.confirm(`"${project.name}" 프로젝트를 보관하시겠습니까? 보관하면 일반 목록에서 숨겨집니다.`)) {
+    const confirmed = await confirm({
+      title: '프로젝트 보관',
+      message: `"${project.name}" 프로젝트를 보관하시겠습니까?`,
+      description: '보관하면 일반 목록에서 숨겨집니다.',
+      confirmText: '보관',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
     await runAction(async () => {
@@ -119,7 +135,14 @@ export default function V2CatalogProjectSettingsPage() {
     if (!project) {
       return;
     }
-    if (!window.confirm(`"${project.name}" 프로젝트를 보관함에서 복귀시키겠습니까? 복귀 후에는 DRAFT 상태가 됩니다.`)) {
+    const confirmed = await confirm({
+      title: '프로젝트 복귀',
+      message: `"${project.name}" 프로젝트를 보관함에서 복귀시키겠습니까?`,
+      description: '복귀 후에는 DRAFT 상태가 됩니다.',
+      confirmText: '복귀',
+      tone: 'warning',
+    });
+    if (!confirmed) {
       return;
     }
     await runAction(async () => {

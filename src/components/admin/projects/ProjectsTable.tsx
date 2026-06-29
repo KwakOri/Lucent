@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
 import type { ProjectWithDetails } from '@/lib/client/api/projects.api';
 import { ProjectsAPI } from '@/lib/client/api/projects.api';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 
 type Project = ProjectWithDetails;
 
@@ -15,12 +16,20 @@ interface ProjectsTableProps {
 
 export function ProjectsTable({ projects: initialProjects }: ProjectsTableProps) {
   const router = useRouter();
+  const { confirm, notify } = useAdminFeedback();
   const [projects, setProjects] = useState(initialProjects);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
 
   const handleDelete = async (project: Project) => {
-    if (!confirm(`"${project.name}" 프로젝트를 삭제하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '프로젝트 삭제',
+      message: `"${project.name}" 프로젝트를 삭제하시겠습니까?`,
+      description: '연결된 레거시 데이터에 영향이 있을 수 있습니다.',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -32,7 +41,7 @@ export function ProjectsTable({ projects: initialProjects }: ProjectsTableProps)
       setProjects((prev) => prev.filter((p) => p.id !== project.id));
       router.refresh();
     } catch (error) {
-      alert('프로젝트 삭제에 실패했습니다.');
+      notify('프로젝트 삭제에 실패했습니다.', { type: 'error' });
       console.error(error);
     } finally {
       setDeletingId(null);
@@ -60,7 +69,7 @@ export function ProjectsTable({ projects: initialProjects }: ProjectsTableProps)
 
       router.refresh();
     } catch (error) {
-      alert('순서 변경에 실패했습니다.');
+      notify('순서 변경에 실패했습니다.', { type: 'error' });
       console.error(error);
       // Revert
       setProjects(initialProjects);

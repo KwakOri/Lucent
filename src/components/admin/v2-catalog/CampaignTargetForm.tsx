@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
+  adminActionRowClass,
   adminButtonClass,
   adminPrimaryButtonClass,
 } from '@/src/components/admin/AdminDesignSystem';
@@ -169,7 +170,7 @@ export function CampaignTargetForm({
         </div>
       </section>
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className={adminActionRowClass}>
         <Button intent="neutral" className={adminButtonClass} onClick={onCancel} disabled={isSubmitting}>
           취소
         </Button>

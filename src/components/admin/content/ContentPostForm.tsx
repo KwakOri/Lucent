@@ -9,11 +9,13 @@ import { FileInput } from "@/components/ui/file-input";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
+  adminActionRowClass,
   adminButtonClass,
   adminInputClass,
   adminLegacyBridgeClass,
   adminPrimaryButtonClass,
   adminSelectClass,
+  adminStickyActionBarClass,
 } from "@/src/components/admin/AdminDesignSystem";
 import type {
   V2ContentAdminPost,
@@ -562,12 +564,12 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
         </div>
       </section>
 
-      <div className="sticky bottom-0 z-10 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className={adminStickyActionBarClass}>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="text-sm text-gray-500">
             본문 {bodyText.length.toLocaleString()}자
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className={adminActionRowClass}>
             {mode === "edit" && post?.status === "PUBLISHED" ? (
               <Button
                 intent="neutral"

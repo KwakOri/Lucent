@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
-import { useToast } from '@/src/components/toast';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import {
   AdminPageHeader,
   adminButtonClass,
@@ -199,7 +199,7 @@ function resolveShippingFeeTypeLabel(params: {
 export default function AdminOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = params.id;
-  const { showToast } = useToast();
+  const { confirm, showToast } = useAdminFeedback();
   const orderDetailQuery = useV2AdminOrderDetail(orderId || null);
   const cancelOrderMutation = useV2AdminCancelOrder();
   const refundOrderMutation = useV2AdminRefundOrder();
@@ -276,7 +276,14 @@ export default function AdminOrderDetailPage() {
       return;
     }
     const orderNo = readString(order?.order_no) || orderId;
-    if (!confirm(`주문 ${orderNo}를 취소하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '주문 취소',
+      message: `주문 ${orderNo}를 취소하시겠습니까?`,
+      description: '취소 후 주문 단계가 CANCELED로 이동합니다.',
+      confirmText: '취소 처리',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -297,7 +304,14 @@ export default function AdminOrderDetailPage() {
       return;
     }
     const orderNo = readString(order?.order_no) || orderId;
-    if (!confirm(`주문 ${orderNo}의 전체 결제 금액을 환불하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '전체 환불',
+      message: `주문 ${orderNo}의 전체 결제 금액을 환불하시겠습니까?`,
+      description: '승인 대기 또는 환불 처리 결과에 따라 주문 이력이 갱신됩니다.',
+      confirmText: '환불',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 

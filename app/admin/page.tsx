@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import {
   type ListV2AdminDashboardOverviewParams,
   type V2AdminDashboardUrgentOrder,
@@ -456,6 +457,7 @@ function sortCampaignsByStartDate(left: V2Campaign, right: V2Campaign): number {
 }
 
 export default function AdminDashboardPage() {
+  const { confirm, notify } = useAdminFeedback();
   const initialRange = resolvePresetRange('LAST_7_DAYS');
   const [draft, setDraft] = useState<FilterState>({
     preset: 'LAST_7_DAYS',
@@ -523,9 +525,13 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `${order.order_no || order.order_id} 주문을 입금 확인 처리할까요?`,
-    );
+    const confirmed = await confirm({
+      title: '입금 확인 처리',
+      message: `${order.order_no || order.order_id} 주문을 입금 확인 처리할까요?`,
+      description: '디지털 전용 주문은 완료 단계로, 실물 포함 주문은 입금 확인 단계로 이동합니다.',
+      confirmText: '처리',
+      tone: 'warning',
+    });
     if (!confirmed) {
       return;
     }
@@ -542,7 +548,7 @@ export default function AdminDashboardPage() {
       });
       await refetch();
     } catch (confirmError) {
-      window.alert(getErrorMessage(confirmError));
+      notify(getErrorMessage(confirmError), { type: 'error' });
     } finally {
       setConfirmingOrderId(null);
     }

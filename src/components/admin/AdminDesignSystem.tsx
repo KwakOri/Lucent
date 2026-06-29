@@ -72,13 +72,25 @@ export const adminText = {
 };
 
 export const adminButtonClass =
-  '!h-11 !rounded-[12px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]';
+  '!h-11 !rounded-[12px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9] !whitespace-nowrap';
 
 export const adminPrimaryButtonClass =
-  '!h-11 !rounded-[12px] !bg-[#1a1a2e] !px-4 !text-sm !font-bold !text-white hover:!bg-[#272743]';
+  '!h-11 !rounded-[12px] !bg-[#1a1a2e] !px-4 !text-sm !font-bold !text-white hover:!bg-[#272743] !whitespace-nowrap';
 
 export const adminDangerIconButtonClass =
   '!h-11 !w-11 !rounded-[14px] !border !border-[#f3d6d6] !bg-white !px-0 !text-[#ca2a30] hover:!bg-[#fff0f0]';
+
+export const adminActionRowClass =
+  'flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end [&>a]:w-full [&>button]:w-full sm:[&>a]:w-auto sm:[&>button]:w-auto';
+
+export const adminHeaderActionRowClass =
+  'flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end [&>a]:w-full [&>button]:w-full sm:[&>a]:w-auto sm:[&>button]:w-auto';
+
+export const adminInlineActionRowClass =
+  'flex flex-wrap items-center gap-2 [&>a]:max-sm:flex-1 [&>button]:max-sm:flex-1';
+
+export const adminStickyActionBarClass =
+  'sticky bottom-0 z-10 -mx-4 border-t border-[#e7e3d3] bg-white/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8';
 
 export const adminInputClass =
   'rounded-[12px] border-[#e7e3d3] bg-[#fdfcf4] text-[#1a1a2e] placeholder:text-[#1a1a2e]/35 focus:border-[#f59e0b] focus:ring-[#f59e0b]/20';
@@ -167,13 +179,13 @@ export function AdminPageHeader({
 }) {
   return (
     <header className={clsx('flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between', className)}>
-      <div>
+      <div className="min-w-0">
         {eyebrow ? (
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#a35200]">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="mt-2 text-3xl font-black leading-tight text-[#1a1a2e] sm:text-4xl">
+        <h1 className="mt-2 text-2xl font-black leading-tight text-[#1a1a2e] sm:text-3xl lg:text-4xl">
           {title}
         </h1>
         {description ? (
@@ -182,7 +194,7 @@ export function AdminPageHeader({
           </p>
         ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+      {actions ? <div className={adminHeaderActionRowClass}>{actions}</div> : null}
     </header>
   );
 }
