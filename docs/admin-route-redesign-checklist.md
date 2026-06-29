@@ -94,37 +94,37 @@ Legend:
 - [x] `/admin/v2-catalog`
 - [x] `/admin/v2-catalog/projects`
 - [x] `/admin/v2-catalog/projects/[id]`
-- [ ] `/admin/v2-catalog/projects/new`
-- [ ] `/admin/v2-catalog/projects/[id]/edit`
-- [ ] `/admin/v2-catalog/projects/[id]/settings`
+- [x] `/admin/v2-catalog/projects/new`
+- [x] `/admin/v2-catalog/projects/[id]/edit`
+- [x] `/admin/v2-catalog/projects/[id]/settings`
 - [x] `/admin/v2-catalog/projects/[id]/campaigns`
 
 ### V2 Products
 
 - [x] `/admin/v2-catalog/products`
-- [ ] `/admin/v2-catalog/products/new`
+- [x] `/admin/v2-catalog/products/new`
 - [x] `/admin/v2-catalog/products/[id]` - product detail renewed
-- [ ] `/admin/v2-catalog/products/[id]/edit`
-- [ ] `/admin/v2-catalog/products/[id]/variants/new`
-- [ ] `/admin/v2-catalog/products/[id]/variants/[variantId]/edit`
+- [x] `/admin/v2-catalog/products/[id]/edit`
+- [x] `/admin/v2-catalog/products/[id]/variants/new`
+- [x] `/admin/v2-catalog/products/[id]/variants/[variantId]/edit`
 - [x] `/admin/v2-catalog/products/projects/[projectId]`
 
 ### V2 Campaigns
 
 - [x] `/admin/v2-catalog/campaigns`
-- [ ] `/admin/v2-catalog/campaigns/new`
+- [x] `/admin/v2-catalog/campaigns/new`
 - [ ] `/admin/v2-catalog/campaigns/[id]`
-- [ ] `/admin/v2-catalog/campaigns/[id]/edit`
-- [ ] `/admin/v2-catalog/campaigns/[id]/targets/new`
-- [ ] `/admin/v2-catalog/campaigns/[id]/targets/[targetId]/edit`
+- [x] `/admin/v2-catalog/campaigns/[id]/edit`
+- [x] `/admin/v2-catalog/campaigns/[id]/targets/new`
+- [x] `/admin/v2-catalog/campaigns/[id]/targets/[targetId]/edit`
 - [hold] `/admin/v2-catalog/campaigns/[id]/pricing` - redirect route
 - [hold] `/admin/v2-catalog/pricing` - redirect route
 
 ### V2 Catalog Misc
 
 - [x] `/admin/v2-catalog/artists`
-- [ ] `/admin/v2-catalog/artists/new`
-- [ ] `/admin/v2-catalog/artists/[id]/edit`
+- [x] `/admin/v2-catalog/artists/new`
+- [x] `/admin/v2-catalog/artists/[id]/edit`
 - [x] `/admin/v2-catalog/assets`
 - [x] `/admin/v2-catalog/bundles`
 - [x] `/admin/v2-catalog/readiness`

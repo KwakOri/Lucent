@@ -4,6 +4,10 @@ import { useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  adminButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { CampaignForm } from '@/src/components/admin/v2-catalog/CampaignForm';
 import type { V2CampaignType } from '@/lib/client/api/v2-catalog-admin.api';
 import {
@@ -78,10 +82,10 @@ export default function V2CatalogCampaignCreatePage() {
   ) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
           캠페인 생성에 필요한 데이터를 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push(listPath)}>
+        <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(listPath)}>
           목록으로
         </Button>
       </div>
@@ -89,20 +93,17 @@ export default function V2CatalogCampaignCreatePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">새 캠페인 만들기</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            대상과 기간을 먼저 정해서 판매 운영의 뼈대를 만들고, 저장 후 상세에서 할인 가격을 설정합니다.
-          </p>
-        </div>
-        <div className="mt-3 sm:mt-0">
-          <Button intent="neutral" onClick={() => router.push(listPath)}>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="campaign form"
+        title="새 캠페인 만들기"
+        description="대상과 기간을 먼저 정해서 판매 운영의 뼈대를 만들고, 저장 후 상세에서 할인 가격을 설정합니다."
+        actions={
+          <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(listPath)}>
             목록으로
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <CampaignForm
         mode="create"

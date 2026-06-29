@@ -6,6 +6,12 @@ import { Archive, ArrowLeft, Power, RotateCcw, Settings } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  AdminSurface,
+  adminButtonClass,
+  adminPrimaryButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type { V2ProjectStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useArchiveV2Project,
@@ -133,10 +139,10 @@ export default function V2CatalogProjectSettingsPage() {
   if (error || !project) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
           프로젝트 설정을 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/projects')}>
+        <Button intent="neutral" className={adminButtonClass} onClick={() => router.push('/admin/v2-catalog/projects')}>
           <ArrowLeft className="h-4 w-4" />
           프로젝트 목록
         </Button>
@@ -151,55 +157,59 @@ export default function V2CatalogProjectSettingsPage() {
     restoreProject.isPending;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="project settings"
+        title="프로젝트 설정"
+        description={`${project.name} 운영 상태와 보관 상태를 관리합니다.`}
+        actions={
+          <>
           <Button
-            intent="ghost"
-            size="sm"
+            intent="neutral"
+            className={adminButtonClass}
             onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}`)}
           >
             <ArrowLeft className="h-4 w-4" />
             프로젝트 상세
           </Button>
-          <div className="mt-4 flex items-center gap-2">
-            <Settings className="h-5 w-5 text-gray-500" />
-            <h1 className="text-2xl font-bold text-gray-900">프로젝트 설정</h1>
-          </div>
-          <p className="mt-1 text-sm text-gray-500">{project.name}</p>
-        </div>
-        <Badge intent={getProjectStatusIntent(project.status)} size="md">
+          <Badge intent={getProjectStatusIntent(project.status)} size="md">
           {project.status}
-        </Badge>
-      </div>
+          </Badge>
+          </>
+        }
+      />
 
       {message && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-[14px] border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
           {message}
         </div>
       )}
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       )}
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <AdminSurface padding="md">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">운영 상태</h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <div className="flex items-center gap-2">
+              <Settings className="h-5 w-5 text-[#a35200]" />
+              <h2 className="text-lg font-black text-[#1a1a2e]">운영 상태</h2>
+            </div>
+            <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
               현재 상태: {project.status}
             </p>
           </div>
           {project.status === 'ARCHIVED' ? (
-            <Button onClick={handleRestore} loading={restoreProject.isPending}>
+            <Button className={adminPrimaryButtonClass} onClick={handleRestore} loading={restoreProject.isPending}>
               <RotateCcw className="h-4 w-4" />
               보관함에서 복귀
             </Button>
           ) : project.status === 'ACTIVE' ? (
             <Button
               intent="secondary"
+              className="!rounded-[12px] !border-0 !bg-[#f5f3e8] !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]"
               onClick={handleUnpublish}
               loading={unpublishProject.isPending}
               disabled={isAnyActionPending}
@@ -209,6 +219,7 @@ export default function V2CatalogProjectSettingsPage() {
             </Button>
           ) : (
             <Button
+              className={adminPrimaryButtonClass}
               onClick={handlePublish}
               loading={publishProject.isPending}
               disabled={isAnyActionPending}
@@ -218,19 +229,20 @@ export default function V2CatalogProjectSettingsPage() {
             </Button>
           )}
         </div>
-      </section>
+      </AdminSurface>
 
       {project.status !== 'ARCHIVED' && (
-        <section className="rounded-xl border border-red-200 bg-white p-5">
+        <section className="rounded-[20px] border border-red-200 bg-white p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-red-700">보관</h2>
-              <p className="mt-1 text-sm text-gray-500">
+              <h2 className="text-lg font-black text-red-700">보관</h2>
+              <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
                 보관된 프로젝트는 일반 프로젝트 목록에서 제외됩니다.
               </p>
             </div>
             <Button
               intent="danger"
+              className="!rounded-[12px] !bg-[#ca2a30] !font-bold !text-white hover:!bg-[#b0242a]"
               onClick={handleArchive}
               loading={archiveProject.isPending}
               disabled={isAnyActionPending}
