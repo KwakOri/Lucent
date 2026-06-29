@@ -1,13 +1,27 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Banknote,
+  BarChart3,
+  Clock3,
+  Package as PackageIcon,
+  RefreshCw,
+  ShieldCheck,
+  ShoppingCart,
+  Truck,
+  type LucideIcon,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import {
   type ListV2AdminDashboardOverviewParams,
+  type V2AdminDashboardOrderStage,
   type V2AdminSalesStatsPreset,
 } from '@/lib/client/api/v2-admin-ops.api';
 import { useV2AdminDashboardOverview } from '@/lib/client/hooks/useV2AdminOps';
@@ -19,6 +33,18 @@ type FilterState = {
 };
 
 type DashboardAlertLevel = 'normal' | 'warning' | 'critical';
+
+type KpiCard = {
+  key: string;
+  title: string;
+  value: string;
+  unit?: string;
+  href: string;
+  icon: LucideIcon;
+  caption: string;
+  primary?: boolean;
+  badge?: ReactNode;
+};
 
 const ORDER_STAGE_LABELS: Record<string, string> = {
   PAYMENT_PENDING: '입금 대기',
@@ -106,6 +132,38 @@ function formatDateTime(value: string | null | undefined): string {
   });
 }
 
+function formatDateLabel(value: string | null | undefined): string {
+  if (!value) {
+    return '-';
+  }
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleDateString('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+  });
+}
+
+function formatTrendDayLabel(isoDate: string): string {
+  const day = isoDate.split('-')[2];
+  if (!day) {
+    return '-';
+  }
+  return String(Number(day));
+}
+
+function formatAgeHours(value: number | null): string {
+  if (value === null || Number.isNaN(value)) {
+    return '-';
+  }
+  if (value < 1) {
+    return `${Math.max(1, Math.round(value * 60))}분`;
+  }
+  return `${value.toFixed(1)}h`;
+}
+
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
     const maybeError = error as {
@@ -136,7 +194,12 @@ function resolveAlertLevel(
 }
 
 function resolveMetricAlert(
-  key: 'refund_rate' | 'payment_pending_count' | 'ready_to_ship_count' | 'inventory_risk_count' | 'approval_pending_count',
+  key:
+    | 'refund_rate'
+    | 'payment_pending_count'
+    | 'ready_to_ship_count'
+    | 'inventory_risk_count'
+    | 'approval_pending_count',
   value: number,
 ): DashboardAlertLevel {
   if (key === 'refund_rate') {
@@ -164,17 +227,66 @@ function alertBadge(level: DashboardAlertLevel) {
   return <Badge intent="success">정상</Badge>;
 }
 
-function stageBadgeIntent(stage: string) {
-  if (stage === 'PAYMENT_PENDING' || stage === 'READY_TO_SHIP') {
-    return 'warning' as const;
+function getStageTone(stage: string): {
+  label: string;
+  dot: string;
+  className: string;
+} {
+  if (stage === 'PAYMENT_PENDING') {
+    return {
+      label: ORDER_STAGE_LABELS[stage] || stage,
+      dot: '#f9ab00',
+      className: 'bg-[#fff4d5] text-[#a35200]',
+    };
+  }
+  if (stage === 'READY_TO_SHIP' || stage === 'IN_TRANSIT' || stage === 'PRODUCTION') {
+    return {
+      label: ORDER_STAGE_LABELS[stage] || stage,
+      dot: '#66B5F3',
+      className: 'bg-[#f0f7ff] text-[#4a88b9]',
+    };
+  }
+  if (stage === 'DELIVERED' || stage === 'PAYMENT_CONFIRMED') {
+    return {
+      label: ORDER_STAGE_LABELS[stage] || stage,
+      dot: '#34a853',
+      className: 'bg-[#eafaea] text-[#297c3b]',
+    };
   }
   if (stage === 'CANCELED') {
-    return 'error' as const;
+    return {
+      label: ORDER_STAGE_LABELS[stage] || stage,
+      dot: '#ca2a30',
+      className: 'bg-[#fff0f0] text-[#ca2a30]',
+    };
   }
-  if (stage === 'DELIVERED') {
-    return 'success' as const;
-  }
-  return 'default' as const;
+  return {
+    label: ORDER_STAGE_LABELS[stage] || stage,
+    dot: '#9b9788',
+    className: 'bg-[#f4f2e6] text-[#6f6b5e]',
+  };
+}
+
+function StagePill({ stage }: { stage: string }) {
+  const tone = getStageTone(stage);
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-[9px] px-2.5 py-1 text-[11px] font-bold ${tone.className}`}
+    >
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: tone.dot }}
+        aria-hidden
+      />
+      {tone.label}
+    </span>
+  );
+}
+
+function getPresetButtonClass(isActive: boolean): string {
+  return isActive
+    ? 'border-[#1a1a2e] bg-[#1a1a2e] text-white hover:bg-[#1a1a2e]'
+    : 'border-[#e7e3d3] bg-[#f5f3e8] text-[#1a1a2e] hover:bg-[#ece8d9]';
 }
 
 export default function AdminDashboardPage() {
@@ -218,7 +330,7 @@ export default function AdminDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Loading size="lg" text="운영 대시보드를 불러오는 중입니다." />
       </div>
     );
@@ -226,7 +338,7 @@ export default function AdminDashboardPage() {
 
   if (!data || error) {
     return (
-      <div className="space-y-4 rounded-xl border border-red-200 bg-red-50 p-6">
+      <div className="space-y-4 rounded-[18px] border border-red-200 bg-red-50 p-6">
         <h1 className="text-xl font-semibold text-red-700">대시보드 로드 실패</h1>
         <p className="text-sm text-red-600">{getErrorMessage(error)}</p>
         <div>
@@ -244,583 +356,580 @@ export default function AdminDashboardPage() {
     1,
     ...trendRows.flatMap((row) => [
       Math.max(0, Number(row.order_gross_amount || 0)),
-      Math.max(0, Number(row.captured_amount || 0)),
-      Math.max(0, Number(row.refund_amount || 0)),
       Math.max(0, Number(row.net_settlement_amount || 0)),
     ]),
   );
-  const chartWidth = 720;
-  const chartHeight = 220;
-  const chartPaddingLeft = 24;
-  const chartPaddingRight = 24;
-  const chartPaddingTop = 16;
-  const chartPaddingBottom = 30;
-  const chartBodyWidth = chartWidth - chartPaddingLeft - chartPaddingRight;
-  const chartBodyHeight = chartHeight - chartPaddingTop - chartPaddingBottom;
-  const chartXAxisY = chartPaddingTop + chartBodyHeight;
-
-  const getTrendPointX = (index: number) => {
-    if (trendRows.length <= 1) {
-      return chartWidth / 2;
-    }
-    return chartPaddingLeft + (chartBodyWidth * index) / (trendRows.length - 1);
+  const getBarHeight = (value: number) => {
+    const next = Math.round((Math.max(0, value || 0) / trendMaxValue) * 168);
+    return `${Math.max(value > 0 ? 8 : 3, next)}px`;
   };
-
-  const trendTickIndices = (() => {
-    if (trendRows.length === 0) {
-      return [] as number[];
-    }
-    if (trendRows.length <= 8) {
-      return trendRows.map((_, index) => index);
-    }
-
-    const desiredTickCount = 8;
-    const step = (trendRows.length - 1) / (desiredTickCount - 1);
-    const tickSet = new Set<number>([0, trendRows.length - 1]);
-    for (let index = 1; index < desiredTickCount - 1; index += 1) {
-      tickSet.add(Math.round(step * index));
-    }
-
-    return Array.from(tickSet).sort((a, b) => a - b);
-  })();
-
-  const formatTrendDayLabel = (isoDate: string) => {
-    const day = isoDate.split('-')[2];
-    if (!day) {
-      return '-';
-    }
-    return String(Number(day));
-  };
-
-  const buildTrendPoints = (
-    valueSelector: (row: (typeof trendRows)[number]) => number,
-  ) => {
-    if (trendRows.length === 0) {
-      return '';
-    }
-    return trendRows
-      .map((row, index) => {
-        const x = getTrendPointX(index);
-        const value = Math.max(0, Number(valueSelector(row) || 0));
-        const y = chartPaddingTop + chartBodyHeight * (1 - value / trendMaxValue);
-        return `${x.toFixed(2)},${y.toFixed(2)}`;
-      })
-      .join(' ');
-  };
-
-  const orderGrossTrendPoints = buildTrendPoints((row) => row.order_gross_amount);
-  const capturedTrendPoints = buildTrendPoints((row) => row.captured_amount);
-  const refundTrendPoints = buildTrendPoints((row) => row.refund_amount);
-  const netTrendPoints = buildTrendPoints((row) => row.net_settlement_amount);
+  const chartRows = trendRows.map((row) => ({
+    label: formatTrendDayLabel(row.date),
+    grossAmount: Number(row.order_gross_amount || 0),
+    netAmount: Number(row.net_settlement_amount || 0),
+    orders: Number(row.orders_count || 0),
+  }));
 
   const stageTotal = Object.values(data.pipeline.order_stage_counts).reduce(
     (sum, value) => sum + Number(value || 0),
     0,
   );
 
-  const kpiCards = [
+  const kpiCards: KpiCard[] = [
     {
       key: 'orders_count',
-      title: '총 주문 수',
+      title: '기간 주문',
       value: formatNumber(data.kpis.orders_count),
+      unit: '건',
       href: '/admin/v2-ops/stats',
-      badge: null,
-    },
-    {
-      key: 'order_gross_amount',
-      title: '총 매출(주문총액)',
-      value: formatCurrency(data.kpis.order_gross_amount, currencyCode),
-      href: '/admin/v2-ops/stats',
-      badge: null,
-    },
-    {
-      key: 'item_gross_amount',
-      title: '상품 매출(아이템합)',
-      value: formatCurrency(data.kpis.item_gross_amount, currencyCode),
-      href: '/admin/v2-ops/stats',
-      badge: null,
-    },
-    {
-      key: 'net_settlement_amount',
-      title: '순정산',
-      value: formatCurrency(data.kpis.net_settlement_amount, currencyCode),
-      href: '/admin/v2-ops/stats',
-      badge: null,
-    },
-    {
-      key: 'refund_rate',
-      title: '환불률',
-      value: formatPercent(data.kpis.refund_rate),
-      href: '/admin/refunds',
-      badge: alertBadge(resolveMetricAlert('refund_rate', data.kpis.refund_rate)),
-    },
-    {
-      key: 'payment_pending_count',
-      title: '입금 대기',
-      value: formatNumber(data.kpis.payment_pending_count),
-      href: '/admin/orders?stage=PAYMENT_PENDING',
-      badge: alertBadge(
-        resolveMetricAlert('payment_pending_count', data.kpis.payment_pending_count),
-      ),
+      icon: ShoppingCart,
+      caption: `${formatDateLabel(data.range.from)} ~ ${formatDateLabel(data.range.to)}`,
+      primary: true,
     },
     {
       key: 'ready_to_ship_count',
       title: '배송 대기',
       value: formatNumber(data.kpis.ready_to_ship_count),
+      unit: '건',
       href: '/admin/orders?stage=READY_TO_SHIP',
-      badge: alertBadge(
-        resolveMetricAlert('ready_to_ship_count', data.kpis.ready_to_ship_count),
-      ),
+      icon: Truck,
+      caption: '출고 준비 필요',
+      badge: alertBadge(resolveMetricAlert('ready_to_ship_count', data.kpis.ready_to_ship_count)),
     },
     {
-      key: 'inventory_risk_count',
-      title: '재고 리스크',
-      value: formatNumber(data.kpis.inventory_risk_count),
-      href: '/admin/production-shipping',
+      key: 'payment_pending_count',
+      title: '입금 대기',
+      value: formatNumber(data.kpis.payment_pending_count),
+      unit: '건',
+      href: '/admin/orders?stage=PAYMENT_PENDING',
+      icon: Clock3,
+      caption: '확인 대기 주문',
       badge: alertBadge(
-        resolveMetricAlert('inventory_risk_count', data.kpis.inventory_risk_count),
+        resolveMetricAlert('payment_pending_count', data.kpis.payment_pending_count),
       ),
     },
     {
       key: 'approval_pending_count',
       title: '승인 대기',
       value: formatNumber(data.kpis.approval_pending_count),
+      unit: '건',
       href: '/admin/v2-ops',
+      icon: ShieldCheck,
+      caption: '관리자 액션 승인',
       badge: alertBadge(
         resolveMetricAlert('approval_pending_count', data.kpis.approval_pending_count),
       ),
     },
   ];
 
+  const salesSummaries = [
+    {
+      label: '총 매출',
+      value: formatCurrency(data.kpis.order_gross_amount, currencyCode),
+    },
+    {
+      label: '상품 매출',
+      value: formatCurrency(data.kpis.item_gross_amount, currencyCode),
+    },
+    {
+      label: '순정산',
+      value: formatCurrency(data.kpis.net_settlement_amount, currencyCode),
+    },
+  ];
+
+  const riskItems = [
+    {
+      key: 'refund_rate',
+      label: '환불률',
+      value: formatPercent(data.kpis.refund_rate),
+      detail: formatCurrency(data.kpis.refund_amount, currencyCode),
+      href: '/admin/refunds',
+      icon: AlertTriangle,
+      badge: alertBadge(resolveMetricAlert('refund_rate', data.kpis.refund_rate)),
+    },
+    {
+      key: 'inventory_risk_count',
+      label: '재고 리스크',
+      value: `${formatNumber(data.kpis.inventory_risk_count)}건`,
+      detail: `저재고 ${formatNumber(data.risk.inventory.low_stock_count)}건`,
+      href: '/admin/production-shipping',
+      icon: PackageIcon,
+      badge: alertBadge(
+        resolveMetricAlert('inventory_risk_count', data.kpis.inventory_risk_count),
+      ),
+    },
+    {
+      key: 'failed_actions_24h',
+      label: '실패 액션(24h)',
+      value: `${formatNumber(data.risk.audit.failed_actions_24h)}건`,
+      detail: `컷오버 BLOCKED ${formatNumber(data.risk.cutover.blocked_domains)}건`,
+      href: '/admin/v2-ops',
+      icon: BarChart3,
+      badge: alertBadge(resolveMetricAlert('approval_pending_count', data.risk.audit.failed_actions_24h)),
+    },
+  ];
+
+  const batchGroups = [
+    {
+      title: '제작 배치',
+      href: '/admin/production',
+      total: data.pipeline.production_batch_status_counts.total,
+      rows: [
+        ['DRAFT', data.pipeline.production_batch_status_counts.DRAFT],
+        ['ACTIVE', data.pipeline.production_batch_status_counts.ACTIVE],
+        ['COMPLETED', data.pipeline.production_batch_status_counts.COMPLETED],
+        ['FAILED', data.pipeline.production_batch_status_counts.failed_count],
+      ],
+    },
+    {
+      title: '배송 배치',
+      href: '/admin/shipping',
+      total: data.pipeline.shipping_batch_status_counts.total,
+      rows: [
+        ['DRAFT', data.pipeline.shipping_batch_status_counts.DRAFT],
+        ['ACTIVE', data.pipeline.shipping_batch_status_counts.ACTIVE],
+        ['DISPATCHED', data.pipeline.shipping_batch_status_counts.DISPATCHED],
+        ['FAILED', data.pipeline.shipping_batch_status_counts.failed_count],
+      ],
+    },
+  ];
+
+  const presetButtons: Array<{ preset: V2AdminSalesStatsPreset; label: string }> = [
+    { preset: 'LAST_7_DAYS', label: '최근 7일' },
+    { preset: 'LAST_30_DAYS', label: '최근 30일' },
+    { preset: 'CUSTOM', label: '커스텀' },
+  ];
+
   return (
-    <div className="space-y-6">
-      <header className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">운영 대시보드</h1>
-            <p className="text-sm text-gray-600">
-              매출, 주문 이행, 재고, 승인 병목을 한 화면에서 확인합니다.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            {isFetching ? <Badge intent="info">새로고침 중</Badge> : null}
-            <span>집계 기준: {formatDateTime(data.generated_at)}</span>
-          </div>
-        </div>
-      </header>
-
-      <section className="rounded-xl border border-gray-200 bg-white p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" intent="secondary" onClick={() => handlePresetApply('LAST_7_DAYS')}>
-            최근 7일
-          </Button>
-          <Button type="button" size="sm" intent="secondary" onClick={() => handlePresetApply('LAST_30_DAYS')}>
-            최근 30일
-          </Button>
-          <Button type="button" size="sm" intent="secondary" onClick={() => handlePresetApply('CUSTOM')}>
-            커스텀
-          </Button>
-          <Button type="button" size="sm" intent="neutral" onClick={() => refetch()}>
-            새로고침
-          </Button>
-        </div>
-
-        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-          <Input
-            type="date"
-            size="sm"
-            value={draft.from}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                preset: 'CUSTOM',
-                from: event.target.value,
-              }))
-            }
-          />
-          <Input
-            type="date"
-            size="sm"
-            value={draft.to}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                preset: 'CUSTOM',
-                to: event.target.value,
-              }))
-            }
-          />
-          <Button type="button" size="sm" onClick={handleApplyCustomRange}>
-            기간 적용
-          </Button>
-        </div>
-
-        <p className="mt-2 text-xs text-gray-500">
-          현재 범위: {data.range.from} ~ {data.range.to}
-        </p>
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {kpiCards.map((card) => (
-          <Link
-            key={card.key}
-            href={card.href}
-            className="rounded-xl border border-gray-200 bg-white p-4 transition hover:border-blue-300 hover:shadow-sm"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-medium text-gray-600">{card.title}</p>
-              {card.badge}
+    <div className="space-y-5 text-[#1a1a2e]">
+      <div className="grid gap-5 xl:grid-cols-[1.05fr_1.7fr]">
+        <section className="overflow-hidden rounded-[22px] bg-[#66B5F3] p-5 text-white shadow-[0_16px_34px_rgba(74,136,185,0.22)] sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-black text-[#ffcd27]">LUCENT ADMIN</p>
+              <h1 className="mt-3 text-2xl font-black sm:text-3xl">운영 대시보드</h1>
+              <p className="mt-2 max-w-md text-sm leading-6 text-white/80">
+                매출, 주문 이행, 재고, 승인 병목을 한 화면에서 확인합니다.
+              </p>
             </div>
-            <p className="mt-3 text-2xl font-bold text-gray-900">{card.value}</p>
-          </Link>
-        ))}
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-4 xl:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">매출/정산 추세</h2>
-            <Link href="/admin/v2-ops/stats" className="text-sm font-semibold text-blue-600">
-              상세 통계 보기
+            <Link
+              href="/admin/v2-ops/stats"
+              className="inline-flex items-center gap-1.5 rounded-[11px] bg-white/20 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/30"
+            >
+              상세 통계
+              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
             </Link>
           </div>
-          <div>
-            {trendRows.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-5 text-center text-sm text-gray-500">
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+            {salesSummaries.map((item) => (
+              <div key={item.label} className="border-t border-white/30 pt-3">
+                <p className="text-xs font-medium text-white/70">{item.label}</p>
+                <p className="mt-1 text-xl font-black text-white">{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center gap-2 text-xs text-white/75">
+            {isFetching ? <Badge intent="info">새로고침 중</Badge> : null}
+            <span>집계 기준 {formatDateTime(data.generated_at)}</span>
+            <span>
+              현재 범위 {data.range.from} ~ {data.range.to}
+            </span>
+          </div>
+        </section>
+
+        <section className="grid gap-3 sm:grid-cols-2">
+          {kpiCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <Link
+                key={card.key}
+                href={card.href}
+                className={`group rounded-[18px] border p-4 transition hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(26,26,46,0.08)] ${
+                  card.primary
+                    ? 'border-[#66B5F3] bg-[#66B5F3] text-white'
+                    : 'border-[#e7e3d3] bg-white text-[#1a1a2e]'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] ${
+                      card.primary ? 'bg-white/20 text-white' : 'bg-[#f0f7ff] text-[#4a88b9]'
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </span>
+                  {!card.primary ? card.badge : null}
+                </div>
+                <p
+                  className={`mt-4 text-[13px] font-semibold ${
+                    card.primary ? 'text-white/80' : 'text-[#1a1a2e]/55'
+                  }`}
+                >
+                  {card.title}
+                </p>
+                <div className="mt-1 flex items-end gap-1">
+                  <span className="text-3xl font-black">{card.value}</span>
+                  {card.unit ? (
+                    <span
+                      className={`pb-1 text-sm font-bold ${
+                        card.primary ? 'text-white/70' : 'text-[#1a1a2e]/45'
+                      }`}
+                    >
+                      {card.unit}
+                    </span>
+                  ) : null}
+                </div>
+                <p
+                  className={`mt-2 text-xs ${
+                    card.primary ? 'text-white/70' : 'text-[#1a1a2e]/45'
+                  }`}
+                >
+                  {card.caption}
+                </p>
+              </Link>
+            );
+          })}
+        </section>
+      </div>
+
+      <section className="rounded-[20px] border border-[#e7e3d3] bg-white px-4 py-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {presetButtons.map((item) => (
+              <Button
+                key={item.preset}
+                type="button"
+                size="sm"
+                intent="neutral"
+                className={`rounded-[11px] ${getPresetButtonClass(applied.preset === item.preset)}`}
+                onClick={() => handlePresetApply(item.preset)}
+              >
+                {item.label}
+              </Button>
+            ))}
+            <Button
+              type="button"
+              size="sm"
+              intent="neutral"
+              className="rounded-[11px] border-[#e7e3d3] bg-white text-[#1a1a2e] hover:bg-[#f5f3e8]"
+              onClick={() => refetch()}
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden />
+              새로고침
+            </Button>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-[10rem_10rem_auto]">
+            <Input
+              type="date"
+              size="sm"
+              value={draft.from}
+              className="rounded-[11px] border-[#e7e3d3] bg-[#fdfcf4]"
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  preset: 'CUSTOM',
+                  from: event.target.value,
+                }))
+              }
+            />
+            <Input
+              type="date"
+              size="sm"
+              value={draft.to}
+              className="rounded-[11px] border-[#e7e3d3] bg-[#fdfcf4]"
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  preset: 'CUSTOM',
+                  to: event.target.value,
+                }))
+              }
+            />
+            <Button
+              type="button"
+              size="sm"
+              className="rounded-[11px] bg-[#1a1a2e] text-white hover:bg-[#2c2c43]"
+              onClick={handleApplyCustomRange}
+            >
+              기간 적용
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.62fr)_minmax(320px,0.78fr)]">
+        <div className="space-y-5">
+          <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-[#1a1a2e]">매출 추이</h2>
+                <p className="mt-1 text-sm text-[#1a1a2e]/50">총 매출과 순정산 흐름을 비교합니다.</p>
+              </div>
+              <div className="flex items-center gap-3 text-xs font-bold">
+                <span className="inline-flex items-center gap-1.5 text-[#4a88b9]">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#66B5F3]" aria-hidden />
+                  총 매출
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-[#9a7a00]">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#ffcd27]" aria-hidden />
+                  순정산
+                </span>
+              </div>
+            </div>
+
+            {chartRows.length === 0 ? (
+              <p className="mt-5 rounded-[16px] border border-dashed border-[#e7e3d3] bg-[#f9f9ed] px-3 py-8 text-center text-sm text-[#1a1a2e]/50">
                 선택한 기간의 추세 데이터가 없습니다.
               </p>
             ) : (
-              <div className="space-y-3">
-                <div className="overflow-hidden rounded-lg border border-gray-100 bg-gray-50 p-3">
-                  <svg
-                    viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                    className="h-56 w-full"
-                    role="img"
-                    aria-label="매출/정산 일별 추세 꺾은선 그래프"
-                  >
-                    {[0, 1, 2, 3, 4].map((index) => {
-                      const y = chartPaddingTop + (chartBodyHeight * index) / 4;
-                      return (
-                        <line
-                          key={`grid-${index}`}
-                          x1={chartPaddingLeft}
-                          x2={chartWidth - chartPaddingRight}
-                          y1={y}
-                          y2={y}
-                          stroke="#E5E7EB"
-                          strokeWidth="1"
+              <div className="mt-5 overflow-x-auto">
+                <div className="flex min-w-[640px] items-end gap-3 rounded-[16px] bg-[#f9f9ed] px-4 pb-3 pt-5">
+                  {chartRows.map((row, index) => (
+                    <div
+                      key={`${row.label}-${index}`}
+                      className="flex min-w-9 flex-1 flex-col items-center gap-2"
+                      title={`${row.label}일 주문 ${formatNumber(row.orders)}건`}
+                    >
+                      <div className="flex h-44 items-end gap-1.5">
+                        <span
+                          className="w-2.5 rounded-t-full bg-[#66B5F3]"
+                          style={{ height: getBarHeight(row.grossAmount) }}
+                          aria-hidden
                         />
-                      );
-                    })}
-
-                    <polyline
-                      points={orderGrossTrendPoints}
-                      fill="none"
-                      stroke="#0EA5E9"
-                      strokeWidth="2.5"
-                    />
-                    <polyline
-                      points={capturedTrendPoints}
-                      fill="none"
-                      stroke="#2563EB"
-                      strokeWidth="2.5"
-                    />
-                    <polyline
-                      points={refundTrendPoints}
-                      fill="none"
-                      stroke="#EF4444"
-                      strokeWidth="2.5"
-                    />
-                    <polyline
-                      points={netTrendPoints}
-                      fill="none"
-                      stroke="#16A34A"
-                      strokeWidth="2.5"
-                    />
-
-                    {trendTickIndices.map((index) => {
-                      const row = trendRows[index];
-                      const x = getTrendPointX(index);
-                      const label = row?.date
-                        ? formatTrendDayLabel(row.date)
-                        : '-';
-                      return (
-                        <g key={`tick-${index}`}>
-                          <line
-                            x1={x}
-                            x2={x}
-                            y1={chartXAxisY}
-                            y2={chartXAxisY + 4}
-                            stroke="#9CA3AF"
-                            strokeWidth="1"
-                          />
-                          <text
-                            x={x}
-                            y={chartXAxisY + 18}
-                            fill="#6B7280"
-                            textAnchor="middle"
-                            fontSize="10"
-                          >
-                            {label}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </svg>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                  <p className="rounded-md bg-sky-50 px-2 py-1 text-sky-700">매출(주문총액)</p>
-                  <p className="rounded-md bg-blue-50 px-2 py-1 text-blue-700">캡처</p>
-                  <p className="rounded-md bg-red-50 px-2 py-1 text-red-700">환불</p>
-                  <p className="rounded-md bg-green-50 px-2 py-1 text-green-700">순정산</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-5">
-                  <p>매출(주문총액) {formatCurrency(data.kpis.order_gross_amount, currencyCode)}</p>
-                  <p>상품매출(아이템합) {formatCurrency(data.kpis.item_gross_amount, currencyCode)}</p>
-                  <p>캡처 {formatCurrency(data.kpis.captured_amount, currencyCode)}</p>
-                  <p>환불 {formatCurrency(data.kpis.refund_amount, currencyCode)}</p>
-                  <p>순정산 {formatCurrency(data.kpis.net_settlement_amount, currencyCode)}</p>
+                        <span
+                          className="w-2.5 rounded-t-full bg-[#ffcd27]"
+                          style={{ height: getBarHeight(row.netAmount) }}
+                          aria-hidden
+                        />
+                      </div>
+                      <span className="text-[11px] font-semibold text-[#1a1a2e]/45">{row.label}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
-          </div>
+          </section>
+
+          <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-[#1a1a2e]">처리 우선 주문</h2>
+                <p className="mt-1 text-sm text-[#1a1a2e]/50">입금 확인과 배송 전환이 필요한 주문입니다.</p>
+              </div>
+              <Link
+                href="/admin/orders?stage=PAYMENT_PENDING"
+                className="inline-flex items-center gap-1.5 rounded-[11px] border border-[#e7e3d3] bg-white px-3 py-2 text-xs font-bold text-[#1a1a2e] transition hover:bg-[#f5f3e8]"
+              >
+                주문 운영
+                <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+              </Link>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] border-collapse text-sm">
+                <thead>
+                  <tr className="text-left">
+                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">입금자명</th>
+                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">주문번호</th>
+                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">금액</th>
+                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">상태</th>
+                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">경과</th>
+                    <th className="px-3 pb-3 text-xs font-semibold text-[#1a1a2e]/45">기준시각</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.queues.urgent_orders.length === 0 ? (
+                    <tr className="border-t border-[#f1eee2]">
+                      <td colSpan={6} className="px-3 py-8 text-center text-sm text-[#1a1a2e]/45">
+                        즉시 처리 대상 주문이 없습니다.
+                      </td>
+                    </tr>
+                  ) : (
+                    data.queues.urgent_orders.map((order, index) => (
+                      <tr
+                        key={`${order.order_id || order.order_no || 'order'}-${index}`}
+                        className="border-t border-[#f1eee2]"
+                      >
+                        <td className="whitespace-nowrap px-3 py-3 font-bold text-[#1a1a2e]">
+                          {order.depositor_name || '-'}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3 font-semibold text-[#1a1a2e]/70">
+                          {order.order_id ? (
+                            <Link href={`/admin/orders/${order.order_id}`} className="hover:text-[#4a88b9]">
+                              {order.order_no || order.order_id}
+                            </Link>
+                          ) : (
+                            order.order_no || '-'
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3 font-bold text-[#1a1a2e]">
+                          {formatCurrency(order.grand_total, currencyCode)}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3">
+                          <StagePill stage={order.stage} />
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3 text-[#1a1a2e]/60">
+                          {formatAgeHours(order.age_hours)}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3 text-xs text-[#1a1a2e]/45">
+                          {formatDateTime(order.placed_at || order.created_at)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <h2 className="text-base font-semibold text-gray-900">주문 단계 퍼널</h2>
-            <div className="mt-3 space-y-2">
+        <aside className="space-y-5">
+          <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-bold text-[#1a1a2e]">주문 단계</h2>
+              <span className="text-xs font-bold text-[#1a1a2e]/45">{formatNumber(stageTotal)}건</span>
+            </div>
+            <div className="mt-4 space-y-3">
               {Object.entries(data.pipeline.order_stage_counts).map(([stage, count]) => {
-                const ratio = stageTotal > 0 ? Math.round((Number(count || 0) / stageTotal) * 100) : 0;
+                const numericCount = Number(count || 0);
+                const ratio = stageTotal > 0 ? Math.round((numericCount / stageTotal) * 100) : 0;
+                const tone = getStageTone(stage as V2AdminDashboardOrderStage);
                 return (
-                  <div key={stage} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs text-gray-600">
-                      <span>{ORDER_STAGE_LABELS[stage] || stage}</span>
-                      <span>{formatNumber(Number(count || 0))}건</span>
+                  <div key={stage} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-semibold text-[#1a1a2e]/65">{tone.label}</span>
+                      <span className="font-bold text-[#1a1a2e]">{formatNumber(numericCount)}건</span>
                     </div>
-                    <div className="h-2 rounded-full bg-gray-100">
-                      <div className="h-2 rounded-full bg-slate-500" style={{ width: `${Math.max(2, ratio)}%` }} />
+                    <div className="h-2 overflow-hidden rounded-full bg-[#f1eee2]">
+                      <div
+                        className="h-full rounded-full bg-[#66B5F3]"
+                        style={{ width: `${numericCount > 0 ? Math.max(5, ratio) : 0}%` }}
+                      />
                     </div>
                   </div>
                 );
               })}
             </div>
-          </div>
+          </section>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <h2 className="text-base font-semibold text-gray-900">운영 리스크</h2>
-            <div className="mt-3 space-y-2 text-sm text-gray-700">
-              <p className="flex items-center justify-between">
-                <span>재고 불일치</span>
-                <span>{formatNumber(data.risk.inventory.mismatch_count)}건</span>
-              </p>
-              <p className="flex items-center justify-between">
-                <span>저재고</span>
-                <span>{formatNumber(data.risk.inventory.low_stock_count)}건</span>
-              </p>
-              <p className="flex items-center justify-between">
-                <span>컷오버 BLOCKED</span>
-                <span>{formatNumber(data.risk.cutover.blocked_domains)}건</span>
-              </p>
-              <p className="flex items-center justify-between">
-                <span>실패 액션(24h)</span>
-                <span>{formatNumber(data.risk.audit.failed_actions_24h)}건</span>
-              </p>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/admin/production-shipping" className="text-xs font-semibold text-blue-600">
-                제작/배송 관리
-              </Link>
-              <Link href="/admin/v2-ops" className="text-xs font-semibold text-blue-600">
-                감사/승인 화면
-              </Link>
-              <Link
-                href="/admin/v2-catalog/readiness"
-                className="text-xs font-semibold text-blue-600"
-              >
-                컷오버 점검
+          <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-bold text-[#1a1a2e]">운영 리스크</h2>
+              <Link href="/admin/v2-ops" className="text-xs font-bold text-[#4a88b9]">
+                전체보기
               </Link>
             </div>
-          </div>
-        </div>
-      </section>
+            <div className="mt-4 space-y-3">
+              {riskItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    className="flex items-center gap-3 rounded-[14px] bg-[#f9f9ed] px-3 py-3 transition hover:bg-[#f5f3e8]"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-white text-[#4a88b9]">
+                      <Icon className="h-4 w-4" aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-bold text-[#1a1a2e]">{item.label}</span>
+                      <span className="block truncate text-xs text-[#1a1a2e]/45">{item.detail}</span>
+                    </span>
+                    <span className="text-right">
+                      <span className="block text-sm font-black text-[#1a1a2e]">{item.value}</span>
+                      <span className="mt-1 block">{item.badge}</span>
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">즉시 처리 주문</h2>
-            <Link href="/admin/orders?stage=PAYMENT_PENDING" className="text-sm font-semibold text-blue-600">
-              주문 운영 열기
-            </Link>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 text-left text-xs text-gray-500">
-                  <th className="py-2 pr-3">주문번호</th>
-                  <th className="py-2 pr-3">단계</th>
-                  <th className="py-2 pr-3">경과</th>
-                  <th className="py-2 pr-3">금액</th>
-                  <th className="py-2">기준시각</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.queues.urgent_orders.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-sm text-gray-500">
-                      즉시 처리 대상 주문이 없습니다.
-                    </td>
-                  </tr>
-                ) : (
-                  data.queues.urgent_orders.map((order) => (
-                    <tr key={`${order.order_id || order.order_no}`} className="border-b border-gray-100">
-                      <td className="py-2 pr-3 font-medium text-gray-900">
-                        {order.order_id ? (
-                          <Link href={`/admin/orders/${order.order_id}`} className="hover:text-blue-600">
-                            {order.order_no || order.order_id}
-                          </Link>
-                        ) : (
-                          order.order_no || '-'
-                        )}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <Badge intent={stageBadgeIntent(order.stage)}>
-                          {ORDER_STAGE_LABELS[order.stage] || order.stage}
-                        </Badge>
-                      </td>
-                      <td className="py-2 pr-3 text-gray-700">
-                        {order.age_hours === null ? '-' : `${order.age_hours.toFixed(1)}h`}
-                      </td>
-                      <td className="py-2 pr-3 text-gray-700">
-                        {formatCurrency(order.grand_total, currencyCode)}
-                      </td>
-                      <td className="py-2 text-gray-500">
-                        {formatDateTime(order.placed_at || order.created_at)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">승인 대기</h2>
-              <Link href="/admin/v2-ops" className="text-xs font-semibold text-blue-600">
-                전체 보기
+          <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-base font-bold text-[#1a1a2e]">승인 대기</h2>
+              <Link href="/admin/v2-ops" className="text-xs font-bold text-[#4a88b9]">
+                전체보기
               </Link>
             </div>
             <ul className="space-y-2">
               {data.queues.pending_approvals.length === 0 ? (
-                <li className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-500">
+                <li className="rounded-[14px] border border-dashed border-[#e7e3d3] bg-[#f9f9ed] px-3 py-4 text-sm text-[#1a1a2e]/45">
                   대기중인 승인 요청이 없습니다.
                 </li>
               ) : (
                 data.queues.pending_approvals.map((item) => (
-                  <li key={item.id} className="rounded-lg border border-gray-100 px-3 py-2">
-                    <p className="text-sm font-medium text-gray-900">{item.action_key}</p>
-                    <p className="text-xs text-gray-600">
-                      role: {item.assignee_role_code || '-'} · 요청: {formatDateTime(item.requested_at)}
+                  <li key={item.id} className="rounded-[14px] bg-[#f9f9ed] px-3 py-3">
+                    <p className="truncate text-sm font-bold text-[#1a1a2e]">{item.action_key}</p>
+                    <p className="mt-1 text-xs text-[#1a1a2e]/50">
+                      role: {item.assignee_role_code || '-'} / 요청 {formatDateTime(item.requested_at)}
                     </p>
                   </li>
                 ))
               )}
             </ul>
-          </div>
+          </section>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">최근 실패 액션</h2>
-              <Link href="/admin/v2-ops" className="text-xs font-semibold text-blue-600">
-                감사 로그 보기
+          <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-base font-bold text-[#1a1a2e]">최근 실패 액션</h2>
+              <Link href="/admin/v2-ops" className="text-xs font-bold text-[#4a88b9]">
+                감사 로그
               </Link>
             </div>
             <ul className="space-y-2">
               {data.queues.failed_actions.length === 0 ? (
-                <li className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-500">
+                <li className="rounded-[14px] border border-dashed border-[#e7e3d3] bg-[#f9f9ed] px-3 py-4 text-sm text-[#1a1a2e]/45">
                   최근 실패 액션이 없습니다.
                 </li>
               ) : (
                 data.queues.failed_actions.map((item) => (
-                  <li key={item.id} className="rounded-lg border border-gray-100 px-3 py-2">
-                    <p className="text-sm font-medium text-gray-900">{item.action_key}</p>
-                    <p className="text-xs text-gray-600">
-                      {item.resource_type || '-'} · {item.error_message || '에러 메시지 없음'}
+                  <li key={item.id} className="rounded-[14px] bg-[#fff7f7] px-3 py-3">
+                    <p className="truncate text-sm font-bold text-[#1a1a2e]">{item.action_key}</p>
+                    <p className="mt-1 truncate text-xs text-[#ca2a30]">
+                      {item.resource_type || '-'} / {item.error_message || '에러 메시지 없음'}
                     </p>
-                    <p className="text-xs text-gray-500">{formatDateTime(item.created_at)}</p>
+                    <p className="mt-1 text-xs text-[#1a1a2e]/45">{formatDateTime(item.created_at)}</p>
                   </li>
                 ))
               )}
             </ul>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <h2 className="text-base font-semibold text-gray-900">제작 배치 상태</h2>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-gray-700">
-            <p className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-              <span>DRAFT</span>
-              <span>{formatNumber(data.pipeline.production_batch_status_counts.DRAFT)}</span>
-            </p>
-            <p className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-              <span>ACTIVE</span>
-              <span>{formatNumber(data.pipeline.production_batch_status_counts.ACTIVE)}</span>
-            </p>
-            <p className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-              <span>COMPLETED</span>
-              <span>{formatNumber(data.pipeline.production_batch_status_counts.COMPLETED)}</span>
-            </p>
-            <p className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-              <span>CANCELED</span>
-              <span>{formatNumber(data.pipeline.production_batch_status_counts.CANCELED)}</span>
-            </p>
-            <p className="flex items-center justify-between rounded-lg bg-red-50 px-3 py-2 text-red-700">
-              <span>FAILED</span>
-              <span>{formatNumber(data.pipeline.production_batch_status_counts.failed_count)}</span>
-            </p>
-            <p className="flex items-center justify-between rounded-lg bg-yellow-50 px-3 py-2 text-yellow-700">
-              <span>EXCLUDED</span>
-              <span>{formatNumber(data.pipeline.production_batch_status_counts.excluded_count)}</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <h2 className="text-base font-semibold text-gray-900">배송 배치 상태</h2>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-gray-700">
-            <p className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-              <span>DRAFT</span>
-              <span>{formatNumber(data.pipeline.shipping_batch_status_counts.DRAFT)}</span>
-            </p>
-            <p className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-              <span>ACTIVE</span>
-              <span>{formatNumber(data.pipeline.shipping_batch_status_counts.ACTIVE)}</span>
-            </p>
-            <p className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-              <span>DISPATCHED</span>
-              <span>{formatNumber(data.pipeline.shipping_batch_status_counts.DISPATCHED)}</span>
-            </p>
-            <p className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-              <span>COMPLETED</span>
-              <span>{formatNumber(data.pipeline.shipping_batch_status_counts.COMPLETED)}</span>
-            </p>
-            <p className="flex items-center justify-between rounded-lg bg-red-50 px-3 py-2 text-red-700">
-              <span>FAILED</span>
-              <span>{formatNumber(data.pipeline.shipping_batch_status_counts.failed_count)}</span>
-            </p>
-            <p className="flex items-center justify-between rounded-lg bg-yellow-50 px-3 py-2 text-yellow-700">
-              <span>EXCLUDED</span>
-              <span>{formatNumber(data.pipeline.shipping_batch_status_counts.excluded_count)}</span>
-            </p>
-          </div>
-        </div>
+          <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-base font-bold text-[#1a1a2e]">배치 상태</h2>
+              <Banknote className="h-4 w-4 text-[#66B5F3]" aria-hidden />
+            </div>
+            <div className="space-y-4">
+              {batchGroups.map((group) => (
+                <div key={group.title}>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <Link href={group.href} className="text-sm font-bold text-[#1a1a2e] hover:text-[#4a88b9]">
+                      {group.title}
+                    </Link>
+                    <span className="text-xs font-bold text-[#1a1a2e]/45">
+                      total {formatNumber(group.total)}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {group.rows.map(([label, value]) => (
+                      <div key={`${group.title}-${label}`} className="rounded-[12px] bg-[#f9f9ed] px-3 py-2">
+                        <p className="text-[11px] font-semibold text-[#1a1a2e]/45">{label}</p>
+                        <p className="mt-0.5 text-base font-black text-[#1a1a2e]">
+                          {formatNumber(Number(value || 0))}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </aside>
       </section>
     </div>
   );

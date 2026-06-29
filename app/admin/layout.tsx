@@ -25,14 +25,11 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-[#f9f9ed] text-[#1a1a2e]">
       <AdminSidebar />
 
-      {/* Main Content */}
       <div className="lg:pl-28">
-        {/* Page Content */}
-        <main className="py-8 px-4 sm:px-6 lg:px-8">
+        <main className="mx-auto w-full max-w-[1480px] px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
           {children}
         </main>
       </div>
