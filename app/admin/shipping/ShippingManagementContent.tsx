@@ -26,7 +26,6 @@ import {
   useV2AdminShippingBatches,
   useV2AdminShippingCandidates,
 } from '@/lib/client/hooks/useV2AdminShipping';
-import { useV2AdminProjects, useV2Campaigns } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -519,27 +518,6 @@ function buildPostOfficeContentText(
   return content || '굿즈';
 }
 
-const SHIPPING_CANDIDATE_FILTER_STORAGE_KEY =
-  'lucent.admin.shipping.candidate.saved-filters.v1';
-const SHIPPING_CANDIDATE_LAST_FILTER_STORAGE_KEY =
-  'lucent.admin.shipping.candidate.last-filter.v1';
-const MAX_SAVED_SHIPPING_FILTERS = 12;
-
-type ShippingCandidateFilterValue = {
-  keyword: string;
-  projectId: string;
-  campaignId: string;
-  dateFrom: string;
-  dateTo: string;
-};
-
-type SavedShippingCandidateFilter = {
-  id: string;
-  name: string;
-  createdAt: string;
-  values: ShippingCandidateFilterValue;
-};
-
 type PackageDraftRow = {
   carrier_code: string;
   tracking_no: string;
@@ -577,78 +555,6 @@ const POST_OFFICE_EXCEL_HEADERS: string[] = [
   '분할접수 두번째 부피(cm)',
 ];
 
-function isSameFilterValues(
-  left: ShippingCandidateFilterValue,
-  right: ShippingCandidateFilterValue,
-): boolean {
-  return (
-    left.keyword === right.keyword &&
-    left.projectId === right.projectId &&
-    left.campaignId === right.campaignId &&
-    left.dateFrom === right.dateFrom &&
-    left.dateTo === right.dateTo
-  );
-}
-
-function readSavedShippingCandidateFilters(): SavedShippingCandidateFilter[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  const rawSavedFilters = window.localStorage.getItem(
-    SHIPPING_CANDIDATE_FILTER_STORAGE_KEY,
-  );
-  if (!rawSavedFilters) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(rawSavedFilters) as SavedShippingCandidateFilter[];
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter((row) => row && typeof row.id === 'string');
-  } catch {
-    window.localStorage.removeItem(SHIPPING_CANDIDATE_FILTER_STORAGE_KEY);
-    return [];
-  }
-}
-
-function readLastShippingCandidateFilter(): ShippingCandidateFilterValue {
-  const emptyFilter: ShippingCandidateFilterValue = {
-    keyword: '',
-    projectId: '',
-    campaignId: '',
-    dateFrom: '',
-    dateTo: '',
-  };
-
-  if (typeof window === 'undefined') {
-    return emptyFilter;
-  }
-
-  const rawLastFilter = window.localStorage.getItem(
-    SHIPPING_CANDIDATE_LAST_FILTER_STORAGE_KEY,
-  );
-  if (!rawLastFilter) {
-    return emptyFilter;
-  }
-
-  try {
-    const parsed = JSON.parse(rawLastFilter) as ShippingCandidateFilterValue;
-    return {
-      keyword: parsed.keyword || '',
-      projectId: parsed.projectId || '',
-      campaignId: parsed.campaignId || '',
-      dateFrom: parsed.dateFrom || '',
-      dateTo: parsed.dateTo || '',
-    };
-  } catch {
-    window.localStorage.removeItem(SHIPPING_CANDIDATE_LAST_FILTER_STORAGE_KEY);
-    return emptyFilter;
-  }
-}
-
 type ShippingManagementContentProps = {
   embedded?: boolean;
   forcedTab?: 'candidates' | 'batches';
@@ -659,26 +565,6 @@ export function ShippingManagementContent({
   forcedTab,
 }: ShippingManagementContentProps = {}) {
   const { showToast } = useToast();
-  const initialFilterValues = useMemo(() => readLastShippingCandidateFilter(), []);
-
-  const [keywordInput, setKeywordInput] = useState(initialFilterValues.keyword);
-  const [projectIdInput, setProjectIdInput] = useState(initialFilterValues.projectId);
-  const [campaignIdInput, setCampaignIdInput] = useState(initialFilterValues.campaignId);
-  const [dateFromInput, setDateFromInput] = useState(initialFilterValues.dateFrom);
-  const [dateToInput, setDateToInput] = useState(initialFilterValues.dateTo);
-
-  const [savedFilters, setSavedFilters] = useState<SavedShippingCandidateFilter[]>(
-    () => readSavedShippingCandidateFilters(),
-  );
-  const [selectedViewId, setSelectedViewId] = useState<string>('DEFAULT');
-  const [isViewManagerOpen, setIsViewManagerOpen] = useState(false);
-  const [viewNameDraft, setViewNameDraft] = useState('');
-
-  const [keyword, setKeyword] = useState(initialFilterValues.keyword);
-  const [projectId, setProjectId] = useState(initialFilterValues.projectId);
-  const [campaignId, setCampaignId] = useState(initialFilterValues.campaignId);
-  const [dateFrom, setDateFrom] = useState(initialFilterValues.dateFrom);
-  const [dateTo, setDateTo] = useState(initialFilterValues.dateTo);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [previewSelectionKey, setPreviewSelectionKey] = useState('');
@@ -698,16 +584,8 @@ export function ShippingManagementContent({
 
   const [packageDrafts, setPackageDrafts] = useState<Record<string, PackageDraftRow>>({});
 
-  const projectsQuery = useV2AdminProjects();
-  const campaignsQuery = useV2Campaigns();
-
   const candidatesQuery = useV2AdminShippingCandidates({
     limit: 300,
-    keyword: keyword || undefined,
-    project_id: projectId || undefined,
-    campaign_id: campaignId || undefined,
-    date_from: dateFrom || undefined,
-    date_to: dateTo || undefined,
   });
   const batchesQuery = useV2AdminShippingBatches({
     limit: 100,
@@ -722,14 +600,6 @@ export function ShippingManagementContent({
   const completeBatchMutation = useV2AdminCompleteShippingBatch();
   const cancelBatchMutation = useV2AdminCancelShippingBatch();
   const downloadShippingPdfMutation = useV2AdminDownloadShippingBatchPdf();
-
-  const projects = useMemo(() => projectsQuery.data || [], [projectsQuery.data]);
-  const campaigns = useMemo(
-    () => campaignsQuery.data || [],
-    [campaignsQuery.data],
-  );
-  const projectsLoading = projectsQuery.isLoading;
-  const campaignsLoading = campaignsQuery.isLoading;
 
   const previewData = previewMutation.data;
   const candidateRows = useMemo(() => {
@@ -781,56 +651,6 @@ export function ShippingManagementContent({
     const nextSequence = (todaySequences.length > 0 ? Math.max(...todaySequences) : 0) + 1;
     return `SH${datePrefix}${String(nextSequence).padStart(2, '0')}`;
   }, [batchesQuery.data?.items]);
-
-  const projectOptions = useMemo(
-    () =>
-      projects
-        .slice()
-        .sort((left, right) => left.name.localeCompare(right.name, 'ko-KR'))
-        .map((project) => ({
-          value: project.id,
-          label: `${project.name} (${project.slug})`,
-        })),
-    [projects],
-  );
-
-  const campaignOptions = useMemo(
-    () =>
-      campaigns
-        .slice()
-        .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
-        .map((campaign) => ({
-          value: campaign.id,
-          label: `${campaign.name} (${campaign.code})`,
-        })),
-    [campaigns],
-  );
-
-  const projectNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const project of projects) {
-      map.set(project.id, project.name);
-    }
-    return map;
-  }, [projects]);
-
-  const campaignNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const campaign of campaigns) {
-      map.set(campaign.id, campaign.name);
-    }
-    return map;
-  }, [campaigns]);
-
-  const selectedSavedView = useMemo(
-    () => savedFilters.find((row) => row.id === selectedViewId) || null,
-    [savedFilters, selectedViewId],
-  );
-
-  const allChecked =
-    candidateRows.length > 0 &&
-    selectedOrderIdsInView.length > 0 &&
-    selectedOrderIdsInView.length === allCandidateIds.length;
 
   const isBusy =
     createBatchMutation.isPending ||
@@ -907,13 +727,6 @@ export function ShippingManagementContent({
   ]);
 
   useEffect(() => {
-    window.localStorage.setItem(
-      SHIPPING_CANDIDATE_FILTER_STORAGE_KEY,
-      JSON.stringify(savedFilters),
-    );
-  }, [savedFilters]);
-
-  useEffect(() => {
     if (selectedOrderIdsInView.length === 0) {
       previewMutation.reset();
       autoPreviewRequestedKeyRef.current = '';
@@ -950,59 +763,6 @@ export function ShippingManagementContent({
     return () => clearTimeout(timeoutId);
   }, [previewMutation, selectedOrderIdsInView]);
 
-  const currentFilterInputValue: ShippingCandidateFilterValue = {
-    keyword: keywordInput.trim(),
-    projectId: projectIdInput,
-    campaignId: campaignIdInput,
-    dateFrom: dateFromInput,
-    dateTo: dateToInput,
-  };
-
-  const applyFilterValues = (values: ShippingCandidateFilterValue) => {
-    setKeywordInput(values.keyword);
-    setProjectIdInput(values.projectId);
-    setCampaignIdInput(values.campaignId);
-    setDateFromInput(values.dateFrom);
-    setDateToInput(values.dateTo);
-
-    setKeyword(values.keyword.trim());
-    setProjectId(values.projectId);
-    setCampaignId(values.campaignId);
-    setDateFrom(values.dateFrom);
-    setDateTo(values.dateTo);
-    setSelectedOrderIds([]);
-    setPreviewSelectionKey('');
-    setPreviewErrorMessage(null);
-    autoPreviewRequestedKeyRef.current = '';
-  };
-
-  const persistLastFilter = (values: ShippingCandidateFilterValue) => {
-    window.localStorage.setItem(
-      SHIPPING_CANDIDATE_LAST_FILTER_STORAGE_KEY,
-      JSON.stringify(values),
-    );
-  };
-
-  const buildFilterSummaryText = (values: ShippingCandidateFilterValue): string => {
-    const projectLabel = values.projectId
-      ? projectNameById.get(values.projectId) || '알 수 없는 프로젝트'
-      : '전체 프로젝트';
-    const campaignLabel = values.campaignId
-      ? campaignNameById.get(values.campaignId) || '알 수 없는 캠페인'
-      : '전체 캠페인';
-    const dateLabel =
-      values.dateFrom || values.dateTo
-        ? `${values.dateFrom || '시작'} ~ ${values.dateTo || '현재'}`
-        : '전체 기간';
-    const keywordLabel = values.keyword || '없음';
-    return `${projectLabel} · ${campaignLabel} · ${dateLabel} · 검색:${keywordLabel}`;
-  };
-
-  const appliedFilterSummaryText =
-    !keyword && !projectId && !campaignId && !dateFrom && !dateTo
-      ? '설정된 필터 없음'
-      : buildFilterSummaryText({ keyword, projectId, campaignId, dateFrom, dateTo });
-
   const setError = (error: unknown) => {
     showToast(getErrorMessage(error), { type: 'error' });
   };
@@ -1017,113 +777,6 @@ export function ShippingManagementContent({
       }
       return [...prev, orderId];
     });
-  };
-
-  const toggleSelectAll = () => {
-    setPreviewErrorMessage(null);
-    if (allChecked) {
-      setSelectedOrderIds([]);
-      return;
-    }
-    setSelectedOrderIds(allCandidateIds);
-  };
-
-  const handleSearchApply = () => {
-    clearNotice();
-    applyFilterValues(currentFilterInputValue);
-    persistLastFilter(currentFilterInputValue);
-    const matchedView = savedFilters.find((row) =>
-      isSameFilterValues(row.values, currentFilterInputValue),
-    );
-    setSelectedViewId(matchedView?.id || 'DEFAULT');
-  };
-
-  const handleSearchReset = () => {
-    clearNotice();
-    const emptyFilter: ShippingCandidateFilterValue = {
-      keyword: '',
-      projectId: '',
-      campaignId: '',
-      dateFrom: '',
-      dateTo: '',
-    };
-    applyFilterValues(emptyFilter);
-    persistLastFilter(emptyFilter);
-    setSelectedViewId('DEFAULT');
-  };
-
-  const handleCreateViewFromCurrentFilter = () => {
-    clearNotice();
-    const hasAnyValue = Object.values(currentFilterInputValue).some(
-      (value) => value.trim().length > 0,
-    );
-    if (!hasAnyValue) {
-      showToast('저장할 뷰 조건이 없습니다.', { type: 'warning' });
-      return;
-    }
-
-    if (!viewNameDraft.trim()) {
-      showToast('뷰 이름을 입력해 주세요.', { type: 'warning' });
-      return;
-    }
-
-    const usedIds = new Set(savedFilters.map((row) => row.id));
-    let nextSequence = savedFilters.length + 1;
-    while (usedIds.has(`view-${nextSequence}`)) {
-      nextSequence += 1;
-    }
-
-    const nextFilter: SavedShippingCandidateFilter = {
-      id: `view-${nextSequence}`,
-      name: viewNameDraft.trim(),
-      createdAt: new Date().toISOString(),
-      values: currentFilterInputValue,
-    };
-
-    setSavedFilters((prev) => [nextFilter, ...prev].slice(0, MAX_SAVED_SHIPPING_FILTERS));
-    setViewNameDraft('');
-    setSelectedViewId(nextFilter.id);
-    showToast('현재 조건을 새 뷰로 저장했습니다.', { type: 'success' });
-  };
-
-  const handleApplySavedFilter = (savedFilter: SavedShippingCandidateFilter) => {
-    clearNotice();
-    applyFilterValues(savedFilter.values);
-    persistLastFilter(savedFilter.values);
-    setSelectedViewId(savedFilter.id);
-    showToast(`"${savedFilter.name}" 뷰를 적용했습니다.`, { type: 'success' });
-  };
-
-  const handleUpdateSelectedView = () => {
-    clearNotice();
-    if (!selectedSavedView) {
-      showToast('업데이트할 저장 뷰를 먼저 선택해 주세요.', { type: 'warning' });
-      return;
-    }
-
-    setSavedFilters((prev) =>
-      prev.map((row) =>
-        row.id === selectedSavedView.id
-          ? {
-              ...row,
-              values: currentFilterInputValue,
-              createdAt: new Date().toISOString(),
-            }
-          : row,
-      ),
-    );
-    showToast(`"${selectedSavedView.name}" 뷰를 현재 조건으로 업데이트했습니다.`, {
-      type: 'success',
-    });
-  };
-
-  const handleDeleteSavedFilter = (filterId: string) => {
-    clearNotice();
-    setSavedFilters((prev) => prev.filter((row) => row.id !== filterId));
-    if (selectedViewId === filterId) {
-      setSelectedViewId('DEFAULT');
-    }
-    showToast('선택한 뷰를 삭제했습니다.', { type: 'success' });
   };
 
   const handleCreateBatch = async () => {
@@ -1458,8 +1111,8 @@ export function ShippingManagementContent({
           <div className="space-y-2">
             <h2 className="text-lg font-semibold text-gray-900">출고 후보 주문 선택</h2>
             <p className="text-sm text-gray-600">
-              배송 대기(READY_TO_SHIP) 주문만 표시됩니다. 주문 선택 즉시 자동 검증이 실행되며,
-              반복 조건은 뷰로 저장해 재사용할 수 있습니다.
+              배송 대기(READY_TO_SHIP) 주문만 표시됩니다. 작업 목록에서는 출고 처리 대상만,
+              전체 목록에서는 모든 배송 후보를 확인할 수 있습니다.
             </p>
           </div>
 
@@ -1483,20 +1136,7 @@ export function ShippingManagementContent({
             })}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                intent="neutral"
-                onClick={toggleSelectAll}
-                disabled={candidateRows.length === 0}
-                className="h-11 px-5"
-              >
-                {allChecked ? '전체 해제' : '전체 선택'}
-              </Button>
-              <Button intent="neutral" onClick={() => setIsViewManagerOpen(true)}>
-                뷰/필터 설정
-              </Button>
-            </div>
+          <div className="flex justify-end">
             <Button
               onClick={handleCreateBatch}
               disabled={selectedOrderIdsInView.length === 0 || isBusy}
@@ -1505,7 +1145,6 @@ export function ShippingManagementContent({
               선택 주문으로 배치 생성
             </Button>
           </div>
-          <p className="text-xs text-gray-600">적용 필터: {appliedFilterSummaryText}</p>
 
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
             {selectedOrderIdsInView.length === 0 ? (
@@ -1533,7 +1172,7 @@ export function ShippingManagementContent({
               ) : candidateRows.length === 0 ? (
                 <EmptyState
                   title="선택 가능한 배송 후보 주문이 없습니다."
-                  description="필터를 변경하거나 주문 상태를 확인해 주세요."
+                  description="전체 목록에서 후보를 확인하거나 주문 상태를 확인해 주세요."
                 />
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -1541,7 +1180,7 @@ export function ShippingManagementContent({
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="w-12 px-3 py-2 text-left">
-                          <input type="checkbox" checked={allChecked} onChange={toggleSelectAll} />
+                          <span className="sr-only">선택</span>
                         </th>
                         <th className="w-[240px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
                           주문번호
@@ -1575,6 +1214,7 @@ export function ShippingManagementContent({
                               <input
                                 type="checkbox"
                                 checked={checked}
+                                aria-label={`${row.order_no} 선택`}
                                 onChange={() => toggleOrderSelection(row.order_id)}
                               />
                             </td>
@@ -2042,170 +1682,6 @@ export function ShippingManagementContent({
         </section>
       )}
 
-      {isViewManagerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setIsViewManagerOpen(false)}
-            aria-label="뷰/필터 모달 닫기"
-          />
-          <div className="relative z-10 flex max-h-[85vh] w-full max-w-4xl flex-col gap-4 overflow-y-auto rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">뷰/필터 설정</h3>
-                <p className="text-sm text-gray-600">
-                  배송 후보 조회는 키워드/프로젝트/캠페인/기간 필터를 함께 사용할 수 있습니다.
-                </p>
-              </div>
-              <Button intent="neutral" size="sm" onClick={() => setIsViewManagerOpen(false)}>
-                닫기
-              </Button>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-gray-800">필터 관리</p>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
-                <Input
-                  value={keywordInput}
-                  onChange={(event) => setKeywordInput(event.target.value)}
-                  placeholder="주문번호/입금자명/프로젝트/캠페인"
-                  className="md:col-span-2"
-                />
-                <select
-                  className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-                  value={projectIdInput}
-                  disabled={projectsLoading}
-                  onChange={(event) => setProjectIdInput(event.target.value)}
-                >
-                  <option value="">전체 프로젝트</option>
-                  {projectOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-                  value={campaignIdInput}
-                  disabled={campaignsLoading}
-                  onChange={(event) => setCampaignIdInput(event.target.value)}
-                >
-                  <option value="">전체 캠페인</option>
-                  {campaignOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <Input
-                  type="date"
-                  value={dateFromInput}
-                  onChange={(event) => setDateFromInput(event.target.value)}
-                />
-                <Input
-                  type="date"
-                  value={dateToInput}
-                  onChange={(event) => setDateToInput(event.target.value)}
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  intent="neutral"
-                  onClick={() => {
-                    handleSearchApply();
-                    setIsViewManagerOpen(false);
-                  }}
-                >
-                  필터 적용
-                </Button>
-                <Button
-                  intent="neutral"
-                  onClick={() => {
-                    handleSearchReset();
-                    setIsViewManagerOpen(false);
-                  }}
-                >
-                  필터 해제
-                </Button>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-200" />
-
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-gray-800">뷰 관리</p>
-              <p className="text-xs text-gray-600">
-                현재 필터를 뷰로 저장하면 반복 작업 시 바로 다시 적용할 수 있습니다.
-              </p>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
-                <Input
-                  value={viewNameDraft}
-                  onChange={(event) => setViewNameDraft(event.target.value)}
-                  placeholder="새 뷰 이름 (예: 미루루-3월4주 출고)"
-                />
-                <Button intent="neutral" onClick={handleCreateViewFromCurrentFilter}>
-                  새 뷰 저장
-                </Button>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  intent={selectedViewId === 'DEFAULT' ? 'secondary' : 'neutral'}
-                  size="sm"
-                  onClick={() => {
-                    clearNotice();
-                    setSelectedViewId('DEFAULT');
-                    showToast('뷰 선택을 해제했습니다.', { type: 'success' });
-                  }}
-                >
-                  뷰 선택 해제
-                </Button>
-                {selectedSavedView && (
-                  <Button intent="neutral" size="sm" onClick={handleUpdateSelectedView}>
-                    선택 뷰 업데이트
-                  </Button>
-                )}
-                <Button
-                  intent="danger"
-                  size="sm"
-                  onClick={() =>
-                    selectedSavedView ? handleDeleteSavedFilter(selectedSavedView.id) : null
-                  }
-                  disabled={!selectedSavedView}
-                >
-                  선택 뷰 삭제
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {savedFilters.length === 0 ? (
-                  <p className="text-xs text-gray-500">저장된 뷰가 없습니다.</p>
-                ) : (
-                  savedFilters.map((savedFilter) => (
-                    <button
-                      key={savedFilter.id}
-                      type="button"
-                      onClick={() => {
-                        handleApplySavedFilter(savedFilter);
-                        setIsViewManagerOpen(false);
-                      }}
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
-                        selectedViewId === savedFilter.id
-                          ? 'border-blue-200 bg-blue-50 text-blue-900'
-                          : 'border-gray-200 bg-white text-gray-700'
-                      }`}
-                    >
-                      <p className="font-medium">{savedFilter.name}</p>
-                      <p className="mt-1 text-[11px]">{buildFilterSummaryText(savedFilter.values)}</p>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
