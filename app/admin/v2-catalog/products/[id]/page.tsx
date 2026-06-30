@@ -2,25 +2,50 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { SlidersHorizontal, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  adminButtonClass,
+  adminDangerIconButtonClass,
+  adminPrimaryButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { ProductBundleManager } from '@/src/components/admin/v2-catalog/ProductBundleManager';
+import { ProductBasicsForm } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
+import type { ProductBasicsFormValues } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
 import { ProductMediaManager } from '@/src/components/admin/v2-catalog/ProductMediaManager';
 import { ProductVariantManager } from '@/src/components/admin/v2-catalog/ProductVariantManager';
 import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
-import { adminActionRowClass } from '@/src/components/admin/AdminDesignSystem';
 import {
+  useCreateV2CampaignTarget,
+  useCreateV2PriceList,
+  useCreateV2PriceListItem,
+  useDeleteV2CampaignTarget,
   useDeleteV2Product,
+  usePublishV2PriceList,
+  useUpdateV2PriceListItem,
+  useUpdateV2Product,
+  useUpdateV2Variant,
   useV2AdminProduct,
   useV2AdminProjects,
+  useV2AdminVariants,
+  useV2Campaigns,
+  useV2CampaignTargetsMap,
+  useV2PriceListItems,
+  useV2PriceLists,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
+import type {
+  V2PriceList,
+  V2PriceListItem,
+  V2Variant,
+} from '@/lib/client/api/v2-catalog-admin.api';
 import {
-  FULFILLMENT_TYPE_LABELS,
-  PRODUCT_KIND_LABELS,
-  PRODUCT_STATUS_LABELS,
-} from '@/lib/client/utils/v2-product-admin-form';
+  buildDefaultCampaignOptions,
+  findDefaultCampaignOption,
+} from '@/lib/client/utils/v2-product-campaign-inclusion';
+import { DEFAULT_VARIANT_STATUS } from '@/lib/client/utils/v2-product-admin-form';
+import { parseOptionalPriceInput } from '@/lib/client/utils/v2-price-input';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -38,90 +63,63 @@ function getErrorMessage(error: unknown): string {
   return '요청 처리 중 오류가 발생했습니다.';
 }
 
-const adminSurfaceClass =
-  'rounded-[20px] border border-[#e7e3d3] bg-white shadow-none';
-const mutedTextClass = 'text-[#1a1a2e]/55';
-const toolbarButtonClass =
-  '!h-11 !rounded-[12px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]';
-const primaryToolbarButtonClass =
-  '!h-11 !rounded-[12px] !bg-[#1a1a2e] !px-4 !text-sm !font-bold !text-white hover:!bg-[#272743]';
-
-function resolveProductStatusIntent(
-  status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED',
-): 'default' | 'success' | 'warning' | 'error' | 'info' {
-  if (status === 'ACTIVE') {
-    return 'success';
-  }
-  if (status === 'DRAFT') {
-    return 'warning';
-  }
-  if (status === 'ARCHIVED') {
-    return 'error';
-  }
-  if (status === 'INACTIVE') {
-    return 'info';
-  }
-  return 'default';
+function pickDefaultVariant(variants: V2Variant[]): V2Variant | null {
+  return (
+    variants.find((variant) => variant.title.trim().toLowerCase() === 'default') ||
+    variants[0] ||
+    null
+  );
 }
 
-function resolveKindIntent(
-  kind: 'STANDARD' | 'BUNDLE',
-): 'default' | 'success' | 'warning' | 'error' | 'info' {
-  if (kind === 'BUNDLE') {
-    return 'info';
-  }
-  return 'default';
+function pickLatestBasePriceList(priceLists: V2PriceList[]): V2PriceList | null {
+  return (
+    priceLists
+      .filter((priceList) => priceList.scope_type === 'BASE')
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0] || null
+  );
 }
 
-function getProductStatusBadgeClass(status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED'): string {
-  if (status === 'ACTIVE') {
-    return 'border-[#c8f1c9] bg-[#eafaea] text-[#297c3b]';
-  }
-  if (status === 'DRAFT') {
-    return 'border-[#ffddbf] bg-[#fff4d5] text-[#a35200]';
-  }
-  if (status === 'ARCHIVED') {
-    return 'border-[#f3d6d6] bg-[#fff0f0] text-[#ca2a30]';
-  }
-  return 'border-[#eee7d6] bg-[#f5f3e8] text-[#6f6a5e]';
+function pickBestActivePriceItem(items: V2PriceListItem[]): V2PriceListItem | null {
+  const activeItems = items.filter((item) => item.status === 'ACTIVE');
+  return (
+    activeItems.sort((left, right) => right.created_at.localeCompare(left.created_at))[0] ||
+    null
+  );
 }
 
-function formatDateTime(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
+function findDefaultVariantBasePrice(params: {
+  items: V2PriceListItem[];
+  productId: string;
+  variantId: string | null;
+}): V2PriceListItem | null {
+  if (!params.variantId) {
+    return null;
   }
-  return parsed.toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+
+  return pickBestActivePriceItem(
+    params.items.filter(
+      (item) =>
+        item.product_id === params.productId &&
+        item.variant_id === params.variantId,
+    ),
+  );
 }
 
-function resolveFulfillmentSummary(product: {
-  product_kind: 'STANDARD' | 'BUNDLE';
-  fulfillment_type: 'DIGITAL' | 'PHYSICAL' | null;
-}): { title: string; description: string } {
-  if (product.product_kind === 'BUNDLE') {
-    return {
-      title: '번들(구성별 상이)',
-      description: '하위 구성에 따라 디지털/실물 제공 방식이 달라질 수 있습니다.',
-    };
+function findResolvedDefaultBasePrice(params: {
+  items: V2PriceListItem[];
+  productId: string;
+  variantId: string | null;
+}): V2PriceListItem | null {
+  const exact = findDefaultVariantBasePrice(params);
+  if (exact) {
+    return exact;
   }
 
-  if (!product.fulfillment_type) {
-    return {
-      title: '미설정',
-      description: '제공 방식이 설정되지 않았습니다. 상품 정보 수정에서 먼저 선택해 주세요.',
-    };
-  }
-
-  return {
-    title: FULFILLMENT_TYPE_LABELS[product.fulfillment_type],
-    description: `이 상품의 옵션은 ${FULFILLMENT_TYPE_LABELS[product.fulfillment_type]} 방식으로 고정됩니다.`,
-  };
+  return pickBestActivePriceItem(
+    params.items.filter(
+      (item) => item.product_id === params.productId && item.variant_id === null,
+    ),
+  );
 }
 
 export default function V2CatalogProductDetailPage() {
@@ -129,8 +127,16 @@ export default function V2CatalogProductDetailPage() {
   const { confirm } = useAdminFeedback();
   const params = useParams<{ id: string }>();
   const deleteProduct = useDeleteV2Product();
-  const [pageErrorMessage, setPageErrorMessage] = useState<string | null>(null);
-  const [isBottomSavePending, setIsBottomSavePending] = useState(false);
+  const updateProduct = useUpdateV2Product();
+  const updateVariant = useUpdateV2Variant();
+  const createPriceList = useCreateV2PriceList();
+  const publishPriceList = usePublishV2PriceList();
+  const createPriceListItem = useCreateV2PriceListItem();
+  const updatePriceListItem = useUpdateV2PriceListItem();
+  const createCampaignTarget = useCreateV2CampaignTarget();
+  const deleteCampaignTarget = useDeleteV2CampaignTarget();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isAdvancedSavePending, setIsAdvancedSavePending] = useState(false);
   const bundleSaveHandlerRef = useRef<(() => Promise<boolean>) | null>(null);
   const variantSaveHandlerRef = useRef<(() => Promise<boolean>) | null>(null);
 
@@ -148,49 +154,201 @@ export default function V2CatalogProductDetailPage() {
     error: projectsError,
   } = useV2AdminProjects();
   const { data: product, isLoading, error } = useV2AdminProduct(productId);
+  const {
+    data: variants,
+    isLoading: variantsLoading,
+    error: variantsError,
+  } = useV2AdminVariants(productId);
+  const {
+    data: basePriceLists,
+    isLoading: basePriceListsLoading,
+    error: basePriceListsError,
+  } = useV2PriceLists({
+    campaignId: '',
+    scopeType: 'BASE',
+  });
+  const {
+    data: alwaysOnCampaigns,
+    isLoading: campaignsLoading,
+    error: campaignsError,
+  } = useV2Campaigns({ campaignType: 'ALWAYS_ON' });
+  const alwaysOnCampaignIds = useMemo(
+    () => (alwaysOnCampaigns || []).map((campaign) => campaign.id),
+    [alwaysOnCampaigns],
+  );
+  const campaignTargetsByCampaignId = useV2CampaignTargetsMap(alwaysOnCampaignIds);
+  const campaignTargetsLoading = Object.values(campaignTargetsByCampaignId).some(
+    (entry) => entry.isLoading,
+  );
+  const defaultCampaignOptions = useMemo(
+    () =>
+      buildDefaultCampaignOptions({
+        campaigns: alwaysOnCampaigns || [],
+        targetsByCampaignId: campaignTargetsByCampaignId,
+        productId,
+      }),
+    [alwaysOnCampaigns, campaignTargetsByCampaignId, productId],
+  );
+  const currentCampaignOption = product
+    ? findDefaultCampaignOption(defaultCampaignOptions, product.project_id)
+    : null;
+  const defaultVariant = useMemo(
+    () => pickDefaultVariant(variants || []),
+    [variants],
+  );
+  const activeBasePriceList = useMemo(
+    () => pickLatestBasePriceList(basePriceLists || []),
+    [basePriceLists],
+  );
+  const {
+    data: basePriceItems,
+    isLoading: basePriceItemsLoading,
+    error: basePriceItemsError,
+  } = useV2PriceListItems(activeBasePriceList?.id || null);
+  const defaultBasePriceItem = useMemo(
+    () =>
+      findDefaultVariantBasePrice({
+        items: basePriceItems || [],
+        productId,
+        variantId: defaultVariant?.id || null,
+      }),
+    [basePriceItems, defaultVariant?.id, productId],
+  );
+  const resolvedDefaultBasePriceItem = useMemo(
+    () =>
+      findResolvedDefaultBasePrice({
+        items: basePriceItems || [],
+        productId,
+        variantId: defaultVariant?.id || null,
+      }),
+    [basePriceItems, defaultVariant?.id, productId],
+  );
 
-  const projectName = useMemo(() => {
-    if (!product || !projects) {
-      return '';
-    }
-    return (
-      projects.find((project) => project.id === product.project_id)?.name || product.project_id
-    );
-  }, [product, projects]);
-
-  const fulfillmentSummary = product
-    ? resolveFulfillmentSummary({
-        product_kind: product.product_kind,
-        fulfillment_type: product.fulfillment_type,
-      })
-    : { title: '', description: '' };
   const listPath = product
     ? `/admin/v2-catalog/products/projects/${product.project_id}`
     : '/admin/v2-catalog/products';
 
-  const handleDeleteProduct = async () => {
+  const ensureBasePriceList = async (): Promise<V2PriceList> => {
+    if (activeBasePriceList) {
+      return activeBasePriceList;
+    }
+
+    if (!product) {
+      throw new Error('상품 정보를 확인하지 못했습니다.');
+    }
+
+    const created = await createPriceList.mutateAsync({
+      campaign_id: null,
+      name: '상품 옵션 기준가',
+      scope_type: 'BASE',
+      status: 'DRAFT',
+      currency_code: 'KRW',
+      starts_at: null,
+      ends_at: null,
+      metadata: {
+        source: 'v2-product-detail-form',
+        product_id: product.id,
+        project_id: product.project_id,
+      },
+      skipInvalidate: true,
+    });
+
+    return created.data;
+  };
+
+  const upsertDefaultBasePrice = async (params: {
+    variantId: string;
+    unitAmount: number;
+  }) => {
     if (!product) {
       return;
     }
-    const confirmed = await confirm({
-      title: '상품 삭제',
-      message: `"${product.title}" 상품을 삭제하시겠습니까?`,
-      description: '상품과 연결된 운영 데이터에 영향이 있을 수 있습니다.',
-      confirmText: '삭제',
-      tone: 'danger',
-    });
-    if (!confirmed) {
+
+    const priceList = await ensureBasePriceList();
+    if (defaultBasePriceItem) {
+      await updatePriceListItem.mutateAsync({
+        itemId: defaultBasePriceItem.id,
+        data: {
+          product_id: product.id,
+          variant_id: params.variantId,
+          unit_amount: params.unitAmount,
+          compare_at_amount: null,
+          status: 'ACTIVE',
+        },
+      });
+    } else {
+      await createPriceListItem.mutateAsync({
+        priceListId: priceList.id,
+        data: {
+          product_id: product.id,
+          variant_id: params.variantId,
+          unit_amount: params.unitAmount,
+          compare_at_amount: null,
+          status: 'ACTIVE',
+          metadata: {
+            source: 'v2-product-detail-form',
+            pricing_mode: 'BASE',
+          },
+        },
+      });
+    }
+
+    if (priceList.status !== 'PUBLISHED') {
+      await publishPriceList.mutateAsync({
+        id: priceList.id,
+      });
+    }
+  };
+
+  const syncDefaultCampaignInclusion = async (
+    values: ProductBasicsFormValues,
+  ) => {
+    const productExcludeTargets = Object.values(campaignTargetsByCampaignId)
+      .flatMap((entry) => entry.targets)
+      .filter(
+        (target) =>
+          target.is_excluded &&
+          target.target_type === 'PRODUCT' &&
+          target.target_id === productId,
+      );
+    const targetCampaignOption = findDefaultCampaignOption(
+      defaultCampaignOptions,
+      values.project_id,
+    );
+
+    if (values.default_campaign_inclusion === 'EXCLUDED') {
+      await Promise.all(
+        productExcludeTargets
+          .filter((target) => target.id !== targetCampaignOption?.excludedProductTargetId)
+          .map((target) =>
+            deleteCampaignTarget.mutateAsync(target.id),
+          ),
+      );
+
+      if (targetCampaignOption && !targetCampaignOption.excludedProductTargetId) {
+        await createCampaignTarget.mutateAsync({
+          campaignId: targetCampaignOption.campaignId,
+          data: {
+            target_type: 'PRODUCT',
+            target_id: productId,
+            is_excluded: true,
+            source_type: 'PRODUCT_EDIT_FORM',
+            source_id: productId,
+            metadata: {
+              source: 'v2-product-detail-form',
+              reason: 'operator_excluded_from_default_campaign',
+            },
+          },
+        });
+      }
       return;
     }
 
-    setPageErrorMessage(null);
-
-    try {
-      await deleteProduct.mutateAsync(product.id);
-      router.push(listPath);
-    } catch (deleteError) {
-      setPageErrorMessage(getErrorMessage(deleteError));
-    }
+    await Promise.all(
+      productExcludeTargets.map((target) =>
+        deleteCampaignTarget.mutateAsync(target.id),
+      ),
+    );
   };
 
   const registerBundleSaveHandler = useCallback(
@@ -207,30 +365,142 @@ export default function V2CatalogProductDetailPage() {
     [],
   );
 
-  const handleSaveAndBack = async () => {
-    setIsBottomSavePending(true);
+  const saveAdvancedManagers = async (): Promise<boolean> => {
+    if (variantSaveHandlerRef.current) {
+      const saved = await variantSaveHandlerRef.current();
+      if (!saved) {
+        return false;
+      }
+    }
+
+    if (product?.product_kind === 'BUNDLE' && bundleSaveHandlerRef.current) {
+      const saved = await bundleSaveHandlerRef.current();
+      if (!saved) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const handleUpdateProduct = async (values: ProductBasicsFormValues) => {
+    if (!productId) {
+      return;
+    }
+
+    setErrorMessage(null);
+
     try {
-      if (variantSaveHandlerRef.current) {
-        const saved = await variantSaveHandlerRef.current();
-        if (!saved) {
-          return;
+      const defaultVariantStatus =
+        values.default_variant_status || defaultVariant?.status || DEFAULT_VARIANT_STATUS;
+      const defaultBasePrice = parseOptionalPriceInput(
+        values.default_variant_base_price || '',
+        '기본 판매가',
+      );
+      if (defaultVariant && defaultVariantStatus === 'ACTIVE' && defaultBasePrice === null) {
+        throw new Error('판매 중 옵션은 기본 판매가를 입력해야 합니다.');
+      }
+
+      await updateProduct.mutateAsync({
+        id: productId,
+        data: {
+          project_id: values.project_id,
+          title: values.title,
+          slug: values.slug,
+          product_kind: values.product_kind,
+          fulfillment_type: values.fulfillment_type,
+          short_description: values.short_description,
+          description: values.description,
+          status: values.status,
+        },
+      });
+
+      if (defaultVariant) {
+        const nextFulfillmentType =
+          values.fulfillment_type || defaultVariant.fulfillment_type;
+        await updateVariant.mutateAsync({
+          variantId: defaultVariant.id,
+          data: {
+            status: defaultVariantStatus,
+            fulfillment_type: nextFulfillmentType,
+            requires_shipping: nextFulfillmentType === 'PHYSICAL',
+          },
+        });
+
+        if (defaultBasePrice !== null) {
+          await upsertDefaultBasePrice({
+            variantId: defaultVariant.id,
+            unitAmount: defaultBasePrice,
+          });
         }
       }
 
-      if (product?.product_kind === 'BUNDLE' && bundleSaveHandlerRef.current) {
-        const saved = await bundleSaveHandlerRef.current();
-        if (!saved) {
-          return;
-        }
+      await syncDefaultCampaignInclusion(values);
+
+      const advancedSaved = await saveAdvancedManagers();
+      if (!advancedSaved) {
+        return;
       }
 
       router.push(listPath);
-    } finally {
-      setIsBottomSavePending(false);
+    } catch (updateError) {
+      setErrorMessage(getErrorMessage(updateError));
     }
   };
 
-  if (isLoading || projectsLoading) {
+  const handleSaveAdvancedOptions = async () => {
+    setIsAdvancedSavePending(true);
+    setErrorMessage(null);
+
+    try {
+      await saveAdvancedManagers();
+    } catch (saveError) {
+      setErrorMessage(getErrorMessage(saveError));
+    } finally {
+      setIsAdvancedSavePending(false);
+    }
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!product) {
+      return;
+    }
+    const confirmed = await confirm({
+      title: '상품 삭제',
+      message: `"${product.title}" 상품을 삭제하시겠습니까?`,
+      description: '상품과 연결된 운영 데이터에 영향이 있을 수 있습니다.',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
+    if (!confirmed) {
+      return;
+    }
+
+    setErrorMessage(null);
+
+    try {
+      await deleteProduct.mutateAsync(product.id);
+      router.push(listPath);
+    } catch (deleteError) {
+      setErrorMessage(getErrorMessage(deleteError));
+    }
+  };
+
+  const scrollToAdvancedOptions = () => {
+    document
+      .getElementById('product-advanced-management')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  if (
+    isLoading ||
+    projectsLoading ||
+    variantsLoading ||
+    basePriceListsLoading ||
+    basePriceItemsLoading ||
+    campaignsLoading ||
+    campaignTargetsLoading
+  ) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loading size="lg" text="상품 정보를 불러오는 중입니다." />
@@ -238,161 +508,167 @@ export default function V2CatalogProductDetailPage() {
     );
   }
 
-  if (error || projectsError || !product || !projects) {
+  if (
+    error ||
+    projectsError ||
+    variantsError ||
+    basePriceListsError ||
+    basePriceItemsError ||
+    campaignsError ||
+    !product ||
+    !projects ||
+    !alwaysOnCampaigns
+  ) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
           상품 정보를 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/products')}>
+        <Button intent="neutral" className={adminButtonClass} onClick={() => router.push('/admin/v2-catalog/products')}>
           목록으로
         </Button>
       </div>
     );
   }
 
+  const variantCount = variants?.length || 0;
+  const advancedTypeLabel = product.product_kind === 'BUNDLE' ? '번들 상품' : '개별 상품';
+  const isFormSubmitting =
+    updateProduct.isPending ||
+    updateVariant.isPending ||
+    createPriceList.isPending ||
+    publishPriceList.isPending ||
+    createPriceListItem.isPending ||
+    updatePriceListItem.isPending ||
+    createCampaignTarget.isPending ||
+    deleteCampaignTarget.isPending ||
+    isAdvancedSavePending;
+
   return (
     <div className="space-y-5 text-[#1a1a2e]">
-      <div className={`px-1 ${adminActionRowClass}`}>
-        <Button
-          intent="neutral"
-          className={toolbarButtonClass}
-          onClick={() => router.push(listPath)}
-        >
-          목록으로
-        </Button>
-        <Button
-          className={primaryToolbarButtonClass}
-          onClick={() => router.push(`/admin/v2-catalog/products/${product.id}/edit`)}
-        >
-          상품 정보 수정
-        </Button>
-        <Button
-          intent="danger"
-          className="!h-11 !w-11 !rounded-[14px] !border !border-[#f3d6d6] !bg-white !px-0 !text-[#ca2a30] hover:!bg-[#fff0f0]"
-          onClick={handleDeleteProduct}
-          loading={deleteProduct.isPending}
-          aria-label="상품 삭제"
-        >
-          <Trash2 className="h-5 w-5" aria-hidden />
-        </Button>
-      </div>
-
-      <section className="px-1 py-2">
-        <div>
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              intent={resolveKindIntent(product.product_kind)}
-              className="rounded-[8px] border border-[#cde0f3] bg-[#eaf3fc] px-3 py-1 text-xs font-bold text-[#4a88b9]"
+      <AdminPageHeader
+        eyebrow="product form"
+        title="상품 정보 수정"
+        description="상세 화면에서 생성 폼과 같은 구조로 기본 정보, 이미지, 기본 옵션을 수정합니다."
+        actions={
+          <>
+            <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(listPath)}>
+              목록으로
+            </Button>
+            <Button
+              intent="danger"
+              className={adminDangerIconButtonClass}
+              onClick={handleDeleteProduct}
+              loading={deleteProduct.isPending}
+              aria-label="상품 삭제"
             >
-              {PRODUCT_KIND_LABELS[product.product_kind]}
-            </Badge>
-            <Badge
-              intent={resolveProductStatusIntent(product.status)}
-              className={`rounded-[8px] border px-3 py-1 text-xs font-bold ${getProductStatusBadgeClass(product.status)}`}
-            >
-              {PRODUCT_STATUS_LABELS[product.status]}
-            </Badge>
-          </div>
-          <h1 className="mt-4 text-3xl font-black leading-tight text-[#1a1a2e] sm:text-4xl">
-            {product.title}
-          </h1>
-          <p className={`mt-2 text-sm font-semibold ${mutedTextClass}`}>
-            {projectName} · /shop/{product.slug}
-          </p>
-        </div>
-      </section>
-
-      {pageErrorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {pageErrorMessage}
-        </div>
-      )}
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="min-h-[118px] rounded-[16px] border border-[#e7e3d3] bg-white px-5 py-5 shadow-none">
-          <p className={`text-xs font-bold ${mutedTextClass}`}>프로젝트</p>
-          <p className="mt-3 text-base font-black text-[#1a1a2e]">{projectName}</p>
-        </div>
-        <div className="min-h-[118px] rounded-[16px] border border-[#e7e3d3] bg-white px-5 py-5 shadow-none">
-          <p className={`text-xs font-bold ${mutedTextClass}`}>상품 주소</p>
-          <p className="mt-3 break-all text-base font-black text-[#1a1a2e]">/shop/{product.slug}</p>
-        </div>
-        <div className="min-h-[118px] rounded-[16px] border border-[#e7e3d3] bg-white px-5 py-5 shadow-none">
-          <p className={`text-xs font-bold ${mutedTextClass}`}>최근 수정</p>
-          <p className="mt-3 text-base font-black text-[#1a1a2e]">{formatDateTime(product.updated_at)}</p>
-        </div>
-        <div className="min-h-[118px] rounded-[16px] border border-[#e7e3d3] bg-white px-5 py-5 shadow-none">
-          <p className={`text-xs font-bold ${mutedTextClass}`}>상품 제공 방식</p>
-          <p className="mt-3 text-base font-black text-[#1a1a2e]">{fulfillmentSummary.title}</p>
-          <p className={`mt-2 text-xs leading-5 ${mutedTextClass}`}>{fulfillmentSummary.description}</p>
-        </div>
-      </section>
-
-      <section className={`${adminSurfaceClass} p-5 sm:p-6`}>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-black text-[#1a1a2e]">상품 기본 정보</h2>
-            <p className={`mt-2 text-sm font-medium ${mutedTextClass}`}>
-              안내 문구와 노출 상태를 한눈에 확인합니다.
-            </p>
-          </div>
-          <Button
-            size="sm"
-            intent="neutral"
-            className="!h-9 !rounded-[12px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]"
-            onClick={() => router.push(`/admin/v2-catalog/products/${product.id}/edit`)}
-          >
-            수정
-          </Button>
-        </div>
-
-        <div className="mt-7 grid gap-8 lg:grid-cols-2">
-          <div>
-            <p className={`text-sm font-bold ${mutedTextClass}`}>짧은 설명</p>
-            <p className="mt-3 text-sm font-medium leading-7 text-[#1a1a2e]">
-              {product.short_description || '등록된 한 줄 설명이 없습니다.'}
-            </p>
-          </div>
-          <div>
-            <p className={`text-sm font-bold ${mutedTextClass}`}>상세 설명</p>
-            <p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-7 text-[#1a1a2e]">
-              {product.description || '등록된 상세 설명이 없습니다.'}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {product.product_kind === 'BUNDLE' && (
-        <ProductBundleManager
-          bundleProduct={product}
-          registerSaveHandler={registerBundleSaveHandler}
-        />
-      )}
-
-      <ProductMediaManager product={product} />
-
-      <ProductVariantManager
-        product={product}
-        registerSaveHandler={registerVariantSaveHandler}
+              <Trash2 className="h-5 w-5" aria-hidden />
+            </Button>
+          </>
+        }
       />
 
-      <div className="flex justify-end gap-3 px-1 pb-3 pt-1">
-        <Button
-          intent="neutral"
-          className={toolbarButtonClass}
-          onClick={() => router.push(listPath)}
-        >
-          목록으로
-        </Button>
-        <Button
-          loading={isBottomSavePending}
-          className="!h-12 !rounded-[13px] !bg-[#1a1a2e] !px-6 !text-sm !font-bold !text-white hover:!bg-[#272743]"
-          onClick={handleSaveAndBack}
-        >
-          저장하고 목록으로
-        </Button>
-      </div>
+      <ProductBasicsForm
+        mode="edit"
+        projects={projects}
+        initialValues={{
+          project_id: product.project_id,
+          product_kind: product.product_kind,
+          fulfillment_type: product.fulfillment_type,
+          title: product.title,
+          slug: product.slug,
+          short_description: product.short_description,
+          description: product.description,
+          status: product.status,
+          default_variant_status: defaultVariant?.status || DEFAULT_VARIANT_STATUS,
+          default_variant_base_price: resolvedDefaultBasePriceItem
+            ? String(resolvedDefaultBasePriceItem.unit_amount)
+            : null,
+          default_campaign_inclusion: currentCampaignOption?.excludedProductTargetId
+            ? 'EXCLUDED'
+            : 'INCLUDED',
+        }}
+        isSubmitting={isFormSubmitting}
+        showDefaultOptionSettings
+        showCampaignInclusionSettings
+        campaignOptions={defaultCampaignOptions}
+        mediaContent={<ProductMediaManager product={product} embedded />}
+        advancedAction={
+          <Button
+            type="button"
+            intent="neutral"
+            size="sm"
+            className="!h-9 !rounded-[10px] !border-0 !bg-white !px-3 !text-xs !font-black !text-[#1a1a2e] hover:!bg-[#f5f3e8]"
+            onClick={scrollToAdvancedOptions}
+          >
+            <SlidersHorizontal className="h-4 w-4" aria-hidden />
+            관리 열기
+          </Button>
+        }
+        advancedContent={
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2 text-center text-xs font-black text-[#6f6a5e]">
+              <div className="rounded-[10px] bg-white px-3 py-2">
+                옵션 {variantCount}개
+              </div>
+              <div className="rounded-[10px] bg-white px-3 py-2">
+                {advancedTypeLabel}
+              </div>
+            </div>
+            <div className="rounded-[12px] border border-[#e7e3d3] bg-white px-4 py-3">
+              <p className="text-xs font-black text-[#1a1a2e]">옵션/수량 정책</p>
+              <p className="mt-1 text-xs font-medium leading-5 text-[#1a1a2e]/55">
+                다중 옵션, 번들 구성, 수량 정책, 디지털 파일 연결은 아래 고급 옵션 관리에서 조정합니다.
+              </p>
+            </div>
+          </div>
+        }
+        submitLabel="저장하고 목록으로"
+        errorMessage={errorMessage}
+        onCancel={() => router.push(listPath)}
+        onSubmit={handleUpdateProduct}
+      />
+
+      <details
+        id="product-advanced-management"
+        className="group scroll-mt-24 rounded-[20px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6"
+      >
+        <summary className="flex cursor-pointer list-none flex-col gap-3 outline-none marker:hidden lg:flex-row lg:items-center lg:justify-between [&::-webkit-details-marker]:hidden">
+          <div>
+            <h2 className="text-lg font-black text-[#1a1a2e]">고급 옵션 관리</h2>
+            <p className="mt-2 text-sm font-medium leading-6 text-[#1a1a2e]/55">
+              기본 폼 밖의 옵션, 번들 구성, 수량 정책, 파일 연결을 한곳에 모았습니다.
+            </p>
+          </div>
+          <span className="inline-flex h-10 items-center rounded-[12px] bg-[#f5f3e8] px-4 text-sm font-black text-[#1a1a2e] group-open:bg-[#1a1a2e] group-open:text-white">
+            열기/접기
+          </span>
+        </summary>
+
+        <div className="mt-5 space-y-5">
+          {product.product_kind === 'BUNDLE' && (
+            <ProductBundleManager
+              bundleProduct={product}
+              registerSaveHandler={registerBundleSaveHandler}
+            />
+          )}
+
+          <ProductVariantManager
+            product={product}
+            registerSaveHandler={registerVariantSaveHandler}
+          />
+
+          <div className="flex justify-end">
+            <Button
+              className={adminPrimaryButtonClass}
+              loading={isAdvancedSavePending}
+              onClick={handleSaveAdvancedOptions}
+            >
+              고급 옵션 저장
+            </Button>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
