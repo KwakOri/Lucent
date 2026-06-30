@@ -327,14 +327,17 @@ export default function V2CatalogProjectProductsPage() {
       </AdminSurface>
 
       <AdminSurface padding="md">
-        <div className="flex items-start justify-between gap-3">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-lg font-black text-[#1a1a2e]">상품 목록</h2>
-            <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
-              대략적인 상품 정보를 확인하고 편집 아이콘으로 상세 화면에 들어갑니다.
-            </p>
+            <Badge intent="info">{filteredProducts.length}개 표시</Badge>
           </div>
-          <Badge intent="info">{filteredProducts.length}개 표시</Badge>
+          <Button
+            className={adminPrimaryButtonClass}
+            onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}
+          >
+            상품 추가
+          </Button>
         </div>
 
         {selectedProducts.length > 0 && (
@@ -434,14 +437,6 @@ export default function V2CatalogProjectProductsPage() {
           )}
         </div>
 
-        <div className="mt-4 flex justify-end">
-          <Button
-            className={adminPrimaryButtonClass}
-            onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}
-          >
-            상품 추가
-          </Button>
-        </div>
       </AdminSurface>
     </div>
   );
