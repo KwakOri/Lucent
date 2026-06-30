@@ -31,6 +31,10 @@ import {
 } from '@/lib/client/hooks/useV2AdminProduction';
 import { useSession } from '@/lib/client/hooks';
 import { useV2AdminProjects } from '@/lib/client/hooks/useV2CatalogAdmin';
+import {
+  normalizeDisplayTitle,
+  shouldShowOptionTitle,
+} from '@/lib/client/utils/v2-item-display';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -83,6 +87,22 @@ function formatDateCompact24(value: string | null | undefined): string {
 
 function formatCurrency(amount: number | null | undefined): string {
   return `${Math.max(0, Number(amount || 0)).toLocaleString()}원`;
+}
+
+function formatOptionDisplayName(params: {
+  productName: string | null | undefined;
+  variantName: string | null | undefined;
+}): string {
+  const optionTitle = normalizeDisplayTitle(params.variantName);
+  if (
+    !shouldShowOptionTitle({
+      productTitle: params.productName || '',
+      optionTitle,
+    })
+  ) {
+    return '-';
+  }
+  return optionTitle;
 }
 
 function resolveBatchIntent(status: V2AdminProductionBatchStatus) {
@@ -991,7 +1011,12 @@ export function ProductionManagementContent({
 	                              )}
 	                            </td>
 	                            <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
-	                            <td className="px-3 py-2 text-gray-700">{row.variant_name || '-'}</td>
+	                            <td className="px-3 py-2 text-gray-700">
+	                              {formatOptionDisplayName({
+	                                productName: row.product_name,
+	                                variantName: row.variant_name,
+	                              })}
+	                            </td>
 	                            <td className="px-3 py-2 text-right text-gray-700">
 	                              {row.quantity_total.toLocaleString()}
 	                            </td>
@@ -1236,7 +1261,12 @@ export function ProductionManagementContent({
 	                          )}
 	                        </td>
 	                        <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
-	                        <td className="px-3 py-2 text-gray-700">{row.variant_name || '-'}</td>
+	                        <td className="px-3 py-2 text-gray-700">
+	                          {formatOptionDisplayName({
+	                            productName: row.product_name,
+	                            variantName: row.variant_name,
+	                          })}
+	                        </td>
 	                        <td className="px-3 py-2 text-right text-gray-700">
 	                          {row.quantity_total.toLocaleString()}
 	                        </td>
