@@ -80,6 +80,7 @@ function isImageFile(file: File): boolean {
 type ProductMediaManagerProps = {
   product: V2Product;
   embedded?: boolean;
+  layout?: 'wide' | 'stacked';
 };
 
 const sectionClassName =
@@ -93,7 +94,11 @@ const mediaPreviewClassName =
 const detailMediaPanelClassName =
   'mt-4 min-h-[320px] rounded-[14px] border border-dashed border-[#d9d4c3] bg-[#faf9f3] sm:min-h-[340px]';
 
-export function ProductMediaManager({ product, embedded = false }: ProductMediaManagerProps) {
+export function ProductMediaManager({
+  product,
+  embedded = false,
+  layout = 'wide',
+}: ProductMediaManagerProps) {
   const { data, isLoading, error } = useV2AdminProductMedia(product.id);
   const uploadMediaAssetFile = useUploadV2MediaAssetFile();
   const createProductMedia = useCreateV2ProductMedia();
@@ -339,7 +344,15 @@ export function ProductMediaManager({ product, embedded = false }: ProductMediaM
         </div>
       )}
 
-      <div className={embedded ? 'mt-5 grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]' : 'mt-6 grid gap-5 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]'}>
+      <div
+        className={
+          embedded && layout === 'stacked'
+            ? 'mt-5 grid gap-6'
+            : embedded
+              ? 'mt-5 grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]'
+              : 'mt-6 grid gap-5 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]'
+        }
+      >
         <article className={mediaColumnClassName}>
           <h3 className="text-sm font-black text-[#1a1a2e]">커버 이미지</h3>
           <p className={`mt-1 text-xs font-medium ${mutedTextClassName}`}>

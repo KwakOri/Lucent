@@ -592,7 +592,7 @@ export default function V2CatalogProductDetailPage() {
         showDefaultOptionSettings
         showCampaignInclusionSettings
         campaignOptions={defaultCampaignOptions}
-        mediaContent={<ProductMediaManager product={product} embedded />}
+        mediaContent={<ProductMediaManager product={product} embedded layout="stacked" />}
         advancedAction={
           <Button
             type="button"
