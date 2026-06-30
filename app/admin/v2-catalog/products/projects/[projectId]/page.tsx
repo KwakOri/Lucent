@@ -391,7 +391,8 @@ export default function V2CatalogProjectProductsPage() {
 
       {selectedProducts.length > 0 && (
         <div className="fixed bottom-6 left-4 right-4 z-50 rounded-[24px] border border-[#d8cfb9] bg-white/95 p-4 shadow-[0_18px_45px_rgba(26,26,46,0.16)] backdrop-blur sm:bottom-8 sm:left-auto sm:right-8 sm:w-[280px]">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-base font-black text-[#1a1a2e]">상태 변경</h3>
             <Button
               size="sm"
               intent="neutral"
