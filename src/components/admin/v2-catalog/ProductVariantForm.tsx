@@ -387,7 +387,6 @@ export function ProductVariantForm({
   variant,
   variantCount = 0,
   primaryAsset,
-  isAssetsLoading = false,
   compact = false,
   hideActions = false,
   deliveryOnly = false,
@@ -612,12 +611,6 @@ export function ProductVariantForm({
     inventorySafetyStockQuantity,
   ]);
 
-  const existingDigitalAssetName =
-    primaryAsset?.file_name ||
-    primaryAsset?.media_asset?.file_name ||
-    "연결된 디지털 파일 없음";
-  const existingDigitalAssetSize =
-    primaryAsset?.file_size ?? primaryAsset?.media_asset?.file_size ?? null;
   const existingStorageProvider =
     primaryAsset?.media_asset?.storage_provider || null;
   const isExistingExternalLink =
@@ -630,13 +623,6 @@ export function ProductVariantForm({
         ? "LINK"
         : "FILE"
       : null;
-  const existingDigitalAssetTypeLabel =
-    existingDigitalAssetInputMode === "LINK" ? "현재 링크" : "현재 파일";
-  const existingDigitalAssetSizeLabel =
-    isExistingExternalLink &&
-    (!existingDigitalAssetSize || existingDigitalAssetSize <= 1)
-      ? "외부 링크"
-      : formatBytes(existingDigitalAssetSize);
 
   const isSubmitting =
     isBasePricingLoading ||
@@ -1820,31 +1806,7 @@ export function ProductVariantForm({
             )}
 
             <div className={deliveryOnly ? "space-y-4" : compact ? "mt-4" : "mt-5 rounded-[16px] border border-[#d9e6f2] bg-[#f0f7ff] px-4 py-4"}>
-              {mode === "edit" && (
-                <div className="rounded-[14px] border border-[#d9e6f2] bg-white px-4 py-3 text-sm font-medium text-[#1a1a2e]/60">
-                  {isAssetsLoading ? (
-                    <p>현재 연결된 디지털 에셋 정보를 불러오는 중입니다.</p>
-                  ) : primaryAsset ? (
-                    <div className="space-y-1">
-                      <p className="font-bold text-[#1a1a2e]">
-                        {existingDigitalAssetTypeLabel}:{" "}
-                        {existingDigitalAssetName}
-                      </p>
-                      <p className="text-xs text-[#1a1a2e]/45">
-                        {existingDigitalAssetSizeLabel} · 상태{" "}
-                        {primaryAsset.status}
-                      </p>
-                    </div>
-                  ) : (
-                    <p>
-                      현재 연결된 디지털 에셋이 없습니다. 파일 또는 링크를
-                      추가할 수 있습니다.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => {
