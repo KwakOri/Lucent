@@ -218,6 +218,13 @@ type ProductVariantManagerProps = {
   registerSaveHandler?: (handler: (() => Promise<boolean>) | null) => void;
 };
 
+type ProductVariantDeliverySettingsProps = {
+  product: V2Product;
+  variant: V2Variant | null;
+  variantCount: number;
+  registerSaveHandler?: (handler: (() => Promise<boolean>) | null) => void;
+};
+
 const sectionClassName =
   'rounded-[20px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
 const addButtonClassName =
@@ -464,5 +471,53 @@ export function ProductVariantManager({
           })}
       </div>
     </section>
+  );
+}
+
+export function ProductVariantDeliverySettings({
+  product,
+  variant,
+  variantCount,
+  registerSaveHandler,
+}: ProductVariantDeliverySettingsProps) {
+  const [message, setMessage] = useState<string | null>(null);
+  const {
+    data: assets,
+    isLoading: assetsLoading,
+  } = useV2AdminVariantAssets(variant?.id);
+  const primaryAsset = getPrimaryDigitalAsset(assets);
+
+  if (!variant) {
+    return (
+      <div className="rounded-[12px] border border-dashed border-[#d9d4c3] bg-white px-4 py-4 text-sm font-bold text-[#b3aea2]">
+        기본 옵션을 찾지 못했습니다.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {message && (
+        <div className="rounded-[12px] border border-green-200 bg-green-50 px-3 py-2 text-xs font-bold text-green-700">
+          {message}
+        </div>
+      )}
+      <ProductVariantForm
+        mode="edit"
+        product={product}
+        variant={variant}
+        variantCount={variantCount}
+        primaryAsset={primaryAsset}
+        isAssetsLoading={assetsLoading}
+        compact
+        hideActions
+        deliveryOnly
+        registerSaveHandler={registerSaveHandler}
+        onCancel={() => undefined}
+        onSuccess={() => {
+          setMessage('전달 설정을 저장했습니다.');
+        }}
+      />
+    </div>
   );
 }

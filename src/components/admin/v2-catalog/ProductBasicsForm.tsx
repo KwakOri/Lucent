@@ -69,6 +69,8 @@ type ProductBasicsFormProps = {
   mediaContent?: ReactNode;
   advancedContent?: ReactNode;
   advancedAction?: ReactNode;
+  advancedTitle?: string;
+  advancedDescription?: string;
   onCancel: () => void;
   onSubmit: (values: ProductBasicsFormValues) => Promise<void>;
 };
@@ -119,11 +121,17 @@ function getSegmentButtonClass(active: boolean): string {
 }
 
 function getTwoOptionButtonClass(active: boolean, disabled = false): string {
+  if (disabled && active) {
+    return 'min-h-[54px] flex-1 cursor-default rounded-[14px] bg-[#1a1a2e] px-4 text-sm font-black text-white transition';
+  }
+  if (disabled) {
+    return 'min-h-[54px] flex-1 cursor-not-allowed rounded-[14px] bg-transparent px-4 text-sm font-black text-[#b3aea2] opacity-55 transition';
+  }
   return `min-h-[54px] flex-1 rounded-[14px] px-4 text-sm font-black transition ${
     active
       ? 'bg-[#1a1a2e] text-white'
       : 'bg-transparent text-[#8a8678] hover:bg-[#f5f3e8] hover:text-[#1a1a2e]'
-  } ${disabled ? 'cursor-not-allowed opacity-45 hover:bg-transparent hover:text-[#8a8678]' : ''}`;
+  }`;
 }
 
 function getInclusionButtonClass(active: boolean): string {
@@ -172,6 +180,8 @@ export function ProductBasicsForm({
   mediaContent,
   advancedContent,
   advancedAction,
+  advancedTitle = '고급 옵션',
+  advancedDescription = '옵션, 수량 정책, 재고와 전달 방식을 한곳에서 정리합니다.',
   onCancel,
   onSubmit,
 }: ProductBasicsFormProps) {
@@ -569,16 +579,22 @@ export function ProductBasicsForm({
               <div className="grid gap-4 md:grid-cols-2">
                 <section className={controlPanelClassName}>
                   <p className="text-sm font-black text-[#1a1a2e]">상품 유형</p>
-                  <p className="mt-1 text-xs font-medium text-[#1a1a2e]/55">
-                    개별 상품 또는 번들 상품
-                  </p>
-                  <div className="mt-5 grid grid-cols-2 gap-1 rounded-[16px] border border-[#e7e3d3] bg-white p-1">
+                  <div className="mt-4 grid grid-cols-2 gap-1 rounded-[16px] border border-[#e7e3d3] bg-white p-1">
                     {PRODUCT_KIND_OPTIONS.map((option) => (
                       <button
                         key={option.value}
                         type="button"
-                        className={getTwoOptionButtonClass(productKind === option.value)}
-                        onClick={() => setProductKind(option.value)}
+                        className={getTwoOptionButtonClass(
+                          productKind === option.value,
+                          mode === 'edit',
+                        )}
+                        disabled={mode === 'edit'}
+                        onClick={() => {
+                          if (mode === 'edit') {
+                            return;
+                          }
+                          setProductKind(option.value);
+                        }}
                       >
                         {option.title}
                       </button>
@@ -588,20 +604,22 @@ export function ProductBasicsForm({
 
                 <section className={controlPanelClassName}>
                   <p className="text-sm font-black text-[#1a1a2e]">상품 제공 방식</p>
-                  <p className="mt-1 text-xs font-medium text-[#1a1a2e]/55">
-                    STANDARD 상품 옵션 유형
-                  </p>
-                  <div className="mt-5 grid grid-cols-2 gap-1 rounded-[16px] border border-[#e7e3d3] bg-white p-1">
+                  <div className="mt-4 grid grid-cols-2 gap-1 rounded-[16px] border border-[#e7e3d3] bg-white p-1">
                     {FULFILLMENT_TYPE_OPTIONS.map((option) => (
                       <button
                         key={option}
                         type="button"
                         className={getTwoOptionButtonClass(
                           productKind === 'STANDARD' && fulfillmentType === option,
-                          productKind !== 'STANDARD',
+                          productKind !== 'STANDARD' || mode === 'edit',
                         )}
-                        disabled={productKind !== 'STANDARD'}
-                        onClick={() => setFulfillmentType(option)}
+                        disabled={productKind !== 'STANDARD' || mode === 'edit'}
+                        onClick={() => {
+                          if (productKind !== 'STANDARD' || mode === 'edit') {
+                            return;
+                          }
+                          setFulfillmentType(option);
+                        }}
                       >
                         {FULFILLMENT_TYPE_LABELS[option]}
                       </button>
@@ -704,9 +722,9 @@ export function ProductBasicsForm({
               <section className={softPanelClassName}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-black text-[#1a1a2e]">고급 옵션</p>
+                    <p className="text-sm font-black text-[#1a1a2e]">{advancedTitle}</p>
                     <p className="mt-1 text-xs font-medium text-[#1a1a2e]/55">
-                      옵션, 수량 정책, 재고와 전달 방식을 한곳에서 정리합니다.
+                      {advancedDescription}
                     </p>
                   </div>
                   {advancedAction}

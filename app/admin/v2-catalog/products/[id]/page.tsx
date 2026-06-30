@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { SlidersHorizontal, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
 import {
@@ -15,7 +15,7 @@ import { ProductBundleManager } from '@/src/components/admin/v2-catalog/ProductB
 import { ProductBasicsForm } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
 import type { ProductBasicsFormValues } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
 import { ProductMediaManager } from '@/src/components/admin/v2-catalog/ProductMediaManager';
-import { ProductVariantManager } from '@/src/components/admin/v2-catalog/ProductVariantManager';
+import { ProductVariantDeliverySettings } from '@/src/components/admin/v2-catalog/ProductVariantManager';
 import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import {
   useCreateV2CampaignTarget,
@@ -486,12 +486,6 @@ export default function V2CatalogProductDetailPage() {
     }
   };
 
-  const scrollToAdvancedOptions = () => {
-    document
-      .getElementById('product-advanced-management')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   if (
     isLoading ||
     projectsLoading ||
@@ -532,7 +526,18 @@ export default function V2CatalogProductDetailPage() {
   }
 
   const variantCount = variants?.length || 0;
-  const advancedTypeLabel = product.product_kind === 'BUNDLE' ? '번들 상품' : '개별 상품';
+  const isPhysicalProduct =
+    product.product_kind === 'STANDARD' && product.fulfillment_type === 'PHYSICAL';
+  const advancedTitle = product.product_kind === 'BUNDLE'
+    ? '번들 구성'
+    : isPhysicalProduct
+      ? '재고/배송 설정'
+      : '디지털 파일';
+  const advancedDescription = product.product_kind === 'BUNDLE'
+    ? '번들 구성은 아래 번들 구성 관리에서 조정합니다.'
+    : isPhysicalProduct
+      ? '실물 배송 상품의 무게와 재고 수량을 관리합니다.'
+      : '디지털 상품의 다운로드 파일 또는 링크를 연결합니다.';
   const isFormSubmitting =
     updateProduct.isPending ||
     updateVariant.isPending ||
@@ -593,35 +598,34 @@ export default function V2CatalogProductDetailPage() {
         showCampaignInclusionSettings
         campaignOptions={defaultCampaignOptions}
         mediaContent={<ProductMediaManager product={product} embedded layout="stacked" />}
-        advancedAction={
-          <Button
-            type="button"
-            intent="neutral"
-            size="sm"
-            className="!h-9 !rounded-[10px] !border-0 !bg-white !px-3 !text-xs !font-black !text-[#1a1a2e] hover:!bg-[#f5f3e8]"
-            onClick={scrollToAdvancedOptions}
-          >
-            <SlidersHorizontal className="h-4 w-4" aria-hidden />
-            관리 열기
-          </Button>
-        }
+        advancedTitle={advancedTitle}
+        advancedDescription={advancedDescription}
         advancedContent={
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-center text-xs font-black text-[#6f6a5e]">
-              <div className="rounded-[10px] bg-white px-3 py-2">
-                옵션 {variantCount}개
+          product.product_kind === 'STANDARD' ? (
+            <ProductVariantDeliverySettings
+              product={product}
+              variant={defaultVariant}
+              variantCount={variantCount}
+              registerSaveHandler={registerVariantSaveHandler}
+            />
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-center text-xs font-black text-[#6f6a5e]">
+                <div className="rounded-[10px] bg-white px-3 py-2">
+                  옵션 {variantCount}개
+                </div>
+                <div className="rounded-[10px] bg-white px-3 py-2">
+                  번들 상품
+                </div>
               </div>
-              <div className="rounded-[10px] bg-white px-3 py-2">
-                {advancedTypeLabel}
+              <div className="rounded-[12px] border border-[#e7e3d3] bg-white px-4 py-3">
+                <p className="text-xs font-black text-[#1a1a2e]">번들 구성 관리</p>
+                <p className="mt-1 text-xs font-medium leading-5 text-[#1a1a2e]/55">
+                  구성 상품과 수량 정책은 아래 번들 구성 관리 영역에서 저장합니다.
+                </p>
               </div>
             </div>
-            <div className="rounded-[12px] border border-[#e7e3d3] bg-white px-4 py-3">
-              <p className="text-xs font-black text-[#1a1a2e]">옵션/수량 정책</p>
-              <p className="mt-1 text-xs font-medium leading-5 text-[#1a1a2e]/55">
-                다중 옵션, 번들 구성, 수량 정책, 디지털 파일 연결은 아래 고급 옵션 관리에서 조정합니다.
-              </p>
-            </div>
-          </div>
+          )
         }
         submitLabel="저장하고 목록으로"
         errorMessage={errorMessage}
@@ -629,46 +633,38 @@ export default function V2CatalogProductDetailPage() {
         onSubmit={handleUpdateProduct}
       />
 
-      <details
-        id="product-advanced-management"
-        className="group scroll-mt-24 rounded-[20px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6"
-      >
-        <summary className="flex cursor-pointer list-none flex-col gap-3 outline-none marker:hidden lg:flex-row lg:items-center lg:justify-between [&::-webkit-details-marker]:hidden">
-          <div>
-            <h2 className="text-lg font-black text-[#1a1a2e]">고급 옵션 관리</h2>
-            <p className="mt-2 text-sm font-medium leading-6 text-[#1a1a2e]/55">
-              기본 폼 밖의 옵션, 번들 구성, 수량 정책, 파일 연결을 한곳에 모았습니다.
-            </p>
-          </div>
-          <span className="inline-flex h-10 items-center rounded-[12px] bg-[#f5f3e8] px-4 text-sm font-black text-[#1a1a2e] group-open:bg-[#1a1a2e] group-open:text-white">
-            열기/접기
-          </span>
-        </summary>
+      {product.product_kind === 'BUNDLE' && (
+        <details className="group scroll-mt-24 rounded-[20px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6">
+          <summary className="flex cursor-pointer list-none flex-col gap-3 outline-none marker:hidden lg:flex-row lg:items-center lg:justify-between [&::-webkit-details-marker]:hidden">
+            <div>
+              <h2 className="text-lg font-black text-[#1a1a2e]">번들 구성 관리</h2>
+              <p className="mt-2 text-sm font-medium leading-6 text-[#1a1a2e]/55">
+                구성 상품과 수량 정책을 관리합니다.
+              </p>
+            </div>
+            <span className="inline-flex h-10 items-center rounded-[12px] bg-[#f5f3e8] px-4 text-sm font-black text-[#1a1a2e] group-open:bg-[#1a1a2e] group-open:text-white">
+              열기/접기
+            </span>
+          </summary>
 
-        <div className="mt-5 space-y-5">
-          {product.product_kind === 'BUNDLE' && (
+          <div className="mt-5 space-y-5">
             <ProductBundleManager
               bundleProduct={product}
               registerSaveHandler={registerBundleSaveHandler}
             />
-          )}
 
-          <ProductVariantManager
-            product={product}
-            registerSaveHandler={registerVariantSaveHandler}
-          />
-
-          <div className="flex justify-end">
-            <Button
-              className={adminPrimaryButtonClass}
-              loading={isAdvancedSavePending}
-              onClick={handleSaveAdvancedOptions}
-            >
-              고급 옵션 저장
-            </Button>
+            <div className="flex justify-end">
+              <Button
+                className={adminPrimaryButtonClass}
+                loading={isAdvancedSavePending}
+                onClick={handleSaveAdvancedOptions}
+              >
+                번들 구성 저장
+              </Button>
+            </div>
           </div>
-        </div>
-      </details>
+        </details>
+      )}
     </div>
   );
 }

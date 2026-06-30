@@ -100,6 +100,7 @@ type ProductVariantFormProps = {
   isAssetsLoading?: boolean;
   compact?: boolean;
   hideActions?: boolean;
+  deliveryOnly?: boolean;
   registerSaveHandler?: (handler: VariantSaveHandler | null) => void;
   onCancel: () => void;
   onSuccess: () => void | Promise<void>;
@@ -389,6 +390,7 @@ export function ProductVariantForm({
   isAssetsLoading = false,
   compact = false,
   hideActions = false,
+  deliveryOnly = false,
   registerSaveHandler,
   onCancel,
   onSuccess,
@@ -870,6 +872,181 @@ export function ProductVariantForm({
     let savedVariantId = variant?.id || persistedVariantId || null;
 
     try {
+      if (deliveryOnly) {
+        if (!variant?.id) {
+          throw new Error("전달 설정을 저장할 옵션을 찾지 못했습니다.");
+        }
+
+        const resolvedFulfillmentType =
+          lockedFulfillmentType || variant.fulfillment_type;
+
+        if (resolvedFulfillmentType === "PHYSICAL") {
+          await updateVariant.mutateAsync({
+            variantId: variant.id,
+            data: {
+              fulfillment_type: resolvedFulfillmentType,
+              requires_shipping: true,
+              track_inventory: trackInventory,
+              weight_grams: parseNullableNonNegativeInteger(weightGrams, "무게"),
+            },
+          });
+
+          if (trackInventory) {
+            const onHandQuantity = parseNullableNonNegativeInteger(
+              inventoryOnHandQuantity,
+              "재고 수량",
+            );
+            const safetyStockQuantity = parseNullableNonNegativeInteger(
+              inventorySafetyStockQuantity,
+              "안전 재고",
+            );
+
+            await upsertInventoryLevel.mutateAsync({
+              variant_id: variant.id,
+              location_id: inventoryLocationId || null,
+              on_hand_quantity: onHandQuantity ?? 0,
+              safety_stock_quantity: safetyStockQuantity ?? 0,
+              metadata: {
+                source: "v2-variant-delivery-settings",
+              },
+            });
+          }
+
+          await onSuccess();
+          return true;
+        }
+
+        if (resolvedFulfillmentType === "DIGITAL") {
+          const persistPrimaryDigitalAsset = async (payload: {
+            media_asset_id: string;
+            file_name: string;
+            mime_type: string;
+            file_size: number;
+            status: "READY" | "DRAFT";
+            metadata: Record<string, unknown>;
+          }) => {
+            if (primaryAsset) {
+              await updateDigitalAsset.mutateAsync({
+                assetId: primaryAsset.id,
+                data: payload,
+              });
+              return;
+            }
+
+            await createDigitalAsset.mutateAsync({
+              variantId: variant.id,
+              data: {
+                asset_role: "PRIMARY",
+                ...payload,
+              },
+            });
+          };
+
+          if (digitalAssetInputMode === "FILE" && digitalFile) {
+            if (!isSupportedDigitalFile(digitalFile)) {
+              throw new Error(
+                "오디오(mp3/wav/flac/m4a) 또는 zip 파일만 업로드할 수 있습니다.",
+              );
+            }
+
+            setUploadState(createIdleUploadState(digitalFile.name));
+            const uploaded = await uploadMediaAssetFile.mutateAsync({
+              data: {
+                file: digitalFile,
+                asset_kind: inferDigitalFileAssetKind(digitalFile),
+                status: "ACTIVE",
+                metadata: {
+                  source: "v2-variant-delivery-settings-file",
+                  delivery_method: "FILE",
+                },
+              },
+              options: {
+                onProgress: (progress) => {
+                  setUploadState(toUploadState(progress, digitalFile.name));
+                },
+                onAbortReady: (nextAbortUpload) => {
+                  setAbortUpload(() => nextAbortUpload);
+                },
+              },
+            });
+            setAbortUpload(null);
+
+            setUploadState({
+              stage: "linking",
+              fileName: digitalFile.name,
+              loaded: digitalFile.size,
+              total: digitalFile.size,
+              percent: 100,
+            });
+
+            await persistPrimaryDigitalAsset({
+              media_asset_id: uploaded.data.id,
+              file_name: digitalFile.name,
+              mime_type: inferDigitalFileMimeType(digitalFile),
+              file_size: digitalFile.size,
+              status: status === "ACTIVE" ? "READY" : "DRAFT",
+              metadata: {
+                source: "v2-variant-delivery-settings-file",
+                delivery_method: "FILE",
+                media_asset_kind: inferDigitalFileAssetKind(digitalFile),
+              },
+            });
+
+            setUploadState({
+              stage: "complete",
+              fileName: digitalFile.name,
+              loaded: digitalFile.size,
+              total: digitalFile.size,
+              percent: 100,
+            });
+          }
+
+          if (digitalAssetInputMode === "LINK" && digitalLinkUrl.trim()) {
+            if (!isHttpUrl(digitalLinkUrl)) {
+              throw new Error("다운로드 링크는 http(s) URL이어야 합니다.");
+            }
+
+            const normalizedLinkUrl = digitalLinkUrl.trim();
+            const linkFileName =
+              digitalLinkFileName.trim() || "Google Drive file";
+            const assetKind = inferExternalLinkAssetKind(
+              normalizedLinkUrl,
+              linkFileName,
+            );
+            const mediaAsset = await createExternalMediaAsset.mutateAsync({
+              url: normalizedLinkUrl,
+              file_name: linkFileName,
+              asset_kind: assetKind,
+              status: "ACTIVE",
+              metadata: {
+                source: "v2-variant-delivery-settings-link",
+                delivery_method: "LINK",
+              },
+            });
+
+            await persistPrimaryDigitalAsset({
+              media_asset_id: mediaAsset.data.id,
+              file_name: linkFileName,
+              mime_type: mediaAsset.data.mime_type || "application/octet-stream",
+              file_size: mediaAsset.data.file_size || 1,
+              status: status === "ACTIVE" ? "READY" : "DRAFT",
+              metadata: {
+                source: "v2-variant-delivery-settings-link",
+                delivery_method: "LINK",
+                external_url: normalizedLinkUrl,
+                media_asset_kind: assetKind,
+              },
+            });
+          }
+
+          await onSuccess();
+          return true;
+        }
+
+        await onSuccess();
+        return true;
+      }
+
       const trimmedTitle = isSingleDefaultVariant ? "default" : title.trim();
       if (!trimmedTitle) {
         throw new Error("옵션 이름을 입력해 주세요.");
@@ -1211,7 +1388,11 @@ export function ProductVariantForm({
     abortUpload();
   };
 
-  const formLayoutClassName = compact ? "grid gap-4 lg:grid-cols-2" : "space-y-6";
+  const formLayoutClassName = deliveryOnly
+    ? "space-y-4"
+    : compact
+      ? "grid gap-4 lg:grid-cols-2"
+      : "space-y-6";
   const optionBasicsSectionClassName = compact
     ? `${compactWarmSectionClassName} flex flex-col justify-center`
     : defaultSectionClassName;
@@ -1231,6 +1412,7 @@ export function ProductVariantForm({
           </div>
         )}
 
+        {!deliveryOnly && (
         <section className={optionBasicsSectionClassName}>
           {compact ? (
             <div>
@@ -1360,7 +1542,9 @@ export function ProductVariantForm({
             </div>
           </div>
         </section>
+        )}
 
+        {!deliveryOnly && (
         <section className={basePriceSectionClassName}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -1431,8 +1615,9 @@ export function ProductVariantForm({
             )}
           </div>
         </section>
+        )}
 
-        {isBundleProduct && !isSingleDefaultVariant && (
+        {!deliveryOnly && isBundleProduct && !isSingleDefaultVariant && (
           <section className={defaultSectionClassName}>
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -1454,7 +1639,15 @@ export function ProductVariantForm({
         )}
 
         {!isBundleProduct && fulfillmentType === "PHYSICAL" ? (
-          <section className={compact ? `${compactWarmSectionClassName} lg:col-span-2` : defaultSectionClassName}>
+          <section
+            className={
+              deliveryOnly
+                ? "space-y-4"
+                : compact
+                  ? `${compactWarmSectionClassName} lg:col-span-2`
+                  : defaultSectionClassName
+            }
+          >
             <div className="grid gap-4 lg:grid-cols-12">
               <div className="lg:col-span-4">
                 <FormField
@@ -1609,7 +1802,8 @@ export function ProductVariantForm({
             </div>
           </section>
         ) : !isBundleProduct ? (
-          <section className={digitalSectionClassName}>
+          <section className={deliveryOnly ? "space-y-4" : digitalSectionClassName}>
+            {!deliveryOnly && (
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className={compact ? "text-sm font-black text-[#1a1a2e]" : "text-lg font-black text-[#1a1a2e]"}>
@@ -1623,8 +1817,9 @@ export function ProductVariantForm({
                 디지털
               </Badge>
             </div>
+            )}
 
-            <div className={compact ? "mt-4" : "mt-5 rounded-[16px] border border-[#d9e6f2] bg-[#f0f7ff] px-4 py-4"}>
+            <div className={deliveryOnly ? "space-y-4" : compact ? "mt-4" : "mt-5 rounded-[16px] border border-[#d9e6f2] bg-[#f0f7ff] px-4 py-4"}>
               {mode === "edit" && (
                 <div className="rounded-[14px] border border-[#d9e6f2] bg-white px-4 py-3 text-sm font-medium text-[#1a1a2e]/60">
                   {isAssetsLoading ? (
