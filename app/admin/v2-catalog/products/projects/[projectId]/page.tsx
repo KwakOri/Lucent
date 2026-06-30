@@ -172,6 +172,7 @@ export default function V2CatalogProjectProductsPage() {
   );
   const selectedUnchangedCount =
     selectedProducts.length - productsToBulkUpdate.length - blockedBulkProducts.length;
+  const excludedBulkProductCount = selectedUnchangedCount + blockedBulkProducts.length;
   const allProductsSelected =
     filteredProducts.length > 0 && selectedProductIdsInView.length === filteredProducts.length;
   const hasPartialSelection = selectedProductIdsInView.length > 0 && !allProductsSelected;
@@ -378,7 +379,7 @@ export default function V2CatalogProjectProductsPage() {
       </AdminSurface>
 
       {selectedProducts.length > 0 && (
-        <div className="fixed bottom-6 left-4 right-4 z-50 min-h-[260px] rounded-[24px] border border-[#d8cfb9] bg-white/95 p-4 shadow-[0_18px_45px_rgba(26,26,46,0.16)] backdrop-blur sm:bottom-8 sm:left-auto sm:right-8 sm:w-[280px] sm:min-h-[280px]">
+        <div className="fixed bottom-6 left-4 right-4 z-50 rounded-[24px] border border-[#d8cfb9] bg-white/95 p-4 shadow-[0_18px_45px_rgba(26,26,46,0.16)] backdrop-blur sm:bottom-8 sm:left-auto sm:right-8 sm:w-[280px]">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-wide text-[#1a1a2e]/40">선택 상품</p>
@@ -402,17 +403,24 @@ export default function V2CatalogProjectProductsPage() {
             </Button>
           </div>
 
-          <div className="mt-4 rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-3 py-2">
-            <p className="text-xs font-bold text-[#1a1a2e]/45">변경 대상</p>
-            <p className="mt-1 text-sm font-bold text-[#1a1a2e]">
-              {productsToBulkUpdate.length}개
-            </p>
-            <p className="mt-1 text-[11px] font-medium leading-5 text-[#1a1a2e]/45">
-              {selectedUnchangedCount > 0 ? `같은 상태 ${selectedUnchangedCount}개 제외` : ''}
-              {selectedUnchangedCount > 0 && blockedBulkProducts.length > 0 ? ' · ' : ''}
-              {blockedBulkProducts.length > 0 ? `전이 불가 ${blockedBulkProducts.length}개 제외` : ''}
-              {selectedUnchangedCount === 0 && blockedBulkProducts.length === 0 ? '선택 상품 모두 변경 가능' : ''}
-            </p>
+          <div className="mt-4 grid grid-cols-[minmax(0,1fr)_96px] items-center rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-3 py-2">
+            <div>
+              <p className="text-[11px] font-bold text-[#1a1a2e]/45">선택 항목</p>
+              <p className="mt-1 text-lg font-black text-[#1a1a2e]">{selectedProducts.length}개</p>
+            </div>
+            <div className="border-l border-[#e7e3d3] pl-3">
+              <p className="text-[11px] font-bold text-[#1a1a2e]/35">제외 항목</p>
+              <p className="mt-1 text-sm font-black text-[#1a1a2e]/60">
+                {excludedBulkProductCount}개
+              </p>
+              <p className="mt-0.5 text-[10px] font-medium leading-4 text-[#1a1a2e]/35">
+                {excludedBulkProductCount === 0
+                  ? '없음'
+                  : blockedBulkProducts.length > 0
+                    ? `전이 불가 ${blockedBulkProducts.length}`
+                    : `같은 상태 ${selectedUnchangedCount}`}
+              </p>
+            </div>
           </div>
 
           <div className="mt-4 flex flex-col gap-2">
