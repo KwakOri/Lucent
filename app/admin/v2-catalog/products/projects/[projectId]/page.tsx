@@ -251,7 +251,6 @@ export default function V2CatalogProjectProductsPage() {
         title={project.name}
         description={`/${project.slug} 프로젝트 상품을 리스트에서 바로 미리 보고 빠르게 수정합니다.`}
         actions={
-          <>
           <Button
             intent="neutral"
             className={adminButtonClass}
@@ -259,13 +258,6 @@ export default function V2CatalogProjectProductsPage() {
           >
             프로젝트 상세
           </Button>
-          <Button
-            className={adminPrimaryButtonClass}
-            onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}
-          >
-            이 프로젝트에 새 상품
-          </Button>
-          </>
         }
       />
 
