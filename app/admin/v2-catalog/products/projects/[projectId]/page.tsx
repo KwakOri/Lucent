@@ -377,7 +377,7 @@ export default function V2CatalogProjectProductsPage() {
       </AdminSurface>
 
       {selectedProducts.length > 0 && (
-        <div className="fixed left-4 right-4 top-20 z-50 min-h-[260px] rounded-[24px] border border-[#d8cfb9] bg-white/95 p-4 shadow-[0_18px_45px_rgba(26,26,46,0.16)] backdrop-blur sm:left-auto sm:right-8 sm:top-24 sm:w-[280px] sm:min-h-[280px]">
+        <div className="fixed bottom-6 left-4 right-4 z-50 min-h-[260px] rounded-[24px] border border-[#d8cfb9] bg-white/95 p-4 shadow-[0_18px_45px_rgba(26,26,46,0.16)] backdrop-blur sm:bottom-8 sm:left-auto sm:right-8 sm:w-[280px] sm:min-h-[280px]">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-wide text-[#1a1a2e]/40">선택 상품</p>
