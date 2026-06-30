@@ -218,7 +218,6 @@ type ProductVariantManagerProps = {
 
 const sectionClassName =
   'rounded-[20px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
-const mutedTextClassName = 'text-[#1a1a2e]/55';
 const addButtonClassName =
   '!h-10 !rounded-[12px] !bg-[#1a1a2e] !px-4 !text-sm !font-bold !text-white hover:!bg-[#272743]';
 
@@ -287,11 +286,6 @@ export function ProductVariantManager({
           <h2 className="text-lg font-black text-[#1a1a2e]">
             {isSingleVariant ? '판매 옵션' : '옵션 목록'}
           </h2>
-          <p className={`mt-2 text-sm font-medium ${mutedTextClassName}`}>
-            {isSingleVariant
-              ? '단일 옵션 상품입니다. 가격과 디지털 파일을 바로 설정하세요.'
-              : '옵션별로 펼쳐서 가격과 파일을 관리합니다.'}
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <Badge
