@@ -14,12 +14,10 @@ import {
   ImageIcon,
   LogOut,
   Menu,
-  Megaphone,
   Newspaper,
   Package,
   RotateCcw,
   ShieldCheck,
-  ShoppingBag,
   ShoppingCart,
   Users,
   X,
@@ -51,8 +49,6 @@ const primaryNavigationItems: NavigationItem[] = [
 ];
 
 const moreNavigationItems: NavigationItem[] = [
-  { name: '캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: Megaphone },
-  { name: '상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBag },
   { name: '아티스트 관리', href: '/admin/v2-catalog/artists', icon: Users },
   { name: '환불 관리', href: '/admin/refunds', icon: RotateCcw },
   { name: '로그 조회', href: '/admin/logs', icon: FileText },
@@ -79,9 +75,19 @@ const navigationSections: NavigationSection[] = [
 
 const desktopNavigationItems = [...primaryNavigationItems, moreNavigationItem];
 const legacyAdminPathPrefixes = ['/admin/artists', '/admin/projects', '/admin/products'];
+const projectScopedCatalogPathPrefixes = [
+  '/admin/v2-catalog/campaigns',
+  '/admin/v2-catalog/products',
+];
 
 function isLegacyAdminPath(pathname: string): boolean {
   return legacyAdminPathPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+function isProjectScopedCatalogPath(pathname: string): boolean {
+  return projectScopedCatalogPathPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }
@@ -97,6 +103,9 @@ function isDirectNavItemActive(pathname: string, href: string): boolean {
   }
   if (href === '/admin/v2-ops' && pathname.startsWith('/admin/v2-ops/rbac')) {
     return false;
+  }
+  if (href === '/admin/v2-catalog/projects' && isProjectScopedCatalogPath(pathname)) {
+    return true;
   }
 
   return pathname.startsWith(href);

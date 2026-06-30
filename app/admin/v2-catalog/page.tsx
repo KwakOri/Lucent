@@ -35,7 +35,7 @@ const entries: V2Entry[] = [
     href: '/admin/v2-catalog/products',
     icon: ShoppingBag,
     tone: 'gold',
-    meta: '기타 메뉴',
+    meta: '프로젝트 연계',
   },
   {
     title: 'v2 미디어·에셋',
@@ -51,7 +51,7 @@ const entries: V2Entry[] = [
     href: '/admin/v2-catalog/campaigns',
     icon: Megaphone,
     tone: 'green',
-    meta: '기타 메뉴',
+    meta: '프로젝트 연계',
   },
   {
     title: 'v2 번들 관리',
