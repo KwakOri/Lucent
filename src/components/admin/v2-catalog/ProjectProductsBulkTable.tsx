@@ -98,7 +98,7 @@ export function ProjectProductsBulkTable({
   return (
     <div className="space-y-4">
       <div className={`overflow-x-auto ${adminTableContainerClass}`}>
-        <table className="min-w-[1180px] text-sm">
+        <table className="w-full min-w-[1180px] text-sm">
           <thead className={adminTableHeadClass}>
             <tr>
               <th className="w-12 px-3 py-2 text-left font-bold text-[#1a1a2e]/55">
