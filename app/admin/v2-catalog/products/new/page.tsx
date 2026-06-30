@@ -17,7 +17,9 @@ import {
   useCreateV2PriceList,
   useCreateV2PriceListItem,
   useCreateV2Variant,
+  useCreateV2ProductMedia,
   usePublishV2PriceList,
+  useUploadV2MediaAssetFile,
   useV2AdminProjects,
   useV2Campaigns,
   useV2CampaignTargetsMap,
@@ -63,6 +65,8 @@ export default function V2CatalogProductCreatePage() {
   const publishPriceList = usePublishV2PriceList();
   const createPriceListItem = useCreateV2PriceListItem();
   const createCampaignTarget = useCreateV2CampaignTarget();
+  const uploadMediaAssetFile = useUploadV2MediaAssetFile();
+  const createProductMedia = useCreateV2ProductMedia();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
@@ -210,6 +214,65 @@ export default function V2CatalogProductCreatePage() {
     });
   };
 
+  const uploadProductImages = async (params: {
+    productId: string;
+    productTitle: string;
+    coverImageFile?: File | null;
+    detailImageFiles?: File[];
+  }) => {
+    if (params.coverImageFile) {
+      const uploaded = await uploadMediaAssetFile.mutateAsync({
+        data: {
+          file: params.coverImageFile,
+          asset_kind: 'IMAGE',
+          status: 'ACTIVE',
+          metadata: {
+            source: 'v2-product-create-cover-upload',
+          },
+        },
+      });
+
+      await createProductMedia.mutateAsync({
+        productId: params.productId,
+        data: {
+          media_asset_id: uploaded.data.id,
+          media_role: 'PRIMARY',
+          is_primary: true,
+          sort_order: 0,
+          status: 'ACTIVE',
+          alt_text: `${params.productTitle} 대표 이미지`,
+        },
+      });
+    }
+
+    const detailImageFiles = params.detailImageFiles || [];
+    for (let index = 0; index < detailImageFiles.length; index += 1) {
+      const file = detailImageFiles[index];
+      const uploaded = await uploadMediaAssetFile.mutateAsync({
+        data: {
+          file,
+          asset_kind: 'IMAGE',
+          status: 'ACTIVE',
+          metadata: {
+            source: 'v2-product-create-detail-upload',
+          },
+        },
+      });
+
+      await createProductMedia.mutateAsync({
+        productId: params.productId,
+        data: {
+          media_asset_id: uploaded.data.id,
+          media_role: 'DETAIL',
+          is_primary: false,
+          sort_order: (index + 1) * 10,
+          status: 'ACTIVE',
+          alt_text: `${params.productTitle} 상세 이미지 ${index + 1}`,
+        },
+      });
+    }
+  };
+
   const handleCreateProduct = async (values: ProductBasicsFormValues) => {
     setErrorMessage(null);
 
@@ -281,9 +344,15 @@ export default function V2CatalogProductCreatePage() {
           projectId: values.project_id,
           inclusion: values.default_campaign_inclusion,
         });
+        await uploadProductImages({
+          productId: createdProduct.id,
+          productTitle: createdProduct.title,
+          coverImageFile: values.cover_image_file,
+          detailImageFiles: values.detail_image_files,
+        });
       } catch (postCreateError) {
         notify(
-          `상품과 기본 옵션은 생성되었지만 가격 또는 캠페인 설정 일부를 반영하지 못했습니다. 상세 화면에서 확인해 주세요. ${getErrorMessage(postCreateError)}`,
+          `상품과 기본 옵션은 생성되었지만 가격, 캠페인 또는 이미지 설정 일부를 반영하지 못했습니다. 상세 화면에서 확인해 주세요. ${getErrorMessage(postCreateError)}`,
           { type: 'warning', duration: 10000 },
         );
         router.push(`/admin/v2-catalog/products/${createdProduct.id}`);
@@ -354,7 +423,12 @@ export default function V2CatalogProductCreatePage() {
           short_description: null,
           description: null,
         }}
-        isSubmitting={createProduct.isPending || createVariant.isPending}
+        isSubmitting={
+          createProduct.isPending ||
+          createVariant.isPending ||
+          uploadMediaAssetFile.isPending ||
+          createProductMedia.isPending
+        }
         showDefaultOptionSettings
         showCampaignInclusionSettings
         campaignOptions={defaultCampaignOptions}

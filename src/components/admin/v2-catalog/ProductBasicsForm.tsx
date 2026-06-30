@@ -1,7 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ImageIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FileInput } from '@/components/ui/file-input';
 import { FormField } from '@/components/ui/form-field';
 import { Input, Textarea } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -49,6 +51,8 @@ export type ProductBasicsFormValues = {
   default_variant_status?: V2VariantStatus;
   default_variant_base_price?: string | null;
   default_campaign_inclusion?: ProductCampaignInclusion;
+  cover_image_file?: File | null;
+  detail_image_files?: File[];
 };
 
 type ProductBasicsFormProps = {
@@ -91,14 +95,16 @@ const softPanelClassName =
   'rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-4 py-4';
 const controlPanelClassName =
   'min-h-[128px] rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-4 py-4';
+const mediaPreviewPanelClassName =
+  'rounded-[14px] border border-[#e7e3d3] bg-white';
+const fileTriggerClassName =
+  '!h-11 !rounded-[11px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]';
 
-function getChoiceButtonClass(active: boolean): string {
-  return `rounded-[16px] border px-4 py-4 text-left transition ${
-    active
-      ? 'border-[#1a1a2e] bg-[#f5f3e8] text-[#1a1a2e]'
-      : 'border-[#e7e3d3] bg-white text-[#1a1a2e] hover:border-[#d8d1bd] hover:bg-[#faf9f3]'
-  }`;
-}
+type ImageDraft = {
+  id: string;
+  file: File;
+  previewUrl: string;
+};
 
 function getSegmentButtonClass(active: boolean): string {
   return `h-11 flex-1 rounded-[10px] border-0 px-3 text-sm font-black transition ${
@@ -108,12 +114,45 @@ function getSegmentButtonClass(active: boolean): string {
   }`;
 }
 
+function getTwoOptionButtonClass(active: boolean, disabled = false): string {
+  return `min-h-[54px] flex-1 rounded-[14px] px-4 text-sm font-black transition ${
+    active
+      ? 'bg-[#1a1a2e] text-white'
+      : 'bg-transparent text-[#8a8678] hover:bg-[#f5f3e8] hover:text-[#1a1a2e]'
+  } ${disabled ? 'cursor-not-allowed opacity-45 hover:bg-transparent hover:text-[#8a8678]' : ''}`;
+}
+
 function getInclusionButtonClass(active: boolean): string {
   return `min-h-[54px] flex-1 rounded-[14px] border px-4 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${
     active
       ? 'border-[#1a1a2e] bg-[#1a1a2e] text-white'
       : 'border-[#e7e3d3] bg-white text-[#1a1a2e] hover:border-[#d8d1bd] hover:bg-[#faf9f3]'
   }`;
+}
+
+function isImageFile(file: File): boolean {
+  if (file.type.toLowerCase().startsWith('image/')) {
+    return true;
+  }
+  return /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(file.name);
+}
+
+function formatFileSize(size: number): string {
+  if (size < 1024 * 1024) {
+    return `${Math.max(1, Math.round(size / 1024)).toLocaleString()}KB`;
+  }
+  return `${(size / 1024 / 1024).toFixed(1)}MB`;
+}
+
+function createImageDraft(file: File): ImageDraft {
+  const fallbackId = `${Date.now()}-${file.name}-${file.size}`;
+  return {
+    id: typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : fallbackId,
+    file,
+    previewUrl: URL.createObjectURL(file),
+  };
 }
 
 export function ProductBasicsForm({
@@ -154,6 +193,10 @@ export function ProductBasicsForm({
   >(
     initialValues.default_campaign_inclusion || null,
   );
+  const [coverImageDraft, setCoverImageDraft] = useState<ImageDraft | null>(null);
+  const [detailImageDrafts, setDetailImageDrafts] = useState<ImageDraft[]>([]);
+  const [mediaErrorMessage, setMediaErrorMessage] = useState<string | null>(null);
+  const previewUrlSetRef = useRef<Set<string>>(new Set());
 
   const autoSlug = buildProductSlug(title);
   const effectiveSlug = mode === 'create' ? autoSlug : slug;
@@ -164,6 +207,79 @@ export function ProductBasicsForm({
   const inferredCampaignInclusion: ProductCampaignInclusion =
     selectedCampaignOption?.excludedProductTargetId ? 'EXCLUDED' : 'INCLUDED';
   const campaignInclusion = campaignInclusionDraft || inferredCampaignInclusion;
+
+  useEffect(() => {
+    const previewUrls = previewUrlSetRef.current;
+    return () => {
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+      previewUrls.clear();
+    };
+  }, []);
+
+  const registerImageDraft = (file: File): ImageDraft => {
+    const draft = createImageDraft(file);
+    previewUrlSetRef.current.add(draft.previewUrl);
+    return draft;
+  };
+
+  const revokeImageDraft = (draft: ImageDraft) => {
+    URL.revokeObjectURL(draft.previewUrl);
+    previewUrlSetRef.current.delete(draft.previewUrl);
+  };
+
+  const handleCoverImageChange = (file: File) => {
+    if (!isImageFile(file)) {
+      setMediaErrorMessage('대표 이미지는 이미지 파일만 선택할 수 있습니다.');
+      return;
+    }
+
+    setMediaErrorMessage(null);
+    const nextDraft = registerImageDraft(file);
+    setCoverImageDraft((current) => {
+      if (current) {
+        revokeImageDraft(current);
+      }
+      return nextDraft;
+    });
+  };
+
+  const handleDetailImagesChange = (files: File[]) => {
+    if (files.length === 0) {
+      return;
+    }
+
+    const imageFiles = files.filter((file) => isImageFile(file));
+    if (imageFiles.length === 0) {
+      setMediaErrorMessage('상세 이미지는 이미지 파일만 선택할 수 있습니다.');
+      return;
+    }
+
+    const invalidCount = files.length - imageFiles.length;
+    setMediaErrorMessage(
+      invalidCount > 0 ? `이미지가 아닌 ${invalidCount}개 파일은 제외했습니다.` : null,
+    );
+    const nextDrafts = imageFiles.map((file) => registerImageDraft(file));
+    setDetailImageDrafts((current) => [...current, ...nextDrafts]);
+  };
+
+  const removeCoverImageDraft = () => {
+    setCoverImageDraft((current) => {
+      if (current) {
+        revokeImageDraft(current);
+      }
+      return null;
+    });
+  };
+
+  const removeDetailImageDraft = (draftId: string) => {
+    setDetailImageDrafts((current) => {
+      const target = current.find((draft) => draft.id === draftId);
+      if (target) {
+        revokeImageDraft(target);
+      }
+      return current.filter((draft) => draft.id !== draftId);
+    });
+  };
 
   const handleTitleChange = (value: string) => {
     setTitle(value);
@@ -191,6 +307,8 @@ export function ProductBasicsForm({
       default_campaign_inclusion: showCampaignInclusionSettings
         ? campaignInclusion
         : undefined,
+      cover_image_file: coverImageDraft?.file || null,
+      detail_image_files: detailImageDrafts.map((draft) => draft.file),
     });
   };
 
@@ -252,109 +370,239 @@ export function ProductBasicsForm({
             </FormField>
           </div>
 
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm font-black text-[#1a1a2e]">상품 유형</p>
-              <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
-                먼저 개별 상품인지, 여러 상품을 묶는 번들인지 선택합니다.
-              </p>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              {PRODUCT_KIND_OPTIONS.map((option) => {
-                const active = productKind === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setProductKind(option.value)}
-                    className={getChoiceButtonClass(active)}
-                  >
-                    <p className="text-sm font-black">{option.title}</p>
-                    <p className="mt-1 text-sm font-medium leading-6 text-[#1a1a2e]/55">
-                      {option.description}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm font-black text-[#1a1a2e]">상품 제공 방식</p>
-              <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
-                STANDARD 상품은 여기서 디지털/실물 유형을 고정합니다.
-              </p>
-            </div>
-
-            {productKind === 'STANDARD' ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                {FULFILLMENT_TYPE_OPTIONS.map((option) => {
-                  const active = fulfillmentType === option;
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setFulfillmentType(option)}
-                      className={getChoiceButtonClass(active)}
-                    >
-                      <p className="text-sm font-black">
-                        {FULFILLMENT_TYPE_LABELS[option]}
-                      </p>
-                      <p className="mt-1 text-sm font-medium leading-6 text-[#1a1a2e]/55">
-                        {option === 'DIGITAL'
-                          ? '옵션은 디지털 형식으로 고정되며 배송이 필요하지 않습니다.'
-                          : '옵션은 실물 형식으로 고정되며 배송/재고 관리를 사용할 수 있습니다.'}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="rounded-[16px] border border-dashed border-[#e7e3d3] bg-[#faf9f3] px-4 py-4 text-sm font-medium text-[#1a1a2e]/60">
-                <p>
-                  번들 상품은 하위 구성에 따라 디지털/실물이 섞일 수 있어 상품 수준 제공 방식은
-                  고정하지 않습니다.
-                </p>
-                <p className="mt-2 text-xs text-[#1a1a2e]/45">
-                  저장 후 상품 상세의 `번들 구성 상품` 영역에서 포함 상품과 수량 정책을 확정합니다.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
             <section className="space-y-4">
-              <FormField
-                label="한 줄 설명"
-                htmlFor="product-short-description"
-              >
-                <Input
-                  id="product-short-description"
-                  value={shortDescription}
-                  onChange={(event) => setShortDescription(event.target.value)}
-                  placeholder="예: 디지털 음원과 보너스 콘텐츠를 한 번에"
-                  className={adminInputClass}
-                />
-              </FormField>
+              <section className={controlPanelClassName}>
+                <FormField
+                  label="한 줄 설명"
+                  htmlFor="product-short-description"
+                >
+                  <Input
+                    id="product-short-description"
+                    value={shortDescription}
+                    onChange={(event) => setShortDescription(event.target.value)}
+                    placeholder="예: 디지털 음원과 보너스 콘텐츠를 한 번에"
+                    className={`${adminInputClass} !mt-4`}
+                  />
+                </FormField>
+              </section>
 
-              <FormField
-                label="상세 설명"
-                htmlFor="product-description"
-              >
-                <Textarea
-                  id="product-description"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  rows={7}
-                  placeholder="상품 소개, 구성, 구매 전 안내를 자연스럽게 작성하세요."
-                  className={adminInputClass}
-                />
-              </FormField>
+              <section className={controlPanelClassName}>
+                <FormField
+                  label="상세 설명"
+                  htmlFor="product-description"
+                >
+                  <Textarea
+                    id="product-description"
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    rows={8}
+                    placeholder="상품 소개, 구성, 구매 전 안내를 자연스럽게 작성하세요."
+                    className={`${adminInputClass} !mt-4`}
+                  />
+                </FormField>
+              </section>
+
+              {mode === 'create' && (
+                <section className={controlPanelClassName}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black text-[#1a1a2e]">상품 이미지</p>
+                      <p className="mt-1 text-xs font-medium text-[#1a1a2e]/55">
+                        저장 시 대표 이미지와 상세 이미지를 함께 등록합니다.
+                      </p>
+                    </div>
+                    {detailImageDrafts.length > 0 && (
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#6f6a5e]">
+                        상세 {detailImageDrafts.length}장
+                      </span>
+                    )}
+                  </div>
+
+                  {mediaErrorMessage && (
+                    <div className="mt-4 rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">
+                      {mediaErrorMessage}
+                    </div>
+                  )}
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
+                    <div>
+                      <p className="text-xs font-black text-[#1a1a2e]">대표 이미지</p>
+                      <div className={`mt-3 overflow-hidden ${mediaPreviewPanelClassName}`}>
+                        {coverImageDraft ? (
+                          <div
+                            role="img"
+                            aria-label="선택한 대표 이미지 미리보기"
+                            className="aspect-square bg-cover bg-center"
+                            style={{ backgroundImage: `url(${coverImageDraft.previewUrl})` }}
+                          />
+                        ) : (
+                          <div className="flex aspect-square items-center justify-center bg-[#f5f3e8] text-[#b3aea2]">
+                            <div className="text-center">
+                              <ImageIcon className="mx-auto h-8 w-8" strokeWidth={1.6} aria-hidden />
+                              <div className="mt-2 text-xs font-bold">대표 이미지</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-3">
+                        <FileInput
+                          triggerLabel={coverImageDraft ? '대표 이미지 변경' : '대표 이미지 선택'}
+                          triggerClassName={fileTriggerClassName}
+                          accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+                          disabled={isSubmitting}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) {
+                              handleCoverImageChange(file);
+                            }
+                            event.target.value = '';
+                          }}
+                        />
+                      </div>
+
+                      {coverImageDraft && (
+                        <div className="mt-3 flex items-center justify-between gap-2 rounded-[12px] bg-white px-3 py-2 text-xs font-bold text-[#6f6a5e]">
+                          <span className="min-w-0 truncate">
+                            {coverImageDraft.file.name}
+                          </span>
+                          <button
+                            type="button"
+                            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[#8a8678] hover:bg-[#f5f3e8] hover:text-[#1a1a2e]"
+                            aria-label="대표 이미지 제거"
+                            onClick={removeCoverImageDraft}
+                            disabled={isSubmitting}
+                          >
+                            <X className="h-4 w-4" aria-hidden />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-black text-[#1a1a2e]">상세 이미지</p>
+                        <span className="text-xs font-bold text-[#1a1a2e]/45">
+                          순서대로 노출
+                        </span>
+                      </div>
+
+                      {detailImageDrafts.length === 0 ? (
+                        <div className="mt-3 flex min-h-[180px] items-center justify-center rounded-[14px] border border-dashed border-[#d9d4c3] bg-white px-4 py-6 text-center text-sm font-bold text-[#b3aea2]">
+                          상세 이미지를
+                          <br />
+                          선택하세요
+                        </div>
+                      ) : (
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          {detailImageDrafts.map((draft, index) => (
+                            <div
+                              key={draft.id}
+                              className="rounded-[14px] border border-[#e7e3d3] bg-white p-2"
+                            >
+                              <div className="flex gap-3">
+                                <div
+                                  role="img"
+                                  aria-label={`선택한 상세 이미지 ${index + 1} 미리보기`}
+                                  className="h-16 w-16 flex-shrink-0 rounded-[10px] bg-cover bg-center"
+                                  style={{ backgroundImage: `url(${draft.previewUrl})` }}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-black text-[#1a1a2e]">
+                                      상세 {index + 1}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[#8a8678] hover:bg-[#f5f3e8] hover:text-[#1a1a2e]"
+                                      aria-label={`상세 이미지 ${index + 1} 제거`}
+                                      onClick={() => removeDetailImageDraft(draft.id)}
+                                      disabled={isSubmitting}
+                                    >
+                                      <X className="h-4 w-4" aria-hidden />
+                                    </button>
+                                  </div>
+                                  <p className="mt-1 truncate text-xs font-bold text-[#6f6a5e]">
+                                    {draft.file.name}
+                                  </p>
+                                  <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">
+                                    {formatFileSize(draft.file.size)}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="mt-3">
+                        <FileInput
+                          triggerLabel="상세 이미지 선택 (여러 장)"
+                          triggerClassName={fileTriggerClassName}
+                          accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+                          multiple
+                          disabled={isSubmitting}
+                          onChange={(event) => {
+                            const fileList = event.target.files;
+                            if (fileList && fileList.length > 0) {
+                              handleDetailImagesChange(Array.from(fileList));
+                            }
+                            event.target.value = '';
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )}
             </section>
 
             <section className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <section className={controlPanelClassName}>
+                  <p className="text-sm font-black text-[#1a1a2e]">상품 유형</p>
+                  <p className="mt-1 text-xs font-medium text-[#1a1a2e]/55">
+                    개별 상품 또는 번들 상품
+                  </p>
+                  <div className="mt-5 grid grid-cols-2 gap-1 rounded-[16px] border border-[#e7e3d3] bg-white p-1">
+                    {PRODUCT_KIND_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={getTwoOptionButtonClass(productKind === option.value)}
+                        onClick={() => setProductKind(option.value)}
+                      >
+                        {option.title}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className={controlPanelClassName}>
+                  <p className="text-sm font-black text-[#1a1a2e]">상품 제공 방식</p>
+                  <p className="mt-1 text-xs font-medium text-[#1a1a2e]/55">
+                    STANDARD 상품 옵션 유형
+                  </p>
+                  <div className="mt-5 grid grid-cols-2 gap-1 rounded-[16px] border border-[#e7e3d3] bg-white p-1">
+                    {FULFILLMENT_TYPE_OPTIONS.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={getTwoOptionButtonClass(
+                          productKind === 'STANDARD' && fulfillmentType === option,
+                          productKind !== 'STANDARD',
+                        )}
+                        disabled={productKind !== 'STANDARD'}
+                        onClick={() => setFulfillmentType(option)}
+                      >
+                        {FULFILLMENT_TYPE_LABELS[option]}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
               {showDefaultOptionSettings && (
                 <>
                   <section className={controlPanelClassName}>
