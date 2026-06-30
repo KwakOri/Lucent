@@ -62,6 +62,8 @@ type ProductBasicsFormProps = {
   initialValues: ProductBasicsFormValues;
   isSubmitting: boolean;
   submitLabel: string;
+  formId?: string;
+  hideActions?: boolean;
   errorMessage?: string | null;
   showDefaultOptionSettings?: boolean;
   showCampaignInclusionSettings?: boolean;
@@ -173,6 +175,8 @@ export function ProductBasicsForm({
   initialValues,
   isSubmitting,
   submitLabel,
+  formId,
+  hideActions = false,
   errorMessage,
   showDefaultOptionSettings = false,
   showCampaignInclusionSettings = false,
@@ -345,7 +349,7 @@ export function ProductBasicsForm({
           </p>
         </div>
 
-        <form className="mt-6 space-y-6" onSubmit={handleSubmit}>
+        <form id={formId} className="mt-6 space-y-6" onSubmit={handleSubmit}>
           <div className="grid gap-4 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)] xl:items-start">
             <section className={controlPanelClassName}>
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -740,14 +744,16 @@ export function ProductBasicsForm({
             </section>
           </div>
 
-          <div className={adminActionRowClass}>
-            <Button type="submit" className={adminPrimaryButtonClass} loading={isSubmitting}>
-              {submitLabel}
-            </Button>
-            <Button type="button" intent="neutral" className={adminButtonClass} onClick={onCancel}>
-              취소
-            </Button>
-          </div>
+          {!hideActions && (
+            <div className={adminActionRowClass}>
+              <Button type="submit" className={adminPrimaryButtonClass} loading={isSubmitting}>
+                {submitLabel}
+              </Button>
+              <Button type="button" intent="neutral" className={adminButtonClass} onClick={onCancel}>
+                취소
+              </Button>
+            </div>
+          )}
         </form>
       </section>
     </div>

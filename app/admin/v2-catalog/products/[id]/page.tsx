@@ -2,13 +2,12 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Trash2 } from 'lucide-react';
+import { Save, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
 import {
   AdminPageHeader,
   adminButtonClass,
-  adminDangerIconButtonClass,
   adminPrimaryButtonClass,
 } from '@/src/components/admin/AdminDesignSystem';
 import { ProductBundleManager } from '@/src/components/admin/v2-catalog/ProductBundleManager';
@@ -548,6 +547,11 @@ export default function V2CatalogProductDetailPage() {
     createCampaignTarget.isPending ||
     deleteCampaignTarget.isPending ||
     isAdvancedSavePending;
+  const productFormId = 'v2-product-detail-edit-form';
+  const actionIconButtonClass =
+    '!h-11 !w-11 !rounded-[14px] !border-0 !bg-transparent !px-0 !text-[#1a1a2e] hover:!bg-[#f5f3e8]';
+  const actionDangerIconButtonClass =
+    '!h-11 !w-11 !rounded-[14px] !border-0 !bg-transparent !px-0 !text-[#ca2a30] hover:!bg-[#fff0f0]';
 
   return (
     <div className="space-y-5 text-[#1a1a2e]">
@@ -556,20 +560,38 @@ export default function V2CatalogProductDetailPage() {
         title="상품 정보 수정"
         description="상세 화면에서 생성 폼과 같은 구조로 기본 정보, 이미지, 기본 옵션을 수정합니다."
         actions={
-          <>
-            <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(listPath)}>
-              목록으로
+          <div className="sticky top-4 z-30 flex rounded-[18px] border border-[#e7e3d3] bg-white/95 p-1 shadow-[0_14px_34px_rgba(26,26,46,0.10)] backdrop-blur">
+            <Button
+              type="submit"
+              form={productFormId}
+              intent="neutral"
+              className={actionIconButtonClass}
+              disabled={isFormSubmitting}
+              aria-label="저장하고 목록으로"
+              title="저장하고 목록으로"
+            >
+              <Save className="h-5 w-5" aria-hidden />
+            </Button>
+            <Button
+              intent="neutral"
+              className={actionIconButtonClass}
+              onClick={() => router.push(listPath)}
+              aria-label="취소"
+              title="취소"
+            >
+              <X className="h-5 w-5" aria-hidden />
             </Button>
             <Button
               intent="danger"
-              className={adminDangerIconButtonClass}
+              className={actionDangerIconButtonClass}
               onClick={handleDeleteProduct}
-              loading={deleteProduct.isPending}
+              disabled={deleteProduct.isPending}
               aria-label="상품 삭제"
+              title="상품 삭제"
             >
               <Trash2 className="h-5 w-5" aria-hidden />
             </Button>
-          </>
+          </div>
         }
       />
 
@@ -594,6 +616,8 @@ export default function V2CatalogProductDetailPage() {
             : 'INCLUDED',
         }}
         isSubmitting={isFormSubmitting}
+        formId={productFormId}
+        hideActions
         showDefaultOptionSettings
         showCampaignInclusionSettings
         campaignOptions={defaultCampaignOptions}
