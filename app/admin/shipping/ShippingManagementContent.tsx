@@ -114,6 +114,43 @@ function resolveBatchStatusLabel(status: string | null | undefined): string {
   return status || '-';
 }
 
+function isWorkShippingBatchStatus(status: string | null | undefined): boolean {
+  const normalized = String(status || '').toUpperCase();
+  return normalized !== 'COMPLETED' && normalized !== 'CANCELED';
+}
+
+function isWorkShippingCandidate(row: {
+  order_status?: string | null;
+  payment_status?: string | null;
+  fulfillment_status?: string | null;
+  waiting_shipment_count?: number | null;
+  in_transit_shipment_count?: number | null;
+  delivered_shipment_count?: number | null;
+}) {
+  const orderStatus = String(row.order_status || '').toUpperCase();
+  const paymentStatus = String(row.payment_status || '').toUpperCase();
+  const fulfillmentStatus = String(row.fulfillment_status || '').toUpperCase();
+
+  if (
+    orderStatus.includes('CANCEL') ||
+    paymentStatus.includes('CANCEL') ||
+    paymentStatus === 'REFUNDED' ||
+    fulfillmentStatus.includes('CANCEL')
+  ) {
+    return false;
+  }
+
+  if (orderStatus === 'COMPLETED' || fulfillmentStatus === 'FULFILLED') {
+    return false;
+  }
+
+  const waiting = Number(row.waiting_shipment_count || 0);
+  const inTransit = Number(row.in_transit_shipment_count || 0);
+  const delivered = Number(row.delivered_shipment_count || 0);
+
+  return !(delivered > 0 && waiting === 0 && inTransit === 0);
+}
+
 function resolveTransitionIntent(status: V2AdminTransitionResult) {
   if (status === 'SUCCEEDED') {
     return 'success' as const;
@@ -513,6 +550,13 @@ const FIXED_SHIPPING_CARRIER_CODE = 'POST_OFFICE';
 const FIXED_SHIPPING_CARRIER_LABEL = '우체국 택배';
 const POST_OFFICE_DEFAULT_LANDLINE = '02-1234-5678';
 
+type FulfillmentListMode = 'work' | 'all';
+
+const LIST_MODE_OPTIONS: Array<{ key: FulfillmentListMode; label: string }> = [
+  { key: 'work', label: '작업 목록' },
+  { key: 'all', label: '전체 목록' },
+];
+
 const POST_OFFICE_EXCEL_HEADERS: string[] = [
   '받는 분',
   '우편번호',
@@ -645,8 +689,9 @@ export function ShippingManagementContent({
   );
   const currentTab = forcedTab || activeTab;
 
-  const [batchStatusFilter, setBatchStatusFilter] =
-    useState<V2AdminShippingBatchStatus | ''>('');
+  const [candidateListMode, setCandidateListMode] =
+    useState<FulfillmentListMode>('work');
+  const [batchListMode, setBatchListMode] = useState<FulfillmentListMode>('work');
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [batchActionReason, setBatchActionReason] = useState('');
   const [isExcelDownloading, setIsExcelDownloading] = useState(false);
@@ -666,7 +711,6 @@ export function ShippingManagementContent({
   });
   const batchesQuery = useV2AdminShippingBatches({
     limit: 100,
-    status: batchStatusFilter || undefined,
   });
   const batchDetailQuery = useV2AdminShippingBatchDetail(selectedBatchId);
 
@@ -688,10 +732,20 @@ export function ShippingManagementContent({
   const campaignsLoading = campaignsQuery.isLoading;
 
   const previewData = previewMutation.data;
-  const candidateRows = useMemo(
-    () => candidatesQuery.data?.items || [],
-    [candidatesQuery.data?.items],
-  );
+  const candidateRows = useMemo(() => {
+    const rows = candidatesQuery.data?.items || [];
+    if (candidateListMode === 'all') {
+      return rows;
+    }
+    return rows.filter((row) => isWorkShippingCandidate(row));
+  }, [candidateListMode, candidatesQuery.data?.items]);
+  const batchRows = useMemo(() => {
+    const rows = batchesQuery.data?.items || [];
+    if (batchListMode === 'all') {
+      return rows;
+    }
+    return rows.filter((row) => isWorkShippingBatchStatus(row.status));
+  }, [batchListMode, batchesQuery.data?.items]);
   const allCandidateIds = useMemo(
     () => candidateRows.map((row) => row.order_id),
     [candidateRows],
@@ -1409,6 +1463,26 @@ export function ShippingManagementContent({
             </p>
           </div>
 
+          <div className="inline-flex rounded-full border border-[#e7e3d3] bg-[#faf9f3] p-1">
+            {LIST_MODE_OPTIONS.map((option) => {
+              const isActive = candidateListMode === option.key;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setCandidateListMode(option.key)}
+                  className={`rounded-full px-5 py-2 text-sm font-bold transition ${
+                    isActive
+                      ? 'bg-[#1a1a2e] text-white shadow-sm'
+                      : 'text-[#1a1a2e]/55 hover:bg-white hover:text-[#1a1a2e]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -1615,25 +1689,24 @@ export function ShippingManagementContent({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-sm text-gray-600" htmlFor="shipping-status-filter">
-            상태 필터
-          </label>
-          <select
-            id="shipping-status-filter"
-            className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-            value={batchStatusFilter}
-            onChange={(event) =>
-              setBatchStatusFilter((event.target.value as V2AdminShippingBatchStatus) || '')
-            }
-          >
-            <option value="">전체</option>
-            <option value="DRAFT">출고 준비 전</option>
-            <option value="ACTIVE">출고 준비중</option>
-            <option value="DISPATCHED">배송중</option>
-            <option value="COMPLETED">배송 완료</option>
-            <option value="CANCELED">취소됨</option>
-          </select>
+        <div className="inline-flex rounded-full border border-[#e7e3d3] bg-[#faf9f3] p-1">
+          {LIST_MODE_OPTIONS.map((option) => {
+            const isActive = batchListMode === option.key;
+            return (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => setBatchListMode(option.key)}
+                className={`rounded-full px-5 py-2 text-sm font-bold transition ${
+                  isActive
+                    ? 'bg-[#1a1a2e] text-white shadow-sm'
+                    : 'text-[#1a1a2e]/55 hover:bg-white hover:text-[#1a1a2e]'
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -1648,7 +1721,7 @@ export function ShippingManagementContent({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
-                {(batchesQuery.data?.items || []).map((row) => (
+                {batchRows.map((row) => (
                   <tr
                     key={row.id}
                     className={`cursor-pointer ${selectedBatchId === row.id ? 'bg-blue-50' : ''}`}
