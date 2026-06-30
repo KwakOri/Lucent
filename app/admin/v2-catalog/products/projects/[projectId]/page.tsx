@@ -175,9 +175,6 @@ export default function V2CatalogProjectProductsPage() {
       ),
     [bulkStatus, selectedProducts],
   );
-  const selectedUnchangedCount =
-    selectedProducts.length - productsToBulkUpdate.length - blockedBulkProducts.length;
-  const excludedBulkProductCount = selectedUnchangedCount + blockedBulkProducts.length;
   const allProductsSelected =
     filteredProducts.length > 0 && selectedProductIdsInView.length === filteredProducts.length;
   const hasPartialSelection = selectedProductIdsInView.length > 0 && !allProductsSelected;
@@ -411,24 +408,9 @@ export default function V2CatalogProjectProductsPage() {
             </Button>
           </div>
 
-          <div className="mt-3 grid grid-cols-[minmax(0,1fr)_96px] items-center rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-3 py-2">
-            <div>
-              <p className="text-[11px] font-bold text-[#1a1a2e]/45">선택 항목</p>
-              <p className="mt-1 text-lg font-black text-[#1a1a2e]">{selectedProducts.length}개</p>
-            </div>
-            <div className="border-l border-[#e7e3d3] pl-3">
-              <p className="text-[11px] font-bold text-[#1a1a2e]/35">제외 항목</p>
-              <p className="mt-1 text-sm font-black text-[#1a1a2e]/60">
-                {excludedBulkProductCount}개
-              </p>
-              <p className="mt-0.5 text-[10px] font-medium leading-4 text-[#1a1a2e]/35">
-                {excludedBulkProductCount === 0
-                  ? '없음'
-                  : blockedBulkProducts.length > 0
-                    ? `전이 불가 ${blockedBulkProducts.length}`
-                    : `같은 상태 ${selectedUnchangedCount}`}
-              </p>
-            </div>
+          <div className="mt-3 rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-3 py-3">
+            <p className="text-[11px] font-bold text-[#1a1a2e]/45">선택한 상품</p>
+            <p className="mt-1 text-xl font-black text-[#1a1a2e]">{selectedProducts.length}개</p>
           </div>
 
           <div className="mt-4 flex flex-col gap-2">
