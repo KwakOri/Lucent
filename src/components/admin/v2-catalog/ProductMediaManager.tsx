@@ -87,6 +87,11 @@ const sectionClassName =
 const uploadTriggerClassName =
   '!h-11 !rounded-[11px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]';
 const mutedTextClassName = 'text-[#1a1a2e]/55';
+const mediaColumnClassName = 'flex h-full min-w-0 flex-col';
+const mediaPreviewClassName =
+  'mt-4 overflow-hidden rounded-[14px] border border-[#e7e3d3] bg-white';
+const detailMediaPanelClassName =
+  'mt-4 min-h-[320px] rounded-[14px] border border-dashed border-[#d9d4c3] bg-[#faf9f3] sm:min-h-[340px]';
 
 export function ProductMediaManager({ product, embedded = false }: ProductMediaManagerProps) {
   const { data, isLoading, error } = useV2AdminProductMedia(product.id);
@@ -334,14 +339,14 @@ export function ProductMediaManager({ product, embedded = false }: ProductMediaM
         </div>
       )}
 
-      <div className={embedded ? "mt-5 grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]" : "mt-6 grid gap-5 lg:grid-cols-2"}>
-        <article>
+      <div className={embedded ? 'mt-5 grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]' : 'mt-6 grid gap-5 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]'}>
+        <article className={mediaColumnClassName}>
           <h3 className="text-sm font-black text-[#1a1a2e]">커버 이미지</h3>
           <p className={`mt-1 text-xs font-medium ${mutedTextClassName}`}>
             목록·상세 상단의 대표 이미지
           </p>
 
-          <div className="mt-4 overflow-hidden rounded-[14px] border border-[#e7e3d3] bg-white">
+          <div className={`${mediaPreviewClassName} aspect-square w-full max-w-[360px]`}>
             {coverMedia?.public_url ? (
               <img
                 src={coverMedia.public_url}
@@ -358,7 +363,7 @@ export function ProductMediaManager({ product, embedded = false }: ProductMediaM
             )}
           </div>
 
-          <div className={`mt-4 grid gap-2 ${coverMedia ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <div className={`mt-auto grid gap-2 pt-4 ${coverMedia ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <FileInput
               triggerLabel={isMutating ? '업로드 중...' : coverMedia ? '이미지 변경' : '커버 이미지 선택'}
               triggerClassName={uploadTriggerClassName}
@@ -391,45 +396,47 @@ export function ProductMediaManager({ product, embedded = false }: ProductMediaM
           </div>
         </article>
 
-        <article>
+        <article className={mediaColumnClassName}>
           <h3 className="text-sm font-black text-[#1a1a2e]">상세 이미지</h3>
           <p className={`mt-1 text-xs font-medium ${mutedTextClassName}`}>
             상세 페이지에 순서대로 노출됩니다.
           </p>
 
           {detailMedia.length === 0 ? (
-            <div className="mt-4 flex aspect-square items-center justify-center rounded-[14px] border border-dashed border-[#d9d4c3] bg-[#faf9f3] px-4 py-6 text-center text-sm font-bold text-[#b3aea2]">
-              등록된 상세 이미지가
-              <br />
-              없습니다
+            <div className={`${detailMediaPanelClassName} flex items-center justify-center px-4 py-6 text-center text-sm font-bold text-[#b3aea2]`}>
+              <div>
+                등록된 상세 이미지가
+                <br />
+                없습니다
+              </div>
             </div>
           ) : (
-            <div className="mt-4 space-y-3">
-              {detailMedia.map((media, index) => {
-                const canMoveUp = index > 0;
-                const canMoveDown = index < detailMedia.length - 1;
+            <div className={`${detailMediaPanelClassName} overflow-y-auto border-solid bg-white p-3`}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {detailMedia.map((media, index) => {
+                  const canMoveUp = index > 0;
+                  const canMoveDown = index < detailMedia.length - 1;
 
-                return (
-                  <div
-                    key={media.id}
-                    className="rounded-[14px] border border-[#e7e3d3] bg-white p-3"
-                  >
-                    <div className="flex gap-3">
-                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-[10px] border border-[#e7e3d3] bg-[#faf9f3]">
+                  return (
+                    <div
+                      key={media.id}
+                      className="flex min-h-full flex-col rounded-[14px] border border-[#e7e3d3] bg-white p-3"
+                    >
+                      <div className="overflow-hidden rounded-[10px] border border-[#e7e3d3] bg-[#faf9f3]">
                         {media.public_url ? (
                           <img
                             src={media.public_url}
                             alt={media.alt_text || `${product.title} 상세 이미지`}
-                            className="h-full w-full object-cover"
+                            className="aspect-square h-full w-full object-cover"
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-400">
+                          <div className="flex aspect-square h-full w-full items-center justify-center text-[10px] text-gray-400">
                             NO IMAGE
                           </div>
                         )}
                       </div>
 
-                      <div className="min-w-0 flex-1">
+                      <div className="mt-3 min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge intent="default" size="sm">
                             순서 {(index + 1) * 10}
@@ -444,47 +451,47 @@ export function ProductMediaManager({ product, embedded = false }: ProductMediaM
                           {media.public_url || media.storage_path}
                         </p>
                       </div>
-                    </div>
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        intent="neutral"
-                        disabled={!canMoveUp || isMutating}
-                        onClick={() => void moveDetailImage(media.id, -1)}
-                      >
-                        위로
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        intent="neutral"
-                        disabled={!canMoveDown || isMutating}
-                        onClick={() => void moveDetailImage(media.id, 1)}
-                      >
-                        아래로
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        intent="danger"
-                        className="!border !border-[#f3d6d6] !bg-white !text-[#ca2a30] hover:!bg-[#fff0f0]"
-                        loading={deactivateProductMedia.isPending}
-                        onClick={() =>
-                          void deactivateMedia(media.id, '상세 이미지를 제거했습니다.')
-                        }
-                      >
-                        제거
-                      </Button>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          intent="neutral"
+                          disabled={!canMoveUp || isMutating}
+                          onClick={() => void moveDetailImage(media.id, -1)}
+                        >
+                          위로
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          intent="neutral"
+                          disabled={!canMoveDown || isMutating}
+                          onClick={() => void moveDetailImage(media.id, 1)}
+                        >
+                          아래로
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          intent="danger"
+                          className="!border !border-[#f3d6d6] !bg-white !text-[#ca2a30] hover:!bg-[#fff0f0]"
+                          loading={deactivateProductMedia.isPending}
+                          onClick={() =>
+                            void deactivateMedia(media.id, '상세 이미지를 제거했습니다.')
+                          }
+                        >
+                          제거
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          <div className="mt-4">
+          <div className="mt-auto pt-4">
             <FileInput
               triggerLabel={isMutating ? '상세 이미지 업로드 중...' : '상세 이미지 선택 (여러 장)'}
               triggerClassName={uploadTriggerClassName}
