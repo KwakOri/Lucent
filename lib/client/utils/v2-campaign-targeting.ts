@@ -149,6 +149,82 @@ export function resolveEligibleCampaignProducts(params: {
   });
 }
 
+export function resolveIncludedCampaignProducts(params: {
+  campaignType: V2CampaignType;
+  campaignProjectId?: string | null;
+  targets: V2CampaignTarget[];
+  products: V2Product[];
+}): V2Product[] {
+  const activeProducts = params.products.filter(
+    (product) => product.status === 'ACTIVE' || product.status === 'DRAFT',
+  );
+
+  const includeProjectIds = new Set<string>();
+  const includeProductIds = new Set<string>();
+  const excludeProjectIds = new Set<string>();
+  const excludeProductIds = new Set<string>();
+
+  params.targets.forEach((target) => {
+    if (target.is_excluded) {
+      if (target.target_type === 'PROJECT') {
+        excludeProjectIds.add(target.target_id);
+        return;
+      }
+
+      const productId = resolveTargetProductId(target);
+      if (productId) {
+        excludeProductIds.add(productId);
+      }
+      return;
+    }
+
+    if (target.target_type === 'PROJECT') {
+      if (params.campaignType === 'ALWAYS_ON') {
+        includeProjectIds.add(target.target_id);
+      }
+      return;
+    }
+
+    const productId = resolveTargetProductId(target);
+    if (productId) {
+      includeProductIds.add(productId);
+    }
+  });
+
+  const normalizedCampaignProjectId =
+    typeof params.campaignProjectId === 'string' && params.campaignProjectId.trim().length > 0
+      ? params.campaignProjectId.trim()
+      : null;
+
+  let candidates: V2Product[] = [];
+  if (params.campaignType === 'ALWAYS_ON') {
+    if (includeProjectIds.size > 0 || includeProductIds.size > 0) {
+      candidates = activeProducts.filter(
+        (product) =>
+          includeProjectIds.has(product.project_id) || includeProductIds.has(product.id),
+      );
+    } else if (normalizedCampaignProjectId) {
+      candidates = activeProducts.filter(
+        (product) => product.project_id === normalizedCampaignProjectId,
+      );
+    }
+  } else {
+    candidates = activeProducts.filter((product) => includeProductIds.has(product.id));
+  }
+
+  return candidates
+    .filter(
+      (product) =>
+        !excludeProjectIds.has(product.project_id) && !excludeProductIds.has(product.id),
+    )
+    .sort((left, right) => {
+      if (left.sort_order !== right.sort_order) {
+        return left.sort_order - right.sort_order;
+      }
+      return left.title.localeCompare(right.title, 'ko');
+    });
+}
+
 export function buildProductsByIdMap(products: V2Product[]): Map<string, V2Product> {
   return new Map(products.map((product) => [product.id, product]));
 }

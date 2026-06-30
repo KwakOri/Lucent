@@ -42,6 +42,7 @@ import {
 import {
   buildCampaignProjectIdSet,
   buildProductsByIdMap,
+  resolveIncludedCampaignProducts,
 } from '@/lib/client/utils/v2-campaign-targeting';
 import {
   PRODUCT_KIND_LABELS,
@@ -324,6 +325,9 @@ export default function V2CatalogProjectDetailPage() {
                   <th className={adminTableHeadCellClass}>
                     상태
                   </th>
+                  <th className={`${adminTableHeadCellClass} text-right`}>
+                    포함 상품
+                  </th>
                   <th className={adminTableHeadCellClass}>
                     기간
                   </th>
@@ -335,6 +339,12 @@ export default function V2CatalogProjectDetailPage() {
               <tbody className={adminTableBodyClass}>
                 {relatedCampaigns.map((campaign) => {
                   const period = getCampaignPeriod(campaign.starts_at, campaign.ends_at);
+                  const includedProductCount = resolveIncludedCampaignProducts({
+                    campaignType: campaign.campaign_type,
+                    campaignProjectId: campaign.project_id,
+                    targets: targetsByCampaignId[campaign.id]?.targets || [],
+                    products,
+                  }).length;
                   return (
                     <tr key={campaign.id}>
                       <td className="px-4 py-3">
@@ -347,6 +357,14 @@ export default function V2CatalogProjectDetailPage() {
                         <Badge intent={getCampaignStatusIntent(campaign.status)}>
                           {CAMPAIGN_STATUS_LABELS[campaign.status]}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <p className="text-sm font-black text-[#1a1a2e]">
+                          {includedProductCount.toLocaleString('ko-KR')}개
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-[#1a1a2e]/40">
+                          포함됨
+                        </p>
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-[#1a1a2e]/60">
                         <div className="flex items-center gap-3">
