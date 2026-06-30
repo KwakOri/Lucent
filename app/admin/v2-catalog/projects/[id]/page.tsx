@@ -325,11 +325,11 @@ export default function V2CatalogProjectDetailPage() {
                   <th className={adminTableHeadCellClass}>
                     상태
                   </th>
-                  <th className={`${adminTableHeadCellClass} text-right`}>
-                    포함 상품
-                  </th>
                   <th className={adminTableHeadCellClass}>
                     기간
+                  </th>
+                  <th className={`${adminTableHeadCellClass} text-right`}>
+                    포함 상품
                   </th>
                   <th className={`${adminTableHeadCellClass} text-right`}>
                     작업
@@ -358,14 +358,6 @@ export default function V2CatalogProjectDetailPage() {
                           {CAMPAIGN_STATUS_LABELS[campaign.status]}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <p className="text-sm font-black text-[#1a1a2e]">
-                          {includedProductCount.toLocaleString('ko-KR')}개
-                        </p>
-                        <p className="mt-1 text-xs font-medium text-[#1a1a2e]/40">
-                          포함됨
-                        </p>
-                      </td>
                       <td className="px-4 py-3 text-sm font-medium text-[#1a1a2e]/60">
                         <div className="flex items-center gap-3">
                           <Badge intent={getCampaignPeriodIntent(period)} className="shrink-0">
@@ -382,6 +374,14 @@ export default function V2CatalogProjectDetailPage() {
                             </p>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <p className="text-sm font-black text-[#1a1a2e]">
+                          {includedProductCount.toLocaleString('ko-KR')}개
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-[#1a1a2e]/40">
+                          포함됨
+                        </p>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
