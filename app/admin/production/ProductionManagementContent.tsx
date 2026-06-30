@@ -858,14 +858,11 @@ export function ProductionManagementContent({
                 />
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
-                  <table className="min-w-[880px] table-fixed divide-y divide-gray-200 text-sm">
+                  <table className="min-w-[640px] table-fixed divide-y divide-gray-200 text-sm">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="w-12 px-3 py-2 text-left">
                           <input type="checkbox" checked={allChecked} onChange={toggleSelectAll} />
-                        </th>
-                        <th className="w-[240px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
-                          주문번호
                         </th>
                         <th className="w-[120px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
                           입금자
@@ -895,20 +892,6 @@ export function ProductionManagementContent({
                                 checked={checked}
                                 onChange={() => toggleOrderSelection(row.order_id)}
                               />
-                            </td>
-                            <td className="px-3 py-2">
-                              <p
-                                className="max-w-[220px] truncate whitespace-nowrap font-medium text-gray-900"
-                                title={row.order_no}
-                              >
-                                {row.order_no}
-                              </p>
-                              <p
-                                className="max-w-[220px] truncate whitespace-nowrap text-xs text-gray-500"
-                                title={row.order_id}
-                              >
-                                {row.order_id}
-                              </p>
                             </td>
                             <td className="px-3 py-2 text-gray-700">
                               <p className="max-w-[100px] truncate whitespace-nowrap" title={row.depositor_name || '-'}>
