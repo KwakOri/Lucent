@@ -59,19 +59,31 @@ function isUnifiedTab(value: string | null): value is UnifiedManagementTab {
   return TAB_OPTIONS.some((option) => option.key === value);
 }
 
-function isCompletedBatch(row: { status?: string | null }) {
-  return String(row.status || '').toUpperCase() === 'COMPLETED';
+function isClosedBatch(row: { status?: string | null }) {
+  const status = String(row.status || '').toUpperCase();
+  return status === 'COMPLETED' || status === 'CANCELED';
 }
 
-function isCompletedShippingCandidate(row: {
+function isClosedShippingCandidate(row: {
   order_status?: string | null;
+  payment_status?: string | null;
   fulfillment_status?: string | null;
   waiting_shipment_count?: number | null;
   in_transit_shipment_count?: number | null;
   delivered_shipment_count?: number | null;
 }) {
   const orderStatus = String(row.order_status || '').toUpperCase();
+  const paymentStatus = String(row.payment_status || '').toUpperCase();
   const fulfillmentStatus = String(row.fulfillment_status || '').toUpperCase();
+
+  if (
+    orderStatus.includes('CANCEL') ||
+    paymentStatus.includes('CANCEL') ||
+    paymentStatus === 'REFUNDED' ||
+    fulfillmentStatus.includes('CANCEL')
+  ) {
+    return true;
+  }
 
   if (orderStatus === 'COMPLETED' || fulfillmentStatus === 'FULFILLED') {
     return true;
@@ -102,13 +114,13 @@ export default function AdminProductionShippingPage() {
       (row) => !isCanceledOrder(row) && resolveLinearStageFromRow(row) === 'PAYMENT_PENDING',
     ).length;
     const productionBatchOpenCount = (productionBatchesQuery.data?.items || []).filter(
-      (row) => !isCompletedBatch(row),
+      (row) => !isClosedBatch(row),
     ).length;
     const shippingCandidateOpenCount = (shippingCandidatesQuery.data?.items || []).filter(
-      (row) => !isCompletedShippingCandidate(row),
+      (row) => !isClosedShippingCandidate(row),
     ).length;
     const shippingBatchOpenCount = (shippingBatchesQuery.data?.items || []).filter(
-      (row) => !isCompletedBatch(row),
+      (row) => !isClosedBatch(row),
     ).length;
 
     return {

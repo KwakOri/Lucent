@@ -115,6 +115,11 @@ function resolveBatchStatusLabel(status: string | null | undefined): string {
   return status || '-';
 }
 
+function isWorkProductionBatchStatus(status: string | null | undefined): boolean {
+  const normalized = String(status || '').toUpperCase();
+  return normalized !== 'COMPLETED' && normalized !== 'CANCELED';
+}
+
 function resolveTransitionDescription(
   status: V2AdminTransitionResult,
   mode: 'activate' | 'complete',
@@ -283,6 +288,13 @@ type ProductionManagementContentProps = {
   forcedTab?: 'candidates' | 'batches';
 };
 
+type FulfillmentListMode = 'work' | 'all';
+
+const LIST_MODE_OPTIONS: Array<{ key: FulfillmentListMode; label: string }> = [
+  { key: 'work', label: '작업 목록' },
+  { key: 'all', label: '전체 목록' },
+];
+
 export function ProductionManagementContent({
   embedded = false,
   forcedTab,
@@ -312,8 +324,7 @@ export function ProductionManagementContent({
   );
   const currentTab = forcedTab || activeTab;
 
-  const [batchStatusFilter, setBatchStatusFilter] =
-    useState<V2AdminProductionBatchStatus | ''>('');
+  const [batchListMode, setBatchListMode] = useState<FulfillmentListMode>('work');
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [batchActionReason, setBatchActionReason] = useState('');
 
@@ -325,7 +336,6 @@ export function ProductionManagementContent({
   });
   const batchesQuery = useV2AdminProductionBatches({
     limit: 100,
-    status: batchStatusFilter || undefined,
   });
   const batchDetailQuery = useV2AdminProductionBatchDetail(selectedBatchId);
 
@@ -355,6 +365,13 @@ export function ProductionManagementContent({
     () => candidatesQuery.data?.items || [],
     [candidatesQuery.data?.items],
   );
+  const batchRows = useMemo(() => {
+    const rows = batchesQuery.data?.items || [];
+    if (batchListMode === 'all') {
+      return rows;
+    }
+    return rows.filter((row) => isWorkProductionBatchStatus(row.status));
+  }, [batchListMode, batchesQuery.data?.items]);
   const detail = batchDetailQuery.data;
   const selectedBatch = detail?.batch || null;
   const savedFilters = useMemo(
@@ -999,26 +1016,24 @@ export function ProductionManagementContent({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-sm text-gray-600" htmlFor="production-status-filter">
-              상태 필터
-            </label>
-            <select
-              id="production-status-filter"
-              className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-              value={batchStatusFilter}
-              onChange={(event) =>
-                setBatchStatusFilter(
-                  (event.target.value as V2AdminProductionBatchStatus) || '',
-                )
-              }
-            >
-              <option value="">전체</option>
-              <option value="DRAFT">준비중</option>
-              <option value="ACTIVE">제작중</option>
-              <option value="COMPLETED">제작 완료</option>
-              <option value="CANCELED">취소됨</option>
-            </select>
+          <div className="inline-flex rounded-full border border-[#e7e3d3] bg-[#faf9f3] p-1">
+            {LIST_MODE_OPTIONS.map((option) => {
+              const isActive = batchListMode === option.key;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setBatchListMode(option.key)}
+                  className={`rounded-full px-5 py-2 text-sm font-bold transition ${
+                    isActive
+                      ? 'bg-[#1a1a2e] text-white shadow-sm'
+                      : 'text-[#1a1a2e]/55 hover:bg-white hover:text-[#1a1a2e]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -1033,7 +1048,7 @@ export function ProductionManagementContent({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
-                  {(batchesQuery.data?.items || []).map((row) => (
+                  {batchRows.map((row) => (
                     <tr
                       key={row.id}
                       className={`cursor-pointer ${selectedBatchId === row.id ? 'bg-blue-50' : ''}`}
