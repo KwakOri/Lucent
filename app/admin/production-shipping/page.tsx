@@ -59,6 +59,31 @@ function isUnifiedTab(value: string | null): value is UnifiedManagementTab {
   return TAB_OPTIONS.some((option) => option.key === value);
 }
 
+function isCompletedBatch(row: { status?: string | null }) {
+  return String(row.status || '').toUpperCase() === 'COMPLETED';
+}
+
+function isCompletedShippingCandidate(row: {
+  order_status?: string | null;
+  fulfillment_status?: string | null;
+  waiting_shipment_count?: number | null;
+  in_transit_shipment_count?: number | null;
+  delivered_shipment_count?: number | null;
+}) {
+  const orderStatus = String(row.order_status || '').toUpperCase();
+  const fulfillmentStatus = String(row.fulfillment_status || '').toUpperCase();
+
+  if (orderStatus === 'COMPLETED' || fulfillmentStatus === 'FULFILLED') {
+    return true;
+  }
+
+  const waiting = Number(row.waiting_shipment_count || 0);
+  const inTransit = Number(row.in_transit_shipment_count || 0);
+  const delivered = Number(row.delivered_shipment_count || 0);
+
+  return delivered > 0 && waiting === 0 && inTransit === 0;
+}
+
 export default function AdminProductionShippingPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -76,13 +101,22 @@ export default function AdminProductionShippingPage() {
     const paymentPendingCount = (paymentQueueQuery.data?.items || []).filter(
       (row) => !isCanceledOrder(row) && resolveLinearStageFromRow(row) === 'PAYMENT_PENDING',
     ).length;
+    const productionBatchOpenCount = (productionBatchesQuery.data?.items || []).filter(
+      (row) => !isCompletedBatch(row),
+    ).length;
+    const shippingCandidateOpenCount = (shippingCandidatesQuery.data?.items || []).filter(
+      (row) => !isCompletedShippingCandidate(row),
+    ).length;
+    const shippingBatchOpenCount = (shippingBatchesQuery.data?.items || []).filter(
+      (row) => !isCompletedBatch(row),
+    ).length;
 
     return {
       'payment-confirm': paymentPendingCount,
       'production-candidates': (productionCandidatesQuery.data?.items || []).length,
-      'production-batches': (productionBatchesQuery.data?.items || []).length,
-      'shipping-candidates': (shippingCandidatesQuery.data?.items || []).length,
-      'shipping-batches': (shippingBatchesQuery.data?.items || []).length,
+      'production-batches': productionBatchOpenCount,
+      'shipping-candidates': shippingCandidateOpenCount,
+      'shipping-batches': shippingBatchOpenCount,
     };
   }, [
     paymentQueueQuery.data?.items,
