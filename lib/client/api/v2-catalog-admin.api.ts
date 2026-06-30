@@ -2573,6 +2573,10 @@ export const V2CatalogAdminAPI = {
     return apiClient.post(`/api/v2/catalog/admin/campaigns/${id}/close`, {});
   },
 
+  async deleteCampaign(id: string): Promise<ApiResponse<{ message: string }>> {
+    return apiClient.delete(`/api/v2/catalog/admin/campaigns/${id}`);
+  },
+
   async getCampaignTargets(
     campaignId: string,
   ): Promise<ApiResponse<V2CampaignTarget[]>> {
