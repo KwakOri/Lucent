@@ -1638,6 +1638,25 @@ export function useCloseV2Campaign() {
   });
 }
 
+export function useDeleteV2Campaign() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => V2CatalogAdminAPI.deleteCampaign(id),
+    onSuccess: async (_response, campaignId) => {
+      queryClient.removeQueries({
+        queryKey: queryKeys.v2CatalogAdmin.campaigns.detail(campaignId),
+      });
+      queryClient.removeQueries({
+        queryKey: queryKeys.v2CatalogAdmin.campaigns.detailContext(campaignId),
+      });
+      queryClient.removeQueries({
+        queryKey: queryKeys.v2CatalogAdmin.campaigns.targets(campaignId),
+      });
+      await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
 export function useV2CampaignTargets(campaignId: string | null | undefined) {
   return useQuery({
     queryKey: queryKeys.v2CatalogAdmin.campaigns.targets(campaignId || ""),
