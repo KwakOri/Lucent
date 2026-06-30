@@ -35,6 +35,7 @@ type BulkFeedback = {
 };
 
 const PRODUCT_STATUS_VALUES: V2ProductStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE', 'ARCHIVED'];
+const PRODUCT_BULK_STATUS_VALUES: V2ProductStatus[] = ['ACTIVE', 'INACTIVE', 'ARCHIVED'];
 const PRODUCT_STATUS_TRANSITIONS: Record<V2ProductStatus, V2ProductStatus[]> = {
   DRAFT: ['DRAFT', 'ACTIVE', 'INACTIVE', 'ARCHIVED'],
   ACTIVE: ['ACTIVE', 'INACTIVE', 'ARCHIVED'],
@@ -424,7 +425,7 @@ export default function V2CatalogProjectProductsPage() {
                 setBulkFeedback(null);
               }}
               className={`w-full ${adminSelectClass}`}
-              options={PRODUCT_STATUS_VALUES.map((status) => ({
+              options={PRODUCT_BULK_STATUS_VALUES.map((status) => ({
                 value: status,
                 label: PRODUCT_STATUS_LABELS[status],
               }))}
