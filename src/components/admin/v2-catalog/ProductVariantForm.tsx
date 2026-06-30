@@ -60,6 +60,12 @@ import {
   buildVariantSku,
 } from "@/lib/client/utils/v2-product-admin-form";
 import {
+  formatPriceInputValue,
+  normalizePriceInputValue,
+  parseNonNegativeInteger,
+  parseOptionalPriceInput as parseOptionalBasePrice,
+} from "@/lib/client/utils/v2-price-input";
+import {
   UploadProgressCard,
   type VariantUploadState,
 } from "./UploadProgressCard";
@@ -113,38 +119,6 @@ function getErrorMessage(error: unknown): string {
     }
   }
   return "요청 처리 중 오류가 발생했습니다.";
-}
-
-function parseNonNegativeInteger(value: string, fieldName: string): number {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    throw new Error(`${fieldName}는 0 이상의 정수여야 합니다.`);
-  }
-  return parsed;
-}
-
-function parseOptionalBasePrice(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return parseNonNegativeInteger(trimmed, "기본 판매가");
-}
-
-function normalizePriceInputValue(value: string): string {
-  const digitsOnly = value.replace(/\D/g, "");
-  if (!digitsOnly) {
-    return "";
-  }
-  return digitsOnly.replace(/^0+(?=\d)/, "");
-}
-
-function formatPriceInputValue(value: string): string {
-  const normalized = normalizePriceInputValue(value);
-  if (!normalized) {
-    return "";
-  }
-  return normalized.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function parseNullableNonNegativeInteger(
@@ -908,7 +882,7 @@ export function ProductVariantForm({
           "상품 제공 방식이 설정되어 있지 않습니다. 상품 정보를 먼저 확인해 주세요.",
         );
       }
-      const parsedBasePrice = parseOptionalBasePrice(basePrice);
+      const parsedBasePrice = parseOptionalBasePrice(basePrice, "기본 판매가");
       if (status === "ACTIVE" && parsedBasePrice === null) {
         throw new Error("판매 중 옵션은 기본 판매가를 입력해야 합니다.");
       }

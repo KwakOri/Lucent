@@ -172,6 +172,7 @@ type VariantInlineEditPanelProps = {
   variant: V2Variant;
   variantCount: number;
   compact?: boolean;
+  hideActions?: boolean;
   registerSaveHandler?: (handler: (() => Promise<boolean>) | null) => void;
   onCancel: () => void;
   onSuccess: () => void;
@@ -182,6 +183,7 @@ function VariantInlineEditPanel({
   variant,
   variantCount,
   compact = false,
+  hideActions = false,
   registerSaveHandler,
   onCancel,
   onSuccess,
@@ -202,7 +204,7 @@ function VariantInlineEditPanel({
         primaryAsset={primaryAsset}
         isAssetsLoading={assetsLoading}
         compact={compact}
-        hideActions
+        hideActions={hideActions}
         registerSaveHandler={registerSaveHandler}
         onCancel={onCancel}
         onSuccess={onSuccess}
@@ -353,6 +355,7 @@ export function ProductVariantManager({
               product={product}
               variant={variantList[0]}
               variantCount={variantList.length}
+              hideActions={Boolean(registerSaveHandler)}
               registerSaveHandler={registerSaveHandler}
               onCancel={() => undefined}
               onSuccess={handleInlineEditSuccess}
@@ -450,6 +453,7 @@ export function ProductVariantManager({
                     product={product}
                     variant={variant}
                     variantCount={variants?.length || 0}
+                    hideActions={Boolean(registerSaveHandler)}
                     registerSaveHandler={registerSaveHandler}
                     onCancel={() => setExpandedVariantId(null)}
                     onSuccess={handleInlineEditSuccess}
