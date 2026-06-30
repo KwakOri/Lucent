@@ -1,9 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ImageIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, ImageIcon, Star, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 import { Loading } from '@/components/ui/loading';
 import type { V2Product, V2ProductMedia } from '@/lib/client/api/v2-catalog-admin.api';
@@ -88,11 +87,6 @@ const sectionClassName =
 const uploadTriggerClassName =
   '!h-11 !rounded-[11px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]';
 const mutedTextClassName = 'text-[#1a1a2e]/55';
-const mediaColumnClassName = 'flex h-full min-w-0 flex-col';
-const mediaPreviewClassName =
-  'mt-4 overflow-hidden rounded-[14px] border border-[#e7e3d3] bg-white';
-const detailMediaPanelClassName =
-  'mt-4 min-h-[320px] rounded-[14px] border border-dashed border-[#d9d4c3] bg-[#faf9f3] sm:min-h-[340px]';
 
 export function ProductMediaManager({
   product,
@@ -114,6 +108,10 @@ export function ProductMediaManager({
     () => getDetailMedia(data || [], coverMedia?.id || null),
     [data, coverMedia?.id],
   );
+  const galleryMedia = useMemo(
+    () => (coverMedia ? [coverMedia, ...detailMedia] : detailMedia),
+    [coverMedia, detailMedia],
+  );
 
   const isMutating =
     uploadMediaAssetFile.isPending ||
@@ -127,56 +125,7 @@ export function ProductMediaManager({
     setMessage(null);
   };
 
-  const uploadCoverImage = async (file: File) => {
-    if (!isImageFile(file)) {
-      setErrorMessage('이미지 파일만 업로드할 수 있습니다.');
-      return;
-    }
-
-    resetNotice();
-    try {
-      const uploaded = await uploadMediaAssetFile.mutateAsync({
-        data: {
-          file,
-          asset_kind: 'IMAGE',
-          status: 'ACTIVE',
-          metadata: {
-            source: 'v2-product-cover-upload',
-          },
-        },
-      });
-
-      if (coverMedia) {
-        await updateProductMedia.mutateAsync({
-          mediaId: coverMedia.id,
-          data: {
-            media_asset_id: uploaded.data.id,
-            media_role: 'PRIMARY',
-            is_primary: true,
-            sort_order: 0,
-            status: 'ACTIVE',
-          },
-        });
-      } else {
-        await createProductMedia.mutateAsync({
-          productId: product.id,
-          data: {
-            media_asset_id: uploaded.data.id,
-            media_role: 'PRIMARY',
-            is_primary: true,
-            sort_order: 0,
-            status: 'ACTIVE',
-          },
-        });
-      }
-
-      setMessage('커버 이미지를 저장했습니다.');
-    } catch (uploadError) {
-      setErrorMessage(getErrorMessage(uploadError));
-    }
-  };
-
-  const uploadDetailImages = async (files: File[]) => {
+  const uploadProductImages = async (files: File[]) => {
     if (files.length === 0) {
       return;
     }
@@ -190,17 +139,45 @@ export function ProductMediaManager({
       }
 
       const invalidCount = files.length - imageFiles.length;
+      const shouldCreateCover = !coverMedia;
+      const coverFile = shouldCreateCover ? imageFiles[0] : null;
+      const detailFiles = shouldCreateCover ? imageFiles.slice(1) : imageFiles;
       const firstSortOrder = getNextDetailSortOrder(detailMedia);
 
-      for (let index = 0; index < imageFiles.length; index += 1) {
-        const file = imageFiles[index];
+      if (coverFile) {
+        const uploaded = await uploadMediaAssetFile.mutateAsync({
+          data: {
+            file: coverFile,
+            asset_kind: 'IMAGE',
+            status: 'ACTIVE',
+            metadata: {
+              source: 'v2-product-gallery-cover-upload',
+            },
+          },
+        });
+
+        await createProductMedia.mutateAsync({
+          productId: product.id,
+          data: {
+            media_asset_id: uploaded.data.id,
+            media_role: 'PRIMARY',
+            is_primary: true,
+            sort_order: 0,
+            status: 'ACTIVE',
+            alt_text: `${product.title} 대표 이미지`,
+          },
+        });
+      }
+
+      for (let index = 0; index < detailFiles.length; index += 1) {
+        const file = detailFiles[index];
         const uploaded = await uploadMediaAssetFile.mutateAsync({
           data: {
             file,
             asset_kind: 'IMAGE',
             status: 'ACTIVE',
             metadata: {
-              source: 'v2-product-detail-upload',
+              source: 'v2-product-gallery-detail-upload',
             },
           },
         });
@@ -213,28 +190,86 @@ export function ProductMediaManager({
             is_primary: false,
             sort_order: firstSortOrder + index * 10,
             status: 'ACTIVE',
+            alt_text: `${product.title} 상세 이미지 ${detailMedia.length + index + 1}`,
           },
         });
       }
 
       if (invalidCount > 0) {
         setMessage(
-          `상세 이미지 ${imageFiles.length}장을 추가했습니다. 이미지가 아닌 ${invalidCount}개 파일은 제외했습니다.`,
+          `이미지 ${imageFiles.length}장을 추가했습니다. 이미지가 아닌 ${invalidCount}개 파일은 제외했습니다.`,
         );
         return;
       }
 
-      setMessage(`상세 이미지 ${imageFiles.length}장을 추가했습니다.`);
+      setMessage(`이미지 ${imageFiles.length}장을 추가했습니다.`);
     } catch (uploadError) {
       setErrorMessage(getErrorMessage(uploadError));
     }
   };
 
-  const deactivateMedia = async (mediaId: string, doneMessage: string) => {
+  const setPrimaryMedia = async (media: V2ProductMedia) => {
+    if (coverMedia?.id === media.id) {
+      return;
+    }
+
     resetNotice();
     try {
-      await deactivateProductMedia.mutateAsync(mediaId);
-      setMessage(doneMessage);
+      await updateProductMedia.mutateAsync({
+        mediaId: media.id,
+        data: {
+          media_role: 'PRIMARY',
+          is_primary: true,
+          sort_order: 0,
+          status: 'ACTIVE',
+        },
+      });
+
+      if (coverMedia) {
+        await updateProductMedia.mutateAsync({
+          mediaId: coverMedia.id,
+          data: {
+            media_role: 'DETAIL',
+            is_primary: false,
+            sort_order: getNextDetailSortOrder(
+              detailMedia.filter((detailItem) => detailItem.id !== media.id),
+            ),
+            status: 'ACTIVE',
+          },
+        });
+      }
+
+      setMessage('대표 이미지를 변경했습니다.');
+    } catch (updateError) {
+      setErrorMessage(getErrorMessage(updateError));
+    }
+  };
+
+  const removeMedia = async (media: V2ProductMedia) => {
+    resetNotice();
+    try {
+      await deactivateProductMedia.mutateAsync(media.id);
+
+      if (coverMedia?.id === media.id && detailMedia.length > 0) {
+        const nextPrimaryMedia = detailMedia[0];
+        await updateProductMedia.mutateAsync({
+          mediaId: nextPrimaryMedia.id,
+          data: {
+            media_role: 'PRIMARY',
+            is_primary: true,
+            sort_order: 0,
+            status: 'ACTIVE',
+          },
+        });
+        setMessage('대표 이미지를 제거하고 다음 이미지를 대표로 지정했습니다.');
+        return;
+      }
+
+      setMessage(
+        coverMedia?.id === media.id
+          ? '대표 이미지를 제거했습니다.'
+          : '상세 이미지를 제거했습니다.',
+      );
     } catch (deactivateError) {
       setErrorMessage(getErrorMessage(deactivateError));
     }
@@ -314,23 +349,28 @@ export function ProductMediaManager({
     );
   }
 
+  const galleryGridClassName =
+    embedded && layout === 'stacked'
+      ? 'mt-4 grid grid-cols-2 gap-3'
+      : 'mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3';
+
   const content = (
     <>
       {!embedded && (
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h2 className="text-lg font-black text-[#1a1a2e]">상품 이미지</h2>
-          <p className={`mt-2 text-sm font-medium ${mutedTextClassName}`}>
-            커버 이미지 1장과 상세 이미지를 분리해 관리합니다.
-          </p>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-lg font-black text-[#1a1a2e]">상품 이미지</h2>
+            <p className={`mt-2 text-sm font-medium ${mutedTextClassName}`}>
+              대표 이미지와 상세 이미지를 하나의 갤러리로 관리합니다.
+            </p>
+          </div>
+          <Badge
+            intent="info"
+            className="rounded-[8px] border border-[#cde0f3] bg-[#eaf3fc] px-3 py-1 text-xs font-bold text-[#4a88b9]"
+          >
+            총 {galleryMedia.length}장
+          </Badge>
         </div>
-        <Badge
-          intent="info"
-          className="rounded-[8px] border border-[#cde0f3] bg-[#eaf3fc] px-3 py-1 text-xs font-bold text-[#4a88b9]"
-        >
-          상세 {detailMedia.length}장
-        </Badge>
-      </div>
       )}
 
       {message && (
@@ -344,183 +384,137 @@ export function ProductMediaManager({
         </div>
       )}
 
-      <div
-        className={
-          embedded && layout === 'stacked'
-            ? 'mt-5 grid gap-6'
-            : embedded
-              ? 'mt-5 grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]'
-              : 'mt-6 grid gap-5 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]'
-        }
-      >
-        <article className={mediaColumnClassName}>
-          <h3 className="text-sm font-black text-[#1a1a2e]">커버 이미지</h3>
-          <p className={`mt-1 text-xs font-medium ${mutedTextClassName}`}>
-            목록·상세 상단의 대표 이미지
-          </p>
+      {galleryMedia.length === 0 ? (
+        <div className="mt-4 flex min-h-[220px] items-center justify-center rounded-[14px] border border-dashed border-[#d9d4c3] bg-white px-4 py-6 text-center text-sm font-bold text-[#b3aea2]">
+          <div>
+            <ImageIcon className="mx-auto h-8 w-8" strokeWidth={1.6} aria-hidden />
+            <div className="mt-2">
+              등록된 이미지가
+              <br />
+              없습니다
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className={galleryGridClassName}>
+          {galleryMedia.map((media) => {
+            const isPrimary = coverMedia?.id === media.id;
+            const detailIndex = detailMedia.findIndex(
+              (detailItem) => detailItem.id === media.id,
+            );
+            const canMoveUp = !isPrimary && detailIndex > 0;
+            const canMoveDown =
+              !isPrimary && detailIndex >= 0 && detailIndex < detailMedia.length - 1;
+            const label = isPrimary ? '대표' : `상세 ${detailIndex + 1}`;
 
-          <div className={`${mediaPreviewClassName} aspect-square w-full max-w-[360px]`}>
-            {coverMedia?.public_url ? (
-              <img
-                src={coverMedia.public_url}
-                alt={coverMedia.alt_text || `${product.title} 커버 이미지`}
-                className="aspect-square h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-[#dcecfb] to-[#f0e6ff] text-[#7c93ad]">
-                <div className="text-center">
-                  <ImageIcon className="mx-auto h-10 w-10" strokeWidth={1.6} aria-hidden />
-                  <div className="mt-2 text-xs font-bold">커버 이미지</div>
+            return (
+              <div
+                key={media.id}
+                className={`min-w-0 rounded-[14px] border bg-white p-2 ${
+                  isPrimary ? 'border-[#1a1a2e]' : 'border-[#e7e3d3]'
+                }`}
+              >
+                <div className="relative overflow-hidden rounded-[10px] bg-[#f5f3e8]">
+                  {media.public_url ? (
+                    <img
+                      src={media.public_url}
+                      alt={media.alt_text || `${product.title} ${label} 이미지`}
+                      className="aspect-square h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex aspect-square h-full w-full items-center justify-center text-[10px] font-bold text-[#b3aea2]">
+                      NO IMAGE
+                    </div>
+                  )}
+                  <span
+                    className={`absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-black ${
+                      isPrimary
+                        ? 'bg-[#1a1a2e] text-white'
+                        : 'bg-white/95 text-[#6f6a5e]'
+                    }`}
+                  >
+                    {label}
+                  </span>
+                  {media.media_role === 'GALLERY' && !isPrimary && (
+                    <span className="absolute right-2 top-2 rounded-full bg-[#eaf3fc] px-2 py-1 text-[10px] font-black text-[#4a88b9]">
+                      GALLERY
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-2 truncate text-xs font-bold text-[#1a1a2e]">
+                  {media.alt_text || media.storage_path || media.public_url || label}
+                </p>
+
+                <div className="mt-2 grid grid-cols-4 gap-1">
+                  <button
+                    type="button"
+                    className="flex h-8 items-center justify-center rounded-[9px] bg-[#f5f3e8] text-[#8a8678] hover:bg-[#ece8d9] hover:text-[#1a1a2e] disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label={`${label} 이미지를 대표 이미지로 지정`}
+                    title="대표 지정"
+                    onClick={() => void setPrimaryMedia(media)}
+                    disabled={isPrimary || isMutating}
+                  >
+                    <Star className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    className="flex h-8 items-center justify-center rounded-[9px] bg-[#f5f3e8] text-[#8a8678] hover:bg-[#ece8d9] hover:text-[#1a1a2e] disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label={`${label} 이미지를 앞으로 이동`}
+                    title="앞으로 이동"
+                    onClick={() => void moveDetailImage(media.id, -1)}
+                    disabled={!canMoveUp || isMutating}
+                  >
+                    <ArrowUp className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    className="flex h-8 items-center justify-center rounded-[9px] bg-[#f5f3e8] text-[#8a8678] hover:bg-[#ece8d9] hover:text-[#1a1a2e] disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label={`${label} 이미지를 뒤로 이동`}
+                    title="뒤로 이동"
+                    onClick={() => void moveDetailImage(media.id, 1)}
+                    disabled={!canMoveDown || isMutating}
+                  >
+                    <ArrowDown className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    className="flex h-8 items-center justify-center rounded-[9px] bg-[#fff0f0] text-[#ca2a30] hover:bg-[#ffe4e4] disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label={`${label} 이미지 제거`}
+                    title="이미지 제거"
+                    onClick={() => void removeMedia(media)}
+                    disabled={isMutating}
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </button>
                 </div>
               </div>
-            )}
-          </div>
+            );
+          })}
+        </div>
+      )}
 
-          <div className={`mt-auto grid gap-2 pt-4 ${coverMedia ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            <FileInput
-              triggerLabel={isMutating ? '업로드 중...' : coverMedia ? '이미지 변경' : '커버 이미지 선택'}
-              triggerClassName={uploadTriggerClassName}
-              accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
-              disabled={isMutating}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) {
-                  void uploadCoverImage(file);
-                }
-                event.target.value = '';
-              }}
-            />
-
-            {coverMedia && (
-              <Button
-                type="button"
-                intent="danger"
-                size="sm"
-                className="!h-11 !w-full !rounded-[11px] !border !border-[#f3d6d6] !bg-white !text-sm !font-bold !text-[#ca2a30] hover:!bg-[#fff0f0]"
-                disabled={isMutating}
-                loading={deactivateProductMedia.isPending}
-                onClick={() => {
-                  void deactivateMedia(coverMedia.id, '커버 이미지를 제거했습니다.');
-                }}
-              >
-                이미지 삭제
-              </Button>
-            )}
-          </div>
-        </article>
-
-        <article className={mediaColumnClassName}>
-          <h3 className="text-sm font-black text-[#1a1a2e]">상세 이미지</h3>
-          <p className={`mt-1 text-xs font-medium ${mutedTextClassName}`}>
-            상세 페이지에 순서대로 노출됩니다.
-          </p>
-
-          {detailMedia.length === 0 ? (
-            <div className={`${detailMediaPanelClassName} flex items-center justify-center px-4 py-6 text-center text-sm font-bold text-[#b3aea2]`}>
-              <div>
-                등록된 상세 이미지가
-                <br />
-                없습니다
-              </div>
-            </div>
-          ) : (
-            <div className={`${detailMediaPanelClassName} overflow-y-auto border-solid bg-white p-3`}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {detailMedia.map((media, index) => {
-                  const canMoveUp = index > 0;
-                  const canMoveDown = index < detailMedia.length - 1;
-
-                  return (
-                    <div
-                      key={media.id}
-                      className="flex min-h-full flex-col rounded-[14px] border border-[#e7e3d3] bg-white p-3"
-                    >
-                      <div className="overflow-hidden rounded-[10px] border border-[#e7e3d3] bg-[#faf9f3]">
-                        {media.public_url ? (
-                          <img
-                            src={media.public_url}
-                            alt={media.alt_text || `${product.title} 상세 이미지`}
-                            className="aspect-square h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex aspect-square h-full w-full items-center justify-center text-[10px] text-gray-400">
-                            NO IMAGE
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-3 min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge intent="default" size="sm">
-                            순서 {(index + 1) * 10}
-                          </Badge>
-                          {media.media_role === 'GALLERY' && (
-                            <Badge intent="info" size="sm">
-                              기존 GALLERY
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="mt-2 truncate text-xs text-gray-500">
-                          {media.public_url || media.storage_path}
-                        </p>
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          intent="neutral"
-                          disabled={!canMoveUp || isMutating}
-                          onClick={() => void moveDetailImage(media.id, -1)}
-                        >
-                          위로
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          intent="neutral"
-                          disabled={!canMoveDown || isMutating}
-                          onClick={() => void moveDetailImage(media.id, 1)}
-                        >
-                          아래로
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          intent="danger"
-                          className="!border !border-[#f3d6d6] !bg-white !text-[#ca2a30] hover:!bg-[#fff0f0]"
-                          loading={deactivateProductMedia.isPending}
-                          onClick={() =>
-                            void deactivateMedia(media.id, '상세 이미지를 제거했습니다.')
-                          }
-                        >
-                          제거
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="mt-auto pt-4">
-            <FileInput
-              triggerLabel={isMutating ? '상세 이미지 업로드 중...' : '상세 이미지 선택 (여러 장)'}
-              triggerClassName={uploadTriggerClassName}
-              accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
-              multiple
-              disabled={isMutating}
-              onChange={(event) => {
-                const fileList = event.target.files;
-                if (fileList && fileList.length > 0) {
-                  void uploadDetailImages(Array.from(fileList));
-                }
-                event.target.value = '';
-              }}
-            />
-          </div>
-        </article>
+      <div className="mt-4">
+        <FileInput
+          triggerLabel={
+            isMutating
+              ? '업로드 중...'
+              : galleryMedia.length > 0
+                ? '이미지 추가'
+                : '이미지 선택'
+          }
+          triggerClassName={uploadTriggerClassName}
+          accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+          multiple
+          disabled={isMutating}
+          onChange={(event) => {
+            const fileList = event.target.files;
+            if (fileList && fileList.length > 0) {
+              void uploadProductImages(Array.from(fileList));
+            }
+            event.target.value = '';
+          }}
+        />
       </div>
     </>
   );

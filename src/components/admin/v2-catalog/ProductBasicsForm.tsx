@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ImageIcon, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ImageIcon, Star, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 import { FormField } from '@/components/ui/form-field';
@@ -103,8 +103,6 @@ const softPanelClassName =
   'rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-4 py-4';
 const controlPanelClassName =
   'min-h-[128px] rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-4 py-4';
-const mediaPreviewPanelClassName =
-  'rounded-[14px] border border-[#e7e3d3] bg-white';
 const fileTriggerClassName =
   '!h-11 !rounded-[11px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]';
 
@@ -228,6 +226,7 @@ export function ProductBasicsForm({
   const inferredCampaignInclusion: ProductCampaignInclusion =
     selectedCampaignOption?.excludedProductTargetId ? 'EXCLUDED' : 'INCLUDED';
   const campaignInclusion = campaignInclusionDraft || inferredCampaignInclusion;
+  const selectedImageCount = (coverImageDraft ? 1 : 0) + detailImageDrafts.length;
 
   useEffect(() => {
     const previewUrls = previewUrlSetRef.current;
@@ -248,30 +247,14 @@ export function ProductBasicsForm({
     previewUrlSetRef.current.delete(draft.previewUrl);
   };
 
-  const handleCoverImageChange = (file: File) => {
-    if (!isImageFile(file)) {
-      setMediaErrorMessage('대표 이미지는 이미지 파일만 선택할 수 있습니다.');
-      return;
-    }
-
-    setMediaErrorMessage(null);
-    const nextDraft = registerImageDraft(file);
-    setCoverImageDraft((current) => {
-      if (current) {
-        revokeImageDraft(current);
-      }
-      return nextDraft;
-    });
-  };
-
-  const handleDetailImagesChange = (files: File[]) => {
+  const handleGalleryImagesChange = (files: File[]) => {
     if (files.length === 0) {
       return;
     }
 
     const imageFiles = files.filter((file) => isImageFile(file));
     if (imageFiles.length === 0) {
-      setMediaErrorMessage('상세 이미지는 이미지 파일만 선택할 수 있습니다.');
+      setMediaErrorMessage('이미지 파일만 선택할 수 있습니다.');
       return;
     }
 
@@ -280,16 +263,27 @@ export function ProductBasicsForm({
       invalidCount > 0 ? `이미지가 아닌 ${invalidCount}개 파일은 제외했습니다.` : null,
     );
     const nextDrafts = imageFiles.map((file) => registerImageDraft(file));
+
+    if (!coverImageDraft) {
+      const [nextCoverDraft, ...nextDetailDrafts] = nextDrafts;
+      setCoverImageDraft(nextCoverDraft);
+      if (nextDetailDrafts.length > 0) {
+        setDetailImageDrafts((current) => [...current, ...nextDetailDrafts]);
+      }
+      return;
+    }
+
     setDetailImageDrafts((current) => [...current, ...nextDrafts]);
   };
 
   const removeCoverImageDraft = () => {
-    setCoverImageDraft((current) => {
-      if (current) {
-        revokeImageDraft(current);
-      }
-      return null;
-    });
+    if (coverImageDraft) {
+      revokeImageDraft(coverImageDraft);
+    }
+
+    const [nextCoverDraft, ...remainingDetailDrafts] = detailImageDrafts;
+    setCoverImageDraft(nextCoverDraft || null);
+    setDetailImageDrafts(remainingDetailDrafts);
   };
 
   const removeDetailImageDraft = (draftId: string) => {
@@ -300,6 +294,35 @@ export function ProductBasicsForm({
       }
       return current.filter((draft) => draft.id !== draftId);
     });
+  };
+
+  const promoteDetailImageDraft = (draftId: string) => {
+    const targetDraft = detailImageDrafts.find((draft) => draft.id === draftId);
+    if (!targetDraft) {
+      return;
+    }
+
+    const remainingDetailDrafts = detailImageDrafts.filter((draft) => draft.id !== draftId);
+    setCoverImageDraft(targetDraft);
+    setDetailImageDrafts(
+      coverImageDraft
+        ? [coverImageDraft, ...remainingDetailDrafts]
+        : remainingDetailDrafts,
+    );
+  };
+
+  const moveDetailImageDraft = (draftId: string, direction: -1 | 1) => {
+    const currentIndex = detailImageDrafts.findIndex((draft) => draft.id === draftId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= detailImageDrafts.length) {
+      return;
+    }
+
+    const nextDrafts = [...detailImageDrafts];
+    const currentDraft = nextDrafts[currentIndex];
+    nextDrafts[currentIndex] = nextDrafts[nextIndex];
+    nextDrafts[nextIndex] = currentDraft;
+    setDetailImageDrafts(nextDrafts);
   };
 
   const handleTitleChange = (value: string) => {
@@ -359,9 +382,9 @@ export function ProductBasicsForm({
                     대표 이미지와 상세 이미지를 관리합니다.
                   </p>
                 </div>
-                {!mediaContent && detailImageDrafts.length > 0 && (
+                {!mediaContent && selectedImageCount > 0 && (
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#6f6a5e]">
-                    상세 {detailImageDrafts.length}장
+                    총 {selectedImageCount}장
                   </span>
                 )}
               </div>
@@ -374,133 +397,143 @@ export function ProductBasicsForm({
                     </div>
                   )}
 
-                  <div className="mt-5 grid gap-5">
-                    <div>
-                      <p className="text-xs font-black text-[#1a1a2e]">대표 이미지</p>
-                      <div className={`mt-3 overflow-hidden ${mediaPreviewPanelClassName}`}>
-                        {coverImageDraft ? (
+                  <div className="mt-5">
+                    {selectedImageCount === 0 ? (
+                      <div className="flex min-h-[220px] items-center justify-center rounded-[14px] border border-dashed border-[#d9d4c3] bg-white px-4 py-6 text-center text-sm font-bold text-[#b3aea2]">
+                        <div>
+                          <ImageIcon className="mx-auto h-8 w-8" strokeWidth={1.6} aria-hidden />
+                          <div className="mt-2">
+                            상품 이미지를
+                            <br />
+                            추가하세요
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3">
+                        {coverImageDraft && (
                           <div
-                            role="img"
-                            aria-label="선택한 대표 이미지 미리보기"
-                            className="aspect-square bg-cover bg-center"
-                            style={{ backgroundImage: `url(${coverImageDraft.previewUrl})` }}
-                          />
-                        ) : (
-                          <div className="flex aspect-square items-center justify-center bg-[#f5f3e8] text-[#b3aea2]">
-                            <div className="text-center">
-                              <ImageIcon className="mx-auto h-8 w-8" strokeWidth={1.6} aria-hidden />
-                              <div className="mt-2 text-xs font-bold">대표 이미지</div>
+                            className="min-w-0 rounded-[14px] border border-[#1a1a2e] bg-white p-2"
+                          >
+                            <div className="relative overflow-hidden rounded-[10px] bg-[#f5f3e8]">
+                              <img
+                                src={coverImageDraft.previewUrl}
+                                alt="선택한 대표 이미지 미리보기"
+                                className="aspect-square h-full w-full object-cover"
+                              />
+                              <span className="absolute left-2 top-2 rounded-full bg-[#1a1a2e] px-2 py-1 text-[10px] font-black text-white">
+                                대표
+                              </span>
+                            </div>
+                            <p className="mt-2 truncate text-xs font-bold text-[#1a1a2e]">
+                              {coverImageDraft.file.name}
+                            </p>
+                            <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">
+                              {formatFileSize(coverImageDraft.file.size)}
+                            </p>
+                            <div className="mt-2 flex gap-1">
+                              <button
+                                type="button"
+                                className="flex h-8 flex-1 items-center justify-center rounded-[9px] bg-[#f5f3e8] text-[#8a8678] hover:bg-[#ece8d9] hover:text-[#1a1a2e]"
+                                aria-label="대표 이미지 제거"
+                                title="대표 이미지 제거"
+                                onClick={removeCoverImageDraft}
+                                disabled={isSubmitting}
+                              >
+                                <Trash2 className="h-4 w-4" aria-hidden />
+                              </button>
                             </div>
                           </div>
                         )}
-                      </div>
 
-                      <div className="mt-3">
-                        <FileInput
-                          triggerLabel={coverImageDraft ? '대표 이미지 변경' : '대표 이미지 선택'}
-                          triggerClassName={fileTriggerClassName}
-                          accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
-                          disabled={isSubmitting}
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            if (file) {
-                              handleCoverImageChange(file);
-                            }
-                            event.target.value = '';
-                          }}
-                        />
-                      </div>
+                        {detailImageDrafts.map((draft, index) => {
+                          const canMoveUp = index > 0;
+                          const canMoveDown = index < detailImageDrafts.length - 1;
 
-                      {coverImageDraft && (
-                        <div className="mt-3 flex items-center justify-between gap-2 rounded-[12px] bg-white px-3 py-2 text-xs font-bold text-[#6f6a5e]">
-                          <span className="min-w-0 truncate">
-                            {coverImageDraft.file.name}
-                          </span>
-                          <button
-                            type="button"
-                            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[#8a8678] hover:bg-[#f5f3e8] hover:text-[#1a1a2e]"
-                            aria-label="대표 이미지 제거"
-                            onClick={removeCoverImageDraft}
-                            disabled={isSubmitting}
-                          >
-                            <X className="h-4 w-4" aria-hidden />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-xs font-black text-[#1a1a2e]">상세 이미지</p>
-                        <span className="text-xs font-bold text-[#1a1a2e]/45">
-                          순서대로 노출
-                        </span>
-                      </div>
-
-                      {detailImageDrafts.length === 0 ? (
-                        <div className="mt-3 flex min-h-[180px] items-center justify-center rounded-[14px] border border-dashed border-[#d9d4c3] bg-white px-4 py-6 text-center text-sm font-bold text-[#b3aea2]">
-                          상세 이미지를
-                          <br />
-                          선택하세요
-                        </div>
-                      ) : (
-                        <div className="mt-3 grid gap-3">
-                          {detailImageDrafts.map((draft, index) => (
+                          return (
                             <div
                               key={draft.id}
-                              className="rounded-[14px] border border-[#e7e3d3] bg-white p-2"
+                              className="min-w-0 rounded-[14px] border border-[#e7e3d3] bg-white p-2"
                             >
-                              <div className="flex gap-3">
-                                <div
-                                  role="img"
-                                  aria-label={`선택한 상세 이미지 ${index + 1} 미리보기`}
-                                  className="h-16 w-16 flex-shrink-0 rounded-[10px] bg-cover bg-center"
-                                  style={{ backgroundImage: `url(${draft.previewUrl})` }}
+                              <div className="relative overflow-hidden rounded-[10px] bg-[#f5f3e8]">
+                                <img
+                                  src={draft.previewUrl}
+                                  alt={`선택한 상세 이미지 ${index + 1} 미리보기`}
+                                  className="aspect-square h-full w-full object-cover"
                                 />
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs font-black text-[#1a1a2e]">
-                                      상세 {index + 1}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[#8a8678] hover:bg-[#f5f3e8] hover:text-[#1a1a2e]"
-                                      aria-label={`상세 이미지 ${index + 1} 제거`}
-                                      onClick={() => removeDetailImageDraft(draft.id)}
-                                      disabled={isSubmitting}
-                                    >
-                                      <X className="h-4 w-4" aria-hidden />
-                                    </button>
-                                  </div>
-                                  <p className="mt-1 truncate text-xs font-bold text-[#6f6a5e]">
-                                    {draft.file.name}
-                                  </p>
-                                  <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">
-                                    {formatFileSize(draft.file.size)}
-                                  </p>
-                                </div>
+                                <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2 py-1 text-[10px] font-black text-[#6f6a5e]">
+                                  상세 {index + 1}
+                                </span>
+                              </div>
+                              <p className="mt-2 truncate text-xs font-bold text-[#1a1a2e]">
+                                {draft.file.name}
+                              </p>
+                              <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">
+                                {formatFileSize(draft.file.size)}
+                              </p>
+                              <div className="mt-2 grid grid-cols-4 gap-1">
+                                <button
+                                  type="button"
+                                  className="flex h-8 items-center justify-center rounded-[9px] bg-[#f5f3e8] text-[#8a8678] hover:bg-[#ece8d9] hover:text-[#1a1a2e] disabled:cursor-not-allowed disabled:opacity-35"
+                                  aria-label={`상세 이미지 ${index + 1}을 대표 이미지로 지정`}
+                                  title="대표 지정"
+                                  onClick={() => promoteDetailImageDraft(draft.id)}
+                                  disabled={isSubmitting}
+                                >
+                                  <Star className="h-4 w-4" aria-hidden />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="flex h-8 items-center justify-center rounded-[9px] bg-[#f5f3e8] text-[#8a8678] hover:bg-[#ece8d9] hover:text-[#1a1a2e] disabled:cursor-not-allowed disabled:opacity-35"
+                                  aria-label={`상세 이미지 ${index + 1}을 앞으로 이동`}
+                                  title="앞으로 이동"
+                                  onClick={() => moveDetailImageDraft(draft.id, -1)}
+                                  disabled={isSubmitting || !canMoveUp}
+                                >
+                                  <ArrowUp className="h-4 w-4" aria-hidden />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="flex h-8 items-center justify-center rounded-[9px] bg-[#f5f3e8] text-[#8a8678] hover:bg-[#ece8d9] hover:text-[#1a1a2e] disabled:cursor-not-allowed disabled:opacity-35"
+                                  aria-label={`상세 이미지 ${index + 1}을 뒤로 이동`}
+                                  title="뒤로 이동"
+                                  onClick={() => moveDetailImageDraft(draft.id, 1)}
+                                  disabled={isSubmitting || !canMoveDown}
+                                >
+                                  <ArrowDown className="h-4 w-4" aria-hidden />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="flex h-8 items-center justify-center rounded-[9px] bg-[#fff0f0] text-[#ca2a30] hover:bg-[#ffe4e4] disabled:cursor-not-allowed disabled:opacity-35"
+                                  aria-label={`상세 이미지 ${index + 1} 제거`}
+                                  title="이미지 제거"
+                                  onClick={() => removeDetailImageDraft(draft.id)}
+                                  disabled={isSubmitting}
+                                >
+                                  <Trash2 className="h-4 w-4" aria-hidden />
+                                </button>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="mt-3">
-                        <FileInput
-                          triggerLabel="상세 이미지 선택 (여러 장)"
-                          triggerClassName={fileTriggerClassName}
-                          accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
-                          multiple
-                          disabled={isSubmitting}
-                          onChange={(event) => {
-                            const fileList = event.target.files;
-                            if (fileList && fileList.length > 0) {
-                              handleDetailImagesChange(Array.from(fileList));
-                            }
-                            event.target.value = '';
-                          }}
-                        />
+                          );
+                        })}
                       </div>
+                    )}
+
+                    <div className="mt-4">
+                      <FileInput
+                        triggerLabel={selectedImageCount > 0 ? '이미지 추가' : '이미지 선택'}
+                        triggerClassName={fileTriggerClassName}
+                        accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+                        multiple
+                        disabled={isSubmitting}
+                        onChange={(event) => {
+                          const fileList = event.target.files;
+                          if (fileList && fileList.length > 0) {
+                            handleGalleryImagesChange(Array.from(fileList));
+                          }
+                          event.target.value = '';
+                        }}
+                      />
                     </div>
                   </div>
                 </>
