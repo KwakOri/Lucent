@@ -395,15 +395,15 @@ const compactBlueSectionClassName =
 
 function getCompactStatusButtonClass(active: boolean, status: V2VariantStatus): string {
   if (!active) {
-    return "!h-9 !flex-1 !rounded-[8px] !border-0 !bg-transparent !px-3 !text-xs !font-bold !text-[#9b9788] hover:!bg-[#f5f3e8]";
+    return "!h-10 !flex-1 !rounded-[8px] !border-0 !bg-transparent !px-3 !text-xs !font-bold !text-[#9b9788] hover:!bg-[#f5f3e8]";
   }
   if (status === "ACTIVE") {
-    return "!h-9 !flex-1 !rounded-[8px] !border-0 !bg-[#297c3b] !px-3 !text-xs !font-bold !text-white hover:!bg-[#297c3b]";
+    return "!h-10 !flex-1 !rounded-[8px] !border-0 !bg-[#297c3b] !px-3 !text-xs !font-bold !text-white hover:!bg-[#297c3b]";
   }
   if (status === "DRAFT") {
-    return "!h-9 !flex-1 !rounded-[8px] !border-0 !bg-[#a35200] !px-3 !text-xs !font-bold !text-white hover:!bg-[#a35200]";
+    return "!h-10 !flex-1 !rounded-[8px] !border-0 !bg-[#a35200] !px-3 !text-xs !font-bold !text-white hover:!bg-[#a35200]";
   }
-  return "!h-9 !flex-1 !rounded-[8px] !border-0 !bg-[#6f6a5e] !px-3 !text-xs !font-bold !text-white hover:!bg-[#6f6a5e]";
+  return "!h-10 !flex-1 !rounded-[8px] !border-0 !bg-[#6f6a5e] !px-3 !text-xs !font-bold !text-white hover:!bg-[#6f6a5e]";
 }
 
 export function ProductVariantForm({
@@ -1239,7 +1239,7 @@ export function ProductVariantForm({
 
   const formLayoutClassName = compact ? "grid gap-4 lg:grid-cols-2" : "space-y-6";
   const optionBasicsSectionClassName = compact
-    ? compactWarmSectionClassName
+    ? `${compactWarmSectionClassName} flex flex-col justify-center`
     : defaultSectionClassName;
   const basePriceSectionClassName = compact
     ? compactWarmSectionClassName
@@ -1261,9 +1261,6 @@ export function ProductVariantForm({
           {compact ? (
             <div>
               <p className="text-sm font-black text-[#1a1a2e]">노출 상태</p>
-              <p className="mt-1 text-xs font-medium text-[#1a1a2e]/50">
-                고객에게 지금 보여줄지 정합니다.
-              </p>
             </div>
           ) : (
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -1271,11 +1268,6 @@ export function ProductVariantForm({
                 <h2 className="text-lg font-black text-[#1a1a2e]">
                   옵션 기본 설정
                 </h2>
-                <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
-                  {isSingleDefaultVariant
-                    ? "단일 기본 옵션은 판매 상태와 가격만 관리합니다."
-                    : "이름과 노출 상태만 먼저 정리하면 나머지 설정은 아래에서 이어서 처리할 수 있습니다."}
-                </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge intent={mode === "create" ? "info" : "default"}>
@@ -1376,9 +1368,6 @@ export function ProductVariantForm({
             >
               <div className={compact ? "sr-only" : ""}>
                 <p className="text-sm font-black text-[#1a1a2e]">노출 상태</p>
-                <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
-                  고객에게 지금 보여줄지 정합니다.
-                </p>
               </div>
               <div className={compact ? "grid grid-cols-3 gap-1 rounded-[11px] border border-[#e7e3d3] bg-white p-1" : "flex flex-wrap gap-2"}>
                 {VARIANT_STATUS_VALUES.map((value) => (
@@ -1404,10 +1393,6 @@ export function ProductVariantForm({
               <h2 className={compact ? "text-sm font-black text-[#1a1a2e]" : "text-lg font-black text-[#1a1a2e]"}>
                 기본 판매가
               </h2>
-              <p className={compact ? "mt-1 text-xs font-medium text-[#1a1a2e]/50" : "mt-1 text-sm font-medium text-[#1a1a2e]/55"}>
-                옵션의 기본 판매 가격입니다. 캠페인 화면에서는 포함 여부와
-                할인/특가만 관리합니다.
-              </p>
             </div>
             <Badge
               intent="info"
@@ -1427,7 +1412,6 @@ export function ProductVariantForm({
                 label="기본 판매가 (원)"
                 htmlFor="variant-base-price"
                 required={status === "ACTIVE"}
-                help="판매 중 옵션은 기본 판매가가 필요합니다. 임시 저장 옵션은 비워둘 수 있습니다."
               >
                 <Input
                   id="variant-base-price"
@@ -1657,9 +1641,6 @@ export function ProductVariantForm({
                 <h2 className={compact ? "text-sm font-black text-[#1a1a2e]" : "text-lg font-black text-[#1a1a2e]"}>
                   디지털 파일
                 </h2>
-                <p className={compact ? "mt-1 text-xs font-medium text-[#4a88b9]" : "mt-1 text-sm font-medium text-[#1a1a2e]/55"}>
-                  디지털 옵션에 파일 업로드 또는 다운로드 링크를 연결합니다.
-                </p>
               </div>
               <Badge
                 intent="info"
@@ -1670,19 +1651,8 @@ export function ProductVariantForm({
             </div>
 
             <div className={compact ? "mt-4" : "mt-5 rounded-[16px] border border-[#d9e6f2] bg-[#f0f7ff] px-4 py-4"}>
-              <p className="text-sm font-black text-[#1a1a2e]">
-                {mode === "create"
-                  ? "디지털 파일 연결 (선택)"
-                  : "디지털 파일 교체 (선택)"}
-              </p>
-              <p className="mt-1 text-sm font-medium text-[#4a88b9]">
-                {mode === "create"
-                  ? "파일을 선택하거나 링크를 입력하면 옵션 저장과 함께 기본 디지털 에셋으로 연결됩니다."
-                  : "새 파일/링크를 입력하지 않으면 기존 디지털 에셋을 그대로 유지합니다."}
-              </p>
-
               {mode === "edit" && (
-                <div className="mt-4 rounded-[14px] border border-[#d9e6f2] bg-white px-4 py-3 text-sm font-medium text-[#1a1a2e]/60">
+                <div className="rounded-[14px] border border-[#d9e6f2] bg-white px-4 py-3 text-sm font-medium text-[#1a1a2e]/60">
                   {isAssetsLoading ? (
                     <p>현재 연결된 디지털 에셋 정보를 불러오는 중입니다.</p>
                   ) : primaryAsset ? (
@@ -1728,9 +1698,6 @@ export function ProductVariantForm({
                       </Badge>
                   )}
                 </span>
-                  <span className="mt-1 block text-xs font-medium text-[#1a1a2e]/50">
-                    오디오 또는 zip 파일을 R2에 업로드합니다.
-                  </span>
                 </button>
                 <button
                   type="button"
@@ -1754,9 +1721,6 @@ export function ProductVariantForm({
                       </Badge>
                   )}
                 </span>
-                  <span className="mt-1 block text-xs font-medium text-[#1a1a2e]/50">
-                    Google Drive 같은 외부 다운로드 링크를 연결합니다.
-                  </span>
                 </button>
               </div>
 
@@ -1777,12 +1741,6 @@ export function ProductVariantForm({
                     }
                     className="mt-4"
                   />
-                  <p className="mt-2 text-xs font-medium text-[#1a1a2e]/45">
-                    선택 파일:{" "}
-                    {digitalFile
-                      ? `${digitalFile.name} (${formatBytes(digitalFile.size)})`
-                      : "없음"}
-                  </p>
                 </>
               ) : (
                 <div className="mt-4 grid gap-4 lg:grid-cols-12">
@@ -1790,7 +1748,6 @@ export function ProductVariantForm({
                     <FormField
                       label="다운로드 링크"
                       htmlFor="variant-digital-link-url"
-                      help="https:// 로 시작하는 공유 링크를 입력합니다."
                     >
                       <Input
                         id="variant-digital-link-url"
@@ -1808,7 +1765,6 @@ export function ProductVariantForm({
                     <FormField
                       label="표시 파일명"
                       htmlFor="variant-digital-link-file-name"
-                      help="비워두면 기본 이름을 사용합니다."
                     >
                       <Input
                         id="variant-digital-link-file-name"
