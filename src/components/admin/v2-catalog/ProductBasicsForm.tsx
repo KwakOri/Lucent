@@ -370,7 +370,7 @@ export function ProductBasicsForm({
             </FormField>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
+          <div className="grid gap-4 xl:grid-cols-2">
             <section className="space-y-4">
               <section className={controlPanelClassName}>
                 <FormField
