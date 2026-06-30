@@ -12,14 +12,10 @@ import {
   adminTableHeadCellClass,
   adminTableHeadClass,
 } from '@/src/components/admin/AdminDesignSystem';
-import type {
-  V2ProjectProductListItem,
-  V2VariantStatus,
-} from '@/lib/client/api/v2-catalog-admin.api';
+import type { V2ProjectProductListItem } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   PRODUCT_KIND_LABELS,
   PRODUCT_STATUS_LABELS,
-  VARIANT_STATUS_LABELS,
 } from '@/lib/client/utils/v2-product-admin-form';
 
 type ProjectProductsBulkTableProps = {
@@ -59,18 +55,29 @@ function formatDateTime(value: string): string {
   });
 }
 
-function summarizeVariantStatuses(
-  variantCount: number,
-  statusCounts: Record<V2VariantStatus, number>,
-): string {
-  if (variantCount === 0) {
-    return '옵션 없음';
-  }
+function CountTile({
+  value,
+  label,
+  tone = 'neutral',
+}: {
+  value: number;
+  label: string;
+  tone?: 'neutral' | 'active';
+}) {
+  const toneClass =
+    tone === 'active'
+      ? 'border-[#cde8d5] bg-[#edf8ef] text-[#2c7a3f]'
+      : 'border-[#dbe8fb] bg-[#edf4ff] text-[#2563eb]';
 
-  return (['ACTIVE', 'DRAFT', 'INACTIVE'] as const)
-    .filter((status) => statusCounts[status] > 0)
-    .map((status) => `${VARIANT_STATUS_LABELS[status]} ${statusCounts[status]}개`)
-    .join(' · ');
+  return (
+    <div
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border text-sm font-black ${toneClass}`}
+      aria-label={`${label} ${value}`}
+      title={`${label} ${value}`}
+    >
+      {value}
+    </div>
+  );
 }
 
 export function ProjectProductsBulkTable({
@@ -91,7 +98,7 @@ export function ProjectProductsBulkTable({
   return (
     <div className="space-y-4">
       <div className={`overflow-x-auto ${adminTableContainerClass}`}>
-        <table className="min-w-full text-sm">
+        <table className="min-w-[1180px] text-sm">
           <thead className={adminTableHeadClass}>
             <tr>
               <th className="w-12 px-3 py-2 text-left font-bold text-[#1a1a2e]/55">
@@ -108,7 +115,8 @@ export function ProjectProductsBulkTable({
               <th className={adminTableHeadCellClass}>상품</th>
               <th className={adminTableHeadCellClass}>상태</th>
               <th className={adminTableHeadCellClass}>한 줄 설명</th>
-              <th className={adminTableHeadCellClass}>옵션</th>
+              <th className={adminTableHeadCellClass}>옵션 수</th>
+              <th className={adminTableHeadCellClass}>활성 옵션</th>
               <th className={`${adminTableHeadCellClass} text-right`}>편집</th>
             </tr>
           </thead>
@@ -146,14 +154,13 @@ export function ProjectProductsBulkTable({
                     </div>
                   </td>
                   <td className="px-3 py-3">
-                    <div className="min-w-[260px]">
+                    <div className="min-w-[240px]">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge intent={resolveProductKindIntent(product.product_kind)}>
                           {PRODUCT_KIND_LABELS[product.product_kind]}
                         </Badge>
                         <p className="font-black text-[#1a1a2e]">{product.title}</p>
                       </div>
-                      <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">/{product.slug}</p>
                       <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">
                         최근 수정 {formatDateTime(product.updated_at)}
                       </p>
@@ -165,31 +172,30 @@ export function ProjectProductsBulkTable({
                     </Badge>
                   </td>
                   <td className="px-3 py-3">
-                    <p className="min-w-[240px] max-w-[360px] text-sm font-medium leading-6 text-[#1a1a2e]/60">
+                    <p className="min-w-[190px] max-w-[300px] text-sm font-medium leading-6 text-[#1a1a2e]/60">
                       {product.short_description || '한 줄 설명이 없습니다.'}
                     </p>
                   </td>
                   <td className="px-3 py-3">
-                    <div className="min-w-[160px]">
-                      <Badge intent="info" size="sm">{product.variant_count}개</Badge>
-                      <p className="mt-2 text-xs font-medium text-[#1a1a2e]/45">
-                        {summarizeVariantStatuses(
-                          product.variant_count,
-                          product.variant_status_counts,
-                        )}
-                      </p>
-                    </div>
+                    <CountTile value={product.variant_count} label="옵션 수" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <CountTile
+                      value={product.variant_status_counts.ACTIVE}
+                      label="활성 옵션"
+                      tone="active"
+                    />
                   </td>
                   <td className="px-3 py-3 text-right">
                     <Button
                       size="sm"
                       intent="neutral"
-                      className={`${adminButtonClass} !h-9 !w-9 !px-0`}
+                      className={`${adminButtonClass} !h-12 !w-12 !rounded-[14px] !px-0`}
                       aria-label={`${product.title} 상세 편집`}
                       title="상세 편집"
                       onClick={() => onOpenDetail(product.id)}
                     >
-                      <Pencil className="h-4 w-4" aria-hidden />
+                      <Pencil className="h-5 w-5 stroke-[2.4]" aria-hidden />
                     </Button>
                   </td>
                 </tr>
