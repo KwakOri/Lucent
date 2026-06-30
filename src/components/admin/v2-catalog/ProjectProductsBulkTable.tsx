@@ -123,13 +123,17 @@ export function ProjectProductsBulkTable({
           <tbody className={adminTableBodyClass}>
             {products.map((product) => {
               const coverMedia = product.cover_media;
+              const isSelected = selectedProductIdSet.has(product.id);
 
               return (
-                <tr key={product.id} className="align-middle">
+                <tr
+                  key={product.id}
+                  className={`align-middle transition-colors ${isSelected ? 'bg-[#fff8e6]' : 'bg-white'}`}
+                >
                   <td className="px-3 py-3 align-middle">
                     <Checkbox
                       size="sm"
-                      checked={selectedProductIdSet.has(product.id)}
+                      checked={isSelected}
                       disabled={isSelectionDisabled}
                       label={<span className="sr-only">{product.title} 선택</span>}
                       onChange={(event) =>

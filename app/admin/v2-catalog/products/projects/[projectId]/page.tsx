@@ -332,62 +332,7 @@ export default function V2CatalogProjectProductsPage() {
           </Button>
         </div>
 
-        {selectedProducts.length > 0 && (
-          <div className="mt-5 flex flex-col gap-3 rounded-[16px] border border-[#cde0f3] bg-[#eaf3fc] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-black text-[#1a1a2e]">
-                상품 {selectedProducts.length}개 선택됨
-              </p>
-              <p className="mt-1 text-xs font-medium text-[#1a1a2e]/55">
-                변경 대상 {productsToBulkUpdate.length}개
-                {selectedUnchangedCount > 0 ? ` · 같은 상태 ${selectedUnchangedCount}개 제외` : ''}
-                {blockedBulkProducts.length > 0
-                  ? ` · 전이 불가 ${blockedBulkProducts.length}개 제외`
-                  : ''}
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Select
-                size="sm"
-                value={bulkStatus}
-                disabled={bulkUpdateProductStatus.isPending}
-                onChange={(event) => {
-                  setBulkStatus(event.target.value as V2ProductStatus);
-                  setBulkFeedback(null);
-                }}
-                className={`min-w-[160px] ${adminSelectClass}`}
-                options={PRODUCT_STATUS_VALUES.map((status) => ({
-                  value: status,
-                  label: PRODUCT_STATUS_LABELS[status],
-                }))}
-              />
-              <Button
-                size="sm"
-                className="!rounded-[10px] !bg-[#1a1a2e] !font-bold !text-white hover:!bg-[#272743]"
-                loading={bulkUpdateProductStatus.isPending}
-                onClick={handleBulkStatusChange}
-              >
-                <CheckSquare className="h-4 w-4" aria-hidden />
-                상태 변경
-              </Button>
-              <Button
-                size="sm"
-                intent="neutral"
-                className="!rounded-[10px] !border-0 !bg-white !font-bold !text-[#1a1a2e] hover:!bg-[#f5f3e8]"
-                disabled={bulkUpdateProductStatus.isPending}
-                onClick={() => {
-                  setSelectedProductIds([]);
-                  setBulkFeedback(null);
-                }}
-              >
-                <X className="h-4 w-4" aria-hidden />
-                선택 해제
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {bulkFeedback && (
+        {bulkFeedback && selectedProducts.length === 0 && (
           <div
             className={`mt-4 rounded-[14px] border px-4 py-3 text-sm font-medium ${
               bulkFeedback.intent === 'error'
@@ -430,6 +375,86 @@ export default function V2CatalogProjectProductsPage() {
         </div>
 
       </AdminSurface>
+
+      {selectedProducts.length > 0 && (
+        <div className="fixed left-4 right-4 top-20 z-50 min-h-[260px] rounded-[24px] border border-[#d8cfb9] bg-white/95 p-4 shadow-[0_18px_45px_rgba(26,26,46,0.16)] backdrop-blur sm:left-auto sm:right-8 sm:top-24 sm:w-[280px] sm:min-h-[280px]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-[#1a1a2e]/40">선택 상품</p>
+              <p className="mt-1 text-2xl font-black text-[#1a1a2e]">
+                {selectedProducts.length}개
+              </p>
+            </div>
+            <Button
+              size="sm"
+              intent="neutral"
+              className="!h-9 !w-9 !rounded-[10px] !border-0 !bg-[#f5f3e8] !px-0 !text-[#1a1a2e] hover:!bg-[#ece8d9]"
+              disabled={bulkUpdateProductStatus.isPending}
+              aria-label="선택 해제"
+              title="선택 해제"
+              onClick={() => {
+                setSelectedProductIds([]);
+                setBulkFeedback(null);
+              }}
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </Button>
+          </div>
+
+          <div className="mt-4 rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-3 py-2">
+            <p className="text-xs font-bold text-[#1a1a2e]/45">변경 대상</p>
+            <p className="mt-1 text-sm font-bold text-[#1a1a2e]">
+              {productsToBulkUpdate.length}개
+            </p>
+            <p className="mt-1 text-[11px] font-medium leading-5 text-[#1a1a2e]/45">
+              {selectedUnchangedCount > 0 ? `같은 상태 ${selectedUnchangedCount}개 제외` : ''}
+              {selectedUnchangedCount > 0 && blockedBulkProducts.length > 0 ? ' · ' : ''}
+              {blockedBulkProducts.length > 0 ? `전이 불가 ${blockedBulkProducts.length}개 제외` : ''}
+              {selectedUnchangedCount === 0 && blockedBulkProducts.length === 0 ? '선택 상품 모두 변경 가능' : ''}
+            </p>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2">
+            <Select
+              size="sm"
+              value={bulkStatus}
+              disabled={bulkUpdateProductStatus.isPending}
+              onChange={(event) => {
+                setBulkStatus(event.target.value as V2ProductStatus);
+                setBulkFeedback(null);
+              }}
+              className={`w-full ${adminSelectClass}`}
+              options={PRODUCT_STATUS_VALUES.map((status) => ({
+                value: status,
+                label: PRODUCT_STATUS_LABELS[status],
+              }))}
+            />
+            <Button
+              size="sm"
+              className="!h-11 !rounded-[12px] !bg-[#1a1a2e] !font-bold !text-white hover:!bg-[#272743]"
+              loading={bulkUpdateProductStatus.isPending}
+              onClick={handleBulkStatusChange}
+            >
+              <CheckSquare className="h-4 w-4" aria-hidden />
+              상태 변경
+            </Button>
+          </div>
+
+          {bulkFeedback && (
+            <div
+              className={`mt-3 rounded-[14px] border px-3 py-2 text-xs font-bold leading-5 ${
+                bulkFeedback.intent === 'error'
+                  ? 'border-red-200 bg-red-50 text-red-700'
+                  : bulkFeedback.intent === 'success'
+                    ? 'border-green-200 bg-green-50 text-green-700'
+                    : 'border-gray-200 bg-gray-50 text-gray-700'
+              }`}
+            >
+              {bulkFeedback.message}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
