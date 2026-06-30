@@ -125,8 +125,8 @@ export function ProjectProductsBulkTable({
               const coverMedia = product.cover_media;
 
               return (
-                <tr key={product.id} className="align-top">
-                  <td className="px-3 py-3">
+                <tr key={product.id} className="align-middle">
+                  <td className="px-3 py-3 align-middle">
                     <Checkbox
                       size="sm"
                       checked={selectedProductIdSet.has(product.id)}
@@ -137,7 +137,7 @@ export function ProjectProductsBulkTable({
                       }
                     />
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-3 align-middle">
                     <div className="h-14 w-14 overflow-hidden rounded-[12px] border border-[#e7e3d3] bg-[#faf9f3]">
                       {coverMedia?.public_url ? (
                         // eslint-disable-next-line @next/next/no-img-element -- project policy uses native img instead of next/image.
@@ -153,7 +153,7 @@ export function ProjectProductsBulkTable({
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-3 align-middle">
                     <div className="min-w-[240px]">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge intent={resolveProductKindIntent(product.product_kind)}>
@@ -166,27 +166,27 @@ export function ProjectProductsBulkTable({
                       </p>
                     </div>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-3 align-middle">
                     <Badge intent={resolveProductStatusIntent(product.status)}>
                       {PRODUCT_STATUS_LABELS[product.status]}
                     </Badge>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-3 align-middle">
                     <p className="min-w-[190px] max-w-[300px] text-sm font-medium leading-6 text-[#1a1a2e]/60">
                       {product.short_description || '한 줄 설명이 없습니다.'}
                     </p>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-3 align-middle">
                     <CountTile value={product.variant_count} label="옵션 수" />
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-3 align-middle">
                     <CountTile
                       value={product.variant_status_counts.ACTIVE}
                       label="활성 옵션"
                       tone="active"
                     />
                   </td>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-3 py-3 text-right align-middle">
                     <Button
                       size="sm"
                       intent="neutral"
