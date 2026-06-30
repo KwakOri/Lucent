@@ -339,9 +339,9 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
             )}
           </div>
 
-          <div className="mt-4 space-y-2">
+          <div className={`mt-4 grid gap-2 ${coverMedia ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <FileInput
-              triggerLabel={isMutating ? '커버 이미지 업로드 중...' : '커버 이미지 선택'}
+              triggerLabel={isMutating ? '업로드 중...' : coverMedia ? '이미지 변경' : '커버 이미지 선택'}
               triggerClassName={uploadTriggerClassName}
               accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
               disabled={isMutating}
@@ -354,22 +354,21 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
               }}
             />
 
-            <Button
-              type="button"
-              intent="danger"
-              size="sm"
-              className="!rounded-[11px] !border !border-[#f3d6d6] !bg-white !text-[#ca2a30] hover:!bg-[#fff0f0]"
-              disabled={!coverMedia}
-              loading={deactivateProductMedia.isPending}
-              onClick={() => {
-                if (!coverMedia) {
-                  return;
-                }
-                void deactivateMedia(coverMedia.id, '커버 이미지를 제거했습니다.');
-              }}
-            >
-              커버 이미지 제거
-            </Button>
+            {coverMedia && (
+              <Button
+                type="button"
+                intent="danger"
+                size="sm"
+                className="!h-11 !w-full !rounded-[11px] !border !border-[#f3d6d6] !bg-white !text-sm !font-bold !text-[#ca2a30] hover:!bg-[#fff0f0]"
+                disabled={isMutating}
+                loading={deactivateProductMedia.isPending}
+                onClick={() => {
+                  void deactivateMedia(coverMedia.id, '커버 이미지를 제거했습니다.');
+                }}
+              >
+                이미지 삭제
+              </Button>
+            )}
           </div>
         </article>
 
