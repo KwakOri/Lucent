@@ -1332,6 +1332,30 @@ export interface UpdateV2CampaignData {
   metadata?: Record<string, unknown>;
 }
 
+export interface ApplyV2CampaignProductEditorPriceChangeData {
+  product_id: string;
+  variant_id: string;
+  use_base_price?: boolean;
+  unit_amount?: number | null;
+  compare_at_amount?: number | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ApplyV2CampaignProductEditorData {
+  add_product_ids?: string[];
+  remove_product_ids?: string[];
+  price_changes?: ApplyV2CampaignProductEditorPriceChangeData[];
+}
+
+export interface ApplyV2CampaignProductEditorResult {
+  added_products: number;
+  added_variants: number;
+  removed_products: number;
+  removed_variants: number;
+  price_changes: number;
+  campaign_price_list_id: string | null;
+}
+
 export interface CreateV2CampaignTargetData {
   target_type: V2CampaignTargetType;
   target_id: string;
@@ -2575,6 +2599,16 @@ export const V2CatalogAdminAPI = {
 
   async deleteCampaign(id: string): Promise<ApiResponse<{ message: string }>> {
     return apiClient.delete(`/api/v2/catalog/admin/campaigns/${id}`);
+  },
+
+  async applyCampaignProductEditor(
+    campaignId: string,
+    data: ApplyV2CampaignProductEditorData,
+  ): Promise<ApiResponse<ApplyV2CampaignProductEditorResult>> {
+    return apiClient.post(
+      `/api/v2/catalog/admin/campaigns/${campaignId}/product-editor/apply`,
+      data,
+    );
   },
 
   async getCampaignTargets(

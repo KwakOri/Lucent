@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   V2CatalogAdminAPI,
   type AnalyzeV2BasePriceChangeData,
+  type ApplyV2CampaignProductEditorData,
   type ApplyV2BasePriceChangeData,
   type BuildV2PriceQuoteData,
   type CreateV2CampaignData,
@@ -1653,6 +1654,37 @@ export function useDeleteV2Campaign() {
         queryKey: queryKeys.v2CatalogAdmin.campaigns.targets(campaignId),
       });
       await invalidateV2CatalogAdmin(queryClient);
+    },
+  });
+}
+
+export function useApplyV2CampaignProductEditor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      campaignId,
+      data,
+    }: {
+      campaignId: string;
+      data: ApplyV2CampaignProductEditorData;
+    }) => V2CatalogAdminAPI.applyCampaignProductEditor(campaignId, data),
+    onSuccess: async (_response, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.v2CatalogAdmin.campaigns.detailContext(
+            variables.campaignId,
+          ),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.v2CatalogAdmin.campaigns.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.v2CatalogAdmin.pricing.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.v2Shop.all,
+        }),
+      ]);
     },
   });
 }
