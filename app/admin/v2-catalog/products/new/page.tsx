@@ -293,7 +293,7 @@ export default function V2CatalogProductCreatePage() {
         slug: values.slug,
         product_kind: values.product_kind,
         fulfillment_type: values.fulfillment_type,
-        status: 'DRAFT',
+        status: values.status || 'DRAFT',
         short_description: values.short_description,
         description: values.description,
       });
@@ -422,6 +422,7 @@ export default function V2CatalogProductCreatePage() {
           slug: '',
           short_description: null,
           description: null,
+          status: 'DRAFT',
         }}
         isSubmitting={
           createProduct.isPending ||

@@ -79,6 +79,7 @@ function isImageFile(file: File): boolean {
 
 type ProductMediaManagerProps = {
   product: V2Product;
+  embedded?: boolean;
 };
 
 const sectionClassName =
@@ -87,7 +88,7 @@ const uploadTriggerClassName =
   '!h-11 !rounded-[11px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]';
 const mutedTextClassName = 'text-[#1a1a2e]/55';
 
-export function ProductMediaManager({ product }: ProductMediaManagerProps) {
+export function ProductMediaManager({ product, embedded = false }: ProductMediaManagerProps) {
   const { data, isLoading, error } = useV2AdminProductMedia(product.id);
   const uploadMediaAssetFile = useUploadV2MediaAssetFile();
   const createProductMedia = useCreateV2ProductMedia();
@@ -270,6 +271,14 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
   };
 
   if (isLoading) {
+    if (embedded) {
+      return (
+        <div className="mt-5 flex min-h-[180px] items-center justify-center rounded-[14px] border border-[#e7e3d3] bg-white">
+          <Loading size="md" text="상품 이미지 정보를 불러오는 중입니다." />
+        </div>
+      );
+    }
+
     return (
       <section className={sectionClassName}>
         <div className="flex min-h-[180px] items-center justify-center">
@@ -280,6 +289,14 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
   }
 
   if (error) {
+    if (embedded) {
+      return (
+        <div className="mt-5 rounded-[14px] border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+          상품 이미지 정보를 불러오지 못했습니다.
+        </div>
+      );
+    }
+
     return (
       <section className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm text-red-700 shadow-none sm:p-6">
         상품 이미지 정보를 불러오지 못했습니다.
@@ -287,8 +304,9 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
     );
   }
 
-  return (
-    <section className={sectionClassName}>
+  const content = (
+    <>
+      {!embedded && (
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-lg font-black text-[#1a1a2e]">상품 이미지</h2>
@@ -303,6 +321,7 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
           상세 {detailMedia.length}장
         </Badge>
       </div>
+      )}
 
       {message && (
         <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -315,7 +334,7 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
         </div>
       )}
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+      <div className={embedded ? "mt-5 grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]" : "mt-6 grid gap-5 lg:grid-cols-2"}>
         <article>
           <h3 className="text-sm font-black text-[#1a1a2e]">커버 이미지</h3>
           <p className={`mt-1 text-xs font-medium ${mutedTextClassName}`}>
@@ -483,6 +502,16 @@ export function ProductMediaManager({ product }: ProductMediaManagerProps) {
           </div>
         </article>
       </div>
+    </>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <section className={sectionClassName}>
+      {content}
     </section>
   );
 }
