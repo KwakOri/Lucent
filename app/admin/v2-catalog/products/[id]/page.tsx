@@ -555,7 +555,7 @@ export default function V2CatalogProductDetailPage() {
       <Button
         type="submit"
         form={productFormId}
-        className="fixed bottom-5 left-5 z-40 !h-14 !w-14 !rounded-[18px] !bg-[#1a1a2e] !px-0 !text-white shadow-[0_16px_36px_rgba(26,26,46,0.22)] hover:!bg-[#272743] lg:bottom-6 lg:left-6"
+        className="fixed bottom-5 left-5 z-40 !h-14 !w-14 !rounded-[18px] !bg-[#1a1a2e] !px-0 !text-white shadow-[0_16px_36px_rgba(26,26,46,0.22)] hover:!bg-[#272743] lg:bottom-auto lg:left-6 lg:top-[33.5rem] lg:!h-[4.5rem] lg:!w-[4.5rem] lg:!rounded-[28px]"
         disabled={isFormSubmitting}
         aria-label="저장하고 목록으로"
         title="저장하고 목록으로"
