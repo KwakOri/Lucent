@@ -33,7 +33,6 @@ import type {
 import {
   CAMPAIGN_STATUS_LABELS,
   CAMPAIGN_TYPE_LABELS,
-  formatDateRange,
   formatDateTime,
   getCampaignPeriod,
   getCampaignPeriodIntent,
@@ -51,7 +50,6 @@ import {
 import {
   useV2AdminProject,
   useV2AdminProjectProductList,
-  useV2CampaignOverview,
   useV2CampaignTargetsMap,
   useV2Campaigns,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
@@ -109,12 +107,8 @@ export default function V2CatalogProjectDetailPage() {
     [campaigns],
   );
   const targetsByCampaignId = useV2CampaignTargetsMap(campaignIds);
-  const overviewByCampaignId = useV2CampaignOverview(campaignIds);
   const campaignTargetsLoading = campaignIds.some(
     (campaignId) => targetsByCampaignId[campaignId]?.isLoading,
-  );
-  const campaignOverviewLoading = campaignIds.some(
-    (campaignId) => overviewByCampaignId[campaignId]?.isLoading,
   );
   const productsById = useMemo(() => buildProductsByIdMap(products || []), [products]);
 
@@ -175,8 +169,7 @@ export default function V2CatalogProjectDetailPage() {
     projectLoading ||
     productsLoading ||
     campaignsLoading ||
-    campaignTargetsLoading ||
-    campaignOverviewLoading;
+    campaignTargetsLoading;
 
   if (isLoading) {
     return (
@@ -334,9 +327,6 @@ export default function V2CatalogProjectDetailPage() {
                   <th className={adminTableHeadCellClass}>
                     기간
                   </th>
-                  <th className={adminTableHeadCellClass}>
-                    상품
-                  </th>
                   <th className={`${adminTableHeadCellClass} text-right`}>
                     작업
                   </th>
@@ -345,7 +335,6 @@ export default function V2CatalogProjectDetailPage() {
               <tbody className={adminTableBodyClass}>
                 {relatedCampaigns.map((campaign) => {
                   const period = getCampaignPeriod(campaign.starts_at, campaign.ends_at);
-                  const overview = overviewByCampaignId[campaign.id];
                   return (
                     <tr key={campaign.id}>
                       <td className="px-4 py-3">
@@ -360,15 +349,21 @@ export default function V2CatalogProjectDetailPage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-[#1a1a2e]/60">
-                        <Badge intent={getCampaignPeriodIntent(period)}>
-                          {getPeriodLabel(period)}
-                        </Badge>
-                        <p className="mt-1 text-xs text-[#1a1a2e]/45">
-                          {formatDateRange(campaign.starts_at, campaign.ends_at)}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-[#1a1a2e]/65">
-                        {overview?.targetCount || 0}개
+                        <div className="flex items-center gap-3">
+                          <Badge intent={getCampaignPeriodIntent(period)} className="shrink-0">
+                            {getPeriodLabel(period)}
+                          </Badge>
+                          <div className="space-y-1 text-xs text-[#1a1a2e]/45">
+                            <p className="flex items-center gap-2">
+                              <span className="w-7 shrink-0 font-black text-[#1a1a2e]/35">시작</span>
+                              <span>{campaign.starts_at ? formatDateTime(campaign.starts_at) : '즉시 운영'}</span>
+                            </p>
+                            <p className="flex items-center gap-2">
+                              <span className="w-7 shrink-0 font-black text-[#1a1a2e]/35">종료</span>
+                              <span>{campaign.ends_at ? formatDateTime(campaign.ends_at) : '없음'}</span>
+                            </p>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
