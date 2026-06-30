@@ -232,6 +232,16 @@ SQL
   rm -f "${compat_sql}"
 }
 
+run_post_import_local_data_migrations() {
+  local migration_file
+
+  migration_file="${FE_DIR}/supabase/migrations/20260629225500_v2_product_option_base_price_reframe.sql"
+  if [[ -f "${migration_file}" ]]; then
+    log "replaying post-import local data migration: $(basename "${migration_file}")"
+    run_local_db_sql_file "${migration_file}"
+  fi
+}
+
 sync_linked_data_to_local() {
   local timestamp
   local dump_file
@@ -274,6 +284,8 @@ sync_linked_data_to_local() {
 
   log "importing linked remote dump into local DB"
   run_local_db_sql_file "${dump_file}"
+
+  run_post_import_local_data_migrations
 }
 
 cleanup() {
