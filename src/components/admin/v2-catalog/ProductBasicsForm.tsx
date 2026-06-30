@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input, Textarea } from '@/components/ui/input';
@@ -17,13 +17,25 @@ import type {
   V2ProductKind,
   V2ProductStatus,
   V2Project,
+  V2VariantStatus,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
+  DEFAULT_VARIANT_STATUS,
   FULFILLMENT_TYPE_LABELS,
   PRODUCT_KIND_LABELS,
   PRODUCT_STATUS_LABELS,
+  VARIANT_STATUS_LABELS,
   buildProductSlug,
 } from '@/lib/client/utils/v2-product-admin-form';
+import {
+  formatPriceInputValue,
+  normalizePriceInputValue,
+} from '@/lib/client/utils/v2-price-input';
+import type {
+  ProductDefaultCampaignOption,
+} from '@/lib/client/utils/v2-product-campaign-inclusion';
+
+export type ProductCampaignInclusion = 'INCLUDED' | 'EXCLUDED';
 
 export type ProductBasicsFormValues = {
   project_id: string;
@@ -34,6 +46,9 @@ export type ProductBasicsFormValues = {
   short_description: string | null;
   description: string | null;
   status?: V2ProductStatus;
+  default_variant_status?: V2VariantStatus;
+  default_variant_base_price?: string | null;
+  default_campaign_inclusion?: ProductCampaignInclusion;
 };
 
 type ProductBasicsFormProps = {
@@ -43,6 +58,9 @@ type ProductBasicsFormProps = {
   isSubmitting: boolean;
   submitLabel: string;
   errorMessage?: string | null;
+  showDefaultOptionSettings?: boolean;
+  showCampaignInclusionSettings?: boolean;
+  campaignOptions?: ProductDefaultCampaignOption[];
   onCancel: () => void;
   onSubmit: (values: ProductBasicsFormValues) => Promise<void>;
 };
@@ -66,6 +84,7 @@ const PRODUCT_KIND_OPTIONS: Array<{
 
 const EDIT_STATUS_OPTIONS: V2ProductStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE'];
 const FULFILLMENT_TYPE_OPTIONS: V2FulfillmentType[] = ['DIGITAL', 'PHYSICAL'];
+const VARIANT_STATUS_OPTIONS: V2VariantStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE'];
 const formSectionClassName =
   'rounded-[22px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
 const softPanelClassName =
@@ -79,6 +98,22 @@ function getChoiceButtonClass(active: boolean): string {
   }`;
 }
 
+function getSegmentButtonClass(active: boolean): string {
+  return `h-11 flex-1 rounded-[10px] border-0 px-3 text-sm font-black transition ${
+    active
+      ? 'bg-[#1a1a2e] text-white'
+      : 'bg-transparent text-[#8a8678] hover:bg-[#f5f3e8] hover:text-[#1a1a2e]'
+  }`;
+}
+
+function getInclusionButtonClass(active: boolean): string {
+  return `min-h-[54px] flex-1 rounded-[14px] border px-4 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${
+    active
+      ? 'border-[#1a1a2e] bg-[#1a1a2e] text-white'
+      : 'border-[#e7e3d3] bg-white text-[#1a1a2e] hover:border-[#d8d1bd] hover:bg-[#faf9f3]'
+  }`;
+}
+
 export function ProductBasicsForm({
   mode,
   projects,
@@ -86,6 +121,9 @@ export function ProductBasicsForm({
   isSubmitting,
   submitLabel,
   errorMessage,
+  showDefaultOptionSettings = false,
+  showCampaignInclusionSettings = false,
+  campaignOptions = [],
   onCancel,
   onSubmit,
 }: ProductBasicsFormProps) {
@@ -103,15 +141,31 @@ export function ProductBasicsForm({
   const [status, setStatus] = useState<V2ProductStatus>(
     initialValues.status || 'DRAFT',
   );
-  const [showAdvanced, setShowAdvanced] = useState(mode === 'edit');
-  const [manualSlug, setManualSlug] = useState(mode === 'edit');
+  const [defaultVariantStatus, setDefaultVariantStatus] = useState<V2VariantStatus>(
+    initialValues.default_variant_status || DEFAULT_VARIANT_STATUS,
+  );
+  const [defaultVariantBasePrice, setDefaultVariantBasePrice] = useState(
+    initialValues.default_variant_base_price || '',
+  );
+  const [campaignInclusionDraft, setCampaignInclusionDraft] = useState<
+    ProductCampaignInclusion | null
+  >(
+    initialValues.default_campaign_inclusion || null,
+  );
 
   const autoSlug = buildProductSlug(title);
-  const effectiveSlug = manualSlug ? slug : autoSlug;
+  const effectiveSlug = mode === 'create' ? autoSlug : slug;
+  const selectedCampaignOption = useMemo(
+    () => campaignOptions.find((option) => option.projectId === projectId) || null,
+    [campaignOptions, projectId],
+  );
+  const inferredCampaignInclusion: ProductCampaignInclusion =
+    selectedCampaignOption?.excludedProductTargetId ? 'EXCLUDED' : 'INCLUDED';
+  const campaignInclusion = campaignInclusionDraft || inferredCampaignInclusion;
 
   const handleTitleChange = (value: string) => {
     setTitle(value);
-    if (mode === 'create' && !manualSlug) {
+    if (mode === 'create') {
       setSlug(buildProductSlug(value));
     }
   };
@@ -128,6 +182,13 @@ export function ProductBasicsForm({
       short_description: shortDescription.trim() || null,
       description: description.trim() || null,
       status: mode === 'edit' ? status : undefined,
+      default_variant_status: showDefaultOptionSettings ? defaultVariantStatus : undefined,
+      default_variant_base_price: showDefaultOptionSettings
+        ? normalizePriceInputValue(defaultVariantBasePrice) || null
+        : undefined,
+      default_campaign_inclusion: showCampaignInclusionSettings
+        ? campaignInclusion
+        : undefined,
     });
   };
 
@@ -158,7 +219,10 @@ export function ProductBasicsForm({
               <Select
                 id="product-project"
                 value={projectId}
-                onChange={(event) => setProjectId(event.target.value)}
+                onChange={(event) => {
+                  setProjectId(event.target.value);
+                  setCampaignInclusionDraft(null);
+                }}
                 options={projects.map((project) => ({
                   value: project.id,
                   label: `${project.name} (${project.slug})`,
@@ -258,145 +322,128 @@ export function ProductBasicsForm({
             )}
           </div>
 
-          <div className={softPanelClassName}>
-            <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm font-black text-[#1a1a2e]">상품 주소</p>
-                <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
-                  상품명 기준으로 자동 생성되며, 필요할 때만 직접 수정합니다.
-                </p>
-              </div>
-              <Button
-                type="button"
-                intent="neutral"
-                size="sm"
-                className={adminButtonClass}
-                onClick={() => {
-                  setShowAdvanced((prev) => !prev);
-                  setManualSlug(true);
-                }}
-              >
-                {showAdvanced ? '고급 설정 닫기' : '고급 설정 열기'}
-              </Button>
-            </div>
-
-            <div className="mt-3 rounded-[14px] border border-[#e7e3d3] bg-white px-4 py-3">
-              <p className="text-xs font-black uppercase tracking-wide text-[#1a1a2e]/40">
-                Preview
-              </p>
-              <p className="mt-1 text-sm font-bold text-[#1a1a2e]">
-                /shop/{effectiveSlug || autoSlug}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField
-              label="한 줄 설명"
-              htmlFor="product-short-description"
-              help="목록이나 카드에서 먼저 보일 짧은 소개입니다."
-            >
-              <Input
-                id="product-short-description"
-                value={shortDescription}
-                onChange={(event) => setShortDescription(event.target.value)}
-                placeholder="예: 디지털 음원과 보너스 콘텐츠를 한 번에"
-                className={adminInputClass}
-              />
-            </FormField>
-
-            {mode === 'edit' && (
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-black text-[#1a1a2e]">판매 상태</p>
-                  <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
-                    고객에게 어떻게 보일지 선택하세요.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {EDIT_STATUS_OPTIONS.map((option) => (
-                    <Button
+          {showDefaultOptionSettings && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <section className={softPanelClassName}>
+                <p className="text-sm font-black text-[#1a1a2e]">기본 옵션 상태</p>
+                <div className="mt-4 grid grid-cols-3 gap-1 rounded-[12px] border border-[#e7e3d3] bg-white p-1">
+                  {VARIANT_STATUS_OPTIONS.map((option) => (
+                    <button
                       key={option}
                       type="button"
-                      size="sm"
-                      intent={status === option ? 'primary' : 'neutral'}
-                      className={status === option ? adminPrimaryButtonClass : adminButtonClass}
-                      onClick={() => setStatus(option)}
+                      className={getSegmentButtonClass(defaultVariantStatus === option)}
+                      onClick={() => setDefaultVariantStatus(option)}
                     >
-                      {PRODUCT_STATUS_LABELS[option]}
-                    </Button>
+                      {VARIANT_STATUS_LABELS[option]}
+                    </button>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
+              </section>
 
-          <FormField
-            label="상세 설명"
-            htmlFor="product-description"
-            help="상세 페이지에서 보여줄 긴 설명입니다."
-          >
-            <Textarea
-              id="product-description"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              rows={5}
-              placeholder="상품 소개, 구성, 구매 전 안내를 자연스럽게 작성하세요."
-              className={adminInputClass}
-            />
-          </FormField>
-
-          {showAdvanced && (
-            <section className="rounded-[16px] border border-dashed border-[#e7e3d3] bg-[#faf9f3] px-4 py-4">
-              <div className="flex flex-col gap-1">
-                <h3 className="text-sm font-black text-[#1a1a2e]">고급 설정</h3>
-                <p className="text-sm font-medium text-[#1a1a2e]/55">
-                  일반적으로는 수정할 필요 없는 내부 설정입니다.
-                </p>
-              </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <section className={softPanelClassName}>
                 <FormField
-                  label="Slug 직접 수정"
-                  htmlFor="product-slug"
-                  help="링크 주소를 유지해야 할 때만 수정하세요."
+                  label="기본 판매가 (원)"
+                  htmlFor="default-variant-base-price"
+                  required={defaultVariantStatus === 'ACTIVE'}
                 >
                   <Input
-                    id="product-slug"
-                    value={slug}
-                    onChange={(event) => {
-                      setManualSlug(true);
-                      setSlug(event.target.value);
-                    }}
-                    placeholder={autoSlug}
+                    id="default-variant-base-price"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9,]*"
+                    value={formatPriceInputValue(defaultVariantBasePrice)}
+                    onChange={(event) =>
+                      setDefaultVariantBasePrice(
+                        normalizePriceInputValue(event.target.value),
+                      )
+                    }
+                    placeholder="예: 10,000"
                     className={adminInputClass}
                   />
                 </FormField>
-
-                {mode === 'edit' && (
-                  <div className="space-y-3">
-                    <p className="text-sm font-black text-[#1a1a2e]">보관 상태</p>
-                    <p className="text-sm font-medium text-[#1a1a2e]/55">
-                      더 이상 운영하지 않는 상품은 보관할 수 있습니다.
-                    </p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      intent={status === 'ARCHIVED' ? 'danger' : 'neutral'}
-                      className={
-                        status === 'ARCHIVED'
-                          ? '!rounded-[12px] !bg-[#ca2a30] !font-bold !text-white hover:!bg-[#b0242a]'
-                          : adminButtonClass
-                      }
-                      onClick={() => setStatus('ARCHIVED')}
-                    >
-                      {PRODUCT_STATUS_LABELS.ARCHIVED}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </section>
+              </section>
+            </div>
           )}
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <section className="space-y-4">
+              <FormField
+                label="한 줄 설명"
+                htmlFor="product-short-description"
+              >
+                <Input
+                  id="product-short-description"
+                  value={shortDescription}
+                  onChange={(event) => setShortDescription(event.target.value)}
+                  placeholder="예: 디지털 음원과 보너스 콘텐츠를 한 번에"
+                  className={adminInputClass}
+                />
+              </FormField>
+
+              <FormField
+                label="상세 설명"
+                htmlFor="product-description"
+              >
+                <Textarea
+                  id="product-description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  rows={7}
+                  placeholder="상품 소개, 구성, 구매 전 안내를 자연스럽게 작성하세요."
+                  className={adminInputClass}
+                />
+              </FormField>
+            </section>
+
+            <section className="space-y-4">
+              {showCampaignInclusionSettings && (
+                <div className={softPanelClassName}>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-black text-[#1a1a2e]">기본 캠페인 포함</p>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#6f6a5e]">
+                      {selectedCampaignOption?.campaignName || '캠페인 없음'}
+                    </span>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      className={getInclusionButtonClass(campaignInclusion === 'INCLUDED')}
+                      disabled={!selectedCampaignOption}
+                      onClick={() => setCampaignInclusionDraft('INCLUDED')}
+                    >
+                      포함
+                    </button>
+                    <button
+                      type="button"
+                      className={getInclusionButtonClass(campaignInclusion === 'EXCLUDED')}
+                      disabled={!selectedCampaignOption}
+                      onClick={() => setCampaignInclusionDraft('EXCLUDED')}
+                    >
+                      미포함
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {mode === 'edit' && (
+                <div className={softPanelClassName}>
+                  <p className="text-sm font-black text-[#1a1a2e]">판매 상태</p>
+                  <div className="mt-4 grid grid-cols-3 gap-1 rounded-[12px] border border-[#e7e3d3] bg-white p-1">
+                    {EDIT_STATUS_OPTIONS.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={getSegmentButtonClass(status === option)}
+                        onClick={() => setStatus(option)}
+                      >
+                        {PRODUCT_STATUS_LABELS[option]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          </div>
 
           <div className={adminActionRowClass}>
             <Button type="submit" className={adminPrimaryButtonClass} loading={isSubmitting}>
