@@ -35,6 +35,7 @@ type BulkFeedback = {
 };
 
 const PRODUCT_STATUS_VALUES: V2ProductStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE', 'ARCHIVED'];
+const PRODUCT_FILTER_STATUS_VALUES: ProductFilterStatus[] = ['ALL', ...PRODUCT_STATUS_VALUES];
 const PRODUCT_BULK_STATUS_VALUES: V2ProductStatus[] = ['ACTIVE', 'INACTIVE', 'ARCHIVED'];
 const PRODUCT_STATUS_TRANSITIONS: Record<V2ProductStatus, V2ProductStatus[]> = {
   DRAFT: ['DRAFT', 'ACTIVE', 'INACTIVE', 'ARCHIVED'],
@@ -64,6 +65,10 @@ function canTransitionProductStatus(
   nextStatus: V2ProductStatus,
 ) {
   return PRODUCT_STATUS_TRANSITIONS[currentStatus].includes(nextStatus);
+}
+
+function getProductFilterStatusLabel(status: ProductFilterStatus): string {
+  return status === 'ALL' ? '전체' : PRODUCT_STATUS_LABELS[status];
 }
 
 export default function V2CatalogProjectProductsPage() {
@@ -272,55 +277,6 @@ export default function V2CatalogProjectProductsPage() {
       </section>
 
       <AdminSurface padding="md">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-black text-[#1a1a2e]">상품 찾기</h2>
-          <p className="text-sm font-medium text-[#1a1a2e]/55">
-            검색/필터로 대상을 줄인 뒤 상품 상태와 옵션 구성을 빠르게 확인합니다.
-          </p>
-        </div>
-
-        <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_220px_220px]">
-          <Input
-            placeholder="상품명 검색"
-            value={keyword}
-            onChange={(event) => {
-              setKeyword(event.target.value);
-              setSelectedProductIds([]);
-              setBulkFeedback(null);
-            }}
-            className={adminInputClass}
-          />
-          <Select
-            value={statusFilter}
-            onChange={(event) => {
-              setStatusFilter(event.target.value as ProductFilterStatus);
-              setSelectedProductIds([]);
-              setBulkFeedback(null);
-            }}
-            options={[
-              { value: 'ALL', label: '전체 상태' },
-              ...PRODUCT_STATUS_VALUES.map((status) => ({
-                value: status,
-                label: PRODUCT_STATUS_LABELS[status],
-              })),
-            ]}
-            className={adminSelectClass}
-          />
-          <Select
-            value={sortKey}
-            onChange={(event) => setSortKey(event.target.value as ProductSortKey)}
-            options={[
-              { value: 'CREATED_DESC', label: '최근 생성순' },
-              { value: 'SORT_ASC', label: '정렬 순서' },
-              { value: 'UPDATED_DESC', label: '최근 수정순' },
-              { value: 'TITLE_ASC', label: '이름순' },
-            ]}
-            className={adminSelectClass}
-          />
-        </div>
-      </AdminSurface>
-
-      <AdminSurface padding="md">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-lg font-black text-[#1a1a2e]">상품 목록</h2>
@@ -332,6 +288,64 @@ export default function V2CatalogProjectProductsPage() {
           >
             상품 추가
           </Button>
+        </div>
+
+        <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="overflow-x-auto">
+            <div
+              className="inline-flex min-w-max items-center gap-1 rounded-full border border-[#e7e3d3] bg-[#faf9f3] p-1"
+              role="tablist"
+              aria-label="상품 상태 필터"
+            >
+              {PRODUCT_FILTER_STATUS_VALUES.map((status) => {
+                const isActive = statusFilter === status;
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={`rounded-full px-4 py-2 text-sm font-black transition-colors ${
+                      isActive
+                        ? 'bg-white text-[#1a1a2e] shadow-[0_8px_18px_rgba(26,26,46,0.10)]'
+                        : 'text-[#1a1a2e]/45 hover:bg-white/70 hover:text-[#1a1a2e]/75'
+                    }`}
+                    onClick={() => {
+                      setStatusFilter(status);
+                      setSelectedProductIds([]);
+                      setBulkFeedback(null);
+                    }}
+                  >
+                    {getProductFilterStatusLabel(status)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px] xl:w-[620px]">
+            <Input
+              placeholder="상품명 검색"
+              value={keyword}
+              onChange={(event) => {
+                setKeyword(event.target.value);
+                setSelectedProductIds([]);
+                setBulkFeedback(null);
+              }}
+              className={adminInputClass}
+            />
+            <Select
+              value={sortKey}
+              onChange={(event) => setSortKey(event.target.value as ProductSortKey)}
+              options={[
+                { value: 'CREATED_DESC', label: '최근 생성순' },
+                { value: 'SORT_ASC', label: '정렬 순서' },
+                { value: 'UPDATED_DESC', label: '최근 수정순' },
+                { value: 'TITLE_ASC', label: '이름순' },
+              ]}
+              className={adminSelectClass}
+            />
+          </div>
         </div>
 
         {bulkFeedback && selectedProducts.length === 0 && (
