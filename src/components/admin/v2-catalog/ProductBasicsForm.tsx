@@ -89,6 +89,8 @@ const formSectionClassName =
   'rounded-[22px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
 const softPanelClassName =
   'rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-4 py-4';
+const controlPanelClassName =
+  'min-h-[128px] rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-4 py-4';
 
 function getChoiceButtonClass(active: boolean): string {
   return `rounded-[16px] border px-4 py-4 text-left transition ${
@@ -322,49 +324,6 @@ export function ProductBasicsForm({
             )}
           </div>
 
-          {showDefaultOptionSettings && (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <section className={softPanelClassName}>
-                <p className="text-sm font-black text-[#1a1a2e]">기본 옵션 상태</p>
-                <div className="mt-4 grid grid-cols-3 gap-1 rounded-[12px] border border-[#e7e3d3] bg-white p-1">
-                  {VARIANT_STATUS_OPTIONS.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      className={getSegmentButtonClass(defaultVariantStatus === option)}
-                      onClick={() => setDefaultVariantStatus(option)}
-                    >
-                      {VARIANT_STATUS_LABELS[option]}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section className={softPanelClassName}>
-                <FormField
-                  label="기본 판매가 (원)"
-                  htmlFor="default-variant-base-price"
-                  required={defaultVariantStatus === 'ACTIVE'}
-                >
-                  <Input
-                    id="default-variant-base-price"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9,]*"
-                    value={formatPriceInputValue(defaultVariantBasePrice)}
-                    onChange={(event) =>
-                      setDefaultVariantBasePrice(
-                        normalizePriceInputValue(event.target.value),
-                      )
-                    }
-                    placeholder="예: 10,000"
-                    className={adminInputClass}
-                  />
-                </FormField>
-              </section>
-            </div>
-          )}
-
           <div className="grid gap-4 lg:grid-cols-2">
             <section className="space-y-4">
               <FormField
@@ -396,8 +355,54 @@ export function ProductBasicsForm({
             </section>
 
             <section className="space-y-4">
+              {showDefaultOptionSettings && (
+                <>
+                  <section className={controlPanelClassName}>
+                    <p className="text-sm font-black text-[#1a1a2e]">기본 옵션 상태</p>
+                    <div className="mt-5 grid grid-cols-3 gap-1 rounded-[12px] border border-[#e7e3d3] bg-white p-1">
+                      {VARIANT_STATUS_OPTIONS.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          className={getSegmentButtonClass(defaultVariantStatus === option)}
+                          onClick={() => setDefaultVariantStatus(option)}
+                        >
+                          {VARIANT_STATUS_LABELS[option]}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className={controlPanelClassName}>
+                    <label
+                      htmlFor="default-variant-base-price"
+                      className="text-sm font-black text-[#1a1a2e]"
+                    >
+                      기본 판매가 (원)
+                      {defaultVariantStatus === 'ACTIVE' && (
+                        <span className="ml-1 text-[#ca2a30]">*</span>
+                      )}
+                    </label>
+                    <Input
+                      id="default-variant-base-price"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9,]*"
+                      value={formatPriceInputValue(defaultVariantBasePrice)}
+                      onChange={(event) =>
+                        setDefaultVariantBasePrice(
+                          normalizePriceInputValue(event.target.value),
+                        )
+                      }
+                      placeholder="예: 10,000"
+                      className={`${adminInputClass} !mt-5 !h-14`}
+                    />
+                  </section>
+                </>
+              )}
+
               {showCampaignInclusionSettings && (
-                <div className={softPanelClassName}>
+                <div className={controlPanelClassName}>
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-black text-[#1a1a2e]">기본 캠페인 포함</p>
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#6f6a5e]">
