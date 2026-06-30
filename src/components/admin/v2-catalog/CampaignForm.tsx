@@ -519,15 +519,6 @@ export function CampaignForm({
         )}
       </section>
 
-      {mode === 'edit' && (
-        <section className={formSectionClassName}>
-          <h2 className="text-lg font-black text-[#1a1a2e]">적용 대상 관리</h2>
-          <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
-            대상 추가/수정은 상세 페이지에서 별도로 관리합니다. 이 화면은 캠페인 개요와 일정 수정에 집중합니다.
-          </p>
-        </section>
-      )}
-
       <div className={adminActionRowClass}>
         <Button intent="neutral" className={adminButtonClass} onClick={onCancel} disabled={isSubmitting}>
           취소

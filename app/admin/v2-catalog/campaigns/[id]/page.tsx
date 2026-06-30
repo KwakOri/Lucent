@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   ChevronDown,
   ChevronUp,
@@ -42,14 +41,11 @@ import {
   useApplyV2CampaignProductEditor,
   useActivateV2Campaign,
   useCloseV2Campaign,
-  useDeleteV2CampaignTarget,
   useSuspendV2Campaign,
   useV2CampaignDetailContext,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
-import { queryKeys } from '@/lib/client/hooks/query-keys';
 import {
   CAMPAIGN_STATUS_LABELS,
-  CAMPAIGN_TARGET_TYPE_LABELS,
   CAMPAIGN_TYPE_LABELS,
   formatChannelScope,
   formatDateRange,
@@ -57,8 +53,6 @@ import {
   getCampaignPeriodIntent,
   getCampaignStatusIntent,
   getErrorMessage,
-  resolveTargetLabel,
-  summarizeTargetGroups,
 } from '@/lib/client/utils/v2-campaign-admin';
 function formatCurrency(amount: number): string {
   return `${amount.toLocaleString('ko-KR')}원`;
@@ -946,7 +940,6 @@ function CampaignProductEditorModal({
 
 export default function V2CatalogCampaignDetailPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { openModal } = useModal();
   const { confirm } = useAdminFeedback();
   const params = useParams<{ id: string }>();
@@ -974,7 +967,6 @@ export default function V2CatalogCampaignDetailPage() {
   const campaignPriceItems =
     detailContext?.campaignPriceItems ?? EMPTY_PRICE_ITEMS;
   const basePriceItems = detailContext?.basePriceItems ?? EMPTY_PRICE_ITEMS;
-  const promotions = detailContext?.promotions || [];
   const projects = detailContext?.projects || [];
   const products = detailContext?.products ?? EMPTY_PRODUCTS;
   const bundleDefinitions = detailContext?.bundleDefinitions || [];
@@ -986,28 +978,12 @@ export default function V2CatalogCampaignDetailPage() {
   const activateCampaign = useActivateV2Campaign();
   const suspendCampaign = useSuspendV2Campaign();
   const closeCampaign = useCloseV2Campaign();
-  const deleteTarget = useDeleteV2CampaignTarget();
 
   const isAlwaysOnCampaign = campaign?.campaign_type === 'ALWAYS_ON';
-
-  const campaignScopedPriceLists = useMemo(
-    () => (priceLists || []).filter((list) => list.scope_type === 'OVERRIDE'),
-    [priceLists],
-  );
-  const linkedTargetSummary = useMemo(() => summarizeTargetGroups(targets), [targets]);
   const period = useMemo(
     () => (campaign ? getCampaignPeriod(campaign.starts_at, campaign.ends_at) : 'NO_PERIOD'),
     [campaign],
   );
-
-  const groupedTargets = useMemo(() => {
-    const map = new Map<string, typeof targets>();
-    targets.forEach((target) => {
-      const key = target.is_excluded ? `exclude-${target.target_type}` : `include-${target.target_type}`;
-      map.set(key, [...(map.get(key) || []), target]);
-    });
-    return Array.from(map.entries());
-  }, [targets]);
 
   const campaignListPath = useMemo(() => {
     if (!campaign) {
@@ -1212,17 +1188,6 @@ export default function V2CatalogCampaignDetailPage() {
     }
   };
 
-  const refreshCampaignPricingQueries = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.v2CatalogAdmin.campaigns.all,
-      }),
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.v2CatalogAdmin.pricing.all,
-      }),
-    ]);
-  };
-
   const handleOpenProductEditor = async () => {
     if (!campaign) {
       return;
@@ -1258,26 +1223,6 @@ export default function V2CatalogCampaignDetailPage() {
     }));
   };
 
-  const handleDeleteTarget = async (targetId: string) => {
-    const confirmed = await confirm({
-      title: '캠페인 대상 제거',
-      message: '이 대상을 캠페인에서 제거하시겠습니까?',
-      description: '대상 연결과 관련 가격 적용 범위가 변경될 수 있습니다.',
-      confirmText: '제거',
-      tone: 'danger',
-    });
-    if (!confirmed) {
-      return;
-    }
-    await handleRunAction(async () => {
-      await deleteTarget.mutateAsync({
-        targetId,
-        skipInvalidate: true,
-      });
-      await refreshCampaignPricingQueries();
-    });
-  };
-
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -1293,8 +1238,7 @@ export default function V2CatalogCampaignDetailPage() {
     !projects ||
     !products ||
     !bundleDefinitions ||
-    !priceLists ||
-    !promotions
+    !priceLists
   ) {
     return (
       <div className="space-y-4">
@@ -1344,11 +1288,6 @@ export default function V2CatalogCampaignDetailPage() {
             <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/edit`)}>
               캠페인 수정
             </Button>
-            {!isAlwaysOnCampaign && (
-              <Button className={adminPrimaryButtonClass} onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/targets/new`)}>
-                대상 추가
-              </Button>
-            )}
           </>
         }
       />
@@ -1417,7 +1356,7 @@ export default function V2CatalogCampaignDetailPage() {
       )}
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <AdminStatCard label="후보 상품" value={candidateProducts.length} caption={linkedTargetSummary} />
+        <AdminStatCard label="후보 상품" value={candidateProducts.length} />
         <AdminStatCard label="포함 상품" value={includedProductRows.length} caption="현재 캠페인에 표시" />
         <AdminStatCard label="캠페인 포함 옵션" value={includedVariantCount} caption={`기본가 사용 ${baseUsingVariantCount}개`} />
         <AdminStatCard label="할인/특가 적용" value={overrideVariantCount} caption="캠페인 가격 변경 옵션" />
@@ -1552,106 +1491,6 @@ export default function V2CatalogCampaignDetailPage() {
         {detailContextFetching && (
           <p className="mt-3 text-xs text-gray-500">옵션 정보를 최신 상태로 갱신하는 중입니다.</p>
         )}
-      </section>
-
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">캠페인 개요</h2>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <div>
-            <p className="text-sm font-medium text-gray-900">설명</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600">
-              {campaign.description || '등록된 설명이 없습니다.'}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">코드 및 최근 수정</p>
-            <p className="mt-2 text-sm text-gray-600">코드: {campaign.code}</p>
-            <p className="mt-1 text-sm text-gray-600">최근 수정: {new Date(campaign.updated_at).toLocaleString('ko-KR')}</p>
-            <p className="mt-1 text-sm text-gray-600">가격표: {campaignScopedPriceLists.length}개</p>
-            <p className="mt-1 text-sm text-gray-600">프로모션: {promotions.length}개</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">적용 대상</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              {isAlwaysOnCampaign
-                ? '기본 캠페인은 프로젝트 전체를 기본 대상으로 보며, 필요 시 예외 대상을 제외해 운영합니다.'
-                : '포함 대상과 제외 대상을 나눠서 보여줍니다.'}
-            </p>
-          </div>
-          <Button
-            size="sm"
-            onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/targets/new`)}
-          >
-            {isAlwaysOnCampaign ? '예외 대상 관리' : '대상 추가'}
-          </Button>
-        </div>
-
-        <div className="mt-4 space-y-4">
-          {groupedTargets.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center text-sm text-gray-500">
-              아직 등록된 대상이 없습니다.
-            </div>
-          ) : (
-            groupedTargets.map(([groupKey, groupTargets]) => {
-              if (!groupTargets) {
-                return null;
-              }
-              const isExcluded = groupKey.startsWith('exclude-');
-              const targetType = groupTargets[0]?.target_type;
-              if (!targetType) {
-                return null;
-              }
-              return (
-                <div key={groupKey} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge intent={isExcluded ? 'warning' : 'success'}>
-                      {isExcluded ? '제외 대상' : '포함 대상'}
-                    </Badge>
-                    <Badge intent="default">{CAMPAIGN_TARGET_TYPE_LABELS[targetType]}</Badge>
-                    <span className="text-sm text-gray-500">{groupTargets.length}개</span>
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    {groupTargets.map((target) => (
-                      <div
-                        key={target.id}
-                        className="flex flex-col gap-3 rounded-xl border border-white bg-white px-4 py-3 shadow-sm lg:flex-row lg:items-center lg:justify-between"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {resolveTargetLabel({ target, projects, products, bundleDefinitions })}
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500">{target.target_id}</p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            intent="neutral"
-                            size="sm"
-                            onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/targets/${target.id}/edit`)}
-                          >
-                            수정
-                          </Button>
-                          <Button
-                            intent="danger"
-                            size="sm"
-                            onClick={() => handleDeleteTarget(target.id)}
-                            loading={deleteTarget.isPending}
-                          >
-                            제거
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
       </section>
 
       {!hasPricingData && (
