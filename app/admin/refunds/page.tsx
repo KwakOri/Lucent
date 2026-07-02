@@ -7,6 +7,13 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  AdminStatCard,
+  adminButtonClass,
+  adminInputClass,
+  adminLegacyBridgeClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type { V2AdminOrderQueueRow } from '@/lib/client/api/v2-admin-ops.api';
 import {
   useV2AdminCutoverPolicyCheck,
@@ -228,31 +235,18 @@ export default function AdminRefundsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-gray-900">환불 관리</h1>
-        <p className="text-sm text-gray-500">
-          환불/부분환불은 이 페이지에서만 실행합니다. 실행 전 cutover-policy 기반 승인 필요 여부를
-          확인합니다.
-        </p>
-      </header>
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="refunds"
+        title="환불 관리"
+        description="환불/부분환불은 이 페이지에서만 실행합니다. 실행 전 cutover-policy 기반 승인 필요 여부를 확인합니다."
+      />
 
-      <section className="rounded-xl border border-gray-200 bg-white p-4">
+      <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <p className="text-xs text-gray-500">환불 가능 주문</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">{refundableRows.length}</p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <p className="text-xs text-gray-500">현재 선택</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {selectedOrder ? '1' : '0'}
-            </p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <p className="text-xs text-gray-500">승인 정책</p>
-            <p className="mt-1 text-sm font-semibold text-gray-900">필요 시 승인 대기 등록</p>
-          </div>
+          <AdminStatCard label="환불 가능 주문" value={refundableRows.length} />
+          <AdminStatCard label="현재 선택" value={selectedOrder ? '1' : '0'} />
+          <AdminStatCard label="승인 정책" value={<span className="text-base">필요 시 승인 대기 등록</span>} />
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-[220px_1fr_auto_auto]">
@@ -260,14 +254,17 @@ export default function AdminRefundsPage() {
             value={refundAmount}
             onChange={(event) => setRefundAmount(event.target.value)}
             placeholder="환불 금액(전체 환불은 비워두기)"
+            className={adminInputClass}
           />
           <Input
             value={refundReason}
             onChange={(event) => setRefundReason(event.target.value)}
             placeholder="환불 사유"
+            className={adminInputClass}
           />
           <Button
             intent="danger"
+            className="!rounded-[12px] !bg-[#ca2a30] !font-bold !text-white hover:!bg-[#b0242a]"
             loading={refundOrder.isPending || checkCutoverPolicy.isPending}
             disabled={!canRunRefund}
             onClick={() => void handleRefundOrder()}
@@ -276,6 +273,7 @@ export default function AdminRefundsPage() {
           </Button>
           <Button
             intent="secondary"
+            className={adminButtonClass}
             disabled={refundOrder.isPending}
             onClick={() => setSelectedOrderId(null)}
           >
@@ -283,7 +281,7 @@ export default function AdminRefundsPage() {
           </Button>
         </div>
 
-        <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+        <div className="mt-3 rounded-[14px] border border-[#eee7d6] bg-[#faf9f3] p-3 text-xs font-medium text-[#1a1a2e]/60">
           {selectedOrder ? (
             <p>
               대상 주문: <span className="font-semibold">{selectedOrder.order_no}</span> · 결제 상태{' '}
@@ -307,6 +305,7 @@ export default function AdminRefundsPage() {
             setCurrentPage(1);
           }}
           placeholder="주문번호 / 주문 ID / 입금자명 검색"
+          className={adminInputClass}
         />
       </section>
 
@@ -358,6 +357,11 @@ export default function AdminRefundsPage() {
                             <Button
                               intent={isSelected ? 'secondary' : 'danger'}
                               size="sm"
+                              className={
+                                isSelected
+                                  ? adminButtonClass
+                                  : '!rounded-[12px] !bg-[#ca2a30] !font-bold !text-white hover:!bg-[#b0242a]'
+                              }
                               disabled={refundOrder.isPending}
                               onClick={() => {
                                 setSelectedOrderId(row.order_id);
@@ -367,7 +371,7 @@ export default function AdminRefundsPage() {
                               {isSelected ? '선택됨' : '환불 대상 선택'}
                             </Button>
                             <Link href={`/admin/orders/${row.order_id}`}>
-                              <Button intent="secondary" size="sm">
+                              <Button intent="secondary" size="sm" className={adminButtonClass}>
                                 상세 보기
                               </Button>
                             </Link>
@@ -388,6 +392,7 @@ export default function AdminRefundsPage() {
                 <Button
                   intent="secondary"
                   size="sm"
+                  className={adminButtonClass}
                   disabled={currentPageClamped <= 1}
                   onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 >
@@ -396,6 +401,7 @@ export default function AdminRefundsPage() {
                 <Button
                   intent="secondary"
                   size="sm"
+                  className={adminButtonClass}
                   disabled={currentPageClamped >= totalPages}
                   onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                 >

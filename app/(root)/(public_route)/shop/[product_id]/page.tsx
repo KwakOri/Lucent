@@ -11,6 +11,7 @@ import { Loading } from "@/components/ui/loading";
 import {
   useSession,
   useV2AddCartItem,
+  useV2DigitalOwnership,
   useV2ShopCampaigns,
   useV2ShopProduct,
 } from "@/lib/client/hooks";
@@ -18,6 +19,7 @@ import type {
   V2ShopDisplayPrice,
   V2ShopProductDetail,
 } from "@/lib/client/api/v2-shop.api";
+import type { V2DigitalOwnershipRecord } from "@/lib/client/api/v2-checkout.api";
 import { ApiError } from "@/lib/client/utils/api-error";
 import { useToast } from "@/src/components/toast";
 
@@ -54,6 +56,10 @@ function buildDisplayPriceSnapshot(displayPrice: V2ShopDisplayPrice | null) {
     compare_at_amount: displayPrice.compare_at_amount,
     currency_code: displayPrice.currency_code,
     source: displayPrice.source,
+    campaign_id: displayPrice.campaign_id ?? null,
+    selling_campaign_id: displayPrice.selling_campaign_id ?? null,
+    price_list_id: displayPrice.price_list_id ?? null,
+    price_list_item_id: displayPrice.price_list_item_id ?? null,
   };
 }
 
@@ -65,6 +71,21 @@ function getErrorMessage(error: unknown): string {
     return error.message;
   }
   return "요청 처리 중 오류가 발생했습니다.";
+}
+
+type DigitalPurchaseState = "pending" | "owned";
+
+function getDigitalPurchaseState(
+  record: V2DigitalOwnershipRecord | null | undefined,
+): DigitalPurchaseState | null {
+  if (!record) {
+    return null;
+  }
+  return record.ownership_status === "OWNED" ? "owned" : "pending";
+}
+
+function getDigitalPurchaseLabel(state: DigitalPurchaseState): string {
+  return state === "owned" ? "구매 완료" : "구매 신청 완료";
 }
 
 export default function ProductDetailPage() {
@@ -110,6 +131,21 @@ export default function ProductDetailPage() {
     }
     return data.variants.find((variant) => variant.is_primary) || data.variants[0] || null;
   }, [data, selectedVariantId]);
+  const digitalVariantIds = useMemo(
+    () =>
+      (data?.variants ?? [])
+        .filter((variant) => variant.fulfillment_type === "DIGITAL")
+        .map((variant) => variant.id),
+    [data?.variants],
+  );
+  const digitalOwnershipQuery = useV2DigitalOwnership(
+    { variant_ids: digitalVariantIds },
+    { enabled: digitalVariantIds.length > 0 },
+  );
+  const guardedDigitalVariantIds = useMemo(
+    () => new Set(digitalOwnershipQuery.data?.owned_variant_ids ?? []),
+    [digitalOwnershipQuery.data?.owned_variant_ids],
+  );
 
   if (isLoading) {
     return (
@@ -169,8 +205,21 @@ export default function ProductDetailPage() {
     selectedVariant?.purchase_constraints.max_quantity ||
     data.purchase_constraints.max_quantity;
   const hasSelectedVariant = !!selectedVariant;
+  const getVariantPurchaseState = (variantId: string | null | undefined) =>
+    getDigitalPurchaseState(
+      variantId ? digitalOwnershipQuery.data?.by_variant_id[variantId] : null,
+    );
+  const selectedVariantPurchaseState = getVariantPurchaseState(
+    selectedVariant?.id,
+  );
+  const selectedVariantGuarded = Boolean(
+    selectedVariant && guardedDigitalVariantIds.has(selectedVariant.id),
+  );
   const canPurchase =
-    hasSelectedVariant && selectedVariant.availability.sellable && !soldOut;
+    hasSelectedVariant &&
+    selectedVariant.availability.sellable &&
+    !soldOut &&
+    !selectedVariantGuarded;
   const shouldShowOptionSelector = data.variants.length > 1;
 
   const requestLogin = () => {
@@ -200,6 +249,16 @@ export default function ProductDetailPage() {
       return;
     }
 
+    if (selectedVariantPurchaseState) {
+      showToast(
+        selectedVariantPurchaseState === "owned"
+          ? "이미 구매한 디지털 상품입니다. 마이페이지에서 다운로드할 수 있어요."
+          : "구매 신청이 완료된 디지털 상품입니다.",
+        { type: "info" },
+      );
+      return;
+    }
+
     if (!isAuthenticated) {
       requestLogin();
       return;
@@ -211,10 +270,15 @@ export default function ProductDetailPage() {
 
     setPendingAction(buyNow ? "BUY_NOW" : "ADD");
     try {
+      const cartCampaignId =
+        selectedCampaignId ||
+        selectedVariant.display_price?.selling_campaign_id ||
+        selectedVariant.display_price?.campaign_id ||
+        null;
       await addCartItem.mutateAsync({
         variant_id: selectedVariant.id,
         quantity: normalizedQuantity,
-        campaign_id: selectedCampaignId || null,
+        campaign_id: cartCampaignId,
         display_price_snapshot: buildDisplayPriceSnapshot(
           selectedVariant.display_price,
         ),
@@ -222,7 +286,7 @@ export default function ProductDetailPage() {
         metadata: {
           source: "shop-detail",
           product_id: data?.product.id || productId,
-          campaign_id: selectedCampaignId || null,
+          campaign_id: cartCampaignId,
         },
       });
 
@@ -239,6 +303,15 @@ export default function ProductDetailPage() {
     } catch (submitError) {
       if (submitError instanceof ApiError && submitError.isAuthError()) {
         requestLogin();
+        return;
+      }
+      if (
+        submitError instanceof ApiError &&
+        submitError.errorCode === "DIGITAL_ENTITLEMENT_ALREADY_OWNED"
+      ) {
+        showToast("이미 구매했거나 구매 신청이 완료된 디지털 상품입니다.", {
+          type: "info",
+        });
         return;
       }
       showToast(getErrorMessage(submitError), { type: "error" });
@@ -297,6 +370,17 @@ export default function ProductDetailPage() {
                 {selectedCampaign && (
                   <Badge intent="info">{selectedCampaign.name}</Badge>
                 )}
+                {selectedVariantPurchaseState && (
+                  <Badge
+                    intent={
+                      selectedVariantPurchaseState === "owned"
+                        ? "success"
+                        : "warning"
+                    }
+                  >
+                    {getDigitalPurchaseLabel(selectedVariantPurchaseState)}
+                  </Badge>
+                )}
                 {!data.product.availability.sellable && (
                   <Badge intent="error">
                     {data.product.availability.reason === "OUT_OF_STOCK"
@@ -325,6 +409,7 @@ export default function ProductDetailPage() {
                   {data.variants.map((variant) => {
                     const selected = selectedVariant?.id === variant.id;
                     const stockLabel = variantStockLabel(variant);
+                    const variantPurchaseState = getVariantPurchaseState(variant.id);
 
                     return (
                       <button
@@ -357,6 +442,17 @@ export default function ProductDetailPage() {
                             <p className="text-sm font-semibold text-text-primary">
                               {formatPrice(variant.display_price)}
                             </p>
+                            {variantPurchaseState && (
+                              <p
+                                className={
+                                  variantPurchaseState === "owned"
+                                    ? "text-xs text-emerald-600"
+                                    : "text-xs text-amber-600"
+                                }
+                              >
+                                {getDigitalPurchaseLabel(variantPurchaseState)}
+                              </p>
+                            )}
                             {stockLabel && (
                               <p className="text-xs text-red-600">{stockLabel}</p>
                             )}
@@ -392,65 +488,103 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-neutral-200 bg-white p-5">
-              <p className="mb-3 text-sm font-semibold text-text-primary">수량</p>
-              <div className="flex items-center gap-2">
-                <Button
-                  intent="secondary"
-                  size="sm"
-                  disabled={quantity <= minQuantity}
-                  onClick={() => handleQuantityChange(quantity - 1)}
+            {!selectedVariantPurchaseState && (
+              <div className="rounded-xl border border-neutral-200 bg-white p-5">
+                <p className="mb-3 text-sm font-semibold text-text-primary">수량</p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    intent="secondary"
+                    size="sm"
+                    disabled={quantity <= minQuantity}
+                    onClick={() => handleQuantityChange(quantity - 1)}
+                  >
+                    -
+                  </Button>
+                  <input
+                    type="number"
+                    min={minQuantity}
+                    max={maxQuantity ?? undefined}
+                    value={quantity}
+                    onChange={(event) => {
+                      const next = Number.parseInt(event.target.value, 10);
+                      if (!Number.isFinite(next)) {
+                        return;
+                      }
+                      handleQuantityChange(next);
+                    }}
+                    className="h-10 w-20 rounded-lg border border-neutral-200 px-3 text-center text-sm"
+                  />
+                  <Button
+                    intent="secondary"
+                    size="sm"
+                    disabled={!!maxQuantity && quantity >= maxQuantity}
+                    onClick={() => handleQuantityChange(quantity + 1)}
+                  >
+                    +
+                  </Button>
+                </div>
+                <p className="mt-2 text-xs text-text-secondary">
+                  최소 {minQuantity} / 최대 {maxQuantity ?? "제한 없음"}
+                </p>
+              </div>
+            )}
+
+            {selectedVariantPurchaseState ? (
+              <div
+                className={`rounded-xl border p-5 ${
+                  selectedVariantPurchaseState === "owned"
+                    ? "border-emerald-200 bg-emerald-50"
+                    : "border-amber-200 bg-amber-50"
+                }`}
+              >
+                <p
+                  className={`mb-4 text-sm font-semibold ${
+                    selectedVariantPurchaseState === "owned"
+                      ? "text-emerald-800"
+                      : "text-amber-800"
+                  }`}
                 >
-                  -
+                  {selectedVariantPurchaseState === "owned"
+                    ? "이미 구매한 디지털 상품입니다. 마이페이지에서 바로 다운로드할 수 있어요."
+                    : "구매 신청이 완료된 디지털 상품입니다. 처리 완료 후 마이페이지에서 확인할 수 있어요."}
+                </p>
+                <Link
+                  href={
+                    selectedVariantPurchaseState === "owned"
+                      ? "/mypage/digital-products"
+                      : "/mypage"
+                  }
+                  className="block"
+                >
+                  <Button intent="primary" size="lg" fullWidth>
+                    {selectedVariantPurchaseState === "owned"
+                      ? "내 디지털 상품 보기"
+                      : "내 주문 확인하기"}
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Button
+                  intent="primary"
+                  size="lg"
+                  fullWidth
+                  disabled={!canPurchase || pendingAction !== null}
+                  onClick={() => void handleSubmitCart(false)}
+                >
+                  {pendingAction === "ADD" ? "담는 중..." : "장바구니 담기"}
                 </Button>
-                <input
-                  type="number"
-                  min={minQuantity}
-                  max={maxQuantity ?? undefined}
-                  value={quantity}
-                  onChange={(event) => {
-                    const next = Number.parseInt(event.target.value, 10);
-                    if (!Number.isFinite(next)) {
-                      return;
-                    }
-                    handleQuantityChange(next);
-                  }}
-                  className="h-10 w-20 rounded-lg border border-neutral-200 px-3 text-center text-sm"
-                />
                 <Button
                   intent="secondary"
-                  size="sm"
-                  disabled={!!maxQuantity && quantity >= maxQuantity}
-                  onClick={() => handleQuantityChange(quantity + 1)}
+                  size="lg"
+                  fullWidth
+                  disabled={!canPurchase || pendingAction !== null}
+                  onClick={() => void handleSubmitCart(true)}
                 >
-                  +
+                  {pendingAction === "BUY_NOW" ? "이동 중..." : "바로 구매"}
                 </Button>
               </div>
-              <p className="mt-2 text-xs text-text-secondary">
-                최소 {minQuantity} / 최대 {maxQuantity ?? "제한 없음"}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Button
-                intent="primary"
-                size="lg"
-                fullWidth
-                disabled={!canPurchase || pendingAction !== null}
-                onClick={() => void handleSubmitCart(false)}
-              >
-                {pendingAction === "ADD" ? "담는 중..." : "장바구니 담기"}
-              </Button>
-              <Button
-                intent="secondary"
-                size="lg"
-                fullWidth
-                disabled={!canPurchase || pendingAction !== null}
-                onClick={() => void handleSubmitCart(true)}
-              >
-                {pendingAction === "BUY_NOW" ? "이동 중..." : "바로 구매"}
-              </Button>
-            </div>
+            )}
           </div>
         </div>
 

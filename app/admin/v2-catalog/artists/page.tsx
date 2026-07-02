@@ -6,6 +6,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  AdminSurface,
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+  adminTableBodyClass,
+  adminTableContainerClass,
+  adminTableHeadCellClass,
+  adminTableHeadClass,
+} from '@/src/components/admin/AdminDesignSystem';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import type {
   V2Artist,
   V2ArtistStatus,
@@ -22,8 +35,6 @@ type ArtistFilterStatus = 'ALL' | V2ArtistStatus;
 type ArtistSortKey = 'UPDATED_DESC' | 'NAME_ASC';
 
 const ARTIST_STATUS_VALUES: V2ArtistStatus[] = ['DRAFT', 'ACTIVE', 'ARCHIVED'];
-const SELECT_CLASS =
-  'h-11 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -88,6 +99,7 @@ function isProjectArtist(item: unknown): item is V2ProjectArtist {
 
 export default function V2CatalogArtistsPage() {
   const router = useRouter();
+  const { confirm } = useAdminFeedback();
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -240,7 +252,14 @@ export default function V2CatalogArtistsPage() {
     if (!activeProjectId) {
       return;
     }
-    if (!window.confirm(`"${artistName}" 연결을 해제하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '아티스트 연결 해제',
+      message: `"${artistName}" 연결을 해제하시겠습니까?`,
+      description: '선택한 프로젝트와 아티스트의 연결만 해제됩니다.',
+      confirmText: '해제',
+      tone: 'warning',
+    });
+    if (!confirmed) {
       return;
     }
     await runAction(async () => {
@@ -265,54 +284,56 @@ export default function V2CatalogArtistsPage() {
 
   if (projectsError || artistsError || !projects || !artists) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+      <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
         아티스트 운영 데이터를 불러오지 못했습니다.
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">v2 아티스트 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            아티스트 목록과 프로젝트 연결 상태를 운영합니다.
-          </p>
-        </div>
-        <div className="mt-3 flex items-center gap-2 sm:mt-0">
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="artist catalog"
+        title="v2 아티스트 관리"
+        description="아티스트 목록과 프로젝트 연결 상태를 운영합니다."
+        actions={
+          <>
           <Badge intent="info" size="md">
             총 {artists.length}명
           </Badge>
-          <Button onClick={() => router.push('/admin/v2-catalog/artists/new')}>
+          <Button
+            className={adminPrimaryButtonClass}
+            onClick={() => router.push('/admin/v2-catalog/artists/new')}
+          >
             새 아티스트
           </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {message && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-[14px] border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
           {message}
         </div>
       )}
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       )}
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <AdminSurface padding="md">
         <div className="flex flex-wrap gap-3">
           <Input
             placeholder="이름/slug 검색"
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
-            className="max-w-sm"
+            className={`max-w-sm ${adminInputClass}`}
           />
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as ArtistFilterStatus)}
-            className={SELECT_CLASS}
+            className={adminSelectClass}
           >
             <option value="ALL">전체 상태</option>
             {ARTIST_STATUS_VALUES.map((status) => (
@@ -324,35 +345,35 @@ export default function V2CatalogArtistsPage() {
           <select
             value={sortKey}
             onChange={(event) => setSortKey(event.target.value as ArtistSortKey)}
-            className={SELECT_CLASS}
+            className={adminSelectClass}
           >
             <option value="UPDATED_DESC">최근 수정순</option>
             <option value="NAME_ASC">이름순</option>
           </select>
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className={`mt-4 ${adminTableContainerClass}`}>
+          <table className="min-w-full">
+            <thead className={adminTableHeadClass}>
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className={adminTableHeadCellClass}>
                   아티스트
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className={adminTableHeadCellClass}>
                   상태
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className={adminTableHeadCellClass}>
                   수정일
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className={`${adminTableHeadCellClass} text-right`}>
                   작업
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className={adminTableBodyClass}>
               {filteredArtists.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={4} className="px-4 py-8 text-center text-sm font-medium text-[#1a1a2e]/45">
                     조회 결과가 없습니다.
                   </td>
                 </tr>
@@ -362,24 +383,25 @@ export default function V2CatalogArtistsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       {artist.profile_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- project policy uses native img instead of next/image.
                         <img
                           src={artist.profile_image_url}
                           alt={artist.name}
-                          className="h-10 w-10 rounded-full object-cover ring-1 ring-gray-200"
+                          className="h-10 w-10 rounded-full object-cover ring-1 ring-[#e7e3d3]"
                         />
                       ) : (
-                        <div className="h-10 w-10 rounded-full bg-gray-100 ring-1 ring-gray-200" />
+                        <div className="h-10 w-10 rounded-full bg-[#f5f3e8] ring-1 ring-[#e7e3d3]" />
                       )}
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">{artist.name}</p>
-                        <p className="mt-1 text-xs text-gray-500">{artist.slug}</p>
+                        <p className="text-sm font-black text-[#1a1a2e]">{artist.name}</p>
+                        <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">{artist.slug}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-3">
                     <Badge intent={resolveArtistStatusIntent(artist.status)}>{artist.status}</Badge>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
+                  <td className="px-4 py-3 text-sm font-medium text-[#1a1a2e]/60">
                     {formatDateTime(artist.updated_at)}
                   </td>
                   <td className="px-4 py-3">
@@ -387,6 +409,7 @@ export default function V2CatalogArtistsPage() {
                       <Button
                         intent="neutral"
                         size="sm"
+                        className={adminButtonClass}
                         onClick={() => router.push(`/admin/v2-catalog/artists/${artist.id}/edit`)}
                       >
                         수정
@@ -398,13 +421,13 @@ export default function V2CatalogArtistsPage() {
             </tbody>
           </table>
         </div>
-      </section>
+      </AdminSurface>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <AdminSurface padding="md">
         <div className="sm:flex sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">프로젝트 연결 관리</h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <h2 className="text-lg font-black text-[#1a1a2e]">프로젝트 연결 관리</h2>
+            <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
               프로젝트별 아티스트 라인업(정렬/Primary/상태)을 관리합니다.
             </p>
           </div>
@@ -412,7 +435,7 @@ export default function V2CatalogArtistsPage() {
             <select
               value={activeProjectId || ''}
               onChange={(event) => setSelectedProjectId(event.target.value || null)}
-              className={SELECT_CLASS}
+              className={adminSelectClass}
             >
               {(projects || []).map((project) => (
                 <option key={project.id} value={project.id}>
@@ -424,20 +447,20 @@ export default function V2CatalogArtistsPage() {
         </div>
 
         {!activeProjectId ? (
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+          <div className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-700">
             연결할 프로젝트가 없습니다. 먼저 v2 프로젝트를 생성하세요.
           </div>
         ) : (
           <>
-            <div className="mt-3 text-sm text-gray-600">
-              현재 프로젝트: <span className="font-semibold text-gray-900">{activeProjectName}</span>
+            <div className="mt-3 text-sm font-medium text-[#1a1a2e]/60">
+              현재 프로젝트: <span className="font-black text-[#1a1a2e]">{activeProjectName}</span>
             </div>
 
             <form className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-4" onSubmit={handleSubmitLink}>
               <select
                 value={linkArtistId}
                 onChange={(event) => setLinkArtistId(event.target.value)}
-                className={SELECT_CLASS}
+                className={adminSelectClass}
                 required
                 disabled={!!editingRelationArtistId}
               >
@@ -452,16 +475,18 @@ export default function V2CatalogArtistsPage() {
                 placeholder="role (예: ARTIST, PRODUCER)"
                 value={linkRole}
                 onChange={(event) => setLinkRole(event.target.value)}
+                className={adminInputClass}
               />
               <Input
                 placeholder="sort_order"
                 value={linkSortOrder}
                 onChange={(event) => setLinkSortOrder(event.target.value)}
+                className={adminInputClass}
               />
               <select
                 value={linkStatus}
                 onChange={(event) => setLinkStatus(event.target.value as V2ArtistStatus)}
-                className={SELECT_CLASS}
+                className={adminSelectClass}
               >
                 {ARTIST_STATUS_VALUES.map((status) => (
                   <option key={status} value={status}>
@@ -469,7 +494,7 @@ export default function V2CatalogArtistsPage() {
                   </option>
                 ))}
               </select>
-              <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm text-gray-700">
+              <label className="flex items-center gap-2 rounded-[12px] border border-[#e7e3d3] bg-[#fdfcf4] px-3 text-sm font-medium text-[#1a1a2e]/65">
                 <input
                   type="checkbox"
                   checked={linkPrimary}
@@ -478,39 +503,39 @@ export default function V2CatalogArtistsPage() {
                 Primary 지정
               </label>
               <div className="lg:col-span-3 flex gap-2">
-                <Button type="submit" loading={linkArtist.isPending}>
+                <Button type="submit" className={adminPrimaryButtonClass} loading={linkArtist.isPending}>
                   {editingRelationArtistId ? '연결 정보 저장' : '아티스트 연결'}
                 </Button>
                 {editingRelationArtistId && (
-                  <Button type="button" intent="neutral" onClick={resetLinkForm}>
+                  <Button type="button" intent="neutral" className={adminButtonClass} onClick={resetLinkForm}>
                     수정 취소
                   </Button>
                 )}
               </div>
             </form>
 
-            <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className={`mt-4 ${adminTableContainerClass}`}>
+              <table className="min-w-full">
+                <thead className={adminTableHeadClass}>
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th className={adminTableHeadCellClass}>
                       아티스트
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th className={adminTableHeadCellClass}>
                       역할/상태
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th className={adminTableHeadCellClass}>
                       정렬/Primary
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <th className={`${adminTableHeadCellClass} text-right`}>
                       작업
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
+                <tbody className={adminTableBodyClass}>
                   {projectArtistsLoading && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                      <td colSpan={4} className="px-4 py-8 text-center text-sm font-medium text-[#1a1a2e]/45">
                         연결 데이터를 불러오는 중입니다.
                       </td>
                     </tr>
@@ -524,7 +549,7 @@ export default function V2CatalogArtistsPage() {
                   )}
                   {!projectArtistsLoading && !projectArtistsError && linkedArtists.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                      <td colSpan={4} className="px-4 py-8 text-center text-sm font-medium text-[#1a1a2e]/45">
                         연결된 아티스트가 없습니다.
                       </td>
                     </tr>
@@ -534,10 +559,10 @@ export default function V2CatalogArtistsPage() {
                     linkedArtists.map((relation) => (
                       <tr key={relation.id}>
                         <td className="px-4 py-3">
-                          <p className="text-sm font-semibold text-gray-900">
+                          <p className="text-sm font-black text-[#1a1a2e]">
                             {relation.artist?.name || relation.artist_id}
                           </p>
-                          <p className="mt-1 text-xs text-gray-500">
+                          <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">
                             {relation.artist?.slug || relation.artist_id}
                           </p>
                         </td>
@@ -549,7 +574,7 @@ export default function V2CatalogArtistsPage() {
                             </Badge>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm font-medium text-[#1a1a2e]/60">
                           <p>sort: {relation.sort_order}</p>
                           <p className="mt-1">primary: {relation.is_primary ? '예' : '아니오'}</p>
                         </td>
@@ -558,6 +583,7 @@ export default function V2CatalogArtistsPage() {
                             <Button
                               intent="neutral"
                               size="sm"
+                              className={adminButtonClass}
                               onClick={() => handleStartEditRelation(relation)}
                             >
                               수정
@@ -565,6 +591,7 @@ export default function V2CatalogArtistsPage() {
                             <Button
                               intent="danger"
                               size="sm"
+                              className="!rounded-[10px] !bg-[#ca2a30] !font-bold !text-white hover:!bg-[#b0242a]"
                               onClick={() =>
                                 handleUnlink(
                                   relation.artist_id,
@@ -584,7 +611,7 @@ export default function V2CatalogArtistsPage() {
             </div>
           </>
         )}
-      </section>
+      </AdminSurface>
     </div>
   );
 }

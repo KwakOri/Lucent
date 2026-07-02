@@ -8,6 +8,15 @@ import { Button } from "@/components/ui/button";
 import { FileInput } from "@/components/ui/file-input";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import {
+  adminActionRowClass,
+  adminButtonClass,
+  adminInputClass,
+  adminLegacyBridgeClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+  adminStickyActionBarClass,
+} from "@/src/components/admin/AdminDesignSystem";
 import type {
   V2ContentAdminPost,
   UpsertV2ContentAdminPostData,
@@ -257,14 +266,14 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
   const normalizedPreviewCtaUrl = ctaUrl.trim();
 
   return (
-    <form className="space-y-6" onSubmit={handleSubmit}>
+    <form className={`${adminLegacyBridgeClass} space-y-6`} onSubmit={handleSubmit}>
       {errorMessage ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       ) : null}
       {noticeMessage ? (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-[14px] border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
           {noticeMessage}
         </div>
       ) : null}
@@ -294,6 +303,7 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
               onChange={(event) => setTitle(event.target.value)}
               placeholder="예: 루센트 새 프로젝트 안내"
               required
+              className={adminInputClass}
             />
           </div>
 
@@ -309,6 +319,7 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
               }}
               placeholder="lucent-new-project"
               required
+              className={adminInputClass}
             />
           </div>
 
@@ -323,6 +334,7 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
                 label: CONTENT_POST_TYPE_LABELS[type],
                 value: type,
               }))}
+              className={adminSelectClass}
             />
           </div>
 
@@ -335,6 +347,7 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
               min={0}
               value={sortOrder}
               onChange={(event) => setSortOrder(event.target.value)}
+              className={adminInputClass}
             />
           </div>
 
@@ -347,6 +360,7 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
               value={summary}
               onChange={(event) => setSummary(event.target.value)}
               placeholder="목록 카드에 표시될 짧은 설명"
+              className={adminInputClass}
             />
           </div>
         </div>
@@ -389,11 +403,12 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
                   value={coverAltText}
                   onChange={(event) => setCoverAltText(event.target.value)}
                   placeholder="이미지를 설명하는 문장"
+                  className={adminInputClass}
                 />
                 <Button
                   intent="neutral"
                   size="sm"
-                  className="mt-3"
+                  className={`mt-3 ${adminButtonClass}`}
                   onClick={() => {
                     setCoverMediaAssetId("");
                     setCoverPreviewUrl("");
@@ -507,6 +522,7 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
               value={ctaLabel}
               onChange={(event) => setCtaLabel(event.target.value)}
               placeholder="자세히 보기"
+              className={adminInputClass}
             />
           </div>
 
@@ -518,6 +534,7 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
               value={ctaUrl}
               onChange={(event) => setCtaUrl(event.target.value)}
               placeholder="/shop 또는 https://..."
+              className={adminInputClass}
             />
           </div>
 
@@ -529,6 +546,7 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
               type="datetime-local"
               value={startsAtInput}
               onChange={(event) => setStartsAtInput(event.target.value)}
+              className={adminInputClass}
             />
           </div>
 
@@ -540,20 +558,22 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
               type="datetime-local"
               value={endsAtInput}
               onChange={(event) => setEndsAtInput(event.target.value)}
+              className={adminInputClass}
             />
           </div>
         </div>
       </section>
 
-      <div className="sticky bottom-0 z-10 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className={adminStickyActionBarClass}>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="text-sm text-gray-500">
             본문 {bodyText.length.toLocaleString()}자
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className={adminActionRowClass}>
             {mode === "edit" && post?.status === "PUBLISHED" ? (
               <Button
                 intent="neutral"
+                className={adminButtonClass}
                 onClick={() => router.push(publicPath)}
               >
                 <Eye className="h-4 w-4" />
@@ -562,6 +582,7 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
             ) : null}
             <Button
               intent="secondary"
+              className={adminButtonClass}
               onClick={() => router.push("/admin/content/posts")}
             >
               목록
@@ -569,6 +590,7 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
             {mode === "edit" && post?.status !== "ARCHIVED" ? (
               <Button
                 intent="neutral"
+                className={adminButtonClass}
                 onClick={handleArchive}
                 loading={archivePost.isPending}
               >
@@ -576,12 +598,13 @@ export function ContentPostForm({ mode, post }: ContentPostFormProps) {
                 보관
               </Button>
             ) : null}
-            <Button type="submit" loading={createPost.isPending || updatePost.isPending}>
+            <Button type="submit" className={adminPrimaryButtonClass} loading={createPost.isPending || updatePost.isPending}>
               저장
             </Button>
             {mode === "edit" && post?.status !== "PUBLISHED" ? (
               <Button
                 intent="primary"
+                className={adminPrimaryButtonClass}
                 onClick={handlePublish}
                 loading={publishPost.isPending}
               >

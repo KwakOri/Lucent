@@ -7,6 +7,17 @@ import { Input, Textarea } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import { Select } from '@/components/ui/select';
 import {
+  AdminPageHeader,
+  adminInputClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+  adminTableBodyClass,
+  adminTableContainerClass,
+  adminTableHeadCellClass,
+  adminTableHeadClass,
+} from '@/src/components/admin/AdminDesignSystem';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
+import {
   useArchiveV2BundleDefinition,
   useV2AdminProducts,
   useV2AdminVariants,
@@ -113,6 +124,7 @@ function resolveStatusBadgeIntent(status: V2BundleStatus): 'warning' | 'success'
 }
 
 export default function V2CatalogBundlesPage() {
+  const { confirm } = useAdminFeedback();
   const [selectedDefinitionId, setSelectedDefinitionId] = useState<string | null>(null);
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -395,7 +407,14 @@ export default function V2CatalogBundlesPage() {
   };
 
   const handleDeleteComponent = async (componentId: string) => {
-    if (!window.confirm('이 component를 삭제하시겠습니까?')) {
+    const confirmed = await confirm({
+      title: '번들 구성 삭제',
+      message: '이 component를 삭제하시겠습니까?',
+      description: '해당 번들 구성과 연결된 option도 함께 영향을 받을 수 있습니다.',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -457,7 +476,13 @@ export default function V2CatalogBundlesPage() {
   };
 
   const handleDeleteOption = async (optionId: string) => {
-    if (!window.confirm('이 option을 삭제하시겠습니까?')) {
+    const confirmed = await confirm({
+      title: '번들 옵션 삭제',
+      message: '이 option을 삭제하시겠습니까?',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -572,59 +597,59 @@ export default function V2CatalogBundlesPage() {
 
   if (definitionsError) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
         bundle definition 목록 조회에 실패했습니다.
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">번들 버전 관리 (DRAFT 중심)</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          상품 관리 탭에서 기본 구성을 확정한 뒤, 이 화면에서는 버전별 미세 조정과 검증을 진행합니다.
-        </p>
-      </div>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="bundle operations"
+        title="번들 버전 관리"
+        description="프로젝트의 상품 관리 화면에서 기본 구성을 확정한 뒤, 이 화면에서는 버전별 미세 조정과 검증을 진행합니다."
+      />
 
       {message && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        <div className="rounded-[14px] border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700">
           {message}
         </div>
       )}
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       )}
 
-      <section className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-        <h2 className="text-base font-semibold text-blue-900">운영 가이드</h2>
-        <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-blue-900/90">
+      <section className="rounded-[20px] border border-[#cde0f3] bg-[#eaf3fc] p-4">
+        <h2 className="text-base font-black text-[#1a1a2e]">운영 가이드</h2>
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm font-medium text-[#1a1a2e]/70">
           <li>대표 번들 상품을 선택해 새 DRAFT 버전을 만듭니다.</li>
           <li>구성품/수량/옵션을 조정하고 Validate로 유효성을 확인합니다.</li>
           <li>문제가 없으면 Publish로 ACTIVE 전환하고, 이전 ACTIVE는 자동으로 DRAFT로 내려갑니다.</li>
         </ol>
-        <p className="mt-3 text-xs text-blue-900/80">
+        <p className="mt-3 text-xs font-bold text-[#1a1a2e]/55">
           현재 DRAFT 버전 수: {draftDefinitionCount}개
         </p>
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <form
-          className="rounded-lg border border-gray-200 bg-white p-4 space-y-3"
+          className="space-y-3 rounded-[20px] border border-[#e7e3d3] bg-white p-4"
           onSubmit={handleCreateDefinition}
         >
-          <h2 className="text-base font-semibold text-gray-900">1) 새 DRAFT 버전 생성</h2>
+          <h2 className="text-base font-black text-[#1a1a2e]">1) 새 DRAFT 버전 생성</h2>
           <Select
             value={resolvedNewBundleProductId}
             onChange={(event) => setNewBundleProductId(event.target.value)}
             options={bundleProductOptions}
             placeholder={productsLoading ? '번들 상품 불러오는 중' : '번들 대표 상품을 선택하세요'}
+            className={adminSelectClass}
           />
           {!productsLoading && bundleProductOptions.length === 0 && (
             <p className="text-xs text-amber-700">
-              선택 가능한 BUNDLE 상품이 없습니다. 먼저 상품 관리에서 BUNDLE 상품을 생성해 주세요.
+              선택 가능한 BUNDLE 상품이 없습니다. 먼저 프로젝트의 상품 관리 화면에서 BUNDLE 상품을 생성해 주세요.
             </p>
           )}
           <div className="grid grid-cols-2 gap-2">
@@ -635,6 +660,7 @@ export default function V2CatalogBundlesPage() {
                 { value: 'FIXED', label: 'FIXED' },
                 { value: 'CUSTOMIZABLE', label: 'CUSTOMIZABLE' },
               ]}
+              className={adminSelectClass}
             />
             <Select
               value={newPricingStrategy}
@@ -645,11 +671,13 @@ export default function V2CatalogBundlesPage() {
                 { value: 'WEIGHTED', label: 'WEIGHTED' },
                 { value: 'FIXED_AMOUNT', label: 'FIXED_AMOUNT' },
               ]}
+              className={adminSelectClass}
             />
           </div>
           <Button
             type="submit"
             size="sm"
+            className={adminPrimaryButtonClass}
             loading={createDefinition.isPending}
             disabled={!resolvedNewBundleProductId}
           >
@@ -657,15 +685,15 @@ export default function V2CatalogBundlesPage() {
           </Button>
         </form>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3 xl:col-span-2">
-          <h2 className="text-base font-semibold text-gray-900">2) 선택 버전 액션</h2>
-          <p className="text-sm text-gray-500">현재 선택: {selectedDefinitionLabel}</p>
+        <div className="space-y-3 rounded-[20px] border border-[#e7e3d3] bg-white p-4 xl:col-span-2">
+          <h2 className="text-base font-black text-[#1a1a2e]">2) 선택 버전 액션</h2>
+          <p className="text-sm font-medium text-[#1a1a2e]/55">현재 선택: {selectedDefinitionLabel}</p>
           {selectedDefinition && (
             <div className="flex flex-wrap items-center gap-2">
               <Badge intent={resolveStatusBadgeIntent(selectedDefinition.status)} size="md">
                 {selectedDefinition.status}
               </Badge>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs font-medium text-[#1a1a2e]/45">
                 mode={selectedDefinition.mode} / pricing={selectedDefinition.pricing_strategy}
               </span>
             </div>
@@ -674,6 +702,7 @@ export default function V2CatalogBundlesPage() {
             <Button
               size="sm"
               intent="primary"
+              className="!rounded-[10px] !bg-[#1a1a2e] !font-bold !text-white hover:!bg-[#272743]"
               onClick={handlePublishDefinition}
               loading={publishDefinition.isPending}
               disabled={!activeDefinitionId}
@@ -683,6 +712,7 @@ export default function V2CatalogBundlesPage() {
             <Button
               size="sm"
               intent="secondary"
+              className="!rounded-[10px] !border-0 !bg-[#f5f3e8] !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]"
               onClick={handleCloneDefinition}
               loading={cloneDefinition.isPending}
               disabled={!activeDefinitionId}
@@ -692,6 +722,7 @@ export default function V2CatalogBundlesPage() {
             <Button
               size="sm"
               intent="danger"
+              className="!rounded-[10px] !bg-[#ca2a30] !font-bold !text-white hover:!bg-[#b0242a]"
               onClick={handleArchiveDefinition}
               loading={archiveDefinition.isPending}
               disabled={!activeDefinitionId}
@@ -703,9 +734,9 @@ export default function V2CatalogBundlesPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <div className="rounded-lg border border-gray-200 bg-white p-4 xl:col-span-4">
-          <h2 className="text-base font-semibold text-gray-900">3) 버전 목록</h2>
-          <p className="mt-1 text-xs text-gray-500">
+        <div className="rounded-[20px] border border-[#e7e3d3] bg-white p-4 xl:col-span-4">
+          <h2 className="text-base font-black text-[#1a1a2e]">3) 버전 목록</h2>
+          <p className="mt-1 text-xs font-medium text-[#1a1a2e]/55">
             기본 선택은 DRAFT 우선입니다. 필요하면 ACTIVE/ARCHIVED 버전을 직접 선택해 수정 이력을 확인하세요.
           </p>
           <div className="mt-3 space-y-2 max-h-[420px] overflow-y-auto">
@@ -719,36 +750,36 @@ export default function V2CatalogBundlesPage() {
                   key={definition.id}
                   type="button"
                   onClick={() => setSelectedDefinitionId(definition.id)}
-                  className={`w-full rounded-md border px-3 py-2 text-left transition ${
+                  className={`w-full rounded-[14px] border px-3 py-2 text-left transition ${
                     isSelected
-                      ? 'border-blue-300 bg-blue-50'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
+                      ? 'border-[#1a1a2e] bg-[#1a1a2e] text-white'
+                      : 'border-[#e7e3d3] bg-white text-[#1a1a2e] hover:border-[#d8d1bd]'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-gray-900">v{definition.version_no}</p>
+                    <p className={`text-sm font-black ${isSelected ? 'text-white' : 'text-[#1a1a2e]'}`}>v{definition.version_no}</p>
                     <Badge intent={resolveStatusBadgeIntent(definition.status)}>
                       {definition.status}
                     </Badge>
                   </div>
-                  <p className="mt-1 text-xs text-gray-600">{bundleProductLabel}</p>
-                  <p className="mt-1 text-[11px] text-gray-400">{definition.bundle_product_id}</p>
-                  <p className="mt-1 text-xs text-gray-400">
+                  <p className={`mt-1 text-xs font-medium ${isSelected ? 'text-white/70' : 'text-[#1a1a2e]/60'}`}>{bundleProductLabel}</p>
+                  <p className={`mt-1 text-[11px] ${isSelected ? 'text-white/55' : 'text-[#1a1a2e]/35'}`}>{definition.bundle_product_id}</p>
+                  <p className={`mt-1 text-xs ${isSelected ? 'text-white/55' : 'text-[#1a1a2e]/35'}`}>
                     {definition.mode} / {definition.pricing_strategy}
                   </p>
                 </button>
               );
             })}
             {(definitions || []).length === 0 && (
-              <p className="text-sm text-gray-500">등록된 bundle definition이 없습니다.</p>
+              <p className="text-sm font-medium text-[#1a1a2e]/55">등록된 bundle definition이 없습니다.</p>
             )}
           </div>
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4 xl:col-span-8 space-y-4">
-          <h2 className="text-base font-semibold text-gray-900">4) 구성품 편집</h2>
-          <p className="text-xs text-gray-500">
-            상품 관리 탭에서 생성된 기본 구성을 여기서 버전별로 세밀하게 조정합니다.
+        <div className="space-y-4 rounded-[20px] border border-[#e7e3d3] bg-white p-4 xl:col-span-8">
+          <h2 className="text-base font-black text-[#1a1a2e]">4) 구성품 편집</h2>
+          <p className="text-xs font-medium text-[#1a1a2e]/55">
+            프로젝트의 상품 관리 화면에서 생성된 기본 구성을 여기서 버전별로 세밀하게 조정합니다.
           </p>
           {componentsLoading && (
             <div className="py-8 flex justify-center">
@@ -756,45 +787,45 @@ export default function V2CatalogBundlesPage() {
             </div>
           )}
           {!componentsLoading && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className={adminTableContainerClass}>
+              <table className="min-w-full">
+                <thead className={adminTableHeadClass}>
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                    <th className={adminTableHeadCellClass}>
                       Variant
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Qty</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                    <th className={adminTableHeadCellClass}>Qty</th>
+                    <th className={adminTableHeadCellClass}>
                       Fulfillment
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                    <th className={adminTableHeadCellClass}>
                       Weight
                     </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                    <th className={adminTableHeadCellClass}>
                       Action
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
+                <tbody className={adminTableBodyClass}>
                   {(components || []).map((component) => (
                     <tr key={component.id}>
-                      <td className="px-3 py-2 text-sm text-gray-700">
-                        <p className="font-medium">{component.variant?.sku || component.component_variant_id}</p>
-                        <p className="text-xs text-gray-500">{component.variant?.title || '-'}</p>
+                      <td className="px-3 py-2 text-sm font-medium text-[#1a1a2e]/65">
+                        <p className="font-black text-[#1a1a2e]">{component.variant?.sku || component.component_variant_id}</p>
+                        <p className="text-xs text-[#1a1a2e]/45">{component.variant?.title || '-'}</p>
                       </td>
-                      <td className="px-3 py-2 text-sm text-gray-700">
+                      <td className="px-3 py-2 text-sm font-medium text-[#1a1a2e]/65">
                         {component.min_quantity} / {component.default_quantity} / {component.max_quantity}
                         <p className="text-xs text-gray-500">
                           {component.is_required ? 'required' : 'optional'}
                         </p>
                       </td>
-                      <td className="px-3 py-2 text-sm text-gray-700">
+                      <td className="px-3 py-2 text-sm font-medium text-[#1a1a2e]/65">
                         {component.variant?.fulfillment_type || '-'}
                         <p className="text-xs text-gray-500">
                           shipping={String(component.variant?.requires_shipping ?? false)}
                         </p>
                       </td>
-                      <td className="px-3 py-2 text-sm text-gray-700">
+                      <td className="px-3 py-2 text-sm font-medium text-[#1a1a2e]/65">
                         {component.price_allocation_weight}
                       </td>
                       <td className="px-3 py-2">
@@ -802,6 +833,7 @@ export default function V2CatalogBundlesPage() {
                           <Button
                             size="sm"
                             intent="secondary"
+                            className="!rounded-[10px] !border-0 !bg-[#f5f3e8] !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]"
                             onClick={() => setSelectedComponentId(component.id)}
                           >
                             편집
@@ -809,6 +841,7 @@ export default function V2CatalogBundlesPage() {
                         <Button
                           size="sm"
                           intent="danger"
+                          className="!rounded-[10px] !bg-[#ca2a30] !font-bold !text-white hover:!bg-[#b0242a]"
                           onClick={() => handleDeleteComponent(component.id)}
                           loading={
                             deleteComponent.isPending &&
@@ -823,7 +856,7 @@ export default function V2CatalogBundlesPage() {
                   ))}
                   {(components || []).length === 0 && (
                     <tr>
-                      <td className="px-3 py-4 text-sm text-gray-500" colSpan={5}>
+                      <td className="px-3 py-4 text-sm font-medium text-[#1a1a2e]/45" colSpan={5}>
                         component가 없습니다.
                       </td>
                     </tr>
@@ -838,14 +871,14 @@ export default function V2CatalogBundlesPage() {
             onSubmit={handleCreateComponent}
           >
             <Select
-              className="md:col-span-4"
               value={resolvedNewComponentProductId}
               onChange={(event) => setNewComponentProductId(event.target.value)}
               options={componentProductOptions}
               placeholder={productsLoading ? '상품 불러오는 중' : '구성 상품 선택'}
+              className={`md:col-span-4 ${adminSelectClass}`}
             />
             <Select
-              className="md:col-span-8"
+              className={`md:col-span-8 ${adminSelectClass}`}
               value={resolvedNewComponentVariantId}
               onChange={(event) => setNewComponentVariantId(event.target.value)}
               options={componentVariantOptions}
@@ -857,7 +890,7 @@ export default function V2CatalogBundlesPage() {
               disabled={!resolvedNewComponentProductId || selectableVariantsLoading}
             />
             <Input
-              className="md:col-span-2"
+              className={`md:col-span-2 ${adminInputClass}`}
               value={newMinQuantity}
               onChange={(event) => setNewMinQuantity(event.target.value)}
               placeholder="min"
@@ -865,7 +898,7 @@ export default function V2CatalogBundlesPage() {
               min={0}
             />
             <Input
-              className="md:col-span-2"
+              className={`md:col-span-2 ${adminInputClass}`}
               value={newDefaultQuantity}
               onChange={(event) => setNewDefaultQuantity(event.target.value)}
               placeholder="default"
@@ -873,7 +906,7 @@ export default function V2CatalogBundlesPage() {
               min={0}
             />
             <Input
-              className="md:col-span-2"
+              className={`md:col-span-2 ${adminInputClass}`}
               value={newMaxQuantity}
               onChange={(event) => setNewMaxQuantity(event.target.value)}
               placeholder="max"
@@ -881,7 +914,7 @@ export default function V2CatalogBundlesPage() {
               min={1}
             />
             <Input
-              className="md:col-span-2"
+              className={`md:col-span-2 ${adminInputClass}`}
               value={newAllocationWeight}
               onChange={(event) => setNewAllocationWeight(event.target.value)}
               placeholder="weight"
@@ -889,7 +922,7 @@ export default function V2CatalogBundlesPage() {
               step="0.1"
               min={0}
             />
-            <label className="md:col-span-3 flex items-center gap-2 text-sm text-gray-600">
+            <label className="md:col-span-3 flex items-center gap-2 rounded-[12px] border border-[#e7e3d3] bg-[#fdfcf4] px-3 text-sm font-medium text-[#1a1a2e]/65">
               <input
                 type="checkbox"
                 checked={newComponentRequired}
@@ -901,6 +934,7 @@ export default function V2CatalogBundlesPage() {
               <Button
                 size="sm"
                 type="submit"
+                className={adminPrimaryButtonClass}
                 loading={createComponent.isPending}
                 disabled={!activeDefinitionId || !resolvedNewComponentVariantId}
               >

@@ -1,22 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { ArrowDown, ArrowUp, ImageIcon, Star, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FileInput } from '@/components/ui/file-input';
 import { FormField } from '@/components/ui/form-field';
 import { Input, Textarea } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import {
+  adminActionRowClass,
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type {
   V2FulfillmentType,
   V2ProductKind,
   V2ProductStatus,
   V2Project,
+  V2VariantStatus,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
+  DEFAULT_VARIANT_STATUS,
   FULFILLMENT_TYPE_LABELS,
   PRODUCT_KIND_LABELS,
   PRODUCT_STATUS_LABELS,
+  VARIANT_STATUS_LABELS,
   buildProductSlug,
 } from '@/lib/client/utils/v2-product-admin-form';
+import {
+  formatPriceInputValue,
+  normalizePriceInputValue,
+} from '@/lib/client/utils/v2-price-input';
+import type {
+  ProductDefaultCampaignOption,
+} from '@/lib/client/utils/v2-product-campaign-inclusion';
+
+export type ProductCampaignInclusion = 'INCLUDED' | 'EXCLUDED';
 
 export type ProductBasicsFormValues = {
   project_id: string;
@@ -27,6 +49,11 @@ export type ProductBasicsFormValues = {
   short_description: string | null;
   description: string | null;
   status?: V2ProductStatus;
+  default_variant_status?: V2VariantStatus;
+  default_variant_base_price?: string | null;
+  default_campaign_inclusion?: ProductCampaignInclusion;
+  cover_image_file?: File | null;
+  detail_image_files?: File[];
 };
 
 type ProductBasicsFormProps = {
@@ -35,7 +62,17 @@ type ProductBasicsFormProps = {
   initialValues: ProductBasicsFormValues;
   isSubmitting: boolean;
   submitLabel: string;
+  formId?: string;
+  hideActions?: boolean;
   errorMessage?: string | null;
+  showDefaultOptionSettings?: boolean;
+  showCampaignInclusionSettings?: boolean;
+  campaignOptions?: ProductDefaultCampaignOption[];
+  mediaContent?: ReactNode;
+  advancedContent?: ReactNode;
+  advancedAction?: ReactNode;
+  advancedTitle?: string;
+  advancedDescription?: string;
   onCancel: () => void;
   onSubmit: (values: ProductBasicsFormValues) => Promise<void>;
 };
@@ -59,6 +96,76 @@ const PRODUCT_KIND_OPTIONS: Array<{
 
 const EDIT_STATUS_OPTIONS: V2ProductStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE'];
 const FULFILLMENT_TYPE_OPTIONS: V2FulfillmentType[] = ['DIGITAL', 'PHYSICAL'];
+const VARIANT_STATUS_OPTIONS: V2VariantStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE'];
+const formSectionClassName =
+  'rounded-[22px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
+const softPanelClassName =
+  'rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-4 py-4';
+const controlPanelClassName =
+  'min-h-[128px] rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-4 py-4';
+const fileTriggerClassName =
+  '!h-11 !rounded-[11px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]';
+
+type ImageDraft = {
+  id: string;
+  file: File;
+  previewUrl: string;
+};
+
+function getSegmentButtonClass(active: boolean): string {
+  return `h-11 flex-1 rounded-[10px] border-0 px-3 text-sm font-black transition ${
+    active
+      ? 'bg-[#1a1a2e] text-white'
+      : 'bg-transparent text-[#8a8678] hover:bg-[#f5f3e8] hover:text-[#1a1a2e]'
+  }`;
+}
+
+function getTwoOptionButtonClass(active: boolean, disabled = false): string {
+  if (disabled && active) {
+    return 'min-h-[54px] flex-1 cursor-default rounded-[14px] bg-[#1a1a2e] px-4 text-sm font-black text-white transition';
+  }
+  if (disabled) {
+    return 'min-h-[54px] flex-1 cursor-not-allowed rounded-[14px] bg-transparent px-4 text-sm font-black text-[#b3aea2] opacity-55 transition';
+  }
+  return `min-h-[54px] flex-1 rounded-[14px] px-4 text-sm font-black transition ${
+    active
+      ? 'bg-[#1a1a2e] text-white'
+      : 'bg-transparent text-[#8a8678] hover:bg-[#f5f3e8] hover:text-[#1a1a2e]'
+  }`;
+}
+
+function getInclusionButtonClass(active: boolean): string {
+  return `min-h-[54px] flex-1 rounded-[14px] border px-4 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${
+    active
+      ? 'border-[#1a1a2e] bg-[#1a1a2e] text-white'
+      : 'border-[#e7e3d3] bg-white text-[#1a1a2e] hover:border-[#d8d1bd] hover:bg-[#faf9f3]'
+  }`;
+}
+
+function isImageFile(file: File): boolean {
+  if (file.type.toLowerCase().startsWith('image/')) {
+    return true;
+  }
+  return /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(file.name);
+}
+
+function formatFileSize(size: number): string {
+  if (size < 1024 * 1024) {
+    return `${Math.max(1, Math.round(size / 1024)).toLocaleString()}KB`;
+  }
+  return `${(size / 1024 / 1024).toFixed(1)}MB`;
+}
+
+function createImageDraft(file: File): ImageDraft {
+  const fallbackId = `${Date.now()}-${file.name}-${file.size}`;
+  return {
+    id: typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : fallbackId,
+    file,
+    previewUrl: URL.createObjectURL(file),
+  };
+}
 
 export function ProductBasicsForm({
   mode,
@@ -66,7 +173,17 @@ export function ProductBasicsForm({
   initialValues,
   isSubmitting,
   submitLabel,
+  formId,
+  hideActions = false,
   errorMessage,
+  showDefaultOptionSettings = false,
+  showCampaignInclusionSettings = false,
+  campaignOptions = [],
+  mediaContent,
+  advancedContent,
+  advancedAction,
+  advancedTitle = '고급 옵션',
+  advancedDescription = '옵션, 수량 정책, 재고와 전달 방식을 한곳에서 정리합니다.',
   onCancel,
   onSubmit,
 }: ProductBasicsFormProps) {
@@ -84,15 +201,133 @@ export function ProductBasicsForm({
   const [status, setStatus] = useState<V2ProductStatus>(
     initialValues.status || 'DRAFT',
   );
-  const [showAdvanced, setShowAdvanced] = useState(mode === 'edit');
-  const [manualSlug, setManualSlug] = useState(mode === 'edit');
+  const [defaultVariantStatus, setDefaultVariantStatus] = useState<V2VariantStatus>(
+    initialValues.default_variant_status || DEFAULT_VARIANT_STATUS,
+  );
+  const [defaultVariantBasePrice, setDefaultVariantBasePrice] = useState(
+    initialValues.default_variant_base_price || '',
+  );
+  const [campaignInclusionDraft, setCampaignInclusionDraft] = useState<
+    ProductCampaignInclusion | null
+  >(
+    initialValues.default_campaign_inclusion || null,
+  );
+  const [coverImageDraft, setCoverImageDraft] = useState<ImageDraft | null>(null);
+  const [detailImageDrafts, setDetailImageDrafts] = useState<ImageDraft[]>([]);
+  const [mediaErrorMessage, setMediaErrorMessage] = useState<string | null>(null);
+  const previewUrlSetRef = useRef<Set<string>>(new Set());
 
   const autoSlug = buildProductSlug(title);
-  const effectiveSlug = manualSlug ? slug : autoSlug;
+  const effectiveSlug = mode === 'create' ? autoSlug : slug;
+  const selectedCampaignOption = useMemo(
+    () => campaignOptions.find((option) => option.projectId === projectId) || null,
+    [campaignOptions, projectId],
+  );
+  const inferredCampaignInclusion: ProductCampaignInclusion =
+    selectedCampaignOption?.excludedProductTargetId ? 'EXCLUDED' : 'INCLUDED';
+  const campaignInclusion = campaignInclusionDraft || inferredCampaignInclusion;
+  const selectedImageCount = (coverImageDraft ? 1 : 0) + detailImageDrafts.length;
+
+  useEffect(() => {
+    const previewUrls = previewUrlSetRef.current;
+    return () => {
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+      previewUrls.clear();
+    };
+  }, []);
+
+  const registerImageDraft = (file: File): ImageDraft => {
+    const draft = createImageDraft(file);
+    previewUrlSetRef.current.add(draft.previewUrl);
+    return draft;
+  };
+
+  const revokeImageDraft = (draft: ImageDraft) => {
+    URL.revokeObjectURL(draft.previewUrl);
+    previewUrlSetRef.current.delete(draft.previewUrl);
+  };
+
+  const handleGalleryImagesChange = (files: File[]) => {
+    if (files.length === 0) {
+      return;
+    }
+
+    const imageFiles = files.filter((file) => isImageFile(file));
+    if (imageFiles.length === 0) {
+      setMediaErrorMessage('이미지 파일만 선택할 수 있습니다.');
+      return;
+    }
+
+    const invalidCount = files.length - imageFiles.length;
+    setMediaErrorMessage(
+      invalidCount > 0 ? `이미지가 아닌 ${invalidCount}개 파일은 제외했습니다.` : null,
+    );
+    const nextDrafts = imageFiles.map((file) => registerImageDraft(file));
+
+    if (!coverImageDraft) {
+      const [nextCoverDraft, ...nextDetailDrafts] = nextDrafts;
+      setCoverImageDraft(nextCoverDraft);
+      if (nextDetailDrafts.length > 0) {
+        setDetailImageDrafts((current) => [...current, ...nextDetailDrafts]);
+      }
+      return;
+    }
+
+    setDetailImageDrafts((current) => [...current, ...nextDrafts]);
+  };
+
+  const removeCoverImageDraft = () => {
+    if (coverImageDraft) {
+      revokeImageDraft(coverImageDraft);
+    }
+
+    const [nextCoverDraft, ...remainingDetailDrafts] = detailImageDrafts;
+    setCoverImageDraft(nextCoverDraft || null);
+    setDetailImageDrafts(remainingDetailDrafts);
+  };
+
+  const removeDetailImageDraft = (draftId: string) => {
+    setDetailImageDrafts((current) => {
+      const target = current.find((draft) => draft.id === draftId);
+      if (target) {
+        revokeImageDraft(target);
+      }
+      return current.filter((draft) => draft.id !== draftId);
+    });
+  };
+
+  const promoteDetailImageDraft = (draftId: string) => {
+    const targetDraft = detailImageDrafts.find((draft) => draft.id === draftId);
+    if (!targetDraft) {
+      return;
+    }
+
+    const remainingDetailDrafts = detailImageDrafts.filter((draft) => draft.id !== draftId);
+    setCoverImageDraft(targetDraft);
+    setDetailImageDrafts(
+      coverImageDraft
+        ? [coverImageDraft, ...remainingDetailDrafts]
+        : remainingDetailDrafts,
+    );
+  };
+
+  const moveDetailImageDraft = (draftId: string, direction: -1 | 1) => {
+    const currentIndex = detailImageDrafts.findIndex((draft) => draft.id === draftId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= detailImageDrafts.length) {
+      return;
+    }
+
+    const nextDrafts = [...detailImageDrafts];
+    const currentDraft = nextDrafts[currentIndex];
+    nextDrafts[currentIndex] = nextDrafts[nextIndex];
+    nextDrafts[nextIndex] = currentDraft;
+    setDetailImageDrafts(nextDrafts);
+  };
 
   const handleTitleChange = (value: string) => {
     setTitle(value);
-    if (mode === 'create' && !manualSlug) {
+    if (mode === 'create') {
       setSlug(buildProductSlug(value));
     }
   };
@@ -108,281 +343,450 @@ export function ProductBasicsForm({
       slug: effectiveSlug.trim(),
       short_description: shortDescription.trim() || null,
       description: description.trim() || null,
-      status: mode === 'edit' ? status : undefined,
+      status,
+      default_variant_status: showDefaultOptionSettings ? defaultVariantStatus : undefined,
+      default_variant_base_price: showDefaultOptionSettings
+        ? normalizePriceInputValue(defaultVariantBasePrice) || null
+        : undefined,
+      default_campaign_inclusion: showCampaignInclusionSettings
+        ? campaignInclusion
+        : undefined,
+      cover_image_file: coverImageDraft?.file || null,
+      detail_image_files: detailImageDrafts.map((draft) => draft.file),
     });
   };
 
   return (
     <div className="space-y-6">
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       )}
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className={formSectionClassName}>
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold text-gray-900">기본 정보</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-black text-[#1a1a2e]">기본 정보</h2>
+          <p className="text-sm font-medium text-[#1a1a2e]/55">
             꼭 필요한 정보만 먼저 입력하세요. 내부 코드는 자동으로 정리합니다.
           </p>
         </div>
 
-        <form className="mt-6 space-y-6" onSubmit={handleSubmit}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField
-              label="프로젝트"
-              htmlFor="product-project"
-              required
-              help="이 상품이 속한 프로젝트를 선택합니다."
-            >
-              <Select
-                id="product-project"
-                value={projectId}
-                onChange={(event) => setProjectId(event.target.value)}
-                options={projects.map((project) => ({
-                  value: project.id,
-                  label: `${project.name} (${project.slug})`,
-                }))}
-                placeholder="프로젝트를 선택하세요"
-                required
-              />
-            </FormField>
-
-            <FormField
-              label="상품명"
-              htmlFor="product-title"
-              required
-              help="고객과 운영자가 모두 보는 이름입니다."
-            >
-              <Input
-                id="product-title"
-                value={title}
-                onChange={(event) => handleTitleChange(event.target.value)}
-                placeholder="예: 봄 시즌 디지털 팩"
-                required
-              />
-            </FormField>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm font-medium text-text-primary">상품 유형</p>
-              <p className="mt-1 text-sm text-gray-500">
-                먼저 개별 상품인지, 여러 상품을 묶는 번들인지 선택합니다.
-              </p>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              {PRODUCT_KIND_OPTIONS.map((option) => {
-                const active = productKind === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setProductKind(option.value)}
-                    className={`rounded-2xl border px-4 py-4 text-left transition ${
-                      active
-                        ? 'border-primary-500 bg-primary-50 shadow-sm'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <p className="text-sm font-semibold text-gray-900">{option.title}</p>
-                    <p className="mt-1 text-sm leading-6 text-gray-600">
-                      {option.description}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm font-medium text-text-primary">상품 제공 방식</p>
-              <p className="mt-1 text-sm text-gray-500">
-                STANDARD 상품은 여기서 디지털/실물 유형을 고정합니다.
-              </p>
-            </div>
-
-            {productKind === 'STANDARD' ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                {FULFILLMENT_TYPE_OPTIONS.map((option) => {
-                  const active = fulfillmentType === option;
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setFulfillmentType(option)}
-                      className={`rounded-2xl border px-4 py-4 text-left transition ${
-                        active
-                          ? 'border-primary-500 bg-primary-50 shadow-sm'
-                          : 'border-gray-200 bg-white hover:border-gray-300'
-                      }`}
-                    >
-                      <p className="text-sm font-semibold text-gray-900">
-                        {FULFILLMENT_TYPE_LABELS[option]}
-                      </p>
-                      <p className="mt-1 text-sm leading-6 text-gray-600">
-                        {option === 'DIGITAL'
-                          ? '옵션은 디지털 형식으로 고정되며 배송이 필요하지 않습니다.'
-                          : '옵션은 실물 형식으로 고정되며 배송/재고 관리를 사용할 수 있습니다.'}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4 text-sm text-gray-600">
-                <p>
-                  번들 상품은 하위 구성에 따라 디지털/실물이 섞일 수 있어 상품 수준 제공 방식은
-                  고정하지 않습니다.
-                </p>
-                <p className="mt-2 text-xs text-gray-500">
-                  저장 후 상품 상세의 `번들 구성 상품` 영역에서 포함 상품과 수량 정책을 확정합니다.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
-            <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-900">상품 주소</p>
-                <p className="mt-1 text-sm text-gray-500">
-                  상품명 기준으로 자동 생성되며, 필요할 때만 직접 수정합니다.
-                </p>
-              </div>
-              <Button
-                type="button"
-                intent="neutral"
-                size="sm"
-                onClick={() => {
-                  setShowAdvanced((prev) => !prev);
-                  setManualSlug(true);
-                }}
-              >
-                {showAdvanced ? '고급 설정 닫기' : '고급 설정 열기'}
-              </Button>
-            </div>
-
-            <div className="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                Preview
-              </p>
-              <p className="mt-1 text-sm font-medium text-gray-900">
-                /shop/{effectiveSlug || autoSlug}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField
-              label="한 줄 설명"
-              htmlFor="product-short-description"
-              help="목록이나 카드에서 먼저 보일 짧은 소개입니다."
-            >
-              <Input
-                id="product-short-description"
-                value={shortDescription}
-                onChange={(event) => setShortDescription(event.target.value)}
-                placeholder="예: 디지털 음원과 보너스 콘텐츠를 한 번에"
-              />
-            </FormField>
-
-            {mode === 'edit' && (
-              <div className="space-y-3">
+        <form id={formId} className="mt-6 space-y-6" onSubmit={handleSubmit}>
+          <div className="grid gap-4 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)] xl:items-start">
+            <section className={controlPanelClassName}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium text-text-primary">판매 상태</p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    고객에게 어떻게 보일지 선택하세요.
+                  <p className="text-sm font-black text-[#1a1a2e]">상품 이미지</p>
+                  <p className="mt-1 text-xs font-medium text-[#1a1a2e]/55">
+                    대표 이미지와 상세 이미지를 관리합니다.
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {EDIT_STATUS_OPTIONS.map((option) => (
-                    <Button
-                      key={option}
-                      type="button"
-                      size="sm"
-                      intent={status === option ? 'primary' : 'neutral'}
-                      onClick={() => setStatus(option)}
-                    >
-                      {PRODUCT_STATUS_LABELS[option]}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <FormField
-            label="상세 설명"
-            htmlFor="product-description"
-            help="상세 페이지에서 보여줄 긴 설명입니다."
-          >
-            <Textarea
-              id="product-description"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              rows={5}
-              placeholder="상품 소개, 구성, 구매 전 안내를 자연스럽게 작성하세요."
-            />
-          </FormField>
-
-          {showAdvanced && (
-            <section className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4">
-              <div className="flex flex-col gap-1">
-                <h3 className="text-sm font-semibold text-gray-900">고급 설정</h3>
-                <p className="text-sm text-gray-500">
-                  일반적으로는 수정할 필요 없는 내부 설정입니다.
-                </p>
+                {!mediaContent && selectedImageCount > 0 && (
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#6f6a5e]">
+                    총 {selectedImageCount}장
+                  </span>
+                )}
               </div>
 
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {mediaContent || (
+                <>
+                  {mediaErrorMessage && (
+                    <div className="mt-4 rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">
+                      {mediaErrorMessage}
+                    </div>
+                  )}
+
+                  <div className="mt-5">
+                    {selectedImageCount === 0 ? (
+                      <div className="flex min-h-[220px] items-center justify-center rounded-[14px] border border-dashed border-[#d9d4c3] bg-white px-4 py-6 text-center text-sm font-bold text-[#b3aea2]">
+                        <div>
+                          <ImageIcon className="mx-auto h-8 w-8" strokeWidth={1.6} aria-hidden />
+                          <div className="mt-2">
+                            상품 이미지를
+                            <br />
+                            추가하세요
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3">
+                        {coverImageDraft && (
+                          <div
+                            className="min-w-0 rounded-[14px] border border-[#1a1a2e] bg-white p-2"
+                          >
+                            <div className="relative overflow-hidden rounded-[10px] bg-[#f5f3e8]">
+                              <img
+                                src={coverImageDraft.previewUrl}
+                                alt="선택한 대표 이미지 미리보기"
+                                className="aspect-square h-full w-full object-cover"
+                              />
+                              <span className="absolute left-2 top-2 rounded-full bg-[#1a1a2e] px-2 py-1 text-[10px] font-black text-white">
+                                대표
+                              </span>
+                            </div>
+                            <p className="mt-2 truncate text-xs font-bold text-[#1a1a2e]">
+                              {coverImageDraft.file.name}
+                            </p>
+                            <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">
+                              {formatFileSize(coverImageDraft.file.size)}
+                            </p>
+                            <div className="mt-2 flex gap-1">
+                              <button
+                                type="button"
+                                className="flex h-8 flex-1 items-center justify-center rounded-[9px] bg-[#f5f3e8] text-[#8a8678] hover:bg-[#ece8d9] hover:text-[#1a1a2e]"
+                                aria-label="대표 이미지 제거"
+                                title="대표 이미지 제거"
+                                onClick={removeCoverImageDraft}
+                                disabled={isSubmitting}
+                              >
+                                <Trash2 className="h-4 w-4" aria-hidden />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {detailImageDrafts.map((draft, index) => {
+                          const canMoveUp = index > 0;
+                          const canMoveDown = index < detailImageDrafts.length - 1;
+
+                          return (
+                            <div
+                              key={draft.id}
+                              className="min-w-0 rounded-[14px] border border-[#e7e3d3] bg-white p-2"
+                            >
+                              <div className="relative overflow-hidden rounded-[10px] bg-[#f5f3e8]">
+                                <img
+                                  src={draft.previewUrl}
+                                  alt={`선택한 상세 이미지 ${index + 1} 미리보기`}
+                                  className="aspect-square h-full w-full object-cover"
+                                />
+                                <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2 py-1 text-[10px] font-black text-[#6f6a5e]">
+                                  상세 {index + 1}
+                                </span>
+                              </div>
+                              <p className="mt-2 truncate text-xs font-bold text-[#1a1a2e]">
+                                {draft.file.name}
+                              </p>
+                              <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">
+                                {formatFileSize(draft.file.size)}
+                              </p>
+                              <div className="mt-2 grid grid-cols-4 gap-1">
+                                <button
+                                  type="button"
+                                  className="flex h-8 items-center justify-center rounded-[9px] bg-[#f5f3e8] text-[#8a8678] hover:bg-[#ece8d9] hover:text-[#1a1a2e] disabled:cursor-not-allowed disabled:opacity-35"
+                                  aria-label={`상세 이미지 ${index + 1}을 대표 이미지로 지정`}
+                                  title="대표 지정"
+                                  onClick={() => promoteDetailImageDraft(draft.id)}
+                                  disabled={isSubmitting}
+                                >
+                                  <Star className="h-4 w-4" aria-hidden />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="flex h-8 items-center justify-center rounded-[9px] bg-[#f5f3e8] text-[#8a8678] hover:bg-[#ece8d9] hover:text-[#1a1a2e] disabled:cursor-not-allowed disabled:opacity-35"
+                                  aria-label={`상세 이미지 ${index + 1}을 앞으로 이동`}
+                                  title="앞으로 이동"
+                                  onClick={() => moveDetailImageDraft(draft.id, -1)}
+                                  disabled={isSubmitting || !canMoveUp}
+                                >
+                                  <ArrowUp className="h-4 w-4" aria-hidden />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="flex h-8 items-center justify-center rounded-[9px] bg-[#f5f3e8] text-[#8a8678] hover:bg-[#ece8d9] hover:text-[#1a1a2e] disabled:cursor-not-allowed disabled:opacity-35"
+                                  aria-label={`상세 이미지 ${index + 1}을 뒤로 이동`}
+                                  title="뒤로 이동"
+                                  onClick={() => moveDetailImageDraft(draft.id, 1)}
+                                  disabled={isSubmitting || !canMoveDown}
+                                >
+                                  <ArrowDown className="h-4 w-4" aria-hidden />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="flex h-8 items-center justify-center rounded-[9px] bg-[#fff0f0] text-[#ca2a30] hover:bg-[#ffe4e4] disabled:cursor-not-allowed disabled:opacity-35"
+                                  aria-label={`상세 이미지 ${index + 1} 제거`}
+                                  title="이미지 제거"
+                                  onClick={() => removeDetailImageDraft(draft.id)}
+                                  disabled={isSubmitting}
+                                >
+                                  <Trash2 className="h-4 w-4" aria-hidden />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <div className="mt-4">
+                      <FileInput
+                        triggerLabel={selectedImageCount > 0 ? '이미지 추가' : '이미지 선택'}
+                        triggerClassName={fileTriggerClassName}
+                        accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.svg"
+                        multiple
+                        disabled={isSubmitting}
+                        onChange={(event) => {
+                          const fileList = event.target.files;
+                          if (fileList && fileList.length > 0) {
+                            handleGalleryImagesChange(Array.from(fileList));
+                          }
+                          event.target.value = '';
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </section>
+
+            <section className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <FormField
-                  label="Slug 직접 수정"
-                  htmlFor="product-slug"
-                  help="링크 주소를 유지해야 할 때만 수정하세요."
+                  label="프로젝트"
+                  htmlFor="product-project"
+                  required
+                  help="이 상품이 속한 프로젝트를 선택합니다."
                 >
-                  <Input
-                    id="product-slug"
-                    value={slug}
+                  <Select
+                    id="product-project"
+                    value={projectId}
                     onChange={(event) => {
-                      setManualSlug(true);
-                      setSlug(event.target.value);
+                      setProjectId(event.target.value);
+                      setCampaignInclusionDraft(null);
                     }}
-                    placeholder={autoSlug}
+                    options={projects.map((project) => ({
+                      value: project.id,
+                      label: `${project.name} (${project.slug})`,
+                    }))}
+                    placeholder="프로젝트를 선택하세요"
+                    required
+                    className={adminSelectClass}
                   />
                 </FormField>
 
-                {mode === 'edit' && (
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium text-text-primary">보관 상태</p>
-                    <p className="text-sm text-gray-500">
-                      더 이상 운영하지 않는 상품은 보관할 수 있습니다.
-                    </p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      intent={status === 'ARCHIVED' ? 'danger' : 'neutral'}
-                      onClick={() => setStatus('ARCHIVED')}
-                    >
-                      {PRODUCT_STATUS_LABELS.ARCHIVED}
-                    </Button>
-                  </div>
-                )}
+                <FormField
+                  label="상품명"
+                  htmlFor="product-title"
+                  required
+                  help="고객과 운영자가 모두 보는 이름입니다."
+                >
+                  <Input
+                    id="product-title"
+                    value={title}
+                    onChange={(event) => handleTitleChange(event.target.value)}
+                    placeholder="예: 봄 시즌 디지털 팩"
+                    required
+                    className={adminInputClass}
+                  />
+                </FormField>
               </div>
-            </section>
-          )}
 
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" loading={isSubmitting}>
-              {submitLabel}
-            </Button>
-            <Button type="button" intent="neutral" onClick={onCancel}>
-              취소
-            </Button>
+              <section className={controlPanelClassName}>
+                <FormField
+                  label="한 줄 설명"
+                  htmlFor="product-short-description"
+                >
+                  <Input
+                    id="product-short-description"
+                    value={shortDescription}
+                    onChange={(event) => setShortDescription(event.target.value)}
+                    placeholder="예: 디지털 음원과 보너스 콘텐츠를 한 번에"
+                    className={`${adminInputClass} !mt-4`}
+                  />
+                </FormField>
+              </section>
+
+              <section className={controlPanelClassName}>
+                <FormField
+                  label="상세 설명"
+                  htmlFor="product-description"
+                >
+                  <Textarea
+                    id="product-description"
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    rows={8}
+                    placeholder="상품 소개, 구성, 구매 전 안내를 자연스럽게 작성하세요."
+                    className={`${adminInputClass} !mt-4`}
+                  />
+                </FormField>
+              </section>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <section className={controlPanelClassName}>
+                  <p className="text-sm font-black text-[#1a1a2e]">상품 유형</p>
+                  <div className="mt-4 grid grid-cols-2 gap-1 rounded-[16px] border border-[#e7e3d3] bg-white p-1">
+                    {PRODUCT_KIND_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={getTwoOptionButtonClass(
+                          productKind === option.value,
+                          mode === 'edit',
+                        )}
+                        disabled={mode === 'edit'}
+                        onClick={() => {
+                          if (mode === 'edit') {
+                            return;
+                          }
+                          setProductKind(option.value);
+                        }}
+                      >
+                        {option.title}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className={controlPanelClassName}>
+                  <p className="text-sm font-black text-[#1a1a2e]">상품 제공 방식</p>
+                  <div className="mt-4 grid grid-cols-2 gap-1 rounded-[16px] border border-[#e7e3d3] bg-white p-1">
+                    {FULFILLMENT_TYPE_OPTIONS.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={getTwoOptionButtonClass(
+                          productKind === 'STANDARD' && fulfillmentType === option,
+                          productKind !== 'STANDARD' || mode === 'edit',
+                        )}
+                        disabled={productKind !== 'STANDARD' || mode === 'edit'}
+                        onClick={() => {
+                          if (productKind !== 'STANDARD' || mode === 'edit') {
+                            return;
+                          }
+                          setFulfillmentType(option);
+                        }}
+                      >
+                        {FULFILLMENT_TYPE_LABELS[option]}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
+              <div className={controlPanelClassName}>
+                <p className="text-sm font-black text-[#1a1a2e]">상품 상태</p>
+                <div className="mt-5 grid grid-cols-3 gap-1 rounded-[12px] border border-[#e7e3d3] bg-white p-1">
+                  {EDIT_STATUS_OPTIONS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={getSegmentButtonClass(status === option)}
+                      onClick={() => setStatus(option)}
+                    >
+                      {PRODUCT_STATUS_LABELS[option]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {showDefaultOptionSettings && (
+                <>
+                  <section className={controlPanelClassName}>
+                    <p className="text-sm font-black text-[#1a1a2e]">기본 옵션 상태</p>
+                    <div className="mt-5 grid grid-cols-3 gap-1 rounded-[12px] border border-[#e7e3d3] bg-white p-1">
+                      {VARIANT_STATUS_OPTIONS.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          className={getSegmentButtonClass(defaultVariantStatus === option)}
+                          onClick={() => setDefaultVariantStatus(option)}
+                        >
+                          {VARIANT_STATUS_LABELS[option]}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className={controlPanelClassName}>
+                    <label
+                      htmlFor="default-variant-base-price"
+                      className="text-sm font-black text-[#1a1a2e]"
+                    >
+                      기본 판매가 (원)
+                      {defaultVariantStatus === 'ACTIVE' && (
+                        <span className="ml-1 text-[#ca2a30]">*</span>
+                      )}
+                    </label>
+                    <Input
+                      id="default-variant-base-price"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9,]*"
+                      value={formatPriceInputValue(defaultVariantBasePrice)}
+                      onChange={(event) =>
+                        setDefaultVariantBasePrice(
+                          normalizePriceInputValue(event.target.value),
+                        )
+                      }
+                      placeholder="예: 10,000"
+                      className={`${adminInputClass} !mt-5 !h-14`}
+                    />
+                  </section>
+                </>
+              )}
+
+              {showCampaignInclusionSettings && (
+                <div className={controlPanelClassName}>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-black text-[#1a1a2e]">기본 캠페인 포함</p>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#6f6a5e]">
+                      {selectedCampaignOption?.campaignName || '캠페인 없음'}
+                    </span>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      className={getInclusionButtonClass(campaignInclusion === 'INCLUDED')}
+                      disabled={!selectedCampaignOption}
+                      onClick={() => setCampaignInclusionDraft('INCLUDED')}
+                    >
+                      포함
+                    </button>
+                    <button
+                      type="button"
+                      className={getInclusionButtonClass(campaignInclusion === 'EXCLUDED')}
+                      disabled={!selectedCampaignOption}
+                      onClick={() => setCampaignInclusionDraft('EXCLUDED')}
+                    >
+                      미포함
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <section className={softPanelClassName}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-[#1a1a2e]">{advancedTitle}</p>
+                    <p className="mt-1 text-xs font-medium text-[#1a1a2e]/55">
+                      {advancedDescription}
+                    </p>
+                  </div>
+                  {advancedAction}
+                </div>
+                <div className="mt-4">
+                  {advancedContent || (
+                    <div className="rounded-[12px] border border-dashed border-[#d9d4c3] bg-white px-4 py-4 text-sm font-bold text-[#b3aea2]">
+                      저장 후 상품 상세에서 고급 옵션을 관리할 수 있습니다.
+                    </div>
+                  )}
+                </div>
+              </section>
+            </section>
           </div>
+
+          {!hideActions && (
+            <div className={adminActionRowClass}>
+              <Button type="submit" className={adminPrimaryButtonClass} loading={isSubmitting}>
+                {submitLabel}
+              </Button>
+              <Button type="button" intent="neutral" className={adminButtonClass} onClick={onCancel}>
+                취소
+              </Button>
+            </div>
+          )}
         </form>
       </section>
     </div>

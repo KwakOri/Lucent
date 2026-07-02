@@ -8,8 +8,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import { useToast } from '@/src/components/toast';
+import { adminLegacyBridgeClass } from '@/src/components/admin/AdminDesignSystem';
 import type {
   V2AdminProductionBatchStatus,
+  V2AdminProductionBatchPreviewAggregate,
   V2AdminProductionSavedView,
   V2AdminTransitionResult,
 } from '@/lib/client/api/v2-admin-production.api';
@@ -30,6 +32,10 @@ import {
 } from '@/lib/client/hooks/useV2AdminProduction';
 import { useSession } from '@/lib/client/hooks';
 import { useV2AdminProjects } from '@/lib/client/hooks/useV2CatalogAdmin';
+import {
+  normalizeDisplayTitle,
+  shouldShowOptionTitle,
+} from '@/lib/client/utils/v2-item-display';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -84,6 +90,63 @@ function formatCurrency(amount: number | null | undefined): string {
   return `${Math.max(0, Number(amount || 0)).toLocaleString()}원`;
 }
 
+function formatOptionDisplayName(params: {
+  productName: string | null | undefined;
+  variantName: string | null | undefined;
+}): string {
+  const optionTitle = normalizeDisplayTitle(params.variantName);
+  if (
+    !shouldShowOptionTitle({
+      productTitle: params.productName || '',
+      optionTitle,
+    })
+  ) {
+    return '-';
+  }
+  return optionTitle;
+}
+
+type ProductionPreviewProjectGroup = {
+  key: string;
+  projectName: string;
+  rows: V2AdminProductionBatchPreviewAggregate[];
+  productCount: number;
+  quantityTotal: number;
+};
+
+function buildProductionPreviewProjectGroups(
+  rows: V2AdminProductionBatchPreviewAggregate[],
+): ProductionPreviewProjectGroup[] {
+  const groupMap = new Map<string, ProductionPreviewProjectGroup>();
+
+  for (const row of rows) {
+    const projectName = row.project_name || '프로젝트 미지정';
+    const key = row.project_id || `no-project:${projectName}`;
+    const group = groupMap.get(key) || {
+      key,
+      projectName,
+      rows: [],
+      productCount: 0,
+      quantityTotal: 0,
+    };
+
+    if (group.projectName === '프로젝트 미지정' && row.project_name) {
+      group.projectName = row.project_name;
+    }
+    group.rows.push(row);
+    group.productCount += 1;
+    group.quantityTotal += Math.max(0, Number(row.quantity_total || 0));
+    groupMap.set(key, group);
+  }
+
+  return Array.from(groupMap.values()).sort((left, right) =>
+    left.projectName.localeCompare(right.projectName, 'ko-KR', {
+      sensitivity: 'base',
+      numeric: true,
+    }),
+  );
+}
+
 function resolveBatchIntent(status: V2AdminProductionBatchStatus) {
   if (status === 'ACTIVE') {
     return 'warning' as const;
@@ -112,6 +175,11 @@ function resolveBatchStatusLabel(status: string | null | undefined): string {
     return '취소됨';
   }
   return status || '-';
+}
+
+function isWorkProductionBatchStatus(status: string | null | undefined): boolean {
+  const normalized = String(status || '').toUpperCase();
+  return normalized !== 'COMPLETED' && normalized !== 'CANCELED';
 }
 
 function resolveTransitionDescription(
@@ -282,6 +350,13 @@ type ProductionManagementContentProps = {
   forcedTab?: 'candidates' | 'batches';
 };
 
+type FulfillmentListMode = 'work' | 'all';
+
+const LIST_MODE_OPTIONS: Array<{ key: FulfillmentListMode; label: string }> = [
+  { key: 'work', label: '작업 목록' },
+  { key: 'all', label: '전체 목록' },
+];
+
 export function ProductionManagementContent({
   embedded = false,
   forcedTab,
@@ -311,8 +386,7 @@ export function ProductionManagementContent({
   );
   const currentTab = forcedTab || activeTab;
 
-  const [batchStatusFilter, setBatchStatusFilter] =
-    useState<V2AdminProductionBatchStatus | ''>('');
+  const [batchListMode, setBatchListMode] = useState<FulfillmentListMode>('work');
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [batchActionReason, setBatchActionReason] = useState('');
 
@@ -324,7 +398,6 @@ export function ProductionManagementContent({
   });
   const batchesQuery = useV2AdminProductionBatches({
     limit: 100,
-    status: batchStatusFilter || undefined,
   });
   const batchDetailQuery = useV2AdminProductionBatchDetail(selectedBatchId);
 
@@ -354,6 +427,13 @@ export function ProductionManagementContent({
     () => candidatesQuery.data?.items || [],
     [candidatesQuery.data?.items],
   );
+  const batchRows = useMemo(() => {
+    const rows = batchesQuery.data?.items || [];
+    if (batchListMode === 'all') {
+      return rows;
+    }
+    return rows.filter((row) => isWorkProductionBatchStatus(row.status));
+  }, [batchListMode, batchesQuery.data?.items]);
   const detail = batchDetailQuery.data;
   const selectedBatch = detail?.batch || null;
   const savedFilters = useMemo(
@@ -403,12 +483,6 @@ export function ProductionManagementContent({
     [savedFilters, selectedViewId],
   );
 
-  const allCandidateIds = candidateRows.map((row) => row.order_id);
-  const allChecked =
-    candidateRows.length > 0 &&
-    selectedOrderIds.length > 0 &&
-    selectedOrderIds.length === allCandidateIds.length;
-
   const isBusy =
     createBatchMutation.isPending ||
     activateBatchMutation.isPending ||
@@ -437,6 +511,13 @@ export function ProductionManagementContent({
     previewData,
     selectedOrderIds.length,
   ]);
+  const previewProjectGroups = useMemo(
+    () =>
+      hasFreshPreview && previewData
+        ? buildProductionPreviewProjectGroups(previewData.aggregates)
+        : [],
+    [hasFreshPreview, previewData],
+  );
 
   useEffect(() => {
     if (selectedOrderIds.length === 0) {
@@ -495,11 +576,6 @@ export function ProductionManagementContent({
     return projectLabel;
   };
 
-  const appliedFilterSummaryText =
-    !projectId
-      ? '설정된 필터 없음'
-      : buildFilterSummaryText({ projectId });
-
   const setError = (error: unknown) => {
     showToast(getErrorMessage(error), { type: 'error' });
   };
@@ -514,15 +590,6 @@ export function ProductionManagementContent({
       }
       return [...prev, orderId];
     });
-  };
-
-  const toggleSelectAll = () => {
-    setPreviewErrorMessage(null);
-    if (allChecked) {
-      setSelectedOrderIds([]);
-      return;
-    }
-    setSelectedOrderIds(allCandidateIds);
   };
 
   const handleSearchApply = () => {
@@ -753,7 +820,7 @@ export function ProductionManagementContent({
   };
 
   return (
-    <div className="space-y-8">
+    <div className={`${adminLegacyBridgeClass} space-y-8`}>
       {!embedded && (
         <header className="space-y-2">
           <h1 className="text-2xl font-bold text-gray-900">제작 관리</h1>
@@ -803,20 +870,7 @@ export function ProductionManagementContent({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                intent="neutral"
-                onClick={toggleSelectAll}
-                disabled={candidateRows.length === 0}
-                className="h-11 px-5"
-              >
-                {allChecked ? '전체 해제' : '전체 선택'}
-              </Button>
-              <Button intent="neutral" onClick={() => setIsViewManagerOpen(true)}>
-                뷰/필터 설정
-              </Button>
-            </div>
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <Button
               onClick={handleCreateBatch}
               disabled={selectedOrderIds.length === 0 || isBusy}
@@ -825,7 +879,6 @@ export function ProductionManagementContent({
               선택 주문으로 배치 생성
             </Button>
           </div>
-          <p className="text-xs text-gray-600">적용 필터: {appliedFilterSummaryText}</p>
 
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
             {selectedOrderIds.length === 0 ? (
@@ -857,20 +910,14 @@ export function ProductionManagementContent({
                 />
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
-                  <table className="min-w-[880px] table-fixed divide-y divide-gray-200 text-sm">
+                  <table className="w-full min-w-[520px] table-fixed divide-y divide-gray-200 text-sm">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="w-12 px-3 py-2 text-left">
-                          <input type="checkbox" checked={allChecked} onChange={toggleSelectAll} />
-                        </th>
-                        <th className="w-[240px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
-                          주문번호
+                          <span className="sr-only">선택</span>
                         </th>
                         <th className="w-[120px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
                           입금자
-                        </th>
-                        <th className="w-[150px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
-                          프로젝트
                         </th>
                         <th className="w-[90px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
                           구성
@@ -895,28 +942,9 @@ export function ProductionManagementContent({
                                 onChange={() => toggleOrderSelection(row.order_id)}
                               />
                             </td>
-                            <td className="px-3 py-2">
-                              <p
-                                className="max-w-[220px] truncate whitespace-nowrap font-medium text-gray-900"
-                                title={row.order_no}
-                              >
-                                {row.order_no}
-                              </p>
-                              <p
-                                className="max-w-[220px] truncate whitespace-nowrap text-xs text-gray-500"
-                                title={row.order_id}
-                              >
-                                {row.order_id}
-                              </p>
-                            </td>
                             <td className="px-3 py-2 text-gray-700">
                               <p className="max-w-[100px] truncate whitespace-nowrap" title={row.depositor_name || '-'}>
                                 {row.depositor_name || '-'}
-                              </p>
-                            </td>
-                            <td className="px-3 py-2 text-gray-700">
-                              <p className="max-w-[130px] truncate whitespace-nowrap" title={row.project_name || '-'}>
-                                {row.project_name || '-'}
                               </p>
                             </td>
                             <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{resolveComposition(row)}</td>
@@ -954,7 +982,7 @@ export function ProductionManagementContent({
                 <p className="text-sm text-red-600">미리보기 생성 실패: {previewErrorMessage}</p>
               ) : !hasFreshPreview || !previewData ? (
                 <p className="text-sm text-gray-500">미리보기 데이터를 불러오는 중입니다.</p>
-              ) : previewData.aggregates.length === 0 ? (
+              ) : previewProjectGroups.length === 0 ? (
                 <EmptyState title="표시할 상품이 없습니다." description="집계 대상이 비어 있습니다." />
               ) : (
                 <>
@@ -963,41 +991,72 @@ export function ProductionManagementContent({
                       차단 주문 {previewData.blocked_order_count}건은 미리보기 집계에서 제외되었습니다.
                     </p>
                   ) : null}
-                  <div className="overflow-x-auto rounded-lg border border-gray-200">
-	                    <table className="min-w-full divide-y divide-gray-200 text-sm">
-	                      <thead className="bg-gray-50">
-	                        <tr>
-	                          <th className="w-20 px-3 py-2 text-left font-medium text-gray-600">이미지</th>
-	                          <th className="px-3 py-2 text-left font-medium text-gray-600">상품</th>
-	                          <th className="px-3 py-2 text-left font-medium text-gray-600">옵션</th>
-	                          <th className="px-3 py-2 text-right font-medium text-gray-600">수량</th>
-	                        </tr>
-	                      </thead>
-                      <tbody className="divide-y divide-gray-100 bg-white">
-                        {previewData.aggregates.map((row) => (
-	                          <tr
-	                            key={`${row.product_id || 'none'}-${row.variant_id || 'none'}-${row.product_name}`}
-	                          >
-	                            <td className="px-3 py-2">
-	                              {row.thumbnail_url ? (
-	                                <img
-	                                  src={row.thumbnail_url}
-	                                  alt={row.product_name}
-	                                  className="h-12 w-12 rounded-md border border-gray-200 object-cover"
-	                                />
-	                              ) : (
-	                                <span className="text-xs text-gray-400">-</span>
-	                              )}
-	                            </td>
-	                            <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
-	                            <td className="px-3 py-2 text-gray-700">{row.variant_name || '-'}</td>
-	                            <td className="px-3 py-2 text-right text-gray-700">
-	                              {row.quantity_total.toLocaleString()}
-	                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="space-y-4">
+                    {previewProjectGroups.map((group) => (
+                      <section
+                        key={group.key}
+                        className="overflow-hidden rounded-lg border border-gray-200"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
+                          <h3 className="text-sm font-semibold text-gray-900">
+                            {group.projectName}
+                          </h3>
+                          <p className="text-xs text-gray-500">
+                            상품 {group.productCount.toLocaleString()}종 · 수량{' '}
+                            {group.quantityTotal.toLocaleString()}개
+                          </p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead className="bg-white">
+                              <tr>
+                                <th className="w-20 px-3 py-2 text-left font-medium text-gray-600">
+                                  이미지
+                                </th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600">
+                                  상품
+                                </th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600">
+                                  옵션
+                                </th>
+                                <th className="px-3 py-2 text-right font-medium text-gray-600">
+                                  수량
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 bg-white">
+                              {group.rows.map((row) => (
+                                <tr
+                                  key={`${group.key}-${row.product_id || 'none'}-${row.variant_id || 'none'}-${row.product_name}`}
+                                >
+                                  <td className="px-3 py-2">
+                                    {row.thumbnail_url ? (
+                                      <img
+                                        src={row.thumbnail_url}
+                                        alt={row.product_name}
+                                        className="h-12 w-12 rounded-md border border-gray-200 object-cover"
+                                      />
+                                    ) : (
+                                      <span className="text-xs text-gray-400">-</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
+                                  <td className="px-3 py-2 text-gray-700">
+                                    {formatOptionDisplayName({
+                                      productName: row.product_name,
+                                      variantName: row.variant_name,
+                                    })}
+                                  </td>
+                                  <td className="px-3 py-2 text-right text-gray-700">
+                                    {row.quantity_total.toLocaleString()}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+                    ))}
                   </div>
                 </>
               )}
@@ -1015,26 +1074,24 @@ export function ProductionManagementContent({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-sm text-gray-600" htmlFor="production-status-filter">
-              상태 필터
-            </label>
-            <select
-              id="production-status-filter"
-              className="h-11 rounded-lg border border-gray-200 px-3 text-sm"
-              value={batchStatusFilter}
-              onChange={(event) =>
-                setBatchStatusFilter(
-                  (event.target.value as V2AdminProductionBatchStatus) || '',
-                )
-              }
-            >
-              <option value="">전체</option>
-              <option value="DRAFT">준비중</option>
-              <option value="ACTIVE">제작중</option>
-              <option value="COMPLETED">제작 완료</option>
-              <option value="CANCELED">취소됨</option>
-            </select>
+          <div className="inline-flex rounded-full border border-[#e7e3d3] bg-[#faf9f3] p-1">
+            {LIST_MODE_OPTIONS.map((option) => {
+              const isActive = batchListMode === option.key;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setBatchListMode(option.key)}
+                  className={`rounded-full px-5 py-2 text-sm font-bold transition ${
+                    isActive
+                      ? 'bg-[#1a1a2e] text-white shadow-sm'
+                      : 'text-[#1a1a2e]/55 hover:bg-white hover:text-[#1a1a2e]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -1049,7 +1106,7 @@ export function ProductionManagementContent({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
-                  {(batchesQuery.data?.items || []).map((row) => (
+                  {batchRows.map((row) => (
                     <tr
                       key={row.id}
                       className={`cursor-pointer ${selectedBatchId === row.id ? 'bg-blue-50' : ''}`}
@@ -1237,7 +1294,12 @@ export function ProductionManagementContent({
 	                          )}
 	                        </td>
 	                        <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
-	                        <td className="px-3 py-2 text-gray-700">{row.variant_name || '-'}</td>
+	                        <td className="px-3 py-2 text-gray-700">
+	                          {formatOptionDisplayName({
+	                            productName: row.product_name,
+	                            variantName: row.variant_name,
+	                          })}
+	                        </td>
 	                        <td className="px-3 py-2 text-right text-gray-700">
 	                          {row.quantity_total.toLocaleString()}
 	                        </td>

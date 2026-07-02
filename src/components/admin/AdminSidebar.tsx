@@ -2,8 +2,9 @@
 
 import { useState, type FocusEvent } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
+  Archive,
   ArrowLeft,
   ArrowLeftRight,
   BarChart3,
@@ -11,13 +12,12 @@ import {
   FolderOpen,
   House,
   ImageIcon,
+  LogOut,
   Menu,
-  Megaphone,
   Newspaper,
   Package,
   RotateCcw,
   ShieldCheck,
-  ShoppingBag,
   ShoppingCart,
   Users,
   X,
@@ -35,79 +35,109 @@ type NavigationSection = {
   items: NavigationItem[];
 };
 
+const primaryNavigationItems: NavigationItem[] = [
+  { name: '대시보드', href: '/admin', icon: House },
+  { name: '주문 조회', href: '/admin/orders', icon: ShoppingCart },
+  {
+    name: '주문 이행 관리',
+    href: '/admin/production-shipping',
+    icon: ArrowLeftRight,
+  },
+  { name: '프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderOpen },
+  { name: '게시글 관리', href: '/admin/content/posts', icon: Newspaper },
+  { name: '통계', href: '/admin/v2-ops/stats', icon: BarChart3 },
+];
+
+const moreNavigationItems: NavigationItem[] = [
+  { name: '아티스트 관리', href: '/admin/v2-catalog/artists', icon: Users },
+  { name: '환불 관리', href: '/admin/refunds', icon: RotateCcw },
+  { name: '로그 조회', href: '/admin/logs', icon: FileText },
+  { name: '번들 관리', href: '/admin/v2-catalog/bundles', icon: Package },
+  { name: '전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowLeftRight },
+  { name: '미디어·에셋', href: '/admin/v2-catalog/assets', icon: ImageIcon },
+  { name: 'Admin Ops', href: '/admin/v2-ops', icon: ShieldCheck },
+  { name: '권한 관리', href: '/admin/v2-ops/rbac', icon: ShieldCheck },
+  { name: '레거시', href: '/admin/legacy', icon: Archive },
+];
+
+const moreNavigationItem: NavigationItem = { name: '기타', href: '/admin/more', icon: Menu };
+
 const navigationSections: NavigationSection[] = [
   {
-    title: '공통',
-    items: [
-      { name: '대시보드', href: '/admin', icon: House },
-      { name: '로그 조회', href: '/admin/logs', icon: FileText },
-    ],
-  },
-  {
     title: '주요 관리',
-    items: [
-      { name: '운영 홈', href: '/admin/v2-catalog', icon: House },
-      { name: '주문 조회', href: '/admin/orders', icon: ShoppingCart },
-      {
-        name: '주문 이행 관리',
-        href: '/admin/production-shipping',
-        icon: ArrowLeftRight,
-      },
-      { name: '환불 관리', href: '/admin/refunds', icon: RotateCcw },
-      { name: '프로젝트 관리', href: '/admin/v2-catalog/projects', icon: FolderOpen },
-      { name: '아티스트 관리', href: '/admin/v2-catalog/artists', icon: Users },
-      { name: '상품 관리', href: '/admin/v2-catalog/products', icon: ShoppingBag },
-      { name: '캠페인 관리', href: '/admin/v2-catalog/campaigns', icon: Megaphone },
-      { name: '게시글 관리', href: '/admin/content/posts', icon: Newspaper },
-      { name: '통계', href: '/admin/v2-ops/stats', icon: BarChart3 },
-    ],
+    items: primaryNavigationItems,
   },
   {
     title: '기타',
-    items: [
-      { name: '번들 관리', href: '/admin/v2-catalog/bundles', icon: Package },
-      { name: '전환 준비', href: '/admin/v2-catalog/readiness', icon: ArrowLeftRight },
-      { name: '미디어·에셋', href: '/admin/v2-catalog/assets', icon: ImageIcon },
-      { name: 'Admin Ops', href: '/admin/v2-ops', icon: ShieldCheck },
-      { name: '권한 관리', href: '/admin/v2-ops/rbac', icon: ShieldCheck },
-    ],
-  },
-  {
-    title: '레거시',
-    items: [
-      { name: '[LEGACY] 아티스트 관리', href: '/admin/artists', icon: Users },
-      { name: '[LEGACY] 프로젝트 관리', href: '/admin/projects', icon: FolderOpen },
-      { name: '[LEGACY] 상품 관리', href: '/admin/products', icon: ShoppingBag },
-    ],
+    items: [moreNavigationItem],
   },
 ];
 
-const desktopNavigationItems = navigationSections.flatMap((section) => section.items);
+const desktopNavigationItems = [...primaryNavigationItems, moreNavigationItem];
+const legacyAdminPathPrefixes = ['/admin/artists', '/admin/projects', '/admin/products'];
+const projectScopedCatalogPathPrefixes = [
+  '/admin/v2-catalog/campaigns',
+  '/admin/v2-catalog/products',
+];
 
-function isNavItemActive(pathname: string, href: string): boolean {
+function isLegacyAdminPath(pathname: string): boolean {
+  return legacyAdminPathPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+function isProjectScopedCatalogPath(pathname: string): boolean {
+  return projectScopedCatalogPathPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+function isDirectNavItemActive(pathname: string, href: string): boolean {
   if (pathname === href) {
     return true;
   }
 
-  // 대시보드/운영 홈은 해당 경로에서만 활성화합니다.
-  if (href === '/admin' || href === '/admin/v2-catalog') {
+  // 대시보드는 해당 경로에서만 활성화합니다.
+  if (href === '/admin') {
     return false;
   }
   if (href === '/admin/v2-ops' && pathname.startsWith('/admin/v2-ops/rbac')) {
     return false;
   }
+  if (href === '/admin/v2-catalog/projects' && isProjectScopedCatalogPath(pathname)) {
+    return true;
+  }
 
   return pathname.startsWith(href);
 }
 
+function isMoreNavItemActive(pathname: string): boolean {
+  if (pathname === moreNavigationItem.href || isLegacyAdminPath(pathname)) {
+    return true;
+  }
+  if (primaryNavigationItems.some((item) => isDirectNavItemActive(pathname, item.href))) {
+    return false;
+  }
+  return moreNavigationItems.some((item) => isDirectNavItemActive(pathname, item.href));
+}
+
+function isNavItemActive(pathname: string, href: string): boolean {
+  if (href === moreNavigationItem.href) {
+    return isMoreNavItemActive(pathname);
+  }
+  return isDirectNavItemActive(pathname, href);
+}
+
 export function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopExpanded, setDesktopExpanded] = useState(false);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
   const openDesktopMenu = () => setDesktopExpanded(true);
   const closeDesktopMenu = () => setDesktopExpanded(false);
+  const handleGoBack = () => router.back();
 
   const handleDesktopBlur = (event: FocusEvent<HTMLDivElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -118,23 +148,23 @@ export function AdminSidebar() {
   return (
     <>
       {/* Mobile Menu Button */}
-      <div className="sticky top-0 z-40 flex items-center gap-x-6 bg-white px-4 py-4 shadow-sm sm:px-6 lg:hidden">
+      <div className="sticky top-0 z-40 flex items-center gap-x-3 border-b border-[#e7e3d3] bg-white/95 px-4 py-3 shadow-[0_8px_24px_rgba(26,26,46,0.06)] backdrop-blur sm:px-6 lg:hidden">
         <button
           type="button"
-          className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[#f5f3e8] text-[#1a1a2e] lg:hidden"
           onClick={() => setMobileMenuOpen(true)}
         >
           <span className="sr-only">메뉴 열기</span>
           <Menu className="h-6 w-6" aria-hidden />
         </button>
-        <div className="flex-1 text-sm font-semibold leading-6 text-gray-900">
+        <div className="min-w-0 flex-1 truncate text-sm font-black leading-6 text-[#1a1a2e]">
           Lucent Admin
         </div>
         <Link
           href="/"
-          className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600"
+          className="shrink-0 rounded-[12px] bg-[#f5f3e8] px-3 py-2 text-xs font-black leading-5 text-[#1a1a2e] hover:bg-[#ece8d9] hover:text-[#a35200] sm:text-sm"
         >
-          사이트로 돌아가기
+          사이트
         </Link>
       </div>
 
@@ -143,19 +173,19 @@ export function AdminSidebar() {
         <div className="relative z-50 lg:hidden">
           {/* Background overlay */}
           <div
-            className="fixed inset-0 bg-gray-900/80"
+            className="fixed inset-0 bg-[#1a1a2e]/55 backdrop-blur-sm"
             onClick={closeMobileMenu}
           />
 
           {/* Sidebar panel */}
-          <div className="fixed inset-y-0 left-0 z-50 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
+          <div className="fixed inset-y-0 left-0 z-50 w-[min(100vw,24rem)] overflow-y-auto border-r border-[#e7e3d3] bg-[#f9f9ed] px-5 py-5 shadow-[0_24px_70px_rgba(26,26,46,0.22)] sm:px-6 sm:py-6">
             <div className="flex items-center justify-between">
-              <Link href="/" className="text-xl font-bold text-gray-900" onClick={closeMobileMenu}>
+              <Link href="/" className="text-xl font-black text-[#1a1a2e]" onClick={closeMobileMenu}>
                 Lucent Admin
               </Link>
               <button
                 type="button"
-                className="-m-2.5 rounded-md p-2.5 text-gray-700"
+                className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#1a1a2e] ring-1 ring-[#e7e3d3]"
                 onClick={closeMobileMenu}
               >
                 <span className="sr-only">메뉴 닫기</span>
@@ -166,7 +196,7 @@ export function AdminSidebar() {
               <div className="space-y-6">
                 {navigationSections.map((section) => (
                   <div key={section.title}>
-                    <p className="px-2 text-xs font-bold uppercase tracking-wide text-gray-400">
+                    <p className="px-2 text-xs font-black uppercase tracking-wide text-[#1a1a2e]/35">
                       {section.title}
                     </p>
                     <ul role="list" className="-mx-2 mt-2 space-y-1">
@@ -179,16 +209,16 @@ export function AdminSidebar() {
                               href={item.href}
                               onClick={closeMobileMenu}
                               className={`
-                                group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6
+                                group flex gap-x-3 rounded-[14px] px-3 py-2.5 text-sm font-bold leading-6
                                 ${isActive
-                                  ? 'bg-primary-50 text-primary-700'
-                                  : 'text-gray-700 hover:bg-gray-50 hover:text-primary-700'
+                                  ? 'bg-[#fff4d5] text-[#a35200]'
+                                  : 'text-[#1a1a2e]/70 hover:bg-white hover:text-[#a35200]'
                                 }
                               `}
                             >
                               <item.icon
                                 className={`h-6 w-6 shrink-0 ${
-                                  isActive ? 'text-primary-700' : 'text-gray-400 group-hover:text-primary-700'
+                                  isActive ? 'text-[#a35200]' : 'text-[#1a1a2e]/35 group-hover:text-[#a35200]'
                                 }`}
                                 aria-hidden
                               />
@@ -201,11 +231,11 @@ export function AdminSidebar() {
                   </div>
                 ))}
               </div>
-              <div className="mt-8 pt-8 border-t border-gray-200">
+              <div className="mt-8 border-t border-[#e7e3d3] pt-8">
                 <Link
                   href="/"
                   onClick={closeMobileMenu}
-                  className="group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-700 hover:bg-gray-50 hover:text-primary-700"
+                  className="group flex gap-x-3 rounded-[14px] px-3 py-2.5 text-sm font-bold leading-6 text-[#1a1a2e]/70 hover:bg-white hover:text-[#a35200]"
                 >
                   사이트로 돌아가기
                 </Link>
@@ -223,28 +253,32 @@ export function AdminSidebar() {
         onFocusCapture={openDesktopMenu}
         onBlurCapture={handleDesktopBlur}
       >
-        <Link
-          href="/"
+        <button
+          type="button"
           className={`
             flex h-14 items-center justify-start rounded-2xl bg-white pl-4 pr-4 text-sm font-semibold text-text-secondary
-            shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-primary-700
+            shadow-md ring-1 ring-neutral-200 transition-[width,color] duration-300 hover:text-[#a35200]
             ${desktopExpanded ? 'w-48' : 'w-14'}
           `}
+          onClick={handleGoBack}
         >
-          <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
+          <span className="sr-only">이전 페이지로 이동</span>
+          <span className="flex w-6 shrink-0 justify-center">
+            <ArrowLeft className="h-5 w-5" aria-hidden />
+          </span>
           <span
             className={`
               overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
               ${desktopExpanded ? 'ml-3 max-w-[9rem] opacity-100' : 'ml-0 max-w-0 opacity-0'}
             `}
           >
-            홈으로
+            뒤로가기
           </span>
-        </Link>
+        </button>
 
         <nav
           className={`
-            overflow-hidden rounded-[28px] bg-white p-3 shadow-lg ring-1 ring-neutral-200/90
+            flex flex-col overflow-hidden rounded-[28px] bg-white p-3 shadow-lg ring-1 ring-neutral-200/90
             transition-[width] duration-300 ease-out
             ${desktopExpanded ? 'w-60' : 'w-[4.5rem]'}
           `}
@@ -252,7 +286,7 @@ export function AdminSidebar() {
           <ul
             role="list"
             className={`
-              scrollbar-none max-h-[calc(100vh-12rem)] space-y-1 overflow-y-auto
+              scrollbar-none max-h-[calc(100vh-17rem)] space-y-1 overflow-y-auto
               ${desktopExpanded ? 'pr-1' : 'pr-0'}
             `}
           >
@@ -264,20 +298,22 @@ export function AdminSidebar() {
                   <Link
                     href={item.href}
                     className={`
-                      flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold transition-colors
+                      group flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold transition-colors
                       ${isActive
-                        ? 'bg-primary-600 text-white shadow-sm'
-                        : 'text-neutral-500 hover:bg-primary-50 hover:text-primary-700'
+                        ? 'bg-[#f59e0b] text-white shadow-sm'
+                        : 'text-neutral-500 hover:bg-[#fff4d5] hover:text-[#a35200]'
                       }
                     `}
                   >
-                    <item.icon
-                      className={`
-                        h-5 w-5 shrink-0
-                        ${isActive ? 'text-white' : 'text-neutral-500'}
-                      `}
-                      aria-hidden
-                    />
+                    <span className="flex w-6 shrink-0 justify-center">
+                      <item.icon
+                        className={`
+                          h-5 w-5
+                          ${isActive ? 'text-white' : 'text-neutral-500 group-hover:text-[#a35200]'}
+                        `}
+                        aria-hidden
+                      />
+                    </span>
                     <span
                       className={`
                         overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
@@ -291,6 +327,24 @@ export function AdminSidebar() {
               );
             })}
           </ul>
+          <div className="mt-3 border-t border-neutral-100 pt-3">
+            <Link
+              href="/"
+              className="group flex items-center justify-start rounded-2xl py-3 pl-3 pr-3 text-sm font-semibold text-neutral-500 transition-colors hover:bg-[#fff4d5] hover:text-[#a35200]"
+            >
+              <span className="flex w-6 shrink-0 justify-center">
+                <LogOut className="h-5 w-5 group-hover:text-[#a35200]" aria-hidden />
+              </span>
+              <span
+                className={`
+                  overflow-hidden whitespace-nowrap transition-[margin,max-width,opacity] duration-300
+                  ${desktopExpanded ? 'ml-3 max-w-[11rem] opacity-100' : 'ml-0 max-w-0 opacity-0'}
+                `}
+              >
+                나가기
+              </span>
+            </Link>
+          </div>
         </nav>
       </div>
     </>

@@ -6,7 +6,12 @@ import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
-import { useToast } from '@/src/components/toast';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
+import {
+  AdminPageHeader,
+  adminButtonClass,
+  adminLegacyBridgeClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import {
   useV2AdminCancelOrder,
   useV2AdminCutoverPolicyCheck,
@@ -194,7 +199,7 @@ function resolveShippingFeeTypeLabel(params: {
 export default function AdminOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = params.id;
-  const { showToast } = useToast();
+  const { confirm, showToast } = useAdminFeedback();
   const orderDetailQuery = useV2AdminOrderDetail(orderId || null);
   const cancelOrderMutation = useV2AdminCancelOrder();
   const refundOrderMutation = useV2AdminRefundOrder();
@@ -271,7 +276,14 @@ export default function AdminOrderDetailPage() {
       return;
     }
     const orderNo = readString(order?.order_no) || orderId;
-    if (!confirm(`주문 ${orderNo}를 취소하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '주문 취소',
+      message: `주문 ${orderNo}를 취소하시겠습니까?`,
+      description: '취소 후 주문 단계가 CANCELED로 이동합니다.',
+      confirmText: '취소 처리',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -292,7 +304,14 @@ export default function AdminOrderDetailPage() {
       return;
     }
     const orderNo = readString(order?.order_no) || orderId;
-    if (!confirm(`주문 ${orderNo}의 전체 결제 금액을 환불하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '전체 환불',
+      message: `주문 ${orderNo}의 전체 결제 금액을 환불하시겠습니까?`,
+      description: '승인 대기 또는 환불 처리 결과에 따라 주문 이력이 갱신됩니다.',
+      confirmText: '환불',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -354,7 +373,7 @@ export default function AdminOrderDetailPage() {
           }
           action={
             <Link href="/admin/orders">
-              <Button intent="secondary" size="sm">
+              <Button intent="secondary" size="sm" className={adminButtonClass}>
                 주문 목록으로 이동
               </Button>
             </Link>
@@ -365,21 +384,22 @@ export default function AdminOrderDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/admin/orders" className="text-sm text-blue-600 hover:text-blue-800">
-            ← 목록으로
-          </Link>
-          <h1 className="mt-2 text-2xl font-bold text-gray-900">
-            주문 상세 (v2) {readString(order.order_no)}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">Order ID: {readString(order.id)}</p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="order detail"
+        title={`주문 상세 (v2) ${readString(order.order_no)}`}
+        description={`Order ID: ${readString(order.id)}`}
+        actions={
+          <>
+            <Link href="/admin/orders">
+              <Button intent="secondary" size="sm" className={adminButtonClass}>
+                목록으로
+              </Button>
+            </Link>
           <Button
             intent="secondary"
             size="sm"
+            className={adminButtonClass}
             loading={cancelOrderMutation.isPending}
             disabled={!canCancelOrder || isActionPending}
             onClick={() => {
@@ -392,6 +412,7 @@ export default function AdminOrderDetailPage() {
             <Button
               intent="danger"
               size="sm"
+              className="!rounded-[12px] !bg-[#ca2a30] !font-bold !text-white hover:!bg-[#b0242a]"
               loading={refundOrderMutation.isPending || checkCutoverPolicy.isPending}
               disabled={isActionPending}
               onClick={() => {
@@ -402,21 +423,23 @@ export default function AdminOrderDetailPage() {
             </Button>
           ) : null}
           <Link href={`/admin/refunds?orderId=${orderId}`}>
-            <Button intent="secondary" size="sm">
+            <Button intent="secondary" size="sm" className={adminButtonClass}>
               환불 관리로 이동
             </Button>
           </Link>
           <Button
             intent="secondary"
             size="sm"
+            className={adminButtonClass}
             onClick={() => {
               void orderDetailQuery.refetch();
             }}
           >
             새로고침
           </Button>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <h2 className="text-lg font-semibold text-gray-900">상태 3축</h2>

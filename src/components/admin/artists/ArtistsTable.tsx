@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArtistsAPI } from '@/lib/client/api/artists.api';
 import type { ArtistWithDetails } from '@/lib/client/api/artists.api';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 
 type Artist = ArtistWithDetails;
 
@@ -14,11 +15,19 @@ interface ArtistsTableProps {
 
 export function ArtistsTable({ artists: initialArtists }: ArtistsTableProps) {
   const router = useRouter();
+  const { confirm, notify } = useAdminFeedback();
   const [artists, setArtists] = useState(initialArtists);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (artist: Artist) => {
-    if (!confirm(`"${artist.name}" 아티스트를 삭제하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '아티스트 삭제',
+      message: `"${artist.name}" 아티스트를 삭제하시겠습니까?`,
+      description: '삭제 후에는 목록에서 제거되며 복구할 수 없습니다.',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -30,7 +39,7 @@ export function ArtistsTable({ artists: initialArtists }: ArtistsTableProps) {
       setArtists((prev) => prev.filter((a) => a.id !== artist.id));
       router.refresh();
     } catch (error) {
-      alert('아티스트 삭제에 실패했습니다.');
+      notify('아티스트 삭제에 실패했습니다.', { type: 'error' });
       console.error(error);
     } finally {
       setDeletingId(null);

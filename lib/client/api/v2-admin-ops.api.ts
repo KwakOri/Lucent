@@ -8,12 +8,9 @@ import { apiClient } from '@/lib/client/utils/api-client';
 import type { ApiResponse } from '@/types';
 
 export type V2AdminActionStatus =
-  | 'PENDING'
-  | 'SUCCEEDED'
-  | 'FAILED'
-  | 'REJECTED'
-  | 'CANCELED';
-export type V2AdminApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELED';
+  'PENDING' | 'SUCCEEDED' | 'FAILED' | 'REJECTED' | 'CANCELED';
+export type V2AdminApprovalStatus =
+  'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELED';
 
 export interface V2AdminActionCatalogItem {
   action_key: string;
@@ -66,29 +63,17 @@ export type V2CutoverStatus =
   | 'LEGACY_READONLY';
 
 export type V2CutoverGateType =
-  | 'DATA_CONSISTENCY'
-  | 'BEHAVIORAL'
-  | 'OPERATIONS'
-  | 'ROLLBACK_READY';
+  'DATA_CONSISTENCY' | 'BEHAVIORAL' | 'OPERATIONS' | 'ROLLBACK_READY';
 
 export type V2CutoverGateResult = 'PASS' | 'FAIL' | 'WARN' | 'SKIP';
 
 export type V2CutoverBatchStatus =
-  | 'PENDING'
-  | 'RUNNING'
-  | 'SUCCEEDED'
-  | 'FAILED'
-  | 'CANCELED';
+  'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELED';
 
 export type V2CutoverRouteTarget = 'LEGACY' | 'V2' | 'SHADOW';
 
 export type V2CutoverStageRunStatus =
-  | 'PLANNED'
-  | 'RUNNING'
-  | 'COMPLETED'
-  | 'BLOCKED'
-  | 'ROLLED_BACK'
-  | 'CANCELED';
+  'PLANNED' | 'RUNNING' | 'COMPLETED' | 'BLOCKED' | 'ROLLED_BACK' | 'CANCELED';
 
 export type V2CutoverIssueStatus = 'OPEN' | 'MITIGATING' | 'RESOLVED';
 export type V2CutoverIssueSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -121,7 +106,10 @@ export interface V2CutoverGateReport {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
-  domain?: Pick<V2CutoverDomain, 'domain_key' | 'domain_name' | 'status' | 'current_stage'>;
+  domain?: Pick<
+    V2CutoverDomain,
+    'domain_key' | 'domain_name' | 'status' | 'current_stage'
+  >;
 }
 
 export interface V2CutoverGateChecklistCheck {
@@ -253,7 +241,10 @@ export interface V2CutoverBatch {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
-  domain?: Pick<V2CutoverDomain, 'domain_key' | 'domain_name' | 'status' | 'current_stage'>;
+  domain?: Pick<
+    V2CutoverDomain,
+    'domain_key' | 'domain_name' | 'status' | 'current_stage'
+  >;
 }
 
 export interface V2CutoverRoutingFlag {
@@ -269,7 +260,10 @@ export interface V2CutoverRoutingFlag {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
-  domain?: Pick<V2CutoverDomain, 'domain_key' | 'domain_name' | 'status' | 'current_stage'>;
+  domain?: Pick<
+    V2CutoverDomain,
+    'domain_key' | 'domain_name' | 'status' | 'current_stage'
+  >;
 }
 
 export interface V2CutoverStageRun {
@@ -287,7 +281,10 @@ export interface V2CutoverStageRun {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
-  domain?: Pick<V2CutoverDomain, 'domain_key' | 'domain_name' | 'status' | 'current_stage'>;
+  domain?: Pick<
+    V2CutoverDomain,
+    'domain_key' | 'domain_name' | 'status' | 'current_stage'
+  >;
 }
 
 export interface V2CutoverStageIssue {
@@ -307,7 +304,10 @@ export interface V2CutoverStageIssue {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
-  domain?: Pick<V2CutoverDomain, 'domain_key' | 'domain_name' | 'status' | 'current_stage'>;
+  domain?: Pick<
+    V2CutoverDomain,
+    'domain_key' | 'domain_name' | 'status' | 'current_stage'
+  >;
   stage_run?: Pick<V2CutoverStageRun, 'id' | 'run_key' | 'status' | 'stage_no'>;
 }
 
@@ -444,6 +444,18 @@ export interface V2AdminOrderQueueRow {
   has_bundle: boolean;
   has_physical: boolean;
   has_digital: boolean;
+  item_line_count: number;
+  item_quantity_total: number;
+  items: V2AdminOrderItemSummary[];
+}
+
+export interface V2AdminOrderItemSummary {
+  order_item_id: string | null;
+  product_name: string;
+  variant_name: string | null;
+  quantity: number;
+  line_type: string | null;
+  final_line_total: number;
 }
 
 export interface V2AdminOrderDetail {
@@ -707,10 +719,7 @@ export interface UpsertV2AdminInventoryLevelInput {
   metadata?: Record<string, unknown> | null;
 }
 
-export type V2AdminSalesStatsPreset =
-  | 'LAST_7_DAYS'
-  | 'LAST_30_DAYS'
-  | 'CUSTOM';
+export type V2AdminSalesStatsPreset = 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'CUSTOM';
 
 export interface ListV2AdminSalesStatsParams {
   from?: string;
@@ -823,8 +832,14 @@ export interface V2AdminDashboardUrgentOrder {
   fulfillment_status: string | null;
   grand_total: number;
   depositor_name: string | null;
+  item_line_count: number;
+  item_quantity_total: number;
+  items: V2AdminOrderItemSummary[];
   waiting_shipment_count: number;
   in_transit_shipment_count: number;
+  has_bundle: boolean;
+  has_physical: boolean;
+  has_digital: boolean;
   age_hours: number | null;
 }
 
@@ -1091,9 +1106,7 @@ export const V2AdminOpsAPI = {
     return apiClient.get(`/api/v2/admin/rbac/users${query}`);
   },
 
-  async assignRbacRole(
-    data: AssignV2AdminRbacRoleInput,
-  ): Promise<
+  async assignRbacRole(data: AssignV2AdminRbacRoleInput): Promise<
     ApiResponse<{
       user_id: string;
       assignment: V2AdminRbacAssignment;
@@ -1103,9 +1116,7 @@ export const V2AdminOpsAPI = {
     return apiClient.post('/api/v2/admin/rbac/users/assign', data);
   },
 
-  async revokeRbacRole(
-    data: RevokeV2AdminRbacRoleInput,
-  ): Promise<
+  async revokeRbacRole(data: RevokeV2AdminRbacRoleInput): Promise<
     ApiResponse<{
       user_id: string;
       assignment: V2AdminRbacAssignment;
@@ -1157,7 +1168,9 @@ export const V2AdminOpsAPI = {
     return apiClient.get(`/api/v2/admin/ops/dashboard/overview${query}`);
   },
 
-  async getOrderDetail(orderId: string): Promise<ApiResponse<V2AdminOrderDetail>> {
+  async getOrderDetail(
+    orderId: string,
+  ): Promise<ApiResponse<V2AdminOrderDetail>> {
     return apiClient.get(`/api/v2/admin/ops/orders/${orderId}/detail`);
   },
 
@@ -1217,7 +1230,10 @@ export const V2AdminOpsAPI = {
   async upsertInventoryLevel(
     data: UpsertV2AdminInventoryLevelInput,
   ): Promise<ApiResponse<V2AdminInventoryLevelRow>> {
-    return apiClient.post('/api/v2/fulfillment/admin/inventory/levels/upsert', data);
+    return apiClient.post(
+      '/api/v2/fulfillment/admin/inventory/levels/upsert',
+      data,
+    );
   },
 
   async listCutoverDomains(
@@ -1340,7 +1356,10 @@ export const V2AdminOpsAPI = {
       metadata?: Record<string, unknown> | null;
     } = {},
   ): Promise<ApiResponse<Record<string, unknown>>> {
-    return apiClient.post(`/api/v2/fulfillment/admin/shipments/${shipmentId}/dispatch`, data);
+    return apiClient.post(
+      `/api/v2/fulfillment/admin/shipments/${shipmentId}/dispatch`,
+      data,
+    );
   },
 
   async reissueEntitlement(

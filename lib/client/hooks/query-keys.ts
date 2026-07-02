@@ -86,6 +86,9 @@ export const queryKeys = {
     cart: () => [...queryKeys.v2Checkout.all, 'cart'] as const,
     digitalEntitlements: () =>
       [...queryKeys.v2Checkout.all, 'digital-entitlements'] as const,
+    digitalOwnership: (
+      params: { variant_ids?: string[]; product_ids?: string[] } = {},
+    ) => [...queryKeys.v2Checkout.all, 'digital-ownership', params] as const,
     orders: {
       all: ['v2-checkout', 'orders'] as const,
       list: (
@@ -344,8 +347,6 @@ export const queryKeys = {
       },
       quote: () => [...queryKeys.v2CatalogAdmin.pricing.all, 'quote'] as const,
       debug: () => [...queryKeys.v2CatalogAdmin.pricing.all, 'debug'] as const,
-      campaignContext: (campaignId: string) =>
-        [...queryKeys.v2CatalogAdmin.pricing.all, 'campaign-context', campaignId] as const,
       orderSnapshotContract: () =>
         [...queryKeys.v2CatalogAdmin.pricing.all, 'order-snapshot-contract'] as const,
     },

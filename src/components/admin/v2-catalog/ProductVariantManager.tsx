@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -17,6 +18,7 @@ import {
   useV2AdminVariantAssets,
   useV2AdminVariants,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import { FULFILLMENT_TYPE_LABELS, VARIANT_STATUS_LABELS } from '@/lib/client/utils/v2-product-admin-form';
 import { ProductVariantForm } from './ProductVariantForm';
 
@@ -155,10 +157,10 @@ function VariantAudioSummary({ variantId }: VariantAudioSummaryProps) {
   }
 
   return (
-    <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs text-blue-900">
+    <div className="rounded-[12px] border border-[#cde0f3] bg-[#f0f7ff] px-3 py-3 text-xs text-[#4a88b9]">
       <p className="font-medium">오디오 연결됨</p>
       <p className="mt-1">{primaryAsset.file_name}</p>
-      <p className="mt-1 text-blue-900/70">
+      <p className="mt-1 text-[#4a88b9]/70">
         {formatBytes(primaryAsset.file_size)} · 상태 {primaryAsset.status}
       </p>
     </div>
@@ -169,6 +171,8 @@ type VariantInlineEditPanelProps = {
   product: V2Product;
   variant: V2Variant;
   variantCount: number;
+  compact?: boolean;
+  hideActions?: boolean;
   registerSaveHandler?: (handler: (() => Promise<boolean>) | null) => void;
   onCancel: () => void;
   onSuccess: () => void;
@@ -178,6 +182,8 @@ function VariantInlineEditPanel({
   product,
   variant,
   variantCount,
+  compact = false,
+  hideActions = false,
   registerSaveHandler,
   onCancel,
   onSuccess,
@@ -189,7 +195,7 @@ function VariantInlineEditPanel({
   const primaryAsset = getPrimaryDigitalAsset(assets);
 
   return (
-    <div className="mt-5 border-t border-gray-100 pt-5">
+    <div className={compact ? 'mt-5' : 'mt-5 border-t border-[#f1eee2] pt-5'}>
       <ProductVariantForm
         mode="edit"
         product={product}
@@ -197,7 +203,8 @@ function VariantInlineEditPanel({
         variantCount={variantCount}
         primaryAsset={primaryAsset}
         isAssetsLoading={assetsLoading}
-        hideActions
+        compact={compact}
+        hideActions={hideActions}
         registerSaveHandler={registerSaveHandler}
         onCancel={onCancel}
         onSuccess={onSuccess}
@@ -211,11 +218,24 @@ type ProductVariantManagerProps = {
   registerSaveHandler?: (handler: (() => Promise<boolean>) | null) => void;
 };
 
+type ProductVariantDeliverySettingsProps = {
+  product: V2Product;
+  variant: V2Variant | null;
+  variantCount: number;
+  registerSaveHandler?: (handler: (() => Promise<boolean>) | null) => void;
+};
+
+const sectionClassName =
+  'rounded-[20px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
+const addButtonClassName =
+  '!h-10 !rounded-[12px] !bg-[#1a1a2e] !px-4 !text-sm !font-bold !text-white hover:!bg-[#272743]';
+
 export function ProductVariantManager({
   product,
   registerSaveHandler,
 }: ProductVariantManagerProps) {
   const router = useRouter();
+  const { confirm } = useAdminFeedback();
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expandedVariantId, setExpandedVariantId] = useState<string | null>(null);
@@ -226,9 +246,18 @@ export function ProductVariantManager({
     error: variantsError,
   } = useV2AdminVariants(product.id);
   const deleteVariant = useDeleteV2Variant();
+  const variantList = variants || [];
+  const isSingleVariant = variantList.length === 1;
 
   const handleDeleteVariant = async (variantId: string, variantTitle: string) => {
-    if (!window.confirm(`"${variantTitle}" 옵션을 삭제하시겠습니까?`)) {
+    const confirmed = await confirm({
+      title: '옵션 삭제',
+      message: `"${variantTitle}" 옵션을 삭제하시겠습니까?`,
+      description: '옵션과 연결된 디지털/이행 데이터에 영향이 있을 수 있습니다.',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -260,17 +289,29 @@ export function ProductVariantManager({
   };
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <section className={sectionClassName}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">옵션 목록</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            옵션 현황을 확인하고, 펼친 뒤 바로 수정합니다.
-          </p>
+          <h2 className="text-lg font-black text-[#1a1a2e]">
+            {isSingleVariant ? '판매 옵션' : '옵션 목록'}
+          </h2>
         </div>
         <div className="flex items-center gap-2">
-          <Badge intent="info">{variants?.length || 0}개</Badge>
-          <Button onClick={() => router.push(`/admin/v2-catalog/products/${product.id}/variants/new`)}>
+          <Badge
+            intent="info"
+            className={`rounded-[8px] border px-3 py-1 text-xs font-bold ${
+              isSingleVariant
+                ? 'border-[#eee7d6] bg-[#f5f3e8] text-[#9b9788]'
+                : 'border-[#cde0f3] bg-[#eaf3fc] text-[#4a88b9]'
+            }`}
+          >
+            {isSingleVariant ? '단일 옵션' : `${variantList.length}개`}
+          </Badge>
+          <Button
+            className={addButtonClassName}
+            onClick={() => router.push(`/admin/v2-catalog/products/${product.id}/variants/new`)}
+          >
+            <Plus className="h-4 w-4" aria-hidden />
             옵션 추가
           </Button>
         </div>
@@ -289,13 +330,13 @@ export function ProductVariantManager({
 
       <div className="mt-5 space-y-3">
         {variantsLoading && (
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+          <div className="rounded-[14px] border border-[#eee7d6] bg-[#faf9f3] px-4 py-8 text-center text-sm text-[#1a1a2e]/55">
             옵션 목록을 불러오는 중입니다.
           </div>
         )}
 
         {!variantsLoading && variantsError && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-8 text-center text-sm text-red-600">
+          <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-8 text-center text-sm text-red-600">
             옵션 목록을 불러오지 못했습니다.
           </div>
         )}
@@ -314,7 +355,24 @@ export function ProductVariantManager({
 
         {!variantsLoading &&
           !variantsError &&
-          (variants || []).map((variant) => {
+          isSingleVariant &&
+          variantList[0] && (
+            <VariantInlineEditPanel
+              compact
+              product={product}
+              variant={variantList[0]}
+              variantCount={variantList.length}
+              hideActions={Boolean(registerSaveHandler)}
+              registerSaveHandler={registerSaveHandler}
+              onCancel={() => undefined}
+              onSuccess={handleInlineEditSuccess}
+            />
+          )}
+
+        {!variantsLoading &&
+          !variantsError &&
+          !isSingleVariant &&
+          variantList.map((variant) => {
             const optionSummary = formatOptionSummary(variant.option_summary_json);
             const variantDetails = formatVariantDetails(product, variant);
             const isExpanded = expandedVariantId === variant.id;
@@ -322,7 +380,7 @@ export function ProductVariantManager({
             return (
               <div
                 key={variant.id}
-                className="rounded-2xl border border-gray-200 bg-white p-4 transition hover:border-gray-300 hover:shadow-sm"
+                className="rounded-[16px] border border-[#e7e3d3] bg-white p-4 transition hover:border-[#d9d4c3]"
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 flex-1">
@@ -346,7 +404,7 @@ export function ProductVariantManager({
                         {optionSummary.map((item) => (
                           <span
                             key={item}
-                            className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600"
+                            className="rounded-[8px] bg-[#f5f3e8] px-3 py-1 text-xs font-bold text-[#6f6a5e]"
                           >
                             {item}
                           </span>
@@ -358,7 +416,7 @@ export function ProductVariantManager({
                       {variantDetails.map((detail) => (
                         <span
                           key={detail}
-                          className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600"
+                          className="rounded-[8px] border border-[#e7e3d3] px-3 py-1 text-xs font-medium text-[#1a1a2e]/60"
                         >
                           {detail}
                         </span>
@@ -379,15 +437,19 @@ export function ProductVariantManager({
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <Button
                       intent={isExpanded ? 'secondary' : 'neutral'}
+                      className="!rounded-[10px] !border-0 !bg-[#f5f3e8] !px-4 !text-sm !font-bold !text-[#1a1a2e] hover:!bg-[#ece8d9]"
                       onClick={() => handleToggleVariant(variant.id)}
                     >
                       {isExpanded ? '접기' : '펼치기'}
                     </Button>
                     <Button
                       intent="danger"
+                      className="!rounded-[10px] !border !border-[#f3d6d6] !bg-white !px-3 !text-[#ca2a30] hover:!bg-[#fff0f0]"
                       loading={deleteVariant.isPending}
                       onClick={() => handleDeleteVariant(variant.id, variant.title)}
+                      aria-label={`${variant.title} 옵션 삭제`}
                     >
+                      <Trash2 className="h-4 w-4" aria-hidden />
                       삭제
                     </Button>
                   </div>
@@ -398,6 +460,7 @@ export function ProductVariantManager({
                     product={product}
                     variant={variant}
                     variantCount={variants?.length || 0}
+                    hideActions={Boolean(registerSaveHandler)}
                     registerSaveHandler={registerSaveHandler}
                     onCancel={() => setExpandedVariantId(null)}
                     onSuccess={handleInlineEditSuccess}
@@ -408,5 +471,53 @@ export function ProductVariantManager({
           })}
       </div>
     </section>
+  );
+}
+
+export function ProductVariantDeliverySettings({
+  product,
+  variant,
+  variantCount,
+  registerSaveHandler,
+}: ProductVariantDeliverySettingsProps) {
+  const [message, setMessage] = useState<string | null>(null);
+  const {
+    data: assets,
+    isLoading: assetsLoading,
+  } = useV2AdminVariantAssets(variant?.id);
+  const primaryAsset = getPrimaryDigitalAsset(assets);
+
+  if (!variant) {
+    return (
+      <div className="rounded-[12px] border border-dashed border-[#d9d4c3] bg-white px-4 py-4 text-sm font-bold text-[#b3aea2]">
+        기본 옵션을 찾지 못했습니다.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {message && (
+        <div className="rounded-[12px] border border-green-200 bg-green-50 px-3 py-2 text-xs font-bold text-green-700">
+          {message}
+        </div>
+      )}
+      <ProductVariantForm
+        mode="edit"
+        product={product}
+        variant={variant}
+        variantCount={variantCount}
+        primaryAsset={primaryAsset}
+        isAssetsLoading={assetsLoading}
+        compact
+        hideActions
+        deliveryOnly
+        registerSaveHandler={registerSaveHandler}
+        onCancel={() => undefined}
+        onSuccess={() => {
+          setMessage('전달 설정을 저장했습니다.');
+        }}
+      />
+    </div>
   );
 }

@@ -9,6 +9,15 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import { Select } from '@/components/ui/select';
+import {
+  AdminPageHeader,
+  AdminStatCard,
+  AdminSurface,
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { ProjectProductsBulkTable } from '@/src/components/admin/v2-catalog/ProjectProductsBulkTable';
 import type { V2ProductStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
@@ -26,6 +35,8 @@ type BulkFeedback = {
 };
 
 const PRODUCT_STATUS_VALUES: V2ProductStatus[] = ['DRAFT', 'ACTIVE', 'INACTIVE', 'ARCHIVED'];
+const PRODUCT_FILTER_STATUS_VALUES: ProductFilterStatus[] = ['ALL', ...PRODUCT_STATUS_VALUES];
+const PRODUCT_BULK_STATUS_VALUES: V2ProductStatus[] = ['ACTIVE', 'INACTIVE', 'ARCHIVED'];
 const PRODUCT_STATUS_TRANSITIONS: Record<V2ProductStatus, V2ProductStatus[]> = {
   DRAFT: ['DRAFT', 'ACTIVE', 'INACTIVE', 'ARCHIVED'],
   ACTIVE: ['ACTIVE', 'INACTIVE', 'ARCHIVED'],
@@ -54,6 +65,10 @@ function canTransitionProductStatus(
   nextStatus: V2ProductStatus,
 ) {
   return PRODUCT_STATUS_TRANSITIONS[currentStatus].includes(nextStatus);
+}
+
+function getProductFilterStatusLabel(status: ProductFilterStatus): string {
+  return status === 'ALL' ? '전체' : PRODUCT_STATUS_LABELS[status];
 }
 
 export default function V2CatalogProjectProductsPage() {
@@ -160,8 +175,6 @@ export default function V2CatalogProjectProductsPage() {
       ),
     [bulkStatus, selectedProducts],
   );
-  const selectedUnchangedCount =
-    selectedProducts.length - productsToBulkUpdate.length - blockedBulkProducts.length;
   const allProductsSelected =
     filteredProducts.length > 0 && selectedProductIdsInView.length === filteredProducts.length;
   const hasPartialSelection = selectedProductIdsInView.length > 0 && !allProductsSelected;
@@ -228,169 +241,113 @@ export default function V2CatalogProjectProductsPage() {
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
           프로젝트 상품 정보를 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/products')}>
-          프로젝트 목록으로
+        <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/projects/${projectId}`)}>
+          프로젝트 상세로
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="text-sm text-gray-500">프로젝트 상품 관리</p>
-          <h1 className="mt-1 text-2xl font-bold text-gray-900">{project.name}</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            /{project.slug} 프로젝트 상품을 리스트에서 바로 미리 보고 빠르게 수정합니다.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/products')}>
-            프로젝트 목록
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="project products"
+        title={project.name}
+        description={`/${project.slug} 프로젝트 상품을 리스트에서 바로 미리 보고 빠르게 수정합니다.`}
+        actions={
+          <Button
+            intent="neutral"
+            className={adminButtonClass}
+            onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}`)}
+          >
+            프로젝트 상세
           </Button>
-          <Button onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}>
-            이 프로젝트에 새 상품
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">전체</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.total}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">ACTIVE</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.active}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">DRAFT</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.draft}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">INACTIVE</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.inactive}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-medium text-gray-500">ARCHIVED</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{summary.archived}</p>
-        </div>
+        <AdminStatCard label="전체" value={summary.total} />
+        <AdminStatCard label="ACTIVE" value={summary.active} />
+        <AdminStatCard label="DRAFT" value={summary.draft} />
+        <AdminStatCard label="INACTIVE" value={summary.inactive} />
+        <AdminStatCard label="ARCHIVED" value={summary.archived} />
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold text-gray-900">상품 찾기</h2>
-          <p className="text-sm text-gray-500">
-            검색/필터로 대상을 줄인 뒤 상품 상태와 옵션 구성을 빠르게 확인합니다.
-          </p>
-        </div>
-
-        <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_220px_220px]">
-          <Input
-            placeholder="상품명 검색"
-            value={keyword}
-            onChange={(event) => {
-              setKeyword(event.target.value);
-              setSelectedProductIds([]);
-              setBulkFeedback(null);
-            }}
-          />
-          <Select
-            value={statusFilter}
-            onChange={(event) => {
-              setStatusFilter(event.target.value as ProductFilterStatus);
-              setSelectedProductIds([]);
-              setBulkFeedback(null);
-            }}
-            options={[
-              { value: 'ALL', label: '전체 상태' },
-              ...PRODUCT_STATUS_VALUES.map((status) => ({
-                value: status,
-                label: PRODUCT_STATUS_LABELS[status],
-              })),
-            ]}
-          />
-          <Select
-            value={sortKey}
-            onChange={(event) => setSortKey(event.target.value as ProductSortKey)}
-            options={[
-              { value: 'CREATED_DESC', label: '최근 생성순' },
-              { value: 'SORT_ASC', label: '정렬 순서' },
-              { value: 'UPDATED_DESC', label: '최근 수정순' },
-              { value: 'TITLE_ASC', label: '이름순' },
-            ]}
-          />
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">상품 목록</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              대략적인 상품 정보를 확인하고 편집 아이콘으로 상세 화면에 들어갑니다.
-            </p>
+      <AdminSurface padding="md">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-black text-[#1a1a2e]">상품 목록</h2>
+            <Badge intent="info">{filteredProducts.length}개 표시</Badge>
           </div>
-          <Badge intent="info">{filteredProducts.length}개 표시</Badge>
+          <Button
+            className={adminPrimaryButtonClass}
+            onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}
+          >
+            상품 추가
+          </Button>
         </div>
 
-        {selectedProducts.length > 0 && (
-          <div className="mt-5 flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-blue-900">
-                상품 {selectedProducts.length}개 선택됨
-              </p>
-              <p className="mt-1 text-xs text-blue-700">
-                변경 대상 {productsToBulkUpdate.length}개
-                {selectedUnchangedCount > 0 ? ` · 같은 상태 ${selectedUnchangedCount}개 제외` : ''}
-                {blockedBulkProducts.length > 0
-                  ? ` · 전이 불가 ${blockedBulkProducts.length}개 제외`
-                  : ''}
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Select
-                size="sm"
-                value={bulkStatus}
-                disabled={bulkUpdateProductStatus.isPending}
-                onChange={(event) => {
-                  setBulkStatus(event.target.value as V2ProductStatus);
-                  setBulkFeedback(null);
-                }}
-                className="min-w-[160px]"
-                options={PRODUCT_STATUS_VALUES.map((status) => ({
-                  value: status,
-                  label: PRODUCT_STATUS_LABELS[status],
-                }))}
-              />
-              <Button
-                size="sm"
-                loading={bulkUpdateProductStatus.isPending}
-                onClick={handleBulkStatusChange}
-              >
-                <CheckSquare className="h-4 w-4" aria-hidden />
-                상태 변경
-              </Button>
-              <Button
-                size="sm"
-                intent="neutral"
-                disabled={bulkUpdateProductStatus.isPending}
-                onClick={() => {
-                  setSelectedProductIds([]);
-                  setBulkFeedback(null);
-                }}
-              >
-                <X className="h-4 w-4" aria-hidden />
-                선택 해제
-              </Button>
+        <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="overflow-x-auto">
+            <div
+              className="inline-flex min-w-max items-center gap-1 rounded-full border border-[#e7e3d3] bg-[#faf9f3] p-1"
+              role="tablist"
+              aria-label="상품 상태 필터"
+            >
+              {PRODUCT_FILTER_STATUS_VALUES.map((status) => {
+                const isActive = statusFilter === status;
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={`rounded-full px-4 py-2 text-sm font-black transition-colors ${
+                      isActive
+                        ? 'bg-white text-[#1a1a2e] shadow-[0_8px_18px_rgba(26,26,46,0.10)]'
+                        : 'text-[#1a1a2e]/45 hover:bg-white/70 hover:text-[#1a1a2e]/75'
+                    }`}
+                    onClick={() => {
+                      setStatusFilter(status);
+                      setSelectedProductIds([]);
+                      setBulkFeedback(null);
+                    }}
+                  >
+                    {getProductFilterStatusLabel(status)}
+                  </button>
+                );
+              })}
             </div>
           </div>
-        )}
 
-        {bulkFeedback && (
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px] xl:w-[620px]">
+            <Input
+              placeholder="상품명 검색"
+              value={keyword}
+              onChange={(event) => {
+                setKeyword(event.target.value);
+                setSelectedProductIds([]);
+                setBulkFeedback(null);
+              }}
+              className={adminInputClass}
+            />
+            <Select
+              value={sortKey}
+              onChange={(event) => setSortKey(event.target.value as ProductSortKey)}
+              options={[
+                { value: 'CREATED_DESC', label: '최근 생성순' },
+                { value: 'SORT_ASC', label: '정렬 순서' },
+                { value: 'UPDATED_DESC', label: '최근 수정순' },
+                { value: 'TITLE_ASC', label: '이름순' },
+              ]}
+              className={adminSelectClass}
+            />
+          </div>
+        </div>
+
+        {bulkFeedback && selectedProducts.length === 0 && (
           <div
-            className={`mt-4 rounded-lg border px-4 py-3 text-sm ${
+            className={`mt-4 rounded-[14px] border px-4 py-3 text-sm font-medium ${
               bulkFeedback.intent === 'error'
                 ? 'border-red-200 bg-red-50 text-red-700'
                 : bulkFeedback.intent === 'success'
@@ -408,7 +365,10 @@ export default function V2CatalogProjectProductsPage() {
               title="조건에 맞는 상품이 없어요"
               description="검색어나 필터를 바꾸거나 새 상품을 만들어 주세요."
               action={
-                <Button onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}>
+                <Button
+                  className={adminPrimaryButtonClass}
+                  onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}
+                >
                   새 상품 만들기
                 </Button>
               }
@@ -427,12 +387,74 @@ export default function V2CatalogProjectProductsPage() {
           )}
         </div>
 
-        <div className="mt-4 flex justify-end">
-          <Button onClick={() => router.push(`/admin/v2-catalog/products/new?projectId=${project.id}`)}>
-            상품 추가
-          </Button>
+      </AdminSurface>
+
+      {selectedProducts.length > 0 && (
+        <div className="fixed bottom-6 left-4 right-4 z-50 rounded-[24px] border border-[#d8cfb9] bg-white/95 p-4 shadow-[0_18px_45px_rgba(26,26,46,0.16)] backdrop-blur sm:bottom-8 sm:left-auto sm:right-8 sm:w-[280px]">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-base font-black text-[#1a1a2e]">상태 변경</h3>
+            <Button
+              size="sm"
+              intent="neutral"
+              className="!h-9 !w-9 !rounded-[10px] !border-0 !bg-[#f5f3e8] !px-0 !text-[#1a1a2e] hover:!bg-[#ece8d9]"
+              disabled={bulkUpdateProductStatus.isPending}
+              aria-label="선택 해제"
+              title="선택 해제"
+              onClick={() => {
+                setSelectedProductIds([]);
+                setBulkFeedback(null);
+              }}
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </Button>
+          </div>
+
+          <div className="mt-3 rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-3 py-3">
+            <p className="text-[11px] font-bold text-[#1a1a2e]/45">선택한 상품</p>
+            <p className="mt-1 text-xl font-black text-[#1a1a2e]">{selectedProducts.length}개</p>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2">
+            <Select
+              size="sm"
+              value={bulkStatus}
+              disabled={bulkUpdateProductStatus.isPending}
+              onChange={(event) => {
+                setBulkStatus(event.target.value as V2ProductStatus);
+                setBulkFeedback(null);
+              }}
+              className={`w-full ${adminSelectClass}`}
+              options={PRODUCT_BULK_STATUS_VALUES.map((status) => ({
+                value: status,
+                label: PRODUCT_STATUS_LABELS[status],
+              }))}
+            />
+            <Button
+              size="sm"
+              className="!h-11 !rounded-[12px] !bg-[#1a1a2e] !font-bold !text-white hover:!bg-[#272743]"
+              loading={bulkUpdateProductStatus.isPending}
+              onClick={handleBulkStatusChange}
+            >
+              <CheckSquare className="h-4 w-4" aria-hidden />
+              상태 변경
+            </Button>
+          </div>
+
+          {bulkFeedback && (
+            <div
+              className={`mt-3 rounded-[14px] border px-3 py-2 text-xs font-bold leading-5 ${
+                bulkFeedback.intent === 'error'
+                  ? 'border-red-200 bg-red-50 text-red-700'
+                  : bulkFeedback.intent === 'success'
+                    ? 'border-green-200 bg-green-50 text-green-700'
+                    : 'border-gray-200 bg-gray-50 text-gray-700'
+              }`}
+            >
+              {bulkFeedback.message}
+            </div>
+          )}
         </div>
-      </section>
+      )}
     </div>
   );
 }

@@ -42,6 +42,10 @@ export interface V2ShopDisplayPrice {
   compare_at_amount: number | null;
   currency_code: string;
   source: "BASE" | "OVERRIDE";
+  campaign_id?: string | null;
+  selling_campaign_id?: string | null;
+  price_list_id?: string | null;
+  price_list_item_id?: string | null;
 }
 
 export interface V2ShopAvailability {

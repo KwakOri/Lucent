@@ -2,41 +2,45 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Archive, RotateCcw } from 'lucide-react';
+import { Archive, Eye, RotateCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import {
+  AdminPageHeader,
+  AdminStatCard,
+  AdminSurface,
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+  adminTableBodyClass,
+  adminTableContainerClass,
+  adminTableHeadCellClass,
+  adminTableHeadClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type { V2ProjectStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
-  useArchiveV2Project,
-  usePublishV2Project,
-  useRestoreV2Project,
-  useUnpublishV2Project,
+  CAMPAIGN_STATUS_LABELS,
+  getCampaignPeriod,
+  getCampaignStatusIntent,
+} from '@/lib/client/utils/v2-campaign-admin';
+import {
+  buildCampaignProjectIdSet,
+  buildProductsByIdMap,
+} from '@/lib/client/utils/v2-campaign-targeting';
+import {
+  useV2AdminProducts,
   useV2AdminProjects,
+  useV2CampaignTargetsMap,
+  useV2Campaigns,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 
 type ProjectFilterStatus = 'ALL' | Exclude<V2ProjectStatus, 'ARCHIVED'>;
+type ProjectListTab = 'ACTIVE_CAMPAIGNS' | 'ALL';
 
 const STATUS_VALUES: Array<Exclude<V2ProjectStatus, 'ARCHIVED'>> = ['DRAFT', 'ACTIVE'];
-const SELECT_CLASS =
-  'h-11 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-text-primary focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20';
-
-function getErrorMessage(error: unknown): string {
-  if (error && typeof error === 'object') {
-    const maybeError = error as {
-      message?: string;
-      response?: { data?: { message?: string } };
-    };
-    if (maybeError.response?.data?.message) {
-      return maybeError.response.data.message;
-    }
-    if (maybeError.message) {
-      return maybeError.message;
-    }
-  }
-  return '요청 처리 중 오류가 발생했습니다.';
-}
 
 function resolveStatusIntent(status: V2ProjectStatus) {
   if (status === 'ACTIVE') {
@@ -50,85 +54,123 @@ function resolveStatusIntent(status: V2ProjectStatus) {
 
 export default function V2CatalogProjectsPage() {
   const router = useRouter();
-  const [message, setMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<ProjectFilterStatus>('ALL');
   const [keyword, setKeyword] = useState('');
   const [isArchiveView, setIsArchiveView] = useState(false);
+  const [listTab, setListTab] = useState<ProjectListTab>('ACTIVE_CAMPAIGNS');
 
   const { data: projects, isLoading, error } = useV2AdminProjects(
     isArchiveView ? { status: 'ARCHIVED' } : {},
   );
-  const publishProject = usePublishV2Project();
-  const unpublishProject = useUnpublishV2Project();
-  const archiveProject = useArchiveV2Project();
-  const restoreProject = useRestoreV2Project();
+  const {
+    data: campaigns,
+    isLoading: campaignsLoading,
+    error: campaignsError,
+  } = useV2Campaigns();
+  const {
+    data: baseCampaigns,
+    isLoading: baseCampaignsLoading,
+    error: baseCampaignsError,
+  } = useV2Campaigns({ campaignType: 'ALWAYS_ON' });
+  const {
+    data: products,
+    isLoading: productsLoading,
+    error: productsError,
+  } = useV2AdminProducts();
 
-  const clearNotice = () => {
-    setMessage(null);
-    setErrorMessage(null);
-  };
+  const campaignIds = useMemo(
+    () => (campaigns || []).map((campaign) => campaign.id),
+    [campaigns],
+  );
+  const targetsByCampaignId = useV2CampaignTargetsMap(campaignIds);
+  const campaignTargetsLoading = campaignIds.some(
+    (campaignId) => targetsByCampaignId[campaignId]?.isLoading,
+  );
+  const productsById = useMemo(() => buildProductsByIdMap(products || []), [products]);
 
-  const runAction = async (task: () => Promise<void>) => {
-    clearNotice();
-    try {
-      await task();
-    } catch (actionError) {
-      setErrorMessage(getErrorMessage(actionError));
-    }
-  };
+  const activeCampaignProjectIds = useMemo(() => {
+    const projectIds = new Set<string>();
+
+    (campaigns || []).forEach((campaign) => {
+      if (campaign.status !== 'ACTIVE') {
+        return;
+      }
+
+      const period = getCampaignPeriod(campaign.starts_at, campaign.ends_at);
+      if (period !== 'LIVE' && period !== 'NO_PERIOD') {
+        return;
+      }
+
+      const linkedProjectIds = buildCampaignProjectIdSet({
+        campaign,
+        targets: targetsByCampaignId[campaign.id]?.targets || [],
+        productsById,
+      });
+
+      linkedProjectIds.forEach((projectId) => projectIds.add(projectId));
+    });
+
+    return projectIds;
+  }, [campaigns, productsById, targetsByCampaignId]);
 
   const filteredProjects = useMemo(() => {
     const search = keyword.trim().toLowerCase();
     return (projects || [])
       .filter((project) => {
+        if (!isArchiveView && project.status === 'ARCHIVED') {
+          return false;
+        }
+        if (!isArchiveView && listTab === 'ACTIVE_CAMPAIGNS' && !activeCampaignProjectIds.has(project.id)) {
+          return false;
+        }
         if (!isArchiveView && statusFilter !== 'ALL' && project.status !== statusFilter) {
           return false;
         }
         if (!search) {
           return true;
         }
-        const haystack = `${project.name} ${project.slug} ${project.id}`.toLowerCase();
+        const haystack = project.name.toLowerCase();
         return haystack.includes(search);
       })
       .sort((left, right) => left.sort_order - right.sort_order);
-  }, [isArchiveView, keyword, projects, statusFilter]);
+  }, [activeCampaignProjectIds, isArchiveView, keyword, listTab, projects, statusFilter]);
 
-  const handlePublish = async (projectId: string) => {
-    await runAction(async () => {
-      await publishProject.mutateAsync(projectId);
-      setMessage('프로젝트를 활성화했습니다.');
+  const listTabCounts = useMemo(() => {
+    const visibleProjects = (projects || []).filter((project) => project.status !== 'ARCHIVED');
+    return {
+      activeCampaigns: visibleProjects.filter((project) => activeCampaignProjectIds.has(project.id)).length,
+      all: visibleProjects.length,
+    };
+  }, [activeCampaignProjectIds, projects]);
+
+  const baseCampaignByProjectId = useMemo(() => {
+    const campaignMap = new Map<string, NonNullable<typeof baseCampaigns>[number]>();
+    const sortedBaseCampaigns = [...(baseCampaigns || [])].sort((left, right) => {
+      if (left.status === 'ACTIVE' && right.status !== 'ACTIVE') {
+        return -1;
+      }
+      if (left.status !== 'ACTIVE' && right.status === 'ACTIVE') {
+        return 1;
+      }
+      return right.updated_at.localeCompare(left.updated_at);
     });
-  };
 
-  const handleUnpublish = async (projectId: string) => {
-    await runAction(async () => {
-      await unpublishProject.mutateAsync(projectId);
-      setMessage('프로젝트를 DRAFT로 전환했습니다.');
+    sortedBaseCampaigns.forEach((campaign) => {
+      if (campaign.project_id && !campaignMap.has(campaign.project_id)) {
+        campaignMap.set(campaign.project_id, campaign);
+      }
     });
-  };
 
-  const handleArchive = async (projectId: string, projectName: string) => {
-    if (!window.confirm(`"${projectName}" 프로젝트를 보관하시겠습니까? 보관하면 일반 목록에서 숨겨지고 비활성화됩니다.`)) {
-      return;
-    }
-    await runAction(async () => {
-      await archiveProject.mutateAsync(projectId);
-      setMessage('프로젝트를 보관했습니다.');
-    });
-  };
+    return campaignMap;
+  }, [baseCampaigns]);
 
-  const handleRestore = async (projectId: string, projectName: string) => {
-    if (!window.confirm(`"${projectName}" 프로젝트를 보관함에서 복귀시키겠습니까? 복귀 후에는 DRAFT 상태가 됩니다.`)) {
-      return;
-    }
-    await runAction(async () => {
-      await restoreProject.mutateAsync(projectId);
-      setMessage('프로젝트를 보관함에서 복귀시켰습니다.');
-    });
-  };
-
-  if (isLoading) {
+  if (
+    isLoading ||
+    campaignsLoading ||
+    campaignTargetsLoading ||
+    baseCampaignsLoading ||
+    productsLoading
+  ) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <Loading size="lg" text="v2 프로젝트를 불러오는 중입니다." />
@@ -136,41 +178,43 @@ export default function V2CatalogProjectsPage() {
     );
   }
 
-  if (error) {
+  if (error || campaignsError || baseCampaignsError || productsError) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+      <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
         프로젝트 목록을 불러오지 못했습니다.
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {isArchiveView ? 'v2 프로젝트 보관함' : 'v2 프로젝트 관리'}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {isArchiveView
-              ? '보관된 프로젝트를 확인하고 필요한 항목을 DRAFT 상태로 복귀시킵니다.'
-              : '프로젝트 목록과 공개 상태를 운영합니다.'}
-          </p>
-        </div>
-        <div className="mt-3 flex items-center gap-2 sm:mt-0">
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="project catalog"
+        title={isArchiveView ? 'v2 프로젝트 보관함' : 'v2 프로젝트 관리'}
+        description={
+          isArchiveView
+            ? '보관된 프로젝트를 확인하고 필요한 항목을 DRAFT 상태로 복귀시킵니다.'
+            : '프로젝트를 중심으로 상품과 캠페인 운영 흐름을 시작합니다.'
+        }
+        actions={
+          <>
           <Badge intent="info" size="md">
             {isArchiveView ? '보관' : '총'} {projects?.length || 0}개
           </Badge>
           {!isArchiveView && (
-            <Button onClick={() => router.push('/admin/v2-catalog/projects/new')}>
+            <Button
+              className={adminPrimaryButtonClass}
+              onClick={() => router.push('/admin/v2-catalog/projects/new')}
+            >
               새 프로젝트
             </Button>
           )}
           <Button
             intent="neutral"
+            className={adminButtonClass}
             onClick={() => {
-              clearNotice();
               setIsArchiveView((current) => !current);
+              setListTab('ACTIVE_CAMPAIGNS');
             }}
           >
             {isArchiveView ? (
@@ -185,33 +229,75 @@ export default function V2CatalogProjectsPage() {
               </>
             )}
           </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      {message && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {message}
-        </div>
-      )}
-      {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      )}
+      <section className="grid gap-3 md:grid-cols-3">
+        <AdminStatCard
+          label={isArchiveView ? '보관 프로젝트' : '운영 캠페인 연결'}
+          value={isArchiveView ? projects?.length || 0 : listTabCounts.activeCampaigns}
+          caption={isArchiveView ? 'ARCHIVED 상태' : 'LIVE/NO_PERIOD ACTIVE 캠페인 기준'}
+        />
+        <AdminStatCard
+          label="전체 프로젝트"
+          value={listTabCounts.all}
+          caption="보관 항목 제외"
+        />
+        <AdminStatCard
+          label="현재 결과"
+          value={filteredProjects.length}
+          caption="검색/필터 적용 후"
+        />
+      </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <AdminSurface padding="md">
+        {!isArchiveView && (
+          <div className="mb-4 grid gap-2 sm:grid-cols-2">
+            {[
+              {
+                label: '운영중 캠페인',
+                value: 'ACTIVE_CAMPAIGNS' as const,
+                count: listTabCounts.activeCampaigns,
+              },
+              {
+                label: '전체',
+                value: 'ALL' as const,
+                count: listTabCounts.all,
+              },
+            ].map((tab) => {
+              const isSelected = listTab === tab.value;
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setListTab(tab.value)}
+                  className={`rounded-[16px] border px-4 py-3 text-left transition ${
+                    isSelected
+                      ? 'border-[#1a1a2e] bg-[#1a1a2e] text-white'
+                      : 'border-[#e7e3d3] bg-[#fdfcf4] text-[#1a1a2e] hover:border-[#d8d1bd]'
+                  }`}
+                >
+                  <span className="block text-sm font-black">{tab.label}</span>
+                  <span className="mt-1 block text-xl font-black">{tab.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-3">
           <Input
-            placeholder="프로젝트명/slug 검색"
+            placeholder="프로젝트명 검색"
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
-            className="max-w-xs"
+            className={`max-w-xs ${adminInputClass}`}
           />
           {!isArchiveView && (
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as ProjectFilterStatus)}
-              className={SELECT_CLASS}
+              className={adminSelectClass}
             >
               <option value="ALL">전체 상태</option>
               {STATUS_VALUES.map((status) => (
@@ -223,103 +309,72 @@ export default function V2CatalogProjectsPage() {
           )}
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className={`mt-4 ${adminTableContainerClass}`}>
+          <table className="min-w-full">
+            <thead className={adminTableHeadClass}>
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className={adminTableHeadCellClass}>
                   프로젝트
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  slug
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className={adminTableHeadCellClass}>
                   상태
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  정렬
+                <th className={adminTableHeadCellClass}>
+                  기본 캠페인
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className={`${adminTableHeadCellClass} text-right`}>
                   작업
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className={adminTableBodyClass}>
               {filteredProjects.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={4} className="px-4 py-8 text-center text-sm font-medium text-[#1a1a2e]/45">
                     {isArchiveView ? '보관된 프로젝트가 없습니다.' : '조회 결과가 없습니다.'}
                   </td>
                 </tr>
               )}
-              {filteredProjects.map((project) => (
-                <tr key={project.id}>
-                  <td className="px-4 py-3">
-                    <p className="text-sm font-semibold text-gray-900">{project.name}</p>
-                    <p className="mt-1 text-xs text-gray-500">{project.id}</p>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{project.slug}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <Badge intent={resolveStatusIntent(project.status)}>{project.status}</Badge>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{project.sort_order}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        intent="neutral"
-                        size="sm"
-                        onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}/edit`)}
-                      >
-                        수정
-                      </Button>
-                      {project.status === 'ARCHIVED' ? (
-                        <Button
-                          size="sm"
-                          onClick={() => handleRestore(project.id, project.name)}
-                          loading={restoreProject.isPending}
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                          복귀
-                        </Button>
+              {filteredProjects.map((project) => {
+                const baseCampaign = baseCampaignByProjectId.get(project.id);
+
+                return (
+                  <tr key={project.id}>
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-black text-[#1a1a2e]">{project.name}</p>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <Badge intent={resolveStatusIntent(project.status)}>{project.status}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {baseCampaign ? (
+                        <Badge intent={getCampaignStatusIntent(baseCampaign.status)}>
+                          포함 · {CAMPAIGN_STATUS_LABELS[baseCampaign.status]}
+                        </Badge>
                       ) : (
-                        <>
-                          {project.status !== 'ACTIVE' ? (
-                            <Button
-                              size="sm"
-                              onClick={() => handlePublish(project.id)}
-                              loading={publishProject.isPending}
-                            >
-                              활성화
-                            </Button>
-                          ) : (
-                            <Button
-                              intent="secondary"
-                              size="sm"
-                              onClick={() => handleUnpublish(project.id)}
-                              loading={unpublishProject.isPending}
-                            >
-                              비활성화
-                            </Button>
-                          )}
-                          <Button
-                            intent="neutral"
-                            size="sm"
-                            onClick={() => handleArchive(project.id, project.name)}
-                            loading={archiveProject.isPending}
-                          >
-                            <Archive className="h-4 w-4" />
-                            보관
-                          </Button>
-                        </>
+                        <Badge intent="warning">미포함</Badge>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          intent="primary"
+                          size="sm"
+                          className="!rounded-[10px] !bg-[#1a1a2e] !text-white hover:!bg-[#272743]"
+                          onClick={() => router.push(`/admin/v2-catalog/projects/${project.id}`)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          상세
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-      </section>
+      </AdminSurface>
     </div>
   );
 }

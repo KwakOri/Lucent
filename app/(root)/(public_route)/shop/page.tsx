@@ -8,6 +8,7 @@ import { Loading } from "@/components/ui/loading";
 import {
   useSession,
   useV2AddCartItem,
+  useV2DigitalOwnership,
   useV2ShopCampaigns,
   useV2ShopProducts,
 } from "@/lib/client/hooks";
@@ -15,8 +16,9 @@ import type {
   V2ShopDisplayPrice,
   V2ShopListItem,
 } from "@/lib/client/api/v2-shop.api";
+import type { V2DigitalOwnershipRecord } from "@/lib/client/api/v2-checkout.api";
 import { ApiError } from "@/lib/client/utils/api-error";
-import { ShoppingCart } from "lucide-react";
+import { CheckCircle2, Clock3, ShoppingCart } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/src/components/toast";
@@ -42,6 +44,10 @@ function buildDisplayPriceSnapshot(displayPrice: V2ShopDisplayPrice | null) {
     compare_at_amount: displayPrice.compare_at_amount,
     currency_code: displayPrice.currency_code,
     source: displayPrice.source,
+    campaign_id: displayPrice.campaign_id ?? null,
+    selling_campaign_id: displayPrice.selling_campaign_id ?? null,
+    price_list_id: displayPrice.price_list_id ?? null,
+    price_list_item_id: displayPrice.price_list_item_id ?? null,
   };
 }
 
@@ -73,6 +79,21 @@ function getErrorMessage(error: unknown): string {
     return error.message;
   }
   return "요청 처리 중 오류가 발생했습니다.";
+}
+
+type DigitalPurchaseState = "pending" | "owned";
+
+function getDigitalPurchaseState(
+  record: V2DigitalOwnershipRecord | null | undefined,
+): DigitalPurchaseState | null {
+  if (!record) {
+    return null;
+  }
+  return record.ownership_status === "OWNED" ? "owned" : "pending";
+}
+
+function getDigitalPurchaseLabel(state: DigitalPurchaseState): string {
+  return state === "owned" ? "구매 완료" : "구매 신청 완료";
 }
 
 interface SectionPaginationProps {
@@ -163,6 +184,21 @@ function ShopPageContent() {
     () => exposedProducts.filter((item) => item.fulfillment_type !== "DIGITAL"),
     [exposedProducts],
   );
+  const voicePackVariantIds = useMemo(
+    () =>
+      voicePacks
+        .map((item) => item.primary_variant_id)
+        .filter((variantId): variantId is string => Boolean(variantId)),
+    [voicePacks],
+  );
+  const digitalOwnershipQuery = useV2DigitalOwnership(
+    { variant_ids: voicePackVariantIds },
+    { enabled: voicePackVariantIds.length > 0 },
+  );
+  const guardedDigitalVariantIds = useMemo(
+    () => new Set(digitalOwnershipQuery.data?.owned_variant_ids ?? []),
+    [digitalOwnershipQuery.data?.owned_variant_ids],
+  );
   const voicePackTotalPages = Math.max(
     1,
     Math.ceil(voicePacks.length / SHOP_SECTION_PAGE_SIZE),
@@ -221,8 +257,27 @@ function ShopPageContent() {
     router.push(buildProductDetailPath(productId));
   };
 
+  const getDigitalOwnershipRecord = (item: V2ShopListItem) => {
+    if (item.fulfillment_type !== "DIGITAL" || !item.primary_variant_id) {
+      return null;
+    }
+    return (
+      digitalOwnershipQuery.data?.by_variant_id[item.primary_variant_id] ?? null
+    );
+  };
+
+  const getDigitalItemPurchaseState = (item: V2ShopListItem) =>
+    getDigitalPurchaseState(getDigitalOwnershipRecord(item));
+
+  const isGuardedDigitalItem = (item: V2ShopListItem) =>
+    item.fulfillment_type === "DIGITAL" &&
+    !!item.primary_variant_id &&
+    guardedDigitalVariantIds.has(item.primary_variant_id);
+
   const canAddToCart = (item: V2ShopListItem) =>
-    item.availability.sellable && !!item.primary_variant_id;
+    item.availability.sellable &&
+    !!item.primary_variant_id &&
+    !isGuardedDigitalItem(item);
 
   async function handleAddToCart(
     event: React.MouseEvent,
@@ -240,6 +295,17 @@ function ShopPageContent() {
       return;
     }
 
+    const purchaseState = getDigitalItemPurchaseState(item);
+    if (purchaseState) {
+      showToast(
+        purchaseState === "owned"
+          ? "이미 구매한 디지털 상품입니다. 마이페이지에서 다운로드할 수 있어요."
+          : "구매 신청이 완료된 디지털 상품입니다.",
+        { type: "info" },
+      );
+      return;
+    }
+
     if (!isAuthenticated) {
       requestLogin();
       return;
@@ -248,16 +314,21 @@ function ShopPageContent() {
     setAddingToCart(item.product_id);
 
     try {
+      const cartCampaignId =
+        selectedCampaignId ||
+        item.display_price?.selling_campaign_id ||
+        item.display_price?.campaign_id ||
+        null;
       await addCartItem.mutateAsync({
         variant_id: item.primary_variant_id,
         quantity: 1,
-        campaign_id: selectedCampaignId || null,
+        campaign_id: cartCampaignId,
         display_price_snapshot: buildDisplayPriceSnapshot(item.display_price),
         added_via: "SHOP_LIST",
         metadata: {
           source: "shop-list",
           product_id: item.product_id,
-          campaign_id: selectedCampaignId || null,
+          campaign_id: cartCampaignId,
         },
       });
 
@@ -265,6 +336,15 @@ function ShopPageContent() {
     } catch (submitError) {
       if (submitError instanceof ApiError && submitError.isAuthError()) {
         requestLogin();
+        return;
+      }
+      if (
+        submitError instanceof ApiError &&
+        submitError.errorCode === "DIGITAL_ENTITLEMENT_ALREADY_OWNED"
+      ) {
+        showToast("이미 구매했거나 구매 신청이 완료된 디지털 상품입니다.", {
+          type: "info",
+        });
         return;
       }
       showToast(getErrorMessage(submitError), { type: "error" });
@@ -364,60 +444,100 @@ function ShopPageContent() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
-              {paginatedVoicePacks.map((pack, index) => (
-                <div
-                  key={pack.product_id}
-                  className="cursor-pointer overflow-hidden rounded-xl border border-primary-200 bg-white transition-all duration-300 hover:shadow-xl sm:rounded-2xl sm:border-2 sm:hover:scale-105"
-                  onClick={() => handleProductClick(pack.product_id)}
-                >
-                  <VoicePackCover
-                    index={voicePackPageStartIndex + index}
-                    name={pack.title}
-                    thumbnail={pack.thumbnail_url}
-                    appearance="media"
-                  />
+              {paginatedVoicePacks.map((pack, index) => {
+                const purchaseState = getDigitalItemPurchaseState(pack);
+                const isGuarded = isGuardedDigitalItem(pack);
+                const purchaseLabel = purchaseState
+                  ? getDigitalPurchaseLabel(purchaseState)
+                  : null;
 
-                  <div className="p-3 sm:p-6">
-                    <h3 className="mb-1 line-clamp-1 text-sm font-bold leading-snug text-text-primary sm:mb-2 sm:line-clamp-2 sm:text-xl">
-                      {pack.title}
-                    </h3>
-                    <p className="mb-3 line-clamp-1 text-xs text-text-secondary sm:mb-4 sm:line-clamp-2 sm:text-sm">
-                      {pack.short_description || "보이스팩"}
-                    </p>
-                    <p className="mb-3 text-lg font-bold text-primary-700 sm:mb-4 sm:text-2xl">
-                      {formatDisplayPrice(pack)}
-                    </p>
-                    <div className="mb-3">{renderSellableBadge(pack)}</div>
+                return (
+                  <div
+                    key={pack.product_id}
+                    className="cursor-pointer overflow-hidden rounded-xl border border-primary-200 bg-white transition-all duration-300 hover:shadow-xl sm:rounded-2xl sm:border-2 sm:hover:scale-105"
+                    onClick={() => handleProductClick(pack.product_id)}
+                  >
+                    <VoicePackCover
+                      index={voicePackPageStartIndex + index}
+                      name={pack.title}
+                      thumbnail={pack.thumbnail_url}
+                      appearance="media"
+                      purchaseState={purchaseState}
+                    />
 
-                    <div className="flex gap-2">
-                      <Button
-                        intent="secondary"
-                        size="sm"
-                        fullWidth
-                        className="text-xs sm:h-11 sm:rounded-lg sm:px-4 sm:text-base"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleProductClick(pack.product_id);
-                        }}
-                      >
-                        자세히 보기
-                      </Button>
-                      <Button
-                        intent="primary"
-                        size="sm"
-                        className="shrink-0 px-3 sm:h-11 sm:rounded-lg sm:px-4"
-                        disabled={
-                          !canAddToCart(pack) || addingToCart === pack.product_id
-                        }
-                        aria-label={`${pack.title} 장바구니에 담기`}
-                        onClick={(event) => void handleAddToCart(event, pack)}
-                      >
-                        <ShoppingCart className="h-4 w-4" />
-                      </Button>
+                    <div className="p-3 sm:p-6">
+                      <h3 className="mb-1 line-clamp-2 h-10 text-sm font-bold leading-snug text-text-primary sm:mb-2 sm:h-14 sm:text-xl">
+                        {pack.title}
+                      </h3>
+                      <p className="mb-3 line-clamp-1 text-xs text-text-secondary sm:mb-4 sm:line-clamp-2 sm:text-sm">
+                        {pack.short_description || "보이스팩"}
+                      </p>
+                      <p className="mb-3 text-lg font-bold text-primary-700 sm:mb-4 sm:text-2xl">
+                        {formatDisplayPrice(pack)}
+                      </p>
+                      <div className="mb-3">
+                        {purchaseLabel ? (
+                          <span
+                            className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                              purchaseState === "owned"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {purchaseLabel}
+                          </span>
+                        ) : (
+                          renderSellableBadge(pack)
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          intent="secondary"
+                          size="sm"
+                          fullWidth
+                          className="text-xs sm:h-11 sm:rounded-lg sm:px-4 sm:text-base"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleProductClick(pack.product_id);
+                          }}
+                        >
+                          자세히 보기
+                        </Button>
+                        <Button
+                          intent={isGuarded ? "secondary" : "primary"}
+                          size="sm"
+                          className="shrink-0 px-3 sm:h-11 sm:rounded-lg sm:px-4"
+                          disabled={
+                            !canAddToCart(pack) || addingToCart === pack.product_id
+                          }
+                          aria-label={
+                            purchaseLabel
+                              ? `${pack.title} ${purchaseLabel}`
+                              : `${pack.title} 장바구니에 담기`
+                          }
+                          title={
+                            purchaseState === "owned"
+                              ? "이미 구매한 디지털 상품입니다"
+                              : purchaseState === "pending"
+                                ? "구매 신청이 완료된 디지털 상품입니다"
+                                : undefined
+                          }
+                          onClick={(event) => void handleAddToCart(event, pack)}
+                        >
+                          {purchaseState === "owned" ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : purchaseState === "pending" ? (
+                            <Clock3 className="h-4 w-4" />
+                          ) : (
+                            <ShoppingCart className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <SectionPagination
               page={voicePackPage}
@@ -462,7 +582,7 @@ function ShopPageContent() {
                     </div>
 
                     <div className="p-3 sm:p-6">
-                      <h3 className="mb-1 line-clamp-1 text-sm font-bold leading-snug text-text-primary sm:mb-2 sm:line-clamp-2 sm:text-xl">
+                      <h3 className="mb-1 line-clamp-2 h-10 text-sm font-bold leading-snug text-text-primary sm:mb-2 sm:h-14 sm:text-xl">
                         {goods.title}
                       </h3>
                       <p className="mb-3 line-clamp-1 text-xs text-text-secondary sm:mb-4 sm:line-clamp-2 sm:text-sm">

@@ -1,11 +1,19 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
+import {
+  AdminPageHeader,
+  adminButtonClass,
+  adminDangerIconButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { CampaignForm } from '@/src/components/admin/v2-catalog/CampaignForm';
 import {
+  useDeleteV2Campaign,
   useV2BundleDefinitions,
   useV2Campaign,
   useV2Campaigns,
@@ -13,9 +21,28 @@ import {
   useV2AdminProjects,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
 
+function getErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object') {
+    const maybeError = error as {
+      message?: string;
+      response?: { data?: { message?: string } };
+    };
+    if (maybeError.response?.data?.message) {
+      return maybeError.response.data.message;
+    }
+    if (maybeError.message) {
+      return maybeError.message;
+    }
+  }
+  return '요청 처리 중 오류가 발생했습니다.';
+}
+
 export default function V2CatalogCampaignEditPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const { confirm, notify } = useAdminFeedback();
+  const deleteCampaign = useDeleteV2Campaign();
+  const [pageErrorMessage, setPageErrorMessage] = useState<string | null>(null);
 
   const campaignId = useMemo(() => {
     const raw = params?.id;
@@ -30,6 +57,34 @@ export default function V2CatalogCampaignEditPage() {
   const { data: projects, isLoading: projectsLoading, error: projectsError } = useV2AdminProjects();
   const { data: products, isLoading: productsLoading, error: productsError } = useV2AdminProducts();
   const { data: bundleDefinitions, isLoading: bundlesLoading, error: bundlesError } = useV2BundleDefinitions();
+
+  const handleDeleteCampaign = async () => {
+    if (!campaign) {
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: '캠페인 삭제',
+      message: `"${campaign.name}" 캠페인을 삭제하시겠습니까?`,
+      description:
+        '캠페인과 연결된 대상, 전용 가격표, 프로모션, 쿠폰이 함께 목록과 상점 노출에서 제외됩니다.',
+      confirmText: '삭제',
+      tone: 'danger',
+    });
+    if (!confirmed) {
+      return;
+    }
+
+    setPageErrorMessage(null);
+
+    try {
+      await deleteCampaign.mutateAsync(campaign.id);
+      notify('캠페인을 삭제했습니다.', { type: 'success' });
+      router.push('/admin/v2-catalog/campaigns');
+    } catch (deleteError) {
+      setPageErrorMessage(getErrorMessage(deleteError));
+    }
+  };
 
   if (campaignLoading || campaignsLoading || projectsLoading || productsLoading || bundlesLoading) {
     return (
@@ -53,10 +108,10 @@ export default function V2CatalogCampaignEditPage() {
   ) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
           캠페인 수정 정보를 불러오지 못했습니다.
         </div>
-        <Button intent="neutral" onClick={() => router.push('/admin/v2-catalog/campaigns')}>
+        <Button intent="neutral" className={adminButtonClass} onClick={() => router.push('/admin/v2-catalog/campaigns')}>
           목록으로
         </Button>
       </div>
@@ -64,20 +119,35 @@ export default function V2CatalogCampaignEditPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">캠페인 수정</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            이름, 설명, 기간을 손보고 적용 대상은 상세 페이지에서 이어서 관리합니다.
-          </p>
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="campaign form"
+        title="캠페인 수정"
+        description="이름, 설명, 기간을 손보고 적용 대상은 상세 페이지에서 이어서 관리합니다."
+        actions={
+          <>
+            <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaignId}`)}>
+              상세로 돌아가기
+            </Button>
+            <Button
+              intent="danger"
+              className={adminDangerIconButtonClass}
+              onClick={handleDeleteCampaign}
+              loading={deleteCampaign.isPending}
+              aria-label="캠페인 삭제"
+              title="캠페인 삭제"
+            >
+              <Trash2 className="h-5 w-5" aria-hidden />
+            </Button>
+          </>
+        }
+      />
+
+      {pageErrorMessage ? (
+        <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
+          {pageErrorMessage}
         </div>
-        <div className="mt-3 sm:mt-0">
-          <Button intent="neutral" onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaignId}`)}>
-            상세로 돌아가기
-          </Button>
-        </div>
-      </div>
+      ) : null}
 
       <CampaignForm
         mode="edit"

@@ -6,6 +6,11 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
+import {
+  adminInputClass,
+  adminLegacyBridgeClass,
+} from '@/src/components/admin/AdminDesignSystem';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import type {
   V2AdminOrderLinearStage,
   V2AdminOrderLinearTransitionResult,
@@ -138,6 +143,7 @@ function getErrorMessage(error: unknown): string {
 export function PaymentConfirmationContent({
   embedded = false,
 }: PaymentConfirmationContentProps = {}) {
+  const { confirm } = useAdminFeedback();
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
@@ -307,9 +313,13 @@ export function PaymentConfirmationContent({
       return;
     }
 
-    const confirmed = window.confirm(
-      `선택한 ${effectiveSelectedOrderIds.length}건 주문을 입금 확인 처리할까요?`,
-    );
+    const confirmed = await confirm({
+      title: '입금 확인 처리',
+      message: `선택한 ${effectiveSelectedOrderIds.length}건 주문을 입금 확인 처리할까요?`,
+      description: '디지털 전용 주문은 완료 단계로, 실물 포함 주문은 입금 확인 단계로 이동합니다.',
+      confirmText: '처리',
+      tone: 'warning',
+    });
     if (!confirmed) {
       return;
     }
@@ -396,7 +406,7 @@ export function PaymentConfirmationContent({
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
       {!embedded && (
         <header>
           <h2 className="text-xl font-bold text-gray-900">입금 확인</h2>
@@ -415,6 +425,7 @@ export function PaymentConfirmationContent({
               setCurrentPage(1);
             }}
             placeholder="주문번호 / 주문 ID / 입금자명 검색"
+            className={adminInputClass}
           />
           <Button intent="secondary" onClick={toggleAllVisible} disabled={pagedRows.length === 0}>
             {allVisibleSelected ? '현재 페이지 전체 해제' : '현재 페이지 전체 선택'}

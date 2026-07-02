@@ -4,6 +4,10 @@ import { useParams } from 'next/navigation';
 import { Loading } from '@/components/ui/loading';
 import { useArtistById } from '@/lib/client/hooks/useArtists';
 import { useProjects } from '@/lib/client/hooks/useProjects';
+import {
+  AdminPageHeader,
+  adminLegacyBridgeClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import { ArtistForm } from '@/src/components/admin/artists/ArtistForm';
 
 export default function EditArtistPage() {
@@ -30,13 +34,12 @@ export default function EditArtistPage() {
   }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">아티스트 수정</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {artist.name} 정보를 수정합니다
-        </p>
-      </div>
+    <div className={`${adminLegacyBridgeClass} space-y-6`}>
+      <AdminPageHeader
+        eyebrow="legacy form"
+        title="아티스트 수정"
+        description={`${artist.name} 정보를 수정합니다.`}
+      />
 
       <ArtistForm projects={projects || []} artist={artist} />
     </div>

@@ -8,6 +8,18 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
 import { Select } from '@/components/ui/select';
+import {
+  AdminPageHeader,
+  AdminSurface,
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+  adminSelectClass,
+  adminTableBodyClass,
+  adminTableContainerClass,
+  adminTableHeadCellClass,
+  adminTableHeadClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type { V2ProjectStatus } from '@/lib/client/api/v2-catalog-admin.api';
 import {
   useV2AdminProducts,
@@ -212,36 +224,40 @@ export default function V2CatalogProductsPage() {
 
   if (projectsError || productsError || !projects || !products) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+      <div className="rounded-[20px] border border-red-200 bg-red-50 p-5 text-sm font-bold text-red-700">
         상품 운영 데이터를 불러오지 못했습니다.
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">v2 상품 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            메인에서는 프로젝트별 상품 운영 현황을 확인하고, 프로젝트 단위 관리 화면으로 이동합니다.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-5 text-[#1a1a2e]">
+      <AdminPageHeader
+        eyebrow="product catalog"
+        title="v2 상품 관리"
+        description="메인에서는 프로젝트별 상품 운영 현황을 확인하고, 프로젝트 단위 관리 화면으로 이동합니다."
+        actions={
+          <>
           <Badge intent="info" size="md">
             프로젝트 {projects.length}개
           </Badge>
           <Badge intent="info" size="md">
             상품 {products.length}개
           </Badge>
-          <Button onClick={() => router.push('/admin/v2-catalog/products/new')}>새 상품 만들기</Button>
-        </div>
-      </div>
+          <Button
+            className={adminPrimaryButtonClass}
+            onClick={() => router.push('/admin/v2-catalog/products/new')}
+          >
+            새 상품 만들기
+          </Button>
+          </>
+        }
+      />
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <AdminSurface padding="md">
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold text-gray-900">프로젝트 찾기</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-black text-[#1a1a2e]">프로젝트 찾기</h2>
+          <p className="text-sm font-medium text-[#1a1a2e]/55">
             프로젝트별 상품 수와 상태를 먼저 확인한 뒤 세부 관리 화면으로 들어갈 수 있습니다.
           </p>
         </div>
@@ -251,6 +267,7 @@ export default function V2CatalogProductsPage() {
             placeholder="프로젝트명 또는 slug 검색"
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
+            className={adminInputClass}
           />
           <Select
             value={statusFilter}
@@ -262,6 +279,7 @@ export default function V2CatalogProductsPage() {
                 label: status,
               })),
             ]}
+            className={adminSelectClass}
           />
           <Select
             value={sortKey}
@@ -272,15 +290,16 @@ export default function V2CatalogProductsPage() {
               { value: 'UPDATED_DESC', label: '최근 수정순' },
               { value: 'NAME_ASC', label: '이름순' },
             ]}
+            className={adminSelectClass}
           />
         </div>
-      </section>
+      </AdminSurface>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <AdminSurface padding="md">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">프로젝트별 상품 요약</h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <h2 className="text-lg font-black text-[#1a1a2e]">프로젝트별 상품 요약</h2>
+            <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
               프로젝트를 선택하면 해당 프로젝트의 상품/옵션을 관리하는 화면으로 이동합니다.
             </p>
           </div>
@@ -294,46 +313,47 @@ export default function V2CatalogProductsPage() {
               description="검색어나 필터를 바꿔서 다시 확인해 주세요."
             />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-gray-200">
+            <div className={adminTableContainerClass}>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
-                    <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      <th className="px-4 py-3">프로젝트</th>
-                      <th className="px-4 py-3">상품 요약</th>
-                      <th className="px-4 py-3">상태 요약</th>
-                      <th className="px-4 py-3">최근 수정</th>
-                      <th className="px-4 py-3 text-right">작업</th>
+                <table className="min-w-full text-sm">
+                  <thead className={adminTableHeadClass}>
+                    <tr>
+                      <th className={adminTableHeadCellClass}>프로젝트</th>
+                      <th className={adminTableHeadCellClass}>상품 요약</th>
+                      <th className={adminTableHeadCellClass}>상태 요약</th>
+                      <th className={adminTableHeadCellClass}>최근 수정</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>작업</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
+                  <tbody className={adminTableBodyClass}>
                     {summaryRows.map((row) => (
-                      <tr key={row.id} className="transition hover:bg-blue-50/40">
+                      <tr key={row.id} className="transition hover:bg-[#faf9f3]">
                         <td className="px-4 py-3 align-top">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium text-gray-900">{row.name}</p>
+                            <p className="font-black text-[#1a1a2e]">{row.name}</p>
                             <Badge intent={resolveProjectStatusIntent(row.status)}>{row.status}</Badge>
                           </div>
-                          <p className="mt-1 text-xs text-gray-500">/{row.slug}</p>
+                          <p className="mt-1 text-xs font-medium text-[#1a1a2e]/45">/{row.slug}</p>
                         </td>
-                        <td className="px-4 py-3 align-top text-xs text-gray-600">
-                          <p className="text-sm font-semibold text-gray-900">총 {row.totalCount}개</p>
+                        <td className="px-4 py-3 align-top text-xs font-medium text-[#1a1a2e]/60">
+                          <p className="text-sm font-black text-[#1a1a2e]">총 {row.totalCount}개</p>
                           <p className="mt-1">
                             STANDARD {row.standardCount}개 · BUNDLE {row.bundleCount}개
                           </p>
                         </td>
-                        <td className="px-4 py-3 align-top text-xs text-gray-600">
+                        <td className="px-4 py-3 align-top text-xs font-medium text-[#1a1a2e]/60">
                           <p>ACTIVE {row.activeCount}개</p>
                           <p className="mt-1">DRAFT {row.draftCount}개</p>
                           <p className="mt-1">INACTIVE {row.inactiveCount}개 · ARCHIVED {row.archivedCount}개</p>
                         </td>
-                        <td className="px-4 py-3 align-top text-xs text-gray-500">
+                        <td className="px-4 py-3 align-top text-xs font-medium text-[#1a1a2e]/45">
                           {formatDateTime(row.latestUpdatedAt)}
                         </td>
                         <td className="px-4 py-3 text-right align-top">
                           <Button
                             size="sm"
                             intent="neutral"
+                            className={adminButtonClass}
                             onClick={() => router.push(`/admin/v2-catalog/products/projects/${row.id}`)}
                           >
                             상품 관리
@@ -347,7 +367,7 @@ export default function V2CatalogProductsPage() {
             </div>
           )}
         </div>
-      </section>
+      </AdminSurface>
     </div>
   );
 }

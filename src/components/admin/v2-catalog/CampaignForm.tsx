@@ -5,6 +5,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 import { Input, Textarea } from '@/components/ui/input';
+import {
+  adminActionRowClass,
+  adminButtonClass,
+  adminInputClass,
+  adminPrimaryButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type {
   V2BundleDefinition,
   V2Campaign,
@@ -34,11 +40,16 @@ import {
 } from '@/lib/client/utils/v2-campaign-admin';
 import { CampaignTargetPicker } from './CampaignTargetPicker';
 
+const formSectionClassName =
+  'rounded-[22px] border border-[#e7e3d3] bg-white p-5 shadow-none sm:p-6';
+const labelClassName = 'mb-2 block text-sm font-black text-[#1a1a2e]';
+const helpClassName = 'mt-2 text-xs font-medium text-[#1a1a2e]/45';
+
 function getChoiceButtonClass(active: boolean): string {
-  return `rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
+  return `rounded-[14px] border px-4 py-3 text-left text-sm font-bold transition ${
     active
-      ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm'
-      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+      ? 'border-[#1a1a2e] bg-[#f5f3e8] text-[#1a1a2e]'
+      : 'border-[#e7e3d3] bg-white text-[#1a1a2e] hover:border-[#d8d1bd] hover:bg-[#faf9f3]'
   }`;
 }
 
@@ -269,29 +280,35 @@ export function CampaignForm({
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {errorMessage}
         </div>
       )}
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <section className={formSectionClassName}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">1. 캠페인 기본 정보</h2>
-            <p className="mt-1 text-sm text-gray-500">운영자가 이해하기 쉬운 이름과 목적부터 정합니다.</p>
+            <h2 className="text-lg font-black text-[#1a1a2e]">1. 캠페인 기본 정보</h2>
+            <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">운영자가 이해하기 쉬운 이름과 목적부터 정합니다.</p>
           </div>
           {mode === 'edit' && campaign && <Badge intent="default">코드 {campaign.code}</Badge>}
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">캠페인 이름</label>
-            <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 4월 봄 드롭" required />
-            <p className="mt-2 text-xs text-gray-500">자동 생성 코드: {campaignCodePreview || 'campaign-code'}</p>
+            <label className={labelClassName}>캠페인 이름</label>
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="예: 4월 봄 드롭"
+              required
+              className={adminInputClass}
+            />
+            <p className={helpClassName}>자동 생성 코드: {campaignCodePreview || 'campaign-code'}</p>
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">캠페인 유형</label>
+            <label className={labelClassName}>캠페인 유형</label>
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {CAMPAIGN_TYPES.map((type) => (
                 <button
@@ -308,12 +325,13 @@ export function CampaignForm({
           </div>
 
           <div className="lg:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-gray-700">설명</label>
+            <label className={labelClassName}>설명</label>
             <Textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder="관리 메모나 운영 목적을 적어두면 나중에 다시 봐도 이해하기 쉽습니다."
               rows={4}
+              className={adminInputClass}
             />
           </div>
         </div>
@@ -339,27 +357,27 @@ export function CampaignForm({
         />
       )}
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <section className={formSectionClassName}>
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-black text-[#1a1a2e]">
             {mode === 'create' ? '3. 상점 배너 설정' : '2. 상점 배너 설정'}
           </h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">
             프로젝트/캠페인별 상점 페이지에 노출할 배너를 선택합니다. 비워두면 상점에서 텍스트만 표시됩니다.
           </p>
         </div>
 
         {bannerNotice && (
-          <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <div className="mt-4 rounded-[14px] border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
             {bannerNotice}
           </div>
         )}
 
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">배너 이미지</label>
+            <label className={labelClassName}>배너 이미지</label>
             {shopBannerPreviewUrl ? (
-              <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+              <div className="overflow-hidden rounded-[16px] border border-[#e7e3d3] bg-[#faf9f3]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={shopBannerPreviewUrl}
@@ -368,17 +386,17 @@ export function CampaignForm({
                 />
               </div>
             ) : (
-              <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 text-center text-sm text-gray-500">
+              <div className="flex h-40 items-center justify-center rounded-[16px] border border-dashed border-[#e7e3d3] bg-[#faf9f3] px-4 text-center text-sm font-medium text-[#1a1a2e]/55">
                 {hasShopBanner
                   ? '배너가 연결되어 있습니다. (public URL이 없어 미리보기는 표시되지 않습니다)'
                   : '배너를 설정하지 않았습니다.'}
               </div>
             )}
             {shopBannerFileName ? (
-              <p className="mt-2 text-xs text-gray-500">최근 업로드 파일: {shopBannerFileName}</p>
+              <p className={helpClassName}>최근 업로드 파일: {shopBannerFileName}</p>
             ) : null}
             {hasShopBanner && !shopBannerFileName ? (
-              <p className="mt-2 break-all text-xs text-gray-500">연결된 asset ID: {shopBannerMediaAssetId}</p>
+              <p className="mt-2 break-all text-xs font-medium text-[#1a1a2e]/45">연결된 asset ID: {shopBannerMediaAssetId}</p>
             ) : null}
           </div>
 
@@ -398,6 +416,7 @@ export function CampaignForm({
             <Button
               type="button"
               intent="neutral"
+              className={adminButtonClass}
               onClick={clearShopBanner}
               disabled={!hasShopBanner || isSubmitting}
             >
@@ -406,41 +425,48 @@ export function CampaignForm({
           </div>
 
           <div className="lg:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-gray-700">배너 대체 텍스트 (선택)</label>
+            <label className={labelClassName}>배너 대체 텍스트 (선택)</label>
             <Input
               value={shopBannerAltText}
               onChange={(event) => setShopBannerAltText(event.target.value)}
               placeholder="예: 봄 시즌 한정 굿즈 캠페인 배너"
               disabled={!hasShopBanner}
+              className={adminInputClass}
             />
-            <p className="mt-2 text-xs text-gray-500">
+            <p className={helpClassName}>
               배너를 설정한 경우에만 저장됩니다. 배너가 없으면 자동으로 비워집니다.
             </p>
           </div>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <section className={formSectionClassName}>
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-black text-[#1a1a2e]">
             {mode === 'create' ? '4. 기간 설정' : '3. 기간 설정'}
           </h2>
-          <p className="mt-1 text-sm text-gray-500">판매 기간을 구성하고 겹칠 수 있는 일정은 미리 경고합니다.</p>
+          <p className="mt-1 text-sm font-medium text-[#1a1a2e]/55">판매 기간을 구성하고 겹칠 수 있는 일정은 미리 경고합니다.</p>
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">시작 시점</label>
-            <Input type="datetime-local" value={startsAtInput} onChange={(event) => setStartsAtInput(event.target.value)} required />
-            <p className="mt-2 text-xs text-gray-500">관리자 화면 기준 타임존으로 예약됩니다.</p>
+            <label className={labelClassName}>시작 시점</label>
+            <Input
+              type="datetime-local"
+              value={startsAtInput}
+              onChange={(event) => setStartsAtInput(event.target.value)}
+              required
+              className={adminInputClass}
+            />
+            <p className={helpClassName}>관리자 화면 기준 타임존으로 예약됩니다.</p>
           </div>
 
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label className="block text-sm font-medium text-gray-700">종료 시점</label>
+              <label className="block text-sm font-black text-[#1a1a2e]">종료 시점</label>
               <button
                 type="button"
-                className="text-xs font-medium text-primary-700"
+                className="text-xs font-black text-[#a35200]"
                 onClick={() => {
                   setHasEndDate((current) => !current);
                   if (hasEndDate) {
@@ -452,24 +478,30 @@ export function CampaignForm({
               </button>
             </div>
             {hasEndDate ? (
-              <Input type="datetime-local" value={endsAtInput} onChange={(event) => setEndsAtInput(event.target.value)} />
+              <Input
+                type="datetime-local"
+                value={endsAtInput}
+                onChange={(event) => setEndsAtInput(event.target.value)}
+                className={adminInputClass}
+              />
             ) : (
-              <div className="flex h-11 items-center rounded-lg border border-dashed border-gray-200 px-4 text-sm text-gray-500">
+              <div className="flex h-11 items-center rounded-[12px] border border-dashed border-[#e7e3d3] bg-[#faf9f3] px-4 text-sm font-medium text-[#1a1a2e]/55">
                 종료 시점 없이 계속 운영합니다.
               </div>
             )}
           </div>
 
           <div className="lg:col-span-2">
-            <details className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-              <summary className="cursor-pointer list-none text-sm font-medium text-gray-700">고급 설정: 채널 범위</summary>
+            <details className="rounded-[16px] border border-[#eee7d6] bg-[#faf9f3] px-4 py-3">
+              <summary className="cursor-pointer list-none text-sm font-black text-[#1a1a2e]">고급 설정: 채널 범위</summary>
               <div className="mt-3">
                 <Input
                   value={channelScopeInput}
                   onChange={(event) => setChannelScopeInput(event.target.value)}
                   placeholder="예: WEB, APP"
+                  className={adminInputClass}
                 />
-                <p className="mt-2 text-xs text-gray-500">비워두면 전체 채널에 적용됩니다.</p>
+                <p className={helpClassName}>비워두면 전체 채널에 적용됩니다.</p>
               </div>
             </details>
           </div>
@@ -487,20 +519,11 @@ export function CampaignForm({
         )}
       </section>
 
-      {mode === 'edit' && (
-        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">적용 대상 관리</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            대상 추가/수정은 상세 페이지에서 별도로 관리합니다. 이 화면은 캠페인 개요와 일정 수정에 집중합니다.
-          </p>
-        </section>
-      )}
-
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button intent="neutral" onClick={onCancel} disabled={isSubmitting}>
+      <div className={adminActionRowClass}>
+        <Button intent="neutral" className={adminButtonClass} onClick={onCancel} disabled={isSubmitting}>
           취소
         </Button>
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" className={adminPrimaryButtonClass} loading={isSubmitting}>
           {mode === 'create' ? '캠페인 저장' : '캠페인 정보 저장'}
         </Button>
       </div>

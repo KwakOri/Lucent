@@ -102,7 +102,7 @@ export function Overlay({
   return (
     <div
       id={id}
-      className="fixed inset-0 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 flex items-end justify-center overflow-y-auto bg-[#1a1a2e]/55 p-3 backdrop-blur-sm sm:items-center sm:p-4"
       style={{ zIndex }}
       onClick={handleBackdropClick}
       role="dialog"

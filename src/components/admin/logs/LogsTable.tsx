@@ -1,6 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  adminSelectClass,
+  adminTableBodyClass,
+  adminTableContainerClass,
+  adminTableHeadCellClass,
+  adminTableHeadClass,
+} from '@/src/components/admin/AdminDesignSystem';
 import type { V2AdminUnifiedAuditLog } from '@/lib/client/api/v2-admin-ops.api';
 
 interface LogsTableProps {
@@ -55,7 +62,7 @@ export function LogsTable({ logs: initialLogs }: LogsTableProps) {
         <select
           value={sourceFilter}
           onChange={(e) => setSourceFilter(e.target.value)}
-          className="rounded-md bg-white border-2 border-gray-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-primary-600 focus:ring-2 focus:ring-primary-500"
+          className={adminSelectClass}
         >
           <option value="all">전체 소스</option>
           {Object.keys(sourceLabels).map((source) => (
@@ -68,7 +75,7 @@ export function LogsTable({ logs: initialLogs }: LogsTableProps) {
         <select
           value={domainFilter}
           onChange={(e) => setDomainFilter(e.target.value)}
-          className="rounded-md bg-white border-2 border-gray-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-primary-600 focus:ring-2 focus:ring-primary-500"
+          className={adminSelectClass}
         >
           <option value="all">전체 도메인</option>
           {domains.map((domain) => (
@@ -81,7 +88,7 @@ export function LogsTable({ logs: initialLogs }: LogsTableProps) {
         <select
           value={severityFilter}
           onChange={(e) => setSeverityFilter(e.target.value)}
-          className="rounded-md bg-white border-2 border-gray-400 text-gray-900 font-medium py-2 pl-3 pr-10 text-sm focus:border-primary-600 focus:ring-2 focus:ring-primary-500"
+          className={adminSelectClass}
         >
           <option value="all">전체 레벨</option>
           <option value="INFO">INFO</option>
@@ -94,34 +101,34 @@ export function LogsTable({ logs: initialLogs }: LogsTableProps) {
       <div className="mt-4 flow-root">
         <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
-              <table className="min-w-full divide-y divide-gray-300">
-                <thead className="bg-gray-50">
+            <div className={adminTableContainerClass}>
+              <table className="min-w-full">
+                <thead className={adminTableHeadClass}>
                   <tr>
-                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                    <th scope="col" className={`${adminTableHeadCellClass} pl-4 sm:pl-6`}>
                       시간
                     </th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                    <th scope="col" className={adminTableHeadCellClass}>
                       소스
                     </th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                    <th scope="col" className={adminTableHeadCellClass}>
                       도메인 / 이벤트
                     </th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                    <th scope="col" className={adminTableHeadCellClass}>
                       상태 / 레벨
                     </th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                    <th scope="col" className={adminTableHeadCellClass}>
                       리소스
                     </th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                    <th scope="col" className={adminTableHeadCellClass}>
                       액터
                     </th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                    <th scope="col" className={adminTableHeadCellClass}>
                       메시지
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
+                <tbody className={adminTableBodyClass}>
                   {filteredLogs.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-500">
