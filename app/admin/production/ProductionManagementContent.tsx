@@ -11,6 +11,7 @@ import { useToast } from '@/src/components/toast';
 import { adminLegacyBridgeClass } from '@/src/components/admin/AdminDesignSystem';
 import type {
   V2AdminProductionBatchStatus,
+  V2AdminProductionBatchPreviewAggregate,
   V2AdminProductionSavedView,
   V2AdminTransitionResult,
 } from '@/lib/client/api/v2-admin-production.api';
@@ -103,6 +104,47 @@ function formatOptionDisplayName(params: {
     return '-';
   }
   return optionTitle;
+}
+
+type ProductionPreviewProjectGroup = {
+  key: string;
+  projectName: string;
+  rows: V2AdminProductionBatchPreviewAggregate[];
+  productCount: number;
+  quantityTotal: number;
+};
+
+function buildProductionPreviewProjectGroups(
+  rows: V2AdminProductionBatchPreviewAggregate[],
+): ProductionPreviewProjectGroup[] {
+  const groupMap = new Map<string, ProductionPreviewProjectGroup>();
+
+  for (const row of rows) {
+    const projectName = row.project_name || '프로젝트 미지정';
+    const key = row.project_id || `no-project:${projectName}`;
+    const group = groupMap.get(key) || {
+      key,
+      projectName,
+      rows: [],
+      productCount: 0,
+      quantityTotal: 0,
+    };
+
+    if (group.projectName === '프로젝트 미지정' && row.project_name) {
+      group.projectName = row.project_name;
+    }
+    group.rows.push(row);
+    group.productCount += 1;
+    group.quantityTotal += Math.max(0, Number(row.quantity_total || 0));
+    groupMap.set(key, group);
+  }
+
+  return Array.from(groupMap.values()).sort((left, right) =>
+    left.projectName.localeCompare(right.projectName, 'ko-KR', {
+      sensitivity: 'base',
+      numeric: true,
+    }),
+  );
 }
 
 function resolveBatchIntent(status: V2AdminProductionBatchStatus) {
@@ -441,12 +483,6 @@ export function ProductionManagementContent({
     [savedFilters, selectedViewId],
   );
 
-  const allCandidateIds = candidateRows.map((row) => row.order_id);
-  const allChecked =
-    candidateRows.length > 0 &&
-    selectedOrderIds.length > 0 &&
-    selectedOrderIds.length === allCandidateIds.length;
-
   const isBusy =
     createBatchMutation.isPending ||
     activateBatchMutation.isPending ||
@@ -475,6 +511,13 @@ export function ProductionManagementContent({
     previewData,
     selectedOrderIds.length,
   ]);
+  const previewProjectGroups = useMemo(
+    () =>
+      hasFreshPreview && previewData
+        ? buildProductionPreviewProjectGroups(previewData.aggregates)
+        : [],
+    [hasFreshPreview, previewData],
+  );
 
   useEffect(() => {
     if (selectedOrderIds.length === 0) {
@@ -533,11 +576,6 @@ export function ProductionManagementContent({
     return projectLabel;
   };
 
-  const appliedFilterSummaryText =
-    !projectId
-      ? '설정된 필터 없음'
-      : buildFilterSummaryText({ projectId });
-
   const setError = (error: unknown) => {
     showToast(getErrorMessage(error), { type: 'error' });
   };
@@ -552,15 +590,6 @@ export function ProductionManagementContent({
       }
       return [...prev, orderId];
     });
-  };
-
-  const toggleSelectAll = () => {
-    setPreviewErrorMessage(null);
-    if (allChecked) {
-      setSelectedOrderIds([]);
-      return;
-    }
-    setSelectedOrderIds(allCandidateIds);
   };
 
   const handleSearchApply = () => {
@@ -841,20 +870,7 @@ export function ProductionManagementContent({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                intent="neutral"
-                onClick={toggleSelectAll}
-                disabled={candidateRows.length === 0}
-                className="h-11 px-5"
-              >
-                {allChecked ? '전체 해제' : '전체 선택'}
-              </Button>
-              <Button intent="neutral" onClick={() => setIsViewManagerOpen(true)}>
-                뷰/필터 설정
-              </Button>
-            </div>
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <Button
               onClick={handleCreateBatch}
               disabled={selectedOrderIds.length === 0 || isBusy}
@@ -863,7 +879,6 @@ export function ProductionManagementContent({
               선택 주문으로 배치 생성
             </Button>
           </div>
-          <p className="text-xs text-gray-600">적용 필터: {appliedFilterSummaryText}</p>
 
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
             {selectedOrderIds.length === 0 ? (
@@ -895,17 +910,14 @@ export function ProductionManagementContent({
                 />
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
-                  <table className="min-w-[640px] table-fixed divide-y divide-gray-200 text-sm">
+                  <table className="w-full min-w-[520px] table-fixed divide-y divide-gray-200 text-sm">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="w-12 px-3 py-2 text-left">
-                          <input type="checkbox" checked={allChecked} onChange={toggleSelectAll} />
+                          <span className="sr-only">선택</span>
                         </th>
                         <th className="w-[120px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
                           입금자
-                        </th>
-                        <th className="w-[150px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
-                          프로젝트
                         </th>
                         <th className="w-[90px] px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
                           구성
@@ -933,11 +945,6 @@ export function ProductionManagementContent({
                             <td className="px-3 py-2 text-gray-700">
                               <p className="max-w-[100px] truncate whitespace-nowrap" title={row.depositor_name || '-'}>
                                 {row.depositor_name || '-'}
-                              </p>
-                            </td>
-                            <td className="px-3 py-2 text-gray-700">
-                              <p className="max-w-[130px] truncate whitespace-nowrap" title={row.project_name || '-'}>
-                                {row.project_name || '-'}
                               </p>
                             </td>
                             <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{resolveComposition(row)}</td>
@@ -975,7 +982,7 @@ export function ProductionManagementContent({
                 <p className="text-sm text-red-600">미리보기 생성 실패: {previewErrorMessage}</p>
               ) : !hasFreshPreview || !previewData ? (
                 <p className="text-sm text-gray-500">미리보기 데이터를 불러오는 중입니다.</p>
-              ) : previewData.aggregates.length === 0 ? (
+              ) : previewProjectGroups.length === 0 ? (
                 <EmptyState title="표시할 상품이 없습니다." description="집계 대상이 비어 있습니다." />
               ) : (
                 <>
@@ -984,46 +991,72 @@ export function ProductionManagementContent({
                       차단 주문 {previewData.blocked_order_count}건은 미리보기 집계에서 제외되었습니다.
                     </p>
                   ) : null}
-                  <div className="overflow-x-auto rounded-lg border border-gray-200">
-	                    <table className="min-w-full divide-y divide-gray-200 text-sm">
-	                      <thead className="bg-gray-50">
-	                        <tr>
-	                          <th className="w-20 px-3 py-2 text-left font-medium text-gray-600">이미지</th>
-	                          <th className="px-3 py-2 text-left font-medium text-gray-600">상품</th>
-	                          <th className="px-3 py-2 text-left font-medium text-gray-600">옵션</th>
-	                          <th className="px-3 py-2 text-right font-medium text-gray-600">수량</th>
-	                        </tr>
-	                      </thead>
-                      <tbody className="divide-y divide-gray-100 bg-white">
-                        {previewData.aggregates.map((row) => (
-	                          <tr
-	                            key={`${row.product_id || 'none'}-${row.variant_id || 'none'}-${row.product_name}`}
-	                          >
-	                            <td className="px-3 py-2">
-	                              {row.thumbnail_url ? (
-	                                <img
-	                                  src={row.thumbnail_url}
-	                                  alt={row.product_name}
-	                                  className="h-12 w-12 rounded-md border border-gray-200 object-cover"
-	                                />
-	                              ) : (
-	                                <span className="text-xs text-gray-400">-</span>
-	                              )}
-	                            </td>
-	                            <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
-	                            <td className="px-3 py-2 text-gray-700">
-	                              {formatOptionDisplayName({
-	                                productName: row.product_name,
-	                                variantName: row.variant_name,
-	                              })}
-	                            </td>
-	                            <td className="px-3 py-2 text-right text-gray-700">
-	                              {row.quantity_total.toLocaleString()}
-	                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="space-y-4">
+                    {previewProjectGroups.map((group) => (
+                      <section
+                        key={group.key}
+                        className="overflow-hidden rounded-lg border border-gray-200"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
+                          <h3 className="text-sm font-semibold text-gray-900">
+                            {group.projectName}
+                          </h3>
+                          <p className="text-xs text-gray-500">
+                            상품 {group.productCount.toLocaleString()}종 · 수량{' '}
+                            {group.quantityTotal.toLocaleString()}개
+                          </p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead className="bg-white">
+                              <tr>
+                                <th className="w-20 px-3 py-2 text-left font-medium text-gray-600">
+                                  이미지
+                                </th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600">
+                                  상품
+                                </th>
+                                <th className="px-3 py-2 text-left font-medium text-gray-600">
+                                  옵션
+                                </th>
+                                <th className="px-3 py-2 text-right font-medium text-gray-600">
+                                  수량
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 bg-white">
+                              {group.rows.map((row) => (
+                                <tr
+                                  key={`${group.key}-${row.product_id || 'none'}-${row.variant_id || 'none'}-${row.product_name}`}
+                                >
+                                  <td className="px-3 py-2">
+                                    {row.thumbnail_url ? (
+                                      <img
+                                        src={row.thumbnail_url}
+                                        alt={row.product_name}
+                                        className="h-12 w-12 rounded-md border border-gray-200 object-cover"
+                                      />
+                                    ) : (
+                                      <span className="text-xs text-gray-400">-</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 text-gray-900">{row.product_name}</td>
+                                  <td className="px-3 py-2 text-gray-700">
+                                    {formatOptionDisplayName({
+                                      productName: row.product_name,
+                                      variantName: row.variant_name,
+                                    })}
+                                  </td>
+                                  <td className="px-3 py-2 text-right text-gray-700">
+                                    {row.quantity_total.toLocaleString()}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+                    ))}
                   </div>
                 </>
               )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, FileArchive, Link as LinkIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -105,6 +105,31 @@ type ProductVariantFormProps = {
   onCancel: () => void;
   onSuccess: () => void | Promise<void>;
 };
+
+type VariantFormShellProps = {
+  className: string;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void | Promise<void>;
+  children: ReactNode;
+};
+
+function SubmittableVariantFormShell({
+  className,
+  onSubmit,
+  children,
+}: VariantFormShellProps) {
+  return (
+    <form className={className} onSubmit={onSubmit}>
+      {children}
+    </form>
+  );
+}
+
+function DeliveryOnlyVariantFormShell({
+  className,
+  children,
+}: VariantFormShellProps) {
+  return <div className={className}>{children}</div>;
+}
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === "object") {
@@ -1388,10 +1413,13 @@ export function ProductVariantForm({
   const digitalSectionClassName = compact
     ? compactBlueSectionClassName
     : defaultSectionClassName;
+  const VariantFormShell = deliveryOnly
+    ? DeliveryOnlyVariantFormShell
+    : SubmittableVariantFormShell;
 
   return (
     <>
-      <form className={formLayoutClassName} onSubmit={handleSubmit}>
+      <VariantFormShell className={formLayoutClassName} onSubmit={handleSubmit}>
         {errorMessage && (
           <div className={`rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ${compact ? "lg:col-span-2" : ""}`}>
             {errorMessage}
@@ -1968,7 +1996,7 @@ export function ProductVariantForm({
             </Button>
           </div>
         )}
-      </form>
+      </VariantFormShell>
 
       {basePriceChangeAnalysis && (
         <div

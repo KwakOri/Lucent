@@ -1,3 +1,5 @@
+'use client';
+
 import { FolderOpen, ShoppingBag, Users, type LucideIcon } from 'lucide-react';
 import {
   AdminLinkCard,

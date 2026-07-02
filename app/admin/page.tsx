@@ -4,13 +4,10 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
-  AlertTriangle,
   ArrowUpRight,
   Banknote,
-  BarChart3,
   CheckCircle2,
   Clock3,
-  Package as PackageIcon,
   RefreshCw,
   ShieldCheck,
   ShoppingCart,
@@ -132,10 +129,6 @@ function formatCurrency(value: number, currencyCode: string): string {
   }
 }
 
-function formatPercent(value: number): string {
-  return `${(Math.max(0, value || 0) * 100).toFixed(2)}%`;
-}
-
 function formatDateTime(value: string | null | undefined): string {
   if (!value) {
     return '-';
@@ -199,24 +192,16 @@ function resolveAlertLevel(
 
 function resolveMetricAlert(
   key:
-    | 'refund_rate'
     | 'payment_pending_count'
     | 'ready_to_ship_count'
-    | 'inventory_risk_count'
     | 'approval_pending_count',
   value: number,
 ): DashboardAlertLevel {
-  if (key === 'refund_rate') {
-    return resolveAlertLevel(value, { warning: 0.05, critical: 0.08 });
-  }
   if (key === 'payment_pending_count') {
     return resolveAlertLevel(value, { warning: 30, critical: 60 });
   }
   if (key === 'ready_to_ship_count') {
     return resolveAlertLevel(value, { warning: 50, critical: 100 });
-  }
-  if (key === 'inventory_risk_count') {
-    return resolveAlertLevel(value, { warning: 0, critical: 10 });
   }
   return resolveAlertLevel(value, { warning: 10, critical: 20 });
 }
@@ -593,7 +578,7 @@ export default function AdminDashboardPage() {
   const currencyCode = data.metadata.currency_code || 'KRW';
   const orderStageEntries = Object.entries(
     data.pipeline.order_stage_counts,
-  ).filter(([stage]) => stage !== 'DELIVERED');
+  ).filter(([stage]) => stage !== 'DELIVERED' && stage !== 'CANCELED');
   const stageTotal = orderStageEntries.reduce(
     (sum, [, value]) => sum + Number(value || 0),
     0,
@@ -681,48 +666,6 @@ export default function AdminDashboardPage() {
     {
       label: '순정산',
       value: formatCurrency(data.kpis.net_settlement_amount, currencyCode),
-    },
-  ];
-
-  const riskItems = [
-    {
-      key: 'refund_rate',
-      label: '환불률',
-      value: formatPercent(data.kpis.refund_rate),
-      detail: formatCurrency(data.kpis.refund_amount, currencyCode),
-      href: '/admin/refunds',
-      icon: AlertTriangle,
-      badge: alertBadge(
-        resolveMetricAlert('refund_rate', data.kpis.refund_rate),
-      ),
-    },
-    {
-      key: 'inventory_risk_count',
-      label: '재고 리스크',
-      value: `${formatNumber(data.kpis.inventory_risk_count)}건`,
-      detail: `저재고 ${formatNumber(data.risk.inventory.low_stock_count)}건`,
-      href: '/admin/production-shipping',
-      icon: PackageIcon,
-      badge: alertBadge(
-        resolveMetricAlert(
-          'inventory_risk_count',
-          data.kpis.inventory_risk_count,
-        ),
-      ),
-    },
-    {
-      key: 'failed_actions_24h',
-      label: '실패 액션(24h)',
-      value: `${formatNumber(data.risk.audit.failed_actions_24h)}건`,
-      detail: `컷오버 BLOCKED ${formatNumber(data.risk.cutover.blocked_domains)}건`,
-      href: '/admin/v2-ops',
-      icon: BarChart3,
-      badge: alertBadge(
-        resolveMetricAlert(
-          'approval_pending_count',
-          data.risk.audit.failed_actions_24h,
-        ),
-      ),
     },
   ];
 
@@ -1173,50 +1116,6 @@ export default function AdminDashboardPage() {
           </section>
 
           <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-[#1a1a2e]">
-                운영 리스크
-              </h2>
-              <Link
-                href="/admin/v2-ops"
-                className="text-xs font-bold text-[#a35200]"
-              >
-                전체보기
-              </Link>
-            </div>
-            <div className="mt-4 space-y-3">
-              {riskItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.key}
-                    href={item.href}
-                    className="flex items-center gap-3 rounded-[14px] bg-[#f9f9ed] px-3 py-3 transition hover:bg-[#f5f3e8]"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-white text-[#a35200]">
-                      <Icon className="h-4 w-4" aria-hidden />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-bold text-[#1a1a2e]">
-                        {item.label}
-                      </span>
-                      <span className="block truncate text-xs text-[#1a1a2e]/45">
-                        {item.detail}
-                      </span>
-                    </span>
-                    <span className="text-right">
-                      <span className="block text-sm font-black text-[#1a1a2e]">
-                        {item.value}
-                      </span>
-                      <span className="mt-1 block">{item.badge}</span>
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-base font-bold text-[#1a1a2e]">승인 대기</h2>
               <Link
@@ -1243,45 +1142,6 @@ export default function AdminDashboardPage() {
                     <p className="mt-1 text-xs text-[#1a1a2e]/50">
                       role: {item.assignee_role_code || '-'} / 요청{' '}
                       {formatDateTime(item.requested_at)}
-                    </p>
-                  </li>
-                ))
-              )}
-            </ul>
-          </section>
-
-          <section className="rounded-[22px] border border-[#e7e3d3] bg-white p-5">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-[#1a1a2e]">
-                최근 실패 액션
-              </h2>
-              <Link
-                href="/admin/v2-ops"
-                className="text-xs font-bold text-[#a35200]"
-              >
-                감사 로그
-              </Link>
-            </div>
-            <ul className="space-y-2">
-              {data.queues.failed_actions.length === 0 ? (
-                <li className="rounded-[14px] border border-dashed border-[#e7e3d3] bg-[#f9f9ed] px-3 py-4 text-sm text-[#1a1a2e]/45">
-                  최근 실패 액션이 없습니다.
-                </li>
-              ) : (
-                data.queues.failed_actions.map((item) => (
-                  <li
-                    key={item.id}
-                    className="rounded-[14px] bg-[#fff7f7] px-3 py-3"
-                  >
-                    <p className="truncate text-sm font-bold text-[#1a1a2e]">
-                      {item.action_key}
-                    </p>
-                    <p className="mt-1 truncate text-xs text-[#ca2a30]">
-                      {item.resource_type || '-'} /{' '}
-                      {item.error_message || '에러 메시지 없음'}
-                    </p>
-                    <p className="mt-1 text-xs text-[#1a1a2e]/45">
-                      {formatDateTime(item.created_at)}
                     </p>
                   </li>
                 ))

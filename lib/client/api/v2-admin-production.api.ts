@@ -152,6 +152,8 @@ export interface V2AdminProductionBatchBlockedRow {
 }
 
 export interface V2AdminProductionBatchPreviewAggregate {
+  project_id: string | null;
+  project_name: string | null;
   product_id: string | null;
   variant_id: string | null;
   thumbnail_url?: string | null;
