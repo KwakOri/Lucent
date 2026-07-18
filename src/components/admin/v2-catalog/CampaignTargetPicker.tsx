@@ -43,6 +43,7 @@ type CampaignTargetPickerProps = {
   onVariantProductIdChange: (productId: string) => void;
   title?: string;
   description?: string;
+  projectHelperText?: string;
   defaultTargetType?: V2CampaignTargetType;
   allowAdvanced?: boolean;
   lockTargetType?: boolean;
@@ -61,6 +62,7 @@ export function CampaignTargetPicker({
   onVariantProductIdChange,
   title = '적용 대상',
   description = '프로젝트나 상품처럼 관리자가 이해하기 쉬운 범위부터 선택합니다.',
+  projectHelperText = '프로젝트 전체를 묶어서 운영',
   defaultTargetType = 'PROJECT',
   allowAdvanced = true,
   lockTargetType = false,
@@ -175,7 +177,7 @@ export function CampaignTargetPicker({
           onClick={() => handleTargetTypeChange('PROJECT')}
         >
           <p>프로젝트</p>
-          <p className="mt-1 text-xs font-medium text-[#1a1a2e]/50">프로젝트 전체를 묶어서 운영</p>
+          <p className="mt-1 text-xs font-medium text-[#1a1a2e]/50">{projectHelperText}</p>
         </button>
         <button
           type="button"
