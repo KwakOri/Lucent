@@ -353,7 +353,16 @@ export function CampaignForm({
           allowAdvanced={allowAdvancedTargets}
           lockTargetType={lockTargetType}
           title="2. 적용 대상"
-          description="프로젝트 전체나 특정 상품처럼 이해하기 쉬운 범위부터 고르세요. 고급 대상도 필요할 때만 펼쳐서 선택할 수 있습니다."
+          description={
+            campaignType === 'ALWAYS_ON'
+              ? '프로젝트 전체 상품을 상시 운영 범위로 선택합니다.'
+              : '프로젝트는 상품 후보 범위를 정합니다. 생성 후 상세 화면에서 실제 포함 상품과 옵션을 선택하세요.'
+          }
+          projectHelperText={
+            campaignType === 'ALWAYS_ON'
+              ? '프로젝트 전체 상품을 상시 운영'
+              : '상품 후보 범위 지정 · 직접 노출 아님'
+          }
         />
       )}
 
