@@ -141,7 +141,7 @@ const PROJECT_DISPLAY_CONFIG: Record<
     detailPath: "/projects/pukong",
     socials: {
       chzzk: "https://chzzk.naver.com/43341c5abdd1fb6b3645d195977a1c10",
-      twitter: "https://x.com/pukongi1004",
+      twitter: "https://x.com/Melting_Pukong",
       youtube: "https://www.youtube.com/@%ED%91%B8%EC%BD%A9%EC%9D%B4PUKONG",
       cafe: "https://cafe.naver.com/brownrm9jg",
     },
