@@ -28,6 +28,7 @@ import {
   adminSelectClass,
 } from '@/src/components/admin/AdminDesignSystem';
 import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
+import { useToast } from '@/src/components/toast';
 import type {
   ApplyV2CampaignProductEditorResult,
   V2CampaignTarget,
@@ -942,6 +943,7 @@ export default function V2CatalogCampaignDetailPage() {
   const router = useRouter();
   const { openModal } = useModal();
   const { confirm } = useAdminFeedback();
+  const { showToast } = useToast();
   const params = useParams<{ id: string }>();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -1223,6 +1225,30 @@ export default function V2CatalogCampaignDetailPage() {
     }));
   };
 
+  const handleCopyCampaignLink = async () => {
+    if (!campaign) {
+      return;
+    }
+
+    const campaignPath = `/shop?campaign_id=${encodeURIComponent(campaign.id)}`;
+    const absoluteLink =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}${campaignPath}`
+        : campaignPath;
+
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      showToast('클립보드 복사를 지원하지 않는 환경입니다.', { type: 'warning' });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(absoluteLink);
+      showToast(`${campaign.name} 링크를 복사했습니다.`, { type: 'success' });
+    } catch {
+      showToast('링크 복사에 실패했습니다. 다시 시도해 주세요.', { type: 'error' });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -1284,6 +1310,13 @@ export default function V2CatalogCampaignDetailPage() {
           <>
             <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(campaignListPath)}>
               목록으로
+            </Button>
+            <Button
+              intent="neutral"
+              className={adminButtonClass}
+              onClick={() => void handleCopyCampaignLink()}
+            >
+              링크 복사
             </Button>
             <Button intent="neutral" className={adminButtonClass} onClick={() => router.push(`/admin/v2-catalog/campaigns/${campaign.id}/edit`)}>
               캠페인 수정
