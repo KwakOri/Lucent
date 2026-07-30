@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Disc3, Settings, X } from 'lucide-react';
+import { useModal } from '@/components/modal';
+import { DepositInfoModal } from '@/components/order';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
@@ -51,6 +53,7 @@ interface UnifiedOrder {
   displayTotal: number;
   shippingAmount: number;
   shippingDiscountTotal: number;
+  depositorName: string;
   orderStatus: string;
   paymentStatus?: string;
   fulfillmentStatus?: string;
@@ -216,6 +219,8 @@ function mapV2Order(order: V2CheckoutOrder): UnifiedOrder {
     readNumber(order.shipping_amount) -
     readNumber(order.shipping_discount_total) +
     readNumber(order.tax_total);
+  const customerSnapshot = asObject(order.customer_snapshot);
+  const shippingSnapshot = asObject(order.shipping_address_snapshot);
 
   return {
     id: order.id,
@@ -225,6 +230,12 @@ function mapV2Order(order: V2CheckoutOrder): UnifiedOrder {
     displayTotal: Math.max(0, readNumber(order.grand_total), recomputedGrandTotal),
     shippingAmount: Math.max(0, readNumber(order.shipping_amount)),
     shippingDiscountTotal: Math.max(0, readNumber(order.shipping_discount_total)),
+    depositorName:
+      readString(customerSnapshot.name) ||
+      readString(customerSnapshot.full_name) ||
+      readString(customerSnapshot.recipient_name) ||
+      readString(shippingSnapshot.recipient_name) ||
+      '주문자명',
     orderStatus: order.order_status,
     paymentStatus: order.payment_status,
     fulfillmentStatus: order.fulfillment_status,
@@ -378,6 +389,7 @@ function resolveOrderItemStatusLabel(
 
 export default function MyPage() {
   const router = useRouter();
+  const { openModal } = useModal();
   const { showToast } = useToast();
   const { user, isAdmin, isLoading: sessionLoading, isAuthenticated } = useSession();
   const [currentPage, setCurrentPage] = useState(1);
@@ -449,6 +461,15 @@ export default function MyPage() {
         },
       },
     );
+  }
+
+  function handleOpenDepositInfo(order: UnifiedOrder) {
+    void openModal<void>(DepositInfoModal, {
+      size: 'lg',
+      orderNo: order.orderNo,
+      depositorName: order.depositorName,
+      totalAmount: order.displayTotal,
+    }).catch(() => undefined);
   }
 
   if (isLoading) {
@@ -562,6 +583,16 @@ export default function MyPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
+                        {linearStatus === 'PAYMENT_PENDING' && (
+                          <Button
+                            intent="secondary"
+                            size="sm"
+                            className="!h-auto !rounded-full !px-3 !py-1 !text-xs"
+                            onClick={() => handleOpenDepositInfo(order)}
+                          >
+                            입금 정보 확인
+                          </Button>
+                        )}
                         <span
                           className={`rounded-full px-2 py-1 text-xs font-semibold ${myPageLinearStatusBadgeClass(
                             linearStatus,
