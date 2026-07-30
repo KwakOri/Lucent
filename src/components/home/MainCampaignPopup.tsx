@@ -1,41 +1,89 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-const DISMISS_STORAGE_KEY = 'lucent:main-campaign-popup-dismissed-date';
+const DISMISS_STORAGE_KEY =
+  'lucent:main-campaign-popup:b80cf948-d4a8-4e7e-8253-518b9b3aec7b:dismissed-date';
 const TARGET_LINK =
-  'https://www.lucentlabel.shop/shop?campaign_id=c2befa71-9b1f-478f-b06e-e87ec8d3012d';
-const BACKGROUND_IMAGE_SRC = '/popup_image.png';
+  'https://www.lucentlabel.shop/shop?campaign_id=b80cf948-d4a8-4e7e-8253-518b9b3aec7b';
+const BACKGROUND_IMAGE_SRC = '/popup_thumbnail_pukong.png';
+const CAMPAIGN_START_AT = new Date('2026-07-30T18:00:00+09:00').getTime();
+const CAMPAIGN_END_AT = new Date('2026-08-31T00:00:00+09:00').getTime();
+const MAX_TIMEOUT_DELAY_MS = 2_147_483_647;
+const KOREAN_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
 
-function getTodayKey(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
+function getKoreanDateKey(date = new Date()): string {
+  const dateParts = KOREAN_DATE_FORMATTER.formatToParts(date);
+  const year = dateParts.find(({ type }) => type === 'year')?.value;
+  const month = dateParts.find(({ type }) => type === 'month')?.value;
+  const day = dateParts.find(({ type }) => type === 'day')?.value;
   return `${year}-${month}-${day}`;
 }
 
+function isWithinCampaignPeriod(now = Date.now()): boolean {
+  return now >= CAMPAIGN_START_AT && now < CAMPAIGN_END_AT;
+}
+
 export function MainCampaignPopup() {
-  const [isVisible, setIsVisible] = useState(() => {
+  const [isWithinDisplayPeriod, setIsWithinDisplayPeriod] = useState(() =>
+    isWithinCampaignPeriod(),
+  );
+  const [isClosed, setIsClosed] = useState(() => {
     if (typeof window === 'undefined') {
-      return false;
+      return true;
     }
-    const todayKey = getTodayKey();
+    const todayKey = getKoreanDateKey();
     const dismissedDate = window.localStorage.getItem(DISMISS_STORAGE_KEY);
-    return dismissedDate !== todayKey;
+    return dismissedDate === todayKey;
   });
   const [dismissForTodayOnClose, setDismissForTodayOnClose] = useState(false);
 
+  useEffect(() => {
+    let timeoutId: number | undefined;
+
+    const syncCampaignPeriod = () => {
+      const now = Date.now();
+      setIsWithinDisplayPeriod(isWithinCampaignPeriod(now));
+
+      const nextBoundary =
+        now < CAMPAIGN_START_AT
+          ? CAMPAIGN_START_AT
+          : now < CAMPAIGN_END_AT
+            ? CAMPAIGN_END_AT
+            : null;
+
+      if (nextBoundary !== null) {
+        timeoutId = window.setTimeout(
+          syncCampaignPeriod,
+          Math.min(nextBoundary - now, MAX_TIMEOUT_DELAY_MS),
+        );
+      }
+    };
+
+    syncCampaignPeriod();
+
+    return () => {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, []);
+
   const handleClose = () => {
     if (dismissForTodayOnClose) {
-      window.localStorage.setItem(DISMISS_STORAGE_KEY, getTodayKey());
+      window.localStorage.setItem(DISMISS_STORAGE_KEY, getKoreanDateKey());
     } else {
       window.localStorage.removeItem(DISMISS_STORAGE_KEY);
     }
-    setIsVisible(false);
+    setIsClosed(true);
   };
 
-  if (!isVisible) {
+  if (!isWithinDisplayPeriod || isClosed) {
     return null;
   }
 
@@ -72,7 +120,7 @@ export function MainCampaignPopup() {
         {/* eslint-disable-next-line @next/next/no-img-element -- project policy uses native img instead of next/image. */}
         <img
           src={BACKGROUND_IMAGE_SRC}
-          alt="메인 캠페인 팝업"
+          alt="푸콩이 첫 번째 생일 굿즈 팝업"
           className="h-full w-full object-contain"
         />
 
