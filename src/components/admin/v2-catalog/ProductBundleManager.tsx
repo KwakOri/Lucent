@@ -817,7 +817,7 @@ export function ProductBundleManager({
                               </Badge>
                             )}
                           </div>
-                          <p className="mt-1 text-xs text-gray-500">/shop/{product.slug}</p>
+                          <p className="mt-1 text-xs text-gray-500">/shop/{product.id}</p>
                           {disabled ? (
                             <p className="mt-1 text-xs text-amber-700">
                               선택 가능한 옵션이 없어 번들에 추가할 수 없습니다.
