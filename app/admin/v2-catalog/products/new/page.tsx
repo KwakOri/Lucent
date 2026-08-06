@@ -1,43 +1,52 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Loading } from '@/components/ui/loading';
-import {
-  AdminPageHeader,
-  adminButtonClass,
-} from '@/src/components/admin/AdminDesignSystem';
-import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
-import { ProductBasicsForm } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
-import type { ProductBasicsFormValues } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
-import {
-  useCreateV2Product,
-  useCreateV2CampaignTarget,
-  useCreateV2PriceList,
-  useCreateV2PriceListItem,
-  useCreateV2Variant,
-  useCreateV2ProductMedia,
-  usePublishV2PriceList,
-  useUploadV2MediaAssetFile,
-  useV2AdminProjects,
-  useV2Campaigns,
-  useV2CampaignTargetsMap,
-  useV2PriceLists,
-} from '@/lib/client/hooks/useV2CatalogAdmin';
 import type {
-  V2PriceList,
-  V2Product,
+    V2PriceList,
+    V2Product,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
-  DEFAULT_VARIANT_STATUS,
-  buildVariantSku,
-} from '@/lib/client/utils/v2-product-admin-form';
+    useCreateExternalV2MediaAsset,
+    useCreateV2CampaignTarget,
+    useCreateV2DigitalAsset,
+    useCreateV2PriceList,
+    useCreateV2PriceListItem,
+    useCreateV2Product,
+    useCreateV2ProductMedia,
+    useCreateV2Variant,
+    usePublishV2PriceList,
+    useUploadV2MediaAssetFile,
+    useV2AdminProjects,
+    useV2CampaignTargetsMap,
+    useV2Campaigns,
+    useV2PriceLists
+} from '@/lib/client/hooks/useV2CatalogAdmin';
+import {
+    inferDigitalFileAssetKind,
+    inferDigitalFileMimeType,
+    inferExternalLinkAssetKind,
+    isHttpUrl,
+    isSupportedDigitalFile,
+} from '@/lib/client/utils/v2-digital-asset';
 import { parseOptionalPriceInput } from '@/lib/client/utils/v2-price-input';
 import {
-  buildDefaultCampaignOptions,
-  findDefaultCampaignOption,
+    DEFAULT_VARIANT_STATUS,
+    buildVariantSku,
+} from '@/lib/client/utils/v2-product-admin-form';
+import {
+    buildDefaultCampaignOptions,
+    findDefaultCampaignOption,
 } from '@/lib/client/utils/v2-product-campaign-inclusion';
+import {
+    AdminPageHeader,
+    adminButtonClass,
+} from '@/src/components/admin/AdminDesignSystem';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
+import type { ProductBasicsFormValues } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
+import { ProductBasicsForm } from '@/src/components/admin/v2-catalog/ProductBasicsForm';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useMemo, useState } from 'react';
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -65,6 +74,8 @@ export default function V2CatalogProductCreatePage() {
   const publishPriceList = usePublishV2PriceList();
   const createPriceListItem = useCreateV2PriceListItem();
   const createCampaignTarget = useCreateV2CampaignTarget();
+  const createExternalMediaAsset = useCreateExternalV2MediaAsset();
+  const createDigitalAsset = useCreateV2DigitalAsset();
   const uploadMediaAssetFile = useUploadV2MediaAssetFile();
   const createProductMedia = useCreateV2ProductMedia();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -273,6 +284,92 @@ export default function V2CatalogProductCreatePage() {
     }
   };
 
+  const createDefaultDigitalAsset = async (params: {
+    variantId: string;
+    variantStatus: ProductBasicsFormValues['default_variant_status'];
+    values: ProductBasicsFormValues;
+  }) => {
+    const { values } = params;
+    if (
+      values.product_kind !== 'STANDARD' ||
+      values.fulfillment_type !== 'DIGITAL'
+    ) {
+      return;
+    }
+
+    const assetStatus = params.variantStatus === 'ACTIVE' ? 'READY' : 'DRAFT';
+
+    if (values.digital_asset_input_mode === 'FILE' && values.digital_asset_file) {
+      const file = values.digital_asset_file;
+      const uploaded = await uploadMediaAssetFile.mutateAsync({
+        data: {
+          file,
+          asset_kind: inferDigitalFileAssetKind(file),
+          status: 'ACTIVE',
+          metadata: {
+            source: 'v2-product-create-digital-file',
+            delivery_method: 'FILE',
+          },
+        },
+      });
+
+      await createDigitalAsset.mutateAsync({
+        variantId: params.variantId,
+        data: {
+          asset_role: 'PRIMARY',
+          media_asset_id: uploaded.data.id,
+          file_name: file.name,
+          mime_type: inferDigitalFileMimeType(file),
+          file_size: file.size,
+          status: assetStatus,
+          metadata: {
+            source: 'v2-product-create-digital-file',
+            delivery_method: 'FILE',
+            media_asset_kind: inferDigitalFileAssetKind(file),
+          },
+        },
+      });
+      return;
+    }
+
+    const linkUrl = values.digital_asset_link_url?.trim() || '';
+    if (values.digital_asset_input_mode !== 'LINK' || !linkUrl) {
+      return;
+    }
+
+    const fileName =
+      values.digital_asset_link_file_name?.trim() || 'Google Drive file';
+    const assetKind = inferExternalLinkAssetKind(linkUrl, fileName);
+    const mediaAsset = await createExternalMediaAsset.mutateAsync({
+      url: linkUrl,
+      file_name: fileName,
+      asset_kind: assetKind,
+      status: 'ACTIVE',
+      metadata: {
+        source: 'v2-product-create-digital-link',
+        delivery_method: 'LINK',
+      },
+    });
+
+    await createDigitalAsset.mutateAsync({
+      variantId: params.variantId,
+      data: {
+        asset_role: 'PRIMARY',
+        media_asset_id: mediaAsset.data.id,
+        file_name: fileName,
+        mime_type: mediaAsset.data.mime_type || 'application/octet-stream',
+        file_size: mediaAsset.data.file_size || 1,
+        status: assetStatus,
+        metadata: {
+          source: 'v2-product-create-digital-link',
+          delivery_method: 'LINK',
+          external_url: linkUrl,
+          media_asset_kind: assetKind,
+        },
+      },
+    });
+  };
+
   const handleCreateProduct = async (values: ProductBasicsFormValues) => {
     setErrorMessage(null);
 
@@ -285,6 +382,28 @@ export default function V2CatalogProductCreatePage() {
       );
       if (defaultVariantStatus === 'ACTIVE' && defaultBasePrice === null) {
         throw new Error('판매 중 옵션은 기본 판매가를 입력해야 합니다.');
+      }
+
+      if (
+        values.product_kind === 'STANDARD' &&
+        values.fulfillment_type === 'DIGITAL'
+      ) {
+        if (
+          values.digital_asset_input_mode === 'FILE' &&
+          values.digital_asset_file &&
+          !isSupportedDigitalFile(values.digital_asset_file)
+        ) {
+          throw new Error(
+            '오디오(mp3/wav/flac/m4a) 또는 zip 파일만 업로드할 수 있습니다.',
+          );
+        }
+        if (
+          values.digital_asset_input_mode === 'LINK' &&
+          values.digital_asset_link_url &&
+          !isHttpUrl(values.digital_asset_link_url)
+        ) {
+          throw new Error('다운로드 링크는 http(s) URL이어야 합니다.');
+        }
       }
 
       const response = await createProduct.mutateAsync({
@@ -344,6 +463,13 @@ export default function V2CatalogProductCreatePage() {
           projectId: values.project_id,
           inclusion: values.default_campaign_inclusion,
         });
+        if (createdVariantId) {
+          await createDefaultDigitalAsset({
+            variantId: createdVariantId,
+            variantStatus: defaultVariantStatus,
+            values,
+          });
+        }
         await uploadProductImages({
           productId: createdProduct.id,
           productTitle: createdProduct.title,
@@ -352,7 +478,7 @@ export default function V2CatalogProductCreatePage() {
         });
       } catch (postCreateError) {
         notify(
-          `상품과 기본 옵션은 생성되었지만 가격, 캠페인 또는 이미지 설정 일부를 반영하지 못했습니다. 상세 화면에서 확인해 주세요. ${getErrorMessage(postCreateError)}`,
+          `상품과 기본 옵션은 생성되었지만 가격, 캠페인, 디지털 에셋 또는 이미지 설정 일부를 반영하지 못했습니다. 상세 화면에서 확인해 주세요. ${getErrorMessage(postCreateError)}`,
           { type: 'warning', duration: 10000 },
         );
         router.push(`/admin/v2-catalog/products/${createdProduct.id}`);
@@ -427,11 +553,16 @@ export default function V2CatalogProductCreatePage() {
         isSubmitting={
           createProduct.isPending ||
           createVariant.isPending ||
+          createExternalMediaAsset.isPending ||
+          createDigitalAsset.isPending ||
           uploadMediaAssetFile.isPending ||
           createProductMedia.isPending
         }
         showDefaultOptionSettings
         showCampaignInclusionSettings
+        showDigitalAssetSettings
+        advancedTitle="디지털 파일"
+        advancedDescription="디지털 상품의 다운로드 파일 또는 링크를 연결합니다."
         campaignOptions={defaultCampaignOptions}
         submitLabel="기본 정보 저장"
         errorMessage={errorMessage}

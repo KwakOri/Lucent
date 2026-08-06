@@ -1,42 +1,46 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import { ArrowDown, ArrowUp, ImageIcon, Star, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 import { FormField } from '@/components/ui/form-field';
 import { Input, Textarea } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import {
-  adminActionRowClass,
-  adminButtonClass,
-  adminInputClass,
-  adminPrimaryButtonClass,
-  adminSelectClass,
-} from '@/src/components/admin/AdminDesignSystem';
 import type {
-  V2FulfillmentType,
-  V2ProductKind,
-  V2ProductStatus,
-  V2Project,
-  V2VariantStatus,
+    V2FulfillmentType,
+    V2ProductKind,
+    V2ProductStatus,
+    V2Project,
+    V2VariantStatus,
 } from '@/lib/client/api/v2-catalog-admin.api';
 import {
-  DEFAULT_VARIANT_STATUS,
-  FULFILLMENT_TYPE_LABELS,
-  PRODUCT_KIND_LABELS,
-  PRODUCT_STATUS_LABELS,
-  VARIANT_STATUS_LABELS,
-  buildProductSlug,
-} from '@/lib/client/utils/v2-product-admin-form';
+    DIGITAL_FILE_ACCEPT,
+    type DigitalAssetInputMode,
+} from '@/lib/client/utils/v2-digital-asset';
 import {
-  formatPriceInputValue,
-  normalizePriceInputValue,
+    formatPriceInputValue,
+    normalizePriceInputValue,
 } from '@/lib/client/utils/v2-price-input';
+import {
+    DEFAULT_VARIANT_STATUS,
+    FULFILLMENT_TYPE_LABELS,
+    PRODUCT_KIND_LABELS,
+    PRODUCT_STATUS_LABELS,
+    VARIANT_STATUS_LABELS,
+    buildProductSlug,
+} from '@/lib/client/utils/v2-product-admin-form';
 import type {
-  ProductDefaultCampaignOption,
+    ProductDefaultCampaignOption,
 } from '@/lib/client/utils/v2-product-campaign-inclusion';
+import {
+    adminActionRowClass,
+    adminButtonClass,
+    adminInputClass,
+    adminPrimaryButtonClass,
+    adminSelectClass,
+} from '@/src/components/admin/AdminDesignSystem';
+import { ArrowDown, ArrowUp, FileArchive, ImageIcon, Link as LinkIcon, Star, Trash2 } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 export type ProductCampaignInclusion = 'INCLUDED' | 'EXCLUDED';
 
@@ -54,6 +58,10 @@ export type ProductBasicsFormValues = {
   default_campaign_inclusion?: ProductCampaignInclusion;
   cover_image_file?: File | null;
   detail_image_files?: File[];
+  digital_asset_input_mode?: DigitalAssetInputMode;
+  digital_asset_file?: File | null;
+  digital_asset_link_url?: string | null;
+  digital_asset_link_file_name?: string | null;
 };
 
 type ProductBasicsFormProps = {
@@ -67,6 +75,7 @@ type ProductBasicsFormProps = {
   errorMessage?: string | null;
   showDefaultOptionSettings?: boolean;
   showCampaignInclusionSettings?: boolean;
+  showDigitalAssetSettings?: boolean;
   campaignOptions?: ProductDefaultCampaignOption[];
   mediaContent?: ReactNode;
   advancedContent?: ReactNode;
@@ -178,6 +187,7 @@ export function ProductBasicsForm({
   errorMessage,
   showDefaultOptionSettings = false,
   showCampaignInclusionSettings = false,
+  showDigitalAssetSettings = false,
   campaignOptions = [],
   mediaContent,
   advancedContent,
@@ -214,6 +224,19 @@ export function ProductBasicsForm({
   );
   const [coverImageDraft, setCoverImageDraft] = useState<ImageDraft | null>(null);
   const [detailImageDrafts, setDetailImageDrafts] = useState<ImageDraft[]>([]);
+  const [digitalAssetInputMode, setDigitalAssetInputMode] =
+    useState<DigitalAssetInputMode>(
+      initialValues.digital_asset_input_mode || 'FILE',
+    );
+  const [digitalAssetFile, setDigitalAssetFile] = useState<File | null>(
+    initialValues.digital_asset_file || null,
+  );
+  const [digitalAssetLinkUrl, setDigitalAssetLinkUrl] = useState(
+    initialValues.digital_asset_link_url || '',
+  );
+  const [digitalAssetLinkFileName, setDigitalAssetLinkFileName] = useState(
+    initialValues.digital_asset_link_file_name || '',
+  );
   const [mediaErrorMessage, setMediaErrorMessage] = useState<string | null>(null);
   const previewUrlSetRef = useRef<Set<string>>(new Set());
 
@@ -353,6 +376,16 @@ export function ProductBasicsForm({
         : undefined,
       cover_image_file: coverImageDraft?.file || null,
       detail_image_files: detailImageDrafts.map((draft) => draft.file),
+      digital_asset_input_mode: showDigitalAssetSettings
+        ? digitalAssetInputMode
+        : undefined,
+      digital_asset_file: showDigitalAssetSettings ? digitalAssetFile : undefined,
+      digital_asset_link_url: showDigitalAssetSettings
+        ? digitalAssetLinkUrl.trim() || null
+        : undefined,
+      digital_asset_link_file_name: showDigitalAssetSettings
+        ? digitalAssetLinkFileName.trim() || null
+        : undefined,
     });
   };
 
@@ -767,11 +800,103 @@ export function ProductBasicsForm({
                   {advancedAction}
                 </div>
                 <div className="mt-4">
-                  {advancedContent || (
+                  {advancedContent || (showDigitalAssetSettings ? (
+                    productKind === 'STANDARD' && fulfillmentType === 'DIGITAL' ? (
+                      <div className="space-y-4">
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            className={getInclusionButtonClass(
+                              digitalAssetInputMode === 'FILE',
+                            )}
+                            onClick={() => setDigitalAssetInputMode('FILE')}
+                            disabled={isSubmitting}
+                          >
+                            <span className="flex items-center justify-center gap-2">
+                              <FileArchive className="h-4 w-4" aria-hidden />
+                              File
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            className={getInclusionButtonClass(
+                              digitalAssetInputMode === 'LINK',
+                            )}
+                            onClick={() => setDigitalAssetInputMode('LINK')}
+                            disabled={isSubmitting}
+                          >
+                            <span className="flex items-center justify-center gap-2">
+                              <LinkIcon className="h-4 w-4" aria-hidden />
+                              Link
+                            </span>
+                          </button>
+                        </div>
+
+                        {digitalAssetInputMode === 'FILE' ? (
+                          <FileInput
+                            id="default-variant-digital-file"
+                            triggerLabel={
+                              digitalAssetFile
+                                ? digitalAssetFile.name
+                                : '디지털 파일 선택'
+                            }
+                            triggerClassName={fileTriggerClassName}
+                            accept={DIGITAL_FILE_ACCEPT}
+                            disabled={isSubmitting}
+                            onChange={(event) =>
+                              setDigitalAssetFile(event.target.files?.[0] || null)
+                            }
+                          />
+                        ) : (
+                          <div className="grid gap-4 lg:grid-cols-12">
+                            <div className="lg:col-span-8">
+                              <FormField
+                                label="다운로드 링크"
+                                htmlFor="default-variant-digital-link-url"
+                              >
+                                <Input
+                                  id="default-variant-digital-link-url"
+                                  type="url"
+                                  value={digitalAssetLinkUrl}
+                                  onChange={(event) =>
+                                    setDigitalAssetLinkUrl(event.target.value)
+                                  }
+                                  placeholder="https://drive.google.com/file/d/..."
+                                  disabled={isSubmitting}
+                                  className={adminInputClass}
+                                />
+                              </FormField>
+                            </div>
+                            <div className="lg:col-span-4">
+                              <FormField
+                                label="표시 파일명"
+                                htmlFor="default-variant-digital-link-file-name"
+                              >
+                                <Input
+                                  id="default-variant-digital-link-file-name"
+                                  value={digitalAssetLinkFileName}
+                                  onChange={(event) =>
+                                    setDigitalAssetLinkFileName(event.target.value)
+                                  }
+                                  placeholder="voice-pack.zip"
+                                  disabled={isSubmitting}
+                                  className={adminInputClass}
+                                />
+                              </FormField>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="rounded-[12px] border border-dashed border-[#d9d4c3] bg-white px-4 py-4 text-sm font-bold text-[#b3aea2]">
+                        디지털 에셋은 디지털 단일 상품에서 설정할 수 있습니다.
+                      </div>
+                    )
+                  ) : (
                     <div className="rounded-[12px] border border-dashed border-[#d9d4c3] bg-white px-4 py-4 text-sm font-bold text-[#b3aea2]">
                       저장 후 상품 상세에서 고급 옵션을 관리할 수 있습니다.
                     </div>
-                  )}
+                  ))}
                 </div>
               </section>
             </section>

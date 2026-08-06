@@ -1,8 +1,5 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, FileArchive, Link as LinkIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileInput } from "@/components/ui/file-input";
@@ -10,64 +7,76 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import {
-  adminActionRowClass,
-  adminButtonClass,
-  adminInputClass,
-  adminPrimaryButtonClass,
-  adminSelectClass,
-} from "@/src/components/admin/AdminDesignSystem";
 import type {
-  V2DigitalAsset,
-  V2FulfillmentType,
-  V2MediaAssetKind,
-  V2MediaAssetUploadProgress,
-  V2BasePriceChangeAnalysis,
-  V2BasePriceChangeImpact,
-  V2BasePriceOverrideAction,
-  V2PriceList,
-  V2PriceListItem,
-  V2Product,
-  V2Variant,
-  V2VariantStatus,
+    V2BasePriceChangeAnalysis,
+    V2BasePriceChangeImpact,
+    V2BasePriceOverrideAction,
+    V2DigitalAsset,
+    V2FulfillmentType,
+    V2MediaAssetUploadProgress,
+    V2PriceList,
+    V2PriceListItem,
+    V2Product,
+    V2Variant,
+    V2VariantStatus,
 } from "@/lib/client/api/v2-catalog-admin.api";
-import {
-  useCreateV2PriceList,
-  useCreateV2PriceListItem,
-  useCreateV2DigitalAsset,
-  useCreateExternalV2MediaAsset,
-  useCreateV2Variant,
-  useAnalyzeV2BasePriceChange,
-  useApplyV2BasePriceChange,
-  usePublishV2PriceList,
-  useUpdateV2PriceListItem,
-  useUpdateV2DigitalAsset,
-  useUpdateV2Variant,
-  useUploadV2MediaAssetFile,
-  useV2PriceListItems,
-  useV2PriceLists,
-} from "@/lib/client/hooks/useV2CatalogAdmin";
 import { queryKeys } from "@/lib/client/hooks/query-keys";
 import {
-  useV2AdminInventoryLevels,
-  useV2AdminStockLocations,
-  useV2AdminUpsertInventoryLevel,
+    useV2AdminInventoryLevels,
+    useV2AdminStockLocations,
+    useV2AdminUpsertInventoryLevel,
 } from "@/lib/client/hooks/useV2AdminOps";
 import {
-  DEFAULT_VARIANT_STATUS,
-  FULFILLMENT_TYPE_LABELS,
-  VARIANT_STATUS_LABELS,
-  buildVariantSku,
-} from "@/lib/client/utils/v2-product-admin-form";
+    useAnalyzeV2BasePriceChange,
+    useApplyV2BasePriceChange,
+    useCreateExternalV2MediaAsset,
+    useCreateV2DigitalAsset,
+    useCreateV2PriceList,
+    useCreateV2PriceListItem,
+    useCreateV2Variant,
+    usePublishV2PriceList,
+    useUpdateV2DigitalAsset,
+    useUpdateV2PriceListItem,
+    useUpdateV2Variant,
+    useUploadV2MediaAssetFile,
+    useV2PriceListItems,
+    useV2PriceLists,
+} from "@/lib/client/hooks/useV2CatalogAdmin";
 import {
-  formatPriceInputValue,
-  normalizePriceInputValue,
-  parseNonNegativeInteger,
-  parseOptionalPriceInput as parseOptionalBasePrice,
+    DIGITAL_FILE_ACCEPT,
+    getExistingDigitalAssetInput,
+    inferDigitalFileAssetKind,
+    inferDigitalFileMimeType,
+    inferExternalLinkAssetKind,
+    isHttpUrl,
+    isSupportedDigitalFile,
+    type DigitalAssetInputMode
+} from "@/lib/client/utils/v2-digital-asset";
+import {
+    formatPriceInputValue,
+    normalizePriceInputValue,
+    parseNonNegativeInteger,
+    parseOptionalPriceInput as parseOptionalBasePrice,
 } from "@/lib/client/utils/v2-price-input";
 import {
-  UploadProgressCard,
-  type VariantUploadState,
+    DEFAULT_VARIANT_STATUS,
+    FULFILLMENT_TYPE_LABELS,
+    VARIANT_STATUS_LABELS,
+    buildVariantSku,
+} from "@/lib/client/utils/v2-product-admin-form";
+import {
+    adminActionRowClass,
+    adminButtonClass,
+    adminInputClass,
+    adminPrimaryButtonClass,
+    adminSelectClass,
+} from "@/src/components/admin/AdminDesignSystem";
+import { useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, FileArchive, Link as LinkIcon } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+    UploadProgressCard,
+    type VariantUploadState,
 } from "./UploadProgressCard";
 
 const VARIANT_STATUS_VALUES: V2VariantStatus[] = [
@@ -76,11 +85,8 @@ const VARIANT_STATUS_VALUES: V2VariantStatus[] = [
   "INACTIVE",
 ];
 const FULFILLMENT_TYPE_VALUES: V2FulfillmentType[] = ["DIGITAL", "PHYSICAL"];
-const DIGITAL_FILE_ACCEPT =
-  "audio/*,.mp3,.wav,.flac,.m4a,.zip,application/zip,application/x-zip-compressed";
 
 type VariantSaveHandler = () => Promise<boolean>;
-type DigitalAssetInputMode = "FILE" | "LINK";
 type BasePriceOverrideDecisionState = {
   action: V2BasePriceOverrideAction;
   unitAmount: string;
@@ -156,71 +162,6 @@ function parseNullableNonNegativeInteger(
     return null;
   }
   return parseNonNegativeInteger(trimmed, fieldName);
-}
-
-function isAudioFile(file: File): boolean {
-  const mime = file.type.toLowerCase();
-  if (mime.startsWith("audio/")) {
-    return true;
-  }
-  return /\.(mp3|wav|flac|m4a)$/i.test(file.name);
-}
-
-function isZipFile(file: File): boolean {
-  const mime = file.type.toLowerCase();
-  return (
-    mime === "application/zip" ||
-    mime === "application/x-zip-compressed" ||
-    /\.zip$/i.test(file.name)
-  );
-}
-
-function isSupportedDigitalFile(file: File): boolean {
-  return isAudioFile(file) || isZipFile(file);
-}
-
-function inferDigitalFileAssetKind(file: File): V2MediaAssetKind {
-  if (isZipFile(file)) {
-    return "ARCHIVE";
-  }
-  return "AUDIO";
-}
-
-function inferDigitalFileMimeType(file: File): string {
-  if (file.type) {
-    return file.type;
-  }
-  if (isZipFile(file)) {
-    return "application/zip";
-  }
-  if (/\.mp3$/i.test(file.name)) {
-    return "audio/mpeg";
-  }
-  if (/\.wav$/i.test(file.name)) {
-    return "audio/wav";
-  }
-  if (/\.flac$/i.test(file.name)) {
-    return "audio/flac";
-  }
-  if (/\.m4a$/i.test(file.name)) {
-    return "audio/mp4";
-  }
-  return "application/octet-stream";
-}
-
-function inferExternalLinkAssetKind(
-  url: string,
-  fileName: string,
-): V2MediaAssetKind {
-  const target = `${fileName} ${url}`;
-  if (/\.zip(?:$|[?#\s])/i.test(target)) {
-    return "ARCHIVE";
-  }
-  return "FILE";
-}
-
-function isHttpUrl(value: string): boolean {
-  return /^https?:\/\//i.test(value.trim());
 }
 
 function getChoiceButtonClass(active: boolean): string {
@@ -412,6 +353,7 @@ export function ProductVariantForm({
   variant,
   variantCount = 0,
   primaryAsset,
+  isAssetsLoading = false,
   compact = false,
   hideActions = false,
   deliveryOnly = false,
@@ -470,6 +412,8 @@ export function ProductVariantForm({
   const basePriceChangeResolveRef = useRef<
     ((decisions: BasePriceOverrideDecisionPayload[] | null) => void) | null
   >(null);
+  const initializedVariantKeyRef = useRef<string | null>(null);
+  const initializedDigitalAssetKeyRef = useRef<string | null>(null);
   const isBundleProduct = product.product_kind === "BUNDLE";
   const lockedFulfillmentType =
     product.product_kind === "STANDARD" ? product.fulfillment_type : null;
@@ -531,6 +475,17 @@ export function ProductVariantForm({
   }, [activeBasePriceList]);
 
   useEffect(() => {
+    const initializationKey =
+      mode === "edit" ? variant?.id || null : "create";
+    if (
+      !initializationKey ||
+      initializedVariantKeyRef.current === initializationKey
+    ) {
+      return;
+    }
+    initializedVariantKeyRef.current = initializationKey;
+    initializedDigitalAssetKeyRef.current = null;
+
     if (mode === "edit" && variant) {
       setTitle(variant.title);
       setFulfillmentType(lockedFulfillmentType || variant.fulfillment_type);
@@ -543,10 +498,6 @@ export function ProductVariantForm({
       );
       setInventoryOnHandQuantity("");
       setInventorySafetyStockQuantity("");
-      setDigitalAssetInputMode("FILE");
-      setDigitalFile(null);
-      setDigitalLinkUrl("");
-      setDigitalLinkFileName("");
       setErrorMessage(null);
       setUploadState(null);
       setPersistedVariantId(null);
@@ -636,20 +587,35 @@ export function ProductVariantForm({
     inventorySafetyStockQuantity,
   ]);
 
-  const existingStorageProvider =
-    primaryAsset?.media_asset?.storage_provider || null;
-  const isExistingExternalLink =
-    Boolean(
-      existingStorageProvider && existingStorageProvider.toUpperCase() !== "R2",
-    ) || isHttpUrl(primaryAsset?.storage_path || "");
+  const existingDigitalAssetInput = getExistingDigitalAssetInput(primaryAsset);
   const existingDigitalAssetInputMode: DigitalAssetInputMode | null =
-    mode === "edit" && primaryAsset
-      ? isExistingExternalLink
-        ? "LINK"
-        : "FILE"
-      : null;
+    mode === "edit" ? existingDigitalAssetInput?.mode || null : null;
+
+  useEffect(() => {
+    if (mode !== "edit" || !variant || isAssetsLoading) {
+      return;
+    }
+
+    const initializationKey = `${variant.id}:${primaryAsset?.id || "none"}`;
+    if (initializedDigitalAssetKeyRef.current === initializationKey) {
+      return;
+    }
+    initializedDigitalAssetKeyRef.current = initializationKey;
+
+    setDigitalAssetInputMode(existingDigitalAssetInput?.mode || "FILE");
+    setDigitalFile(null);
+    setDigitalLinkUrl(existingDigitalAssetInput?.linkUrl || "");
+    setDigitalLinkFileName(existingDigitalAssetInput?.fileName || "");
+  }, [
+    existingDigitalAssetInput,
+    isAssetsLoading,
+    mode,
+    primaryAsset?.id,
+    variant,
+  ]);
 
   const isSubmitting =
+    isAssetsLoading ||
     isBasePricingLoading ||
     createVariant.isPending ||
     updateVariant.isPending ||
