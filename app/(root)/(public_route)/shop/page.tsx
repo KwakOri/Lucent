@@ -1,27 +1,27 @@
 "use client";
 
-import { VoicePackCover } from "@/components/order/VoicePackCover";
 import { PopupListSection } from "@/components/home/PopupSection";
+import { VoicePackCover } from "@/components/order/VoicePackCover";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
-import {
-  useSession,
-  useV2AddCartItem,
-  useV2DigitalOwnership,
-  useV2ShopCampaigns,
-  useV2ShopProducts,
-} from "@/lib/client/hooks";
-import type {
-  V2ShopDisplayPrice,
-  V2ShopListItem,
-} from "@/lib/client/api/v2-shop.api";
 import type { V2DigitalOwnershipRecord } from "@/lib/client/api/v2-checkout.api";
+import type {
+    V2ShopDisplayPrice,
+    V2ShopListItem,
+} from "@/lib/client/api/v2-shop.api";
+import {
+    useSession,
+    useV2AddCartItem,
+    useV2DigitalOwnership,
+    useV2ShopCampaigns,
+    useV2ShopProducts,
+} from "@/lib/client/hooks";
 import { ApiError } from "@/lib/client/utils/api-error";
+import { useToast } from "@/src/components/toast";
 import { CheckCircle2, Clock3, ShoppingCart } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useToast } from "@/src/components/toast";
 
 const SHOP_SECTION_PAGE_SIZE = 6;
 
@@ -168,9 +168,7 @@ function ShopPageContent() {
   const showCampaignHeroBanner =
     !!selectedCampaignId && !!selectedCampaignBannerUrl;
   const showPopupListSection = !selectedCampaignId;
-  const heroBackgroundClass = selectedCampaignId
-    ? "bg-[#7bb8e9]"
-    : "bg-[#f9f9ed]";
+  const heroBackgroundClass = "bg-[#f9f9ed]";
 
   const products = useMemo(() => data?.items ?? [], [data?.items]);
   const exposedProducts = useMemo(() => {
@@ -379,23 +377,32 @@ function ShopPageContent() {
   return (
     <div className="min-h-screen bg-neutral-50">
       <section
-        className={`relative overflow-hidden ${heroBackgroundClass} px-4 ${
-          showCampaignHeroBanner ? "py-0" : "py-20"
-        }`}
+        className={`relative overflow-hidden ${
+          showCampaignHeroBanner ? "bg-transparent" : heroBackgroundClass
+        } px-4 ${showCampaignHeroBanner ? "py-0" : "py-20"}`}
       >
         {showCampaignHeroBanner ? (
-          <div className="w-full">
-            <div className="mx-auto w-full max-w-[1152px] overflow-hidden bg-white/60">
-              <img
-                src={selectedCampaignBannerUrl || ""}
-                alt={
-                  selectedCampaign?.shop_banner_alt_text ||
-                  `${selectedCampaign?.name || "캠페인"} 배너`
-                }
-                className="aspect-[12/5] w-full object-cover"
-              />
+          <>
+            {/* 배너 이미지의 확대·블러 레이어로 캠페인별 배경색을 자동으로 맞춘다. */}
+            <img
+              src={selectedCampaignBannerUrl || ""}
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover blur-2xl"
+            />
+            <div className="relative z-10 w-full">
+              <div className="mx-auto w-full max-w-[1152px] overflow-hidden bg-white/60">
+                <img
+                  src={selectedCampaignBannerUrl || ""}
+                  alt={
+                    selectedCampaign?.shop_banner_alt_text ||
+                    `${selectedCampaign?.name || "캠페인"} 배너`
+                  }
+                  className="aspect-[12/5] w-full object-cover"
+                />
+              </div>
             </div>
-          </div>
+          </>
         ) : (
           <div className="relative mx-auto max-w-6xl">
             <h1 className="mb-6 text-4xl font-bold leading-tight sm:text-5xl">
