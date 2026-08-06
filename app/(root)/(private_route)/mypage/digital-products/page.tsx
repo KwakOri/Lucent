@@ -1,8 +1,5 @@
 'use client';
 
-import { useMemo } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, Download, ShoppingBag } from 'lucide-react';
 import { VoicePackCover } from '@/components/order/VoicePackCover';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -10,14 +7,13 @@ import { Loading } from '@/components/ui/loading';
 import type { V2DigitalEntitlementItem } from '@/lib/client/api/v2-checkout.api';
 import { useV2DigitalEntitlements } from '@/lib/client/hooks';
 import {
-  normalizeDisplayTitle,
-  shouldShowOptionTitle,
+    normalizeDisplayTitle,
+    shouldShowOptionTitle,
 } from '@/lib/client/utils/v2-item-display';
 import { useToast } from '@/src/components/toast';
-
-function formatCurrency(amount: number): string {
-  return `${Math.max(0, amount).toLocaleString()}원`;
-}
+import { ArrowLeft, Download, ShoppingBag } from 'lucide-react';
+import Link from 'next/link';
+import { useMemo } from 'react';
 
 function formatDate(value: string | null | undefined): string {
   if (!value) {
@@ -164,13 +160,34 @@ function sortByRecent(left: V2DigitalEntitlementItem, right: V2DigitalEntitlemen
   return rightTime - leftTime;
 }
 
+function deduplicateRecentDigitalItems(
+  items: V2DigitalEntitlementItem[],
+): V2DigitalEntitlementItem[] {
+  const seenProductIds = new Set<string>();
+
+  return [...items].sort(sortByRecent).filter((item) => {
+    const productId = item.order_item.product_id?.trim();
+
+    // 상품 ID가 없는 항목은 서로 다른 상품일 수 있으므로 중복 제거 대상에서 제외합니다.
+    if (!productId) {
+      return true;
+    }
+
+    if (seenProductIds.has(productId)) {
+      return false;
+    }
+
+    seenProductIds.add(productId);
+    return true;
+  });
+}
+
 export default function MyDigitalProductsPage() {
   const { showToast } = useToast();
   const entitlementsQuery = useV2DigitalEntitlements();
 
   const digitalItems = useMemo(() => {
-    const items = entitlementsQuery.data?.items || [];
-    return [...items].sort(sortByRecent);
+    return deduplicateRecentDigitalItems(entitlementsQuery.data?.items || []);
   }, [entitlementsQuery.data?.items]);
   const availableItemCount = useMemo(
     () =>
@@ -328,10 +345,6 @@ export default function MyDigitalProductsPage() {
                           {description}
                         </p>
                       </div>
-
-                      <p className="mb-3 text-lg font-bold text-primary-700 sm:mb-4 sm:text-2xl">
-                        {formatCurrency(item.order_item.final_line_total)}
-                      </p>
 
                       <dl className="mb-3 grid gap-1 text-[11px] leading-relaxed text-text-secondary sm:mb-4 sm:grid-cols-2 sm:text-xs">
                         <div>
