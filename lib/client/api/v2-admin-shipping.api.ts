@@ -32,6 +32,7 @@ export interface V2AdminShippingCandidate {
   campaign_name: string | null;
   project_ids: string[];
   campaign_ids: string[];
+  is_reserved: boolean;
   linear_stage: 'READY_TO_SHIP';
 }
 
@@ -129,6 +130,7 @@ export interface ListV2AdminShippingCandidatesParams {
   date_to?: string;
   project_id?: string;
   campaign_id?: string;
+  include_reserved?: boolean;
 }
 
 export interface ListV2AdminShippingBatchesParams {

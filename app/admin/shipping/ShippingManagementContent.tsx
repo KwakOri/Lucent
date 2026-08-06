@@ -586,6 +586,7 @@ export function ShippingManagementContent({
 
   const candidatesQuery = useV2AdminShippingCandidates({
     limit: 300,
+    include_reserved: candidateListMode === 'all' ? true : undefined,
   });
   const batchesQuery = useV2AdminShippingBatches({
     limit: 100,
@@ -1136,6 +1137,12 @@ export function ShippingManagementContent({
             })}
           </div>
 
+          {candidateListMode === 'all' ? (
+            <p className="text-xs text-gray-500">
+              이미 열린 배송 배치에 예약된 주문은 조회만 가능하며 새 배치에 선택할 수 없습니다.
+            </p>
+          ) : null}
+
           <div className="flex justify-end">
             <Button
               onClick={handleCreateBatch}
@@ -1208,13 +1215,24 @@ export function ShippingManagementContent({
                     <tbody className="divide-y divide-gray-100 bg-white">
                       {candidateRows.map((row) => {
                         const checked = selectedOrderIdsInView.includes(row.order_id);
+                        const isReserved = row.is_reserved === true;
                         return (
-                          <tr key={row.order_id} className={checked ? 'bg-blue-50/60' : ''}>
+                          <tr
+                            key={row.order_id}
+                            className={
+                              checked
+                                ? 'bg-blue-50/60'
+                                : isReserved
+                                  ? 'bg-gray-50/70'
+                                  : ''
+                            }
+                          >
                             <td className="px-3 py-2">
                               <input
                                 type="checkbox"
                                 checked={checked}
-                                aria-label={`${row.order_no} 선택`}
+                                disabled={isReserved}
+                                aria-label={`${row.order_no}${isReserved ? ' (이미 배송 배치 예약됨)' : ''} 선택`}
                                 onChange={() => toggleOrderSelection(row.order_id)}
                               />
                             </td>
@@ -1225,6 +1243,9 @@ export function ShippingManagementContent({
                               >
                                 {row.order_no}
                               </p>
+                              {isReserved ? (
+                                <p className="text-xs text-gray-500">이미 배송 배치 예약됨</p>
+                              ) : null}
                               <p
                                 className="max-w-[220px] truncate whitespace-nowrap text-xs text-gray-500"
                                 title={row.order_id}
