@@ -10,6 +10,7 @@ import type { ApiResponse } from "@/types";
 export type V2ShopSort =
   | "SORT_ORDER"
   | "LATEST"
+  | "UPDATED"
   | "OLDEST"
   | "TITLE_ASC"
   | "TITLE_DESC";

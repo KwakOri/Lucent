@@ -155,7 +155,7 @@ function ShopPageContent() {
   const campaigns = useMemo(() => campaignQuery.data ?? [], [campaignQuery.data]);
   const { data, isLoading, error } = useV2ShopProducts({
     limit: 60,
-    sort: "LATEST",
+    sort: selectedCampaignId ? "UPDATED" : "LATEST",
     channel: "WEB",
     campaign_id: selectedCampaignId || undefined,
   });
