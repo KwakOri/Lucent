@@ -1,36 +1,36 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import Link from 'next/link';
-import {
-  ArrowUpRight,
-  Banknote,
-  CheckCircle2,
-  Clock3,
-  RefreshCw,
-  ShieldCheck,
-  ShoppingCart,
-  Truck,
-  type LucideIcon,
-} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loading } from '@/components/ui/loading';
-import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
 import {
-  type ListV2AdminDashboardOverviewParams,
-  type V2AdminDashboardUrgentOrder,
-  type V2AdminDashboardOrderStage,
-  type V2AdminSalesStatsPreset,
+    type ListV2AdminDashboardOverviewParams,
+    type V2AdminDashboardOrderStage,
+    type V2AdminDashboardUrgentOrder,
+    type V2AdminSalesStatsPreset,
 } from '@/lib/client/api/v2-admin-ops.api';
 import { type V2Campaign } from '@/lib/client/api/v2-catalog-admin.api';
 import {
-  useV2AdminDashboardOverview,
-  useV2AdminOrderLinearTransitionExecute,
+    useV2AdminDashboardOverview,
+    useV2AdminOrderLinearTransitionExecute,
 } from '@/lib/client/hooks/useV2AdminOps';
 import { useV2Campaigns } from '@/lib/client/hooks/useV2CatalogAdmin';
+import { useAdminFeedback } from '@/src/components/admin/AdminFeedback';
+import {
+    ArrowUpRight,
+    Banknote,
+    CheckCircle2,
+    Clock3,
+    RefreshCw,
+    ShieldCheck,
+    ShoppingCart,
+    Truck,
+    type LucideIcon,
+} from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 type FilterState = {
   preset: V2AdminSalesStatsPreset;
@@ -115,6 +115,13 @@ function toDashboardParams(
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('ko-KR').format(Math.max(0, value || 0));
+}
+
+function getOrderReferenceTimestamp(
+  order: V2AdminDashboardUrgentOrder,
+): number {
+  const timestamp = Date.parse(order.placed_at || order.created_at || '');
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
 function formatCurrency(value: number, currencyCode: string): string {
@@ -576,6 +583,11 @@ export default function AdminDashboardPage() {
   }
 
   const currencyCode = data.metadata.currency_code || 'KRW';
+  const pendingPaymentOrders = data.queues.urgent_orders
+    .filter((order) => order.stage === 'PAYMENT_PENDING')
+    .sort(
+      (a, b) => getOrderReferenceTimestamp(b) - getOrderReferenceTimestamp(a),
+    );
   const orderStageEntries = Object.entries(
     data.pipeline.order_stage_counts,
   ).filter(([stage]) => stage !== 'DELIVERED' && stage !== 'CANCELED');
@@ -883,10 +895,10 @@ export default function AdminDashboardPage() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-[#1a1a2e]">
-                  처리 우선 주문
+                  입금 대기 내역
                 </h2>
                 <p className="mt-1 text-sm text-[#1a1a2e]/50">
-                  입금 확인과 배송 전환이 필요한 주문입니다.
+                  최신 입금 대기 주문부터 확인할 수 있습니다.
                 </p>
               </div>
               <Link
@@ -920,17 +932,17 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.queues.urgent_orders.length === 0 ? (
+                  {pendingPaymentOrders.length === 0 ? (
                     <tr className="border-t border-[#f1eee2]">
                       <td
                         colSpan={5}
                         className="px-3 py-8 text-center text-sm text-[#1a1a2e]/45"
                       >
-                        즉시 처리 대상 주문이 없습니다.
+                        입금 대기 주문이 없습니다.
                       </td>
                     </tr>
                   ) : (
-                    data.queues.urgent_orders.map((order, index) => {
+                    pendingPaymentOrders.map((order, index) => {
                       const canConfirmPayment =
                         Boolean(order.order_id) &&
                         order.stage === 'PAYMENT_PENDING';
