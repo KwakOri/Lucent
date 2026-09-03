@@ -29,7 +29,10 @@ import {
   useV2AdminProjects,
   useV2Campaigns,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
-import { useV2AdminSalesStats } from '@/lib/client/hooks/useV2AdminOps';
+import {
+  useV2AdminDownloadSalesStatsPdf,
+  useV2AdminSalesStats,
+} from '@/lib/client/hooks/useV2AdminOps';
 
 type FilterState = {
   preset: V2AdminSalesStatsPreset;
@@ -66,6 +69,29 @@ function resolvePresetRange(preset: V2AdminSalesStatsPreset): { from: string; to
     from: shiftIsoDate(today, -6),
     to: today,
   };
+}
+
+function resolveCampaignRange(campaign: {
+  starts_at: string | null;
+  ends_at: string | null;
+}): { from: string; to: string } | null {
+  if (!campaign.starts_at) {
+    return null;
+  }
+
+  const startsAt = new Date(campaign.starts_at);
+  if (Number.isNaN(startsAt.getTime())) {
+    return null;
+  }
+
+  const endsAt = campaign.ends_at ? new Date(campaign.ends_at) : null;
+  if (endsAt && Number.isNaN(endsAt.getTime())) {
+    return null;
+  }
+
+  const from = toIsoDate(startsAt);
+  const to = endsAt ? toIsoDate(endsAt) : toIsoDate(new Date());
+  return from <= to ? { from, to } : null;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -106,17 +132,22 @@ const statValueClassName = 'mt-1 text-2xl font-black text-[#1a1a2e]';
 const tableSectionClassName = 'rounded-[22px] border border-[#e7e3d3] bg-white p-4 shadow-none';
 const tableCellClassName = 'px-3 py-2 text-[#1a1a2e]';
 const tableCellRightClassName = `${tableCellClassName} text-right`;
+const paginationButtonClassName = `${adminButtonClass} disabled:opacity-40`;
 const statsPageSize = 10;
 
 type StatsTab = 'daily' | 'orders' | 'products';
 
-function toSalesStatsParams(filters: FilterState): ListV2AdminSalesStatsParams {
+function toSalesStatsParams(
+  filters: FilterState,
+  expandBundleComponents: boolean,
+): ListV2AdminSalesStatsParams {
   const params: ListV2AdminSalesStatsParams = {
     preset: filters.preset,
     project_id: filters.projectId || undefined,
     campaign_id: filters.campaignId || undefined,
     sales_channel_id: filters.salesChannelId || undefined,
     campaign_type: filters.campaignType || undefined,
+    expand_bundle_components: expandBundleComponents || undefined,
   };
 
   if (filters.preset === 'CUSTOM') {
@@ -226,6 +257,15 @@ function downloadCsv(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export default function V2AdminSalesStatsPage() {
   const initialRange = resolvePresetRange('LAST_7_DAYS');
   const [draft, setDraft] = useState<FilterState>({
@@ -247,14 +287,32 @@ export default function V2AdminSalesStatsPage() {
     campaignType: '',
   });
   const [activeTab, setActiveTab] = useState<StatsTab>('daily');
+  const [expandBundleComponents, setExpandBundleComponents] = useState(false);
   const [page, setPage] = useState(1);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
-  const params = useMemo(() => toSalesStatsParams(applied), [applied]);
+  const params = useMemo(
+    () =>
+      toSalesStatsParams(
+        applied,
+        activeTab === 'products' && expandBundleComponents,
+      ),
+    [activeTab, applied, expandBundleComponents],
+  );
   const { data, isLoading, isFetching, error: statsError } = useV2AdminSalesStats(params);
+  const downloadPdfMutation = useV2AdminDownloadSalesStatsPdf();
   const { data: projects = [], isLoading: projectsLoading } = useV2AdminProjects();
   const { data: campaigns = [], isLoading: campaignsLoading } = useV2Campaigns({
     projectId: draft.projectId || undefined,
   });
+  const selectedCampaign = useMemo(
+    () => campaigns.find((campaign) => campaign.id === draft.campaignId) || null,
+    [campaigns, draft.campaignId],
+  );
+  const campaignRange = useMemo(
+    () => (selectedCampaign ? resolveCampaignRange(selectedCampaign) : null),
+    [selectedCampaign],
+  );
 
   const projectOptions = useMemo(
     () => [
@@ -323,7 +381,24 @@ export default function V2AdminSalesStatsPage() {
     setPage(1);
   };
 
+  const handleCampaignRangeApply = () => {
+    if (!campaignRange) {
+      return;
+    }
+
+    const next = {
+      ...draft,
+      preset: 'CUSTOM' as const,
+      from: campaignRange.from,
+      to: campaignRange.to,
+    };
+    setDraft(next);
+    setApplied(next);
+    setPage(1);
+  };
+
   const handleSearch = () => {
+    setPdfError(null);
     setApplied(draft);
     setPage(1);
   };
@@ -347,6 +422,20 @@ export default function V2AdminSalesStatsPage() {
     downloadCsv(`v2-sales-stats-${from}-to-${to}.csv`, content);
   };
 
+  const handleDownloadPdf = async () => {
+    if (!data || !applied.campaignId || downloadPdfMutation.isPending) {
+      return;
+    }
+
+    setPdfError(null);
+    try {
+      const result = await downloadPdfMutation.mutateAsync(params);
+      downloadBlob(result.filename, result.blob);
+    } catch (error) {
+      setPdfError(getErrorMessage(error));
+    }
+  };
+
   return (
     <div className={`${adminLegacyBridgeClass} space-y-6`}>
       <AdminPageHeader
@@ -367,6 +456,16 @@ export default function V2AdminSalesStatsPage() {
           </Button>
           <Button type="button" intent="secondary" size="sm" className={adminButtonClass} onClick={() => handlePresetApply('CUSTOM')}>
             기간 직접 선택
+          </Button>
+          <Button
+            type="button"
+            intent="secondary"
+            size="sm"
+            className={adminButtonClass}
+            disabled={!campaignRange || campaignsLoading}
+            onClick={handleCampaignRangeApply}
+          >
+            캠페인 전체
           </Button>
         </div>
 
@@ -450,8 +549,21 @@ export default function V2AdminSalesStatsPage() {
           <Button type="button" intent="secondary" size="sm" className={adminButtonClass} onClick={handleDownload} disabled={!data}>
             CSV 다운로드
           </Button>
+          <Button
+            type="button"
+            intent="secondary"
+            size="sm"
+            className={adminButtonClass}
+            onClick={handleDownloadPdf}
+            disabled={!data || !applied.campaignId || downloadPdfMutation.isPending}
+          >
+            {downloadPdfMutation.isPending ? 'PDF 생성 중...' : '정산 PDF'}
+          </Button>
           {isFetching ? <span className="text-sm font-medium text-[#1a1a2e]/50">갱신 중...</span> : null}
         </div>
+        {pdfError ? (
+          <p className="mt-2 text-sm font-medium text-red-700">{pdfError}</p>
+        ) : null}
       </section>
 
       {isLoading ? (
@@ -525,10 +637,37 @@ export default function V2AdminSalesStatsPage() {
                   </Button>
                 ))}
               </div>
-              <span className="text-xs font-bold text-[#1a1a2e]/50">
-                총 {formatNumber(tabRows.length)}건 · {page} / {totalPages}페이지
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {activeTab === 'products' ? (
+                  <Button
+                    type="button"
+                    intent={expandBundleComponents ? 'primary' : 'secondary'}
+                    size="sm"
+                    className={
+                      expandBundleComponents
+                        ? adminPrimaryButtonClass
+                        : adminButtonClass
+                    }
+                    aria-pressed={expandBundleComponents}
+                    onClick={() => {
+                      setExpandBundleComponents((previous) => !previous);
+                      setPage(1);
+                    }}
+                  >
+                    번들 내부 상품으로 조회
+                  </Button>
+                ) : null}
+                <span className="text-xs font-bold text-[#1a1a2e]/50">
+                  총 {formatNumber(tabRows.length)}건 · {page} / {totalPages}페이지
+                </span>
+              </div>
             </div>
+
+            {activeTab === 'products' && expandBundleComponents ? (
+              <p className="mt-3 text-xs font-medium text-[#1a1a2e]/55">
+                번들 상품은 구성품으로 펼쳐 집계됩니다. 구성품 판매수량은 번들에 포함된 실제 구성품 수량입니다.
+              </p>
+            ) : null}
 
             {activeTab === 'daily' ? (
               <div className={`mt-3 ${adminTableContainerClass}`}>
@@ -632,7 +771,7 @@ export default function V2AdminSalesStatsPage() {
                 type="button"
                 intent="secondary"
                 size="sm"
-                className={adminButtonClass}
+                className={paginationButtonClassName}
                 disabled={page <= 1}
                 onClick={() => handlePageChange(page - 1)}
               >
@@ -642,7 +781,7 @@ export default function V2AdminSalesStatsPage() {
                 type="button"
                 intent="secondary"
                 size="sm"
-                className={adminButtonClass}
+                className={paginationButtonClassName}
                 disabled={page >= totalPages}
                 onClick={() => handlePageChange(page + 1)}
               >
