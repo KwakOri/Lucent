@@ -755,6 +755,7 @@ export interface V2AdminSalesStatsSummary {
   orders_count: number;
   units_sold: number;
   item_gross_amount: number;
+  shipping_amount: number;
   order_gross_amount: number;
   captured_amount: number;
   refund_amount: number;
@@ -767,6 +768,7 @@ export interface V2AdminSalesStatsDailyRow {
   orders_count: number;
   units_sold: number;
   item_gross_amount: number;
+  shipping_amount: number;
   order_gross_amount: number;
   captured_amount: number;
   refund_amount: number;
@@ -794,6 +796,7 @@ export interface V2AdminSalesStatsByOrderRow {
   item_line_count: number;
   units_sold: number;
   item_gross_amount: number;
+  shipping_amount: number;
   order_gross_amount: number;
   items: V2AdminSalesStatsOrderItem[];
 }
@@ -827,6 +830,11 @@ export interface V2AdminSalesStats {
   metadata: {
     sales_basis: string;
     settlement_basis: string;
+    gross_amount_metrics: {
+      order_gross_amount: string;
+      item_gross_amount: string;
+      shipping_amount: string;
+    };
     allocation_policy_versions: string[];
     capture_policy_version: string;
     refund_policy_version: string;

@@ -126,6 +126,11 @@ function formatCurrency(value: number, currencyCode: string): string {
   }
 }
 
+function formatSignedCurrency(value: number, currencyCode: string): string {
+  const sign = value > 0 ? '+' : value < 0 ? '−' : '';
+  return `${sign}${formatCurrency(Math.abs(value), currencyCode)}`;
+}
+
 const statCardClassName = 'rounded-[16px] border border-[#e7e3d3] bg-white p-4';
 const statLabelClassName = 'text-xs font-black uppercase tracking-wide text-[#1a1a2e]/40';
 const statValueClassName = 'mt-1 text-2xl font-black text-[#1a1a2e]';
@@ -174,10 +179,12 @@ function toCsv(data: ReturnType<typeof useV2AdminSalesStats>['data']): string {
       'date',
       'order_no',
       'units_sold',
+      'item_gross_amount',
+      'shipping_amount',
       'order_gross_amount',
       'captured_amount',
       'refund_amount',
-      'item_gross_amount',
+      'net_settlement_amount',
       'order_count',
     ].join(','),
   );
@@ -188,10 +195,12 @@ function toCsv(data: ReturnType<typeof useV2AdminSalesStats>['data']): string {
       '',
       '',
       data.summary.units_sold,
+      data.summary.item_gross_amount,
+      data.summary.shipping_amount,
       data.summary.order_gross_amount,
       data.summary.captured_amount,
       data.summary.refund_amount,
-      data.summary.item_gross_amount,
+      data.summary.net_settlement_amount,
       data.summary.orders_count,
     ].join(','),
   );
@@ -203,10 +212,12 @@ function toCsv(data: ReturnType<typeof useV2AdminSalesStats>['data']): string {
         row.date,
         '',
         row.units_sold,
+        row.item_gross_amount,
+        row.shipping_amount,
         row.order_gross_amount,
         row.captured_amount,
         row.refund_amount,
-        row.item_gross_amount,
+        row.net_settlement_amount,
         row.orders_count,
       ].join(','),
     );
@@ -219,10 +230,12 @@ function toCsv(data: ReturnType<typeof useV2AdminSalesStats>['data']): string {
         row.placed_at || '',
         escapeCsv(row.order_no || row.order_id),
         row.units_sold,
+        row.item_gross_amount,
+        row.shipping_amount,
         row.order_gross_amount,
         '',
         '',
-        row.item_gross_amount,
+        '',
         '',
       ].join(','),
     );
@@ -235,10 +248,12 @@ function toCsv(data: ReturnType<typeof useV2AdminSalesStats>['data']): string {
         '',
         escapeCsv(row.product_name),
         row.units_sold,
-        '',
-        '',
-        '',
         row.item_gross_amount,
+        '',
+        '',
+        '',
+        '',
+        '',
         row.order_count,
       ].join(','),
     );
@@ -358,6 +373,12 @@ export default function V2AdminSalesStatsPage() {
   );
 
   const currencyCode = data?.summary.currency_code || 'KRW';
+  const orderCompositionAdjustment = data
+    ? data.summary.order_gross_amount -
+      data.summary.item_gross_amount -
+      data.summary.shipping_amount
+    : 0;
+  const hasOrderCompositionAdjustment = orderCompositionAdjustment !== 0;
 
   const handlePresetApply = (preset: V2AdminSalesStatsPreset) => {
     if (preset === 'CUSTOM') {
@@ -441,7 +462,7 @@ export default function V2AdminSalesStatsPage() {
       <AdminPageHeader
         eyebrow="v2 ops"
         title="v2 통계"
-        description="프로젝트/캠페인 매출과 정산 기준 데이터를 조회합니다."
+        description="상품매출·배송비·주문 총액과 결제·환불·순매출을 분리해 조회합니다."
       />
 
       <V2OpsNavTabs />
@@ -580,39 +601,112 @@ export default function V2AdminSalesStatsPage() {
 
       {data ? (
         <>
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className={statCardClassName}>
-              <p className={statLabelClassName}>주문 수</p>
+              <p className={statLabelClassName}>주문 수 / Orders</p>
               <p className={statValueClassName}>{formatNumber(data.summary.orders_count)}</p>
             </div>
             <div className={statCardClassName}>
-              <p className={statLabelClassName}>판매 수량</p>
+              <p className={statLabelClassName}>판매 수량 / Units</p>
               <p className={statValueClassName}>{formatNumber(data.summary.units_sold)}</p>
             </div>
             <div className={statCardClassName}>
-              <p className={statLabelClassName}>주문 매출</p>
+              <p className={statLabelClassName}>상품매출 / Gross</p>
+              <p className={statValueClassName}>
+                {formatCurrency(data.summary.item_gross_amount, currencyCode)}
+              </p>
+            </div>
+            <div className={statCardClassName}>
+              <p className={statLabelClassName}>배송비 / Shipping</p>
+              <p className={statValueClassName}>
+                {formatCurrency(data.summary.shipping_amount, currencyCode)}
+              </p>
+            </div>
+            <div className={statCardClassName}>
+              <p className={statLabelClassName}>주문 총액 / Grand</p>
               <p className={statValueClassName}>
                 {formatCurrency(data.summary.order_gross_amount, currencyCode)}
               </p>
             </div>
             <div className={statCardClassName}>
-              <p className={statLabelClassName}>결제 매출</p>
+              <p className={statLabelClassName}>결제 매출 / Capture</p>
               <p className={statValueClassName}>
                 {formatCurrency(data.summary.captured_amount, currencyCode)}
               </p>
             </div>
             <div className={statCardClassName}>
-              <p className={statLabelClassName}>환불 차감</p>
+              <p className={statLabelClassName}>환불 차감 / Refund</p>
               <p className="mt-1 text-2xl font-black text-[#ca2a30]">
                 {formatCurrency(data.summary.refund_amount, currencyCode)}
               </p>
             </div>
             <div className={statCardClassName}>
-              <p className={statLabelClassName}>정산 기준 순매출</p>
+              <p className={statLabelClassName}>순매출 / Net</p>
               <p className="mt-1 text-2xl font-black text-[#4a88b9]">
                 {formatCurrency(data.summary.net_settlement_amount, currencyCode)}
               </p>
             </div>
+          </section>
+
+          <section className="rounded-[22px] border border-[#d9e6f2] bg-[#f7fbff] p-4 shadow-none">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-black text-[#1a1a2e]">금액 구성 / Amount reconciliation</p>
+                <p className="mt-1 text-xs font-medium text-[#1a1a2e]/60">
+                  상품매출과 주문 총액을 분리하고, 결제 매출에서 환불을 차감한 순매출을 별도로 표시합니다.
+                </p>
+              </div>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#3478f6]">
+                배송비 별도 집계
+              </span>
+            </div>
+            <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-[14px] border border-[#e7e3d3] bg-white p-3">
+                <p className="text-xs font-bold text-[#1a1a2e]/50">상품매출 / Gross</p>
+                <p className="mt-1 font-black text-[#1a1a2e]">
+                  {formatCurrency(data.summary.item_gross_amount, currencyCode)}
+                </p>
+              </div>
+              <div className="rounded-[14px] border border-[#e7e3d3] bg-white p-3">
+                <p className="text-xs font-bold text-[#1a1a2e]/50">배송비 / Shipping</p>
+                <p className="mt-1 font-black text-[#1a1a2e]">
+                  {formatCurrency(data.summary.shipping_amount, currencyCode)}
+                </p>
+              </div>
+              {hasOrderCompositionAdjustment ? (
+                <div className="rounded-[14px] border border-[#e7e3d3] bg-white p-3">
+                  <p className="text-xs font-bold text-[#1a1a2e]/50">기타 주문 조정</p>
+                  <p className="mt-1 font-black text-[#1a1a2e]">
+                    {formatSignedCurrency(orderCompositionAdjustment, currencyCode)}
+                  </p>
+                </div>
+              ) : null}
+              <div className="rounded-[14px] border border-[#b9d5ee] bg-white p-3">
+                <p className="text-xs font-bold text-[#1a1a2e]/50">주문 총액 / Grand</p>
+                <p className="mt-1 font-black text-[#1a1a2e]">
+                  {formatCurrency(data.summary.order_gross_amount, currencyCode)}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 space-y-1 rounded-[14px] bg-[#1a1a2e] px-4 py-3 text-sm font-bold text-white">
+              <p>
+                상품매출 {formatCurrency(data.summary.item_gross_amount, currencyCode)} + 배송비{' '}
+                {formatCurrency(data.summary.shipping_amount, currencyCode)}
+                {hasOrderCompositionAdjustment
+                  ? ` ${formatSignedCurrency(orderCompositionAdjustment, currencyCode)} 기타 주문 조정`
+                  : ''}{' '}
+                = 주문 총액 {formatCurrency(data.summary.order_gross_amount, currencyCode)}
+              </p>
+              <p className="text-[#c6f042]">
+                결제 매출 {formatCurrency(data.summary.captured_amount, currencyCode)} − 환불 차감{' '}
+                {formatCurrency(data.summary.refund_amount, currencyCode)} = 순매출{' '}
+                {formatCurrency(data.summary.net_settlement_amount, currencyCode)}
+              </p>
+            </div>
+            <p className="mt-3 text-xs font-medium text-[#1a1a2e]/60">
+              배송비는 주문별 <code>shipping_amount</code>에서 <code>shipping_discount_total</code>을 차감한 금액입니다. 현재 선택 범위의 배송비 합계는{' '}
+              {formatCurrency(data.summary.shipping_amount, currencyCode)}입니다.
+            </p>
           </section>
 
           <section className={tableSectionClassName}>
@@ -677,7 +771,9 @@ export default function V2AdminSalesStatsPage() {
                       <th className={adminTableHeadCellClass}>날짜</th>
                       <th className={`${adminTableHeadCellClass} text-right`}>주문수</th>
                       <th className={`${adminTableHeadCellClass} text-right`}>판매수량</th>
-                      <th className={`${adminTableHeadCellClass} text-right`}>주문매출</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>상품매출</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>배송비</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>주문총액</th>
                       <th className={`${adminTableHeadCellClass} text-right`}>결제매출</th>
                       <th className={`${adminTableHeadCellClass} text-right`}>환불</th>
                       <th className={`${adminTableHeadCellClass} text-right`}>순매출</th>
@@ -689,6 +785,8 @@ export default function V2AdminSalesStatsPage() {
                         <td className={tableCellClassName}>{row.date}</td>
                         <td className={tableCellRightClassName}>{formatNumber(row.orders_count)}</td>
                         <td className={tableCellRightClassName}>{formatNumber(row.units_sold)}</td>
+                        <td className={tableCellRightClassName}>{formatCurrency(row.item_gross_amount, currencyCode)}</td>
+                        <td className={tableCellRightClassName}>{formatCurrency(row.shipping_amount, currencyCode)}</td>
                         <td className={tableCellRightClassName}>{formatCurrency(row.order_gross_amount, currencyCode)}</td>
                         <td className={tableCellRightClassName}>{formatCurrency(row.captured_amount, currencyCode)}</td>
                         <td className="px-3 py-2 text-right text-[#ca2a30]">{formatCurrency(row.refund_amount, currencyCode)}</td>
@@ -710,7 +808,9 @@ export default function V2AdminSalesStatsPage() {
                       <th className={adminTableHeadCellClass}>상태</th>
                       <th className={adminTableHeadCellClass}>상품</th>
                       <th className={`${adminTableHeadCellClass} text-right`}>수량</th>
-                      <th className={`${adminTableHeadCellClass} text-right`}>주문금액</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>상품금액</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>배송비</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>주문총액</th>
                     </tr>
                   </thead>
                   <tbody className={adminTableBodyClass}>
@@ -729,6 +829,8 @@ export default function V2AdminSalesStatsPage() {
                           </div>
                         </td>
                         <td className={tableCellRightClassName}>{formatNumber(row.units_sold)}</td>
+                        <td className={tableCellRightClassName}>{formatCurrency(row.item_gross_amount, currencyCode)}</td>
+                        <td className={tableCellRightClassName}>{formatCurrency(row.shipping_amount, currencyCode)}</td>
                         <td className={tableCellRightClassName}>{formatCurrency(row.order_gross_amount, currencyCode)}</td>
                       </tr>
                     ))}
@@ -794,6 +896,9 @@ export default function V2AdminSalesStatsPage() {
             <p className="font-black">정산 계산 기준</p>
             <p className="mt-1">
               판매 지표는 <code>placed_at</code> 기준, 정산 지표는 financial event의 <code>occurred_at</code> 기준으로 계산됩니다.
+            </p>
+            <p className="mt-1">
+              금액 구성: 상품매출(Gross) + 배송비(배송비 할인 차감 후) = 주문 총액(Grand), 결제 매출(Capture) − 환불 차감(Refund) = 순매출(Net)입니다.
             </p>
             <p className="mt-1">
               적용 정책: {data.metadata.capture_policy_version}, {data.metadata.refund_policy_version}
