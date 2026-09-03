@@ -29,7 +29,10 @@ import {
   useV2AdminProjects,
   useV2Campaigns,
 } from '@/lib/client/hooks/useV2CatalogAdmin';
-import { useV2AdminSalesStats } from '@/lib/client/hooks/useV2AdminOps';
+import {
+  useV2AdminDownloadSalesStatsPdf,
+  useV2AdminSalesStats,
+} from '@/lib/client/hooks/useV2AdminOps';
 
 type FilterState = {
   preset: V2AdminSalesStatsPreset;
@@ -254,6 +257,15 @@ function downloadCsv(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export default function V2AdminSalesStatsPage() {
   const initialRange = resolvePresetRange('LAST_7_DAYS');
   const [draft, setDraft] = useState<FilterState>({
@@ -277,6 +289,7 @@ export default function V2AdminSalesStatsPage() {
   const [activeTab, setActiveTab] = useState<StatsTab>('daily');
   const [expandBundleComponents, setExpandBundleComponents] = useState(false);
   const [page, setPage] = useState(1);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   const params = useMemo(
     () =>
@@ -287,6 +300,7 @@ export default function V2AdminSalesStatsPage() {
     [activeTab, applied, expandBundleComponents],
   );
   const { data, isLoading, isFetching, error: statsError } = useV2AdminSalesStats(params);
+  const downloadPdfMutation = useV2AdminDownloadSalesStatsPdf();
   const { data: projects = [], isLoading: projectsLoading } = useV2AdminProjects();
   const { data: campaigns = [], isLoading: campaignsLoading } = useV2Campaigns({
     projectId: draft.projectId || undefined,
@@ -384,6 +398,7 @@ export default function V2AdminSalesStatsPage() {
   };
 
   const handleSearch = () => {
+    setPdfError(null);
     setApplied(draft);
     setPage(1);
   };
@@ -405,6 +420,20 @@ export default function V2AdminSalesStatsPage() {
     const from = data.range.from;
     const to = data.range.to;
     downloadCsv(`v2-sales-stats-${from}-to-${to}.csv`, content);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!data || !applied.campaignId || downloadPdfMutation.isPending) {
+      return;
+    }
+
+    setPdfError(null);
+    try {
+      const result = await downloadPdfMutation.mutateAsync(params);
+      downloadBlob(result.filename, result.blob);
+    } catch (error) {
+      setPdfError(getErrorMessage(error));
+    }
   };
 
   return (
@@ -520,8 +549,21 @@ export default function V2AdminSalesStatsPage() {
           <Button type="button" intent="secondary" size="sm" className={adminButtonClass} onClick={handleDownload} disabled={!data}>
             CSV 다운로드
           </Button>
+          <Button
+            type="button"
+            intent="secondary"
+            size="sm"
+            className={adminButtonClass}
+            onClick={handleDownloadPdf}
+            disabled={!data || !applied.campaignId || downloadPdfMutation.isPending}
+          >
+            {downloadPdfMutation.isPending ? 'PDF 생성 중...' : '정산 PDF'}
+          </Button>
           {isFetching ? <span className="text-sm font-medium text-[#1a1a2e]/50">갱신 중...</span> : null}
         </div>
+        {pdfError ? (
+          <p className="mt-2 text-sm font-medium text-red-700">{pdfError}</p>
+        ) : null}
       </section>
 
       {isLoading ? (

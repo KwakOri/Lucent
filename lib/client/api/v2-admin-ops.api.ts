@@ -732,6 +732,11 @@ export interface ListV2AdminSalesStatsParams {
   expand_bundle_components?: boolean;
 }
 
+export interface DownloadV2AdminSalesStatsPdfResult {
+  blob: Blob;
+  filename: string;
+}
+
 export interface ListV2AdminDashboardOverviewParams {
   from?: string;
   to?: string;
@@ -1084,6 +1089,57 @@ function toQueryString<T extends object>(params: T) {
   return query ? `?${query}` : '';
 }
 
+function resolveSalesStatsPdfFilename(
+  contentDisposition: string | null,
+): string | null {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]).trim();
+    } catch {
+      return utf8Match[1].trim();
+    }
+  }
+
+  const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  return plainMatch?.[1]?.trim() || null;
+}
+
+async function readSalesStatsPdfError(response: Response): Promise<{
+  message: string;
+  errorCode: string | null;
+  rawText: string;
+}> {
+  const rawText = (await response.text()).trim();
+  let parsed: Record<string, unknown> | null = null;
+  if (rawText) {
+    try {
+      parsed = JSON.parse(rawText) as Record<string, unknown>;
+    } catch {
+      parsed = null;
+    }
+  }
+  const messageFromJson =
+    parsed && typeof parsed.message === 'string' ? parsed.message.trim() : '';
+  const messageFromText =
+    rawText && !rawText.startsWith('<!DOCTYPE') && !rawText.startsWith('<html')
+      ? rawText
+      : '';
+  const errorCode =
+    parsed && typeof parsed.errorCode === 'string' && parsed.errorCode.trim()
+      ? parsed.errorCode.trim()
+      : null;
+  return {
+    message: messageFromJson || messageFromText || '캠페인 정산 PDF 생성에 실패했습니다.',
+    errorCode,
+    rawText,
+  };
+}
+
 export const V2AdminOpsAPI = {
   async getActionCatalog(): Promise<ApiResponse<V2AdminActionCatalog>> {
     return apiClient.get('/api/v2/admin/actions/catalog');
@@ -1168,6 +1224,50 @@ export const V2AdminOpsAPI = {
   ): Promise<ApiResponse<V2AdminSalesStats>> {
     const query = toQueryString(params);
     return apiClient.get(`/api/v2/admin/ops/sales-stats${query}`);
+  },
+
+  async downloadSalesStatsPdf(
+    params: ListV2AdminSalesStatsParams = {},
+  ): Promise<DownloadV2AdminSalesStatsPdfResult> {
+    const query = toQueryString(params);
+    const response = await fetch(
+      `/api/v2/admin/ops/sales-stats/pdf${query}`,
+      {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      },
+    );
+
+    if (!response.ok) {
+      const errorPayload = await readSalesStatsPdfError(response);
+      const statusLabel = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+      const messageParts = [errorPayload.message, `status=${statusLabel}`];
+      if (errorPayload.errorCode) {
+        messageParts.push(`code=${errorPayload.errorCode}`);
+      }
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[V2AdminOpsAPI] downloadSalesStatsPdf failed', {
+          status: response.status,
+          statusText: response.statusText,
+          errorCode: errorPayload.errorCode,
+          responseBody: errorPayload.rawText,
+        });
+      }
+      throw new Error(messageParts.join(' / '));
+    }
+
+    const blob = await response.blob();
+    if (!blob || blob.size === 0) {
+      throw new Error('생성된 PDF 파일이 비어 있습니다.');
+    }
+
+    return {
+      blob,
+      filename:
+        resolveSalesStatsPdfFilename(response.headers.get('content-disposition')) ||
+        'campaign_settlement.pdf',
+    };
   },
 
   async getDashboardOverview(

@@ -28,6 +28,7 @@ import {
   type ListV2AdminOrderQueueParams,
   type ListV2AdminRbacUsersParams,
   type ListV2AdminSalesStatsParams,
+  type DownloadV2AdminSalesStatsPdfResult,
   type ListV2AdminUnifiedAuditLogsParams,
   type RevokeV2AdminRbacRoleInput,
   type SaveV2AdminCutoverBatchInput,
@@ -279,6 +280,16 @@ export function useV2AdminSalesStats(params: ListV2AdminSalesStatsParams = {}) {
       const response = await V2AdminOpsAPI.listSalesStats(params);
       return response.data;
     },
+  });
+}
+
+export function useV2AdminDownloadSalesStatsPdf() {
+  return useMutation<
+    DownloadV2AdminSalesStatsPdfResult,
+    Error,
+    ListV2AdminSalesStatsParams
+  >({
+    mutationFn: (params) => V2AdminOpsAPI.downloadSalesStatsPdf(params),
   });
 }
 
