@@ -106,6 +106,7 @@ const statValueClassName = 'mt-1 text-2xl font-black text-[#1a1a2e]';
 const tableSectionClassName = 'rounded-[22px] border border-[#e7e3d3] bg-white p-4 shadow-none';
 const tableCellClassName = 'px-3 py-2 text-[#1a1a2e]';
 const tableCellRightClassName = `${tableCellClassName} text-right`;
+const paginationButtonClassName = `${adminButtonClass} disabled:opacity-40`;
 const statsPageSize = 10;
 
 type StatsTab = 'daily' | 'orders' | 'products';
@@ -671,7 +672,7 @@ export default function V2AdminSalesStatsPage() {
                 type="button"
                 intent="secondary"
                 size="sm"
-                className={adminButtonClass}
+                className={paginationButtonClassName}
                 disabled={page <= 1}
                 onClick={() => handlePageChange(page - 1)}
               >
@@ -681,7 +682,7 @@ export default function V2AdminSalesStatsPage() {
                 type="button"
                 intent="secondary"
                 size="sm"
-                className={adminButtonClass}
+                className={paginationButtonClassName}
                 disabled={page >= totalPages}
                 onClick={() => handlePageChange(page + 1)}
               >
