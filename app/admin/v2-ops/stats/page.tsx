@@ -20,6 +20,9 @@ import {
 import { V2OpsNavTabs } from '@/src/components/admin/v2-ops/V2OpsNavTabs';
 import {
   type ListV2AdminSalesStatsParams,
+  type V2AdminSalesStatsByOrderRow,
+  type V2AdminSalesStatsByProductRow,
+  type V2AdminSalesStatsDailyRow,
   type V2AdminSalesStatsPreset,
 } from '@/lib/client/api/v2-admin-ops.api';
 import {
@@ -103,6 +106,9 @@ const statValueClassName = 'mt-1 text-2xl font-black text-[#1a1a2e]';
 const tableSectionClassName = 'rounded-[22px] border border-[#e7e3d3] bg-white p-4 shadow-none';
 const tableCellClassName = 'px-3 py-2 text-[#1a1a2e]';
 const tableCellRightClassName = `${tableCellClassName} text-right`;
+const statsPageSize = 10;
+
+type StatsTab = 'daily' | 'orders' | 'products';
 
 function toSalesStatsParams(filters: FilterState): ListV2AdminSalesStatsParams {
   const params: ListV2AdminSalesStatsParams = {
@@ -121,6 +127,10 @@ function toSalesStatsParams(filters: FilterState): ListV2AdminSalesStatsParams {
   return params;
 }
 
+function escapeCsv(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
 function toCsv(data: ReturnType<typeof useV2AdminSalesStats>['data']): string {
   if (!data) {
     return '';
@@ -131,14 +141,13 @@ function toCsv(data: ReturnType<typeof useV2AdminSalesStats>['data']): string {
     [
       'section',
       'date',
-      'project_name',
-      'campaign_name',
-      'orders_count',
+      'order_no',
       'units_sold',
       'order_gross_amount',
       'captured_amount',
       'refund_amount',
-      'net_settlement_amount',
+      'item_gross_amount',
+      'order_count',
     ].join(','),
   );
 
@@ -147,13 +156,12 @@ function toCsv(data: ReturnType<typeof useV2AdminSalesStats>['data']): string {
       'summary',
       '',
       '',
-      '',
-      data.summary.orders_count,
       data.summary.units_sold,
       data.summary.order_gross_amount,
       data.summary.captured_amount,
       data.summary.refund_amount,
-      data.summary.net_settlement_amount,
+      data.summary.item_gross_amount,
+      data.summary.orders_count,
     ].join(','),
   );
 
@@ -163,47 +171,44 @@ function toCsv(data: ReturnType<typeof useV2AdminSalesStats>['data']): string {
         'daily',
         row.date,
         '',
-        '',
+        row.units_sold,
+        row.order_gross_amount,
+        row.captured_amount,
+        row.refund_amount,
+        row.item_gross_amount,
         row.orders_count,
-        row.units_sold,
-        row.order_gross_amount,
-        row.captured_amount,
-        row.refund_amount,
-        row.net_settlement_amount,
       ].join(','),
     );
   }
 
-  for (const row of data.by_project) {
+  for (const row of data.by_order || []) {
     rows.push(
       [
-        'project',
-        '',
-        `"${row.project_name}"`,
-        '',
-        row.order_count,
+        'order',
+        row.placed_at || '',
+        escapeCsv(row.order_no || row.order_id),
         row.units_sold,
         row.order_gross_amount,
-        row.captured_amount,
-        row.refund_amount,
-        row.net_settlement_amount,
+        '',
+        '',
+        row.item_gross_amount,
+        '',
       ].join(','),
     );
   }
 
-  for (const row of data.by_campaign) {
+  for (const row of data.by_product || []) {
     rows.push(
       [
-        'campaign',
+        'product',
         '',
-        '',
-        `"${row.campaign_name}"`,
-        row.order_count,
+        escapeCsv(row.product_name),
         row.units_sold,
-        row.order_gross_amount,
-        row.captured_amount,
-        row.refund_amount,
-        row.net_settlement_amount,
+        '',
+        '',
+        '',
+        row.item_gross_amount,
+        row.order_count,
       ].join(','),
     );
   }
@@ -241,11 +246,15 @@ export default function V2AdminSalesStatsPage() {
     salesChannelId: '',
     campaignType: '',
   });
+  const [activeTab, setActiveTab] = useState<StatsTab>('daily');
+  const [page, setPage] = useState(1);
 
   const params = useMemo(() => toSalesStatsParams(applied), [applied]);
   const { data, isLoading, isFetching, error: statsError } = useV2AdminSalesStats(params);
   const { data: projects = [], isLoading: projectsLoading } = useV2AdminProjects();
-  const { data: campaigns = [], isLoading: campaignsLoading } = useV2Campaigns();
+  const { data: campaigns = [], isLoading: campaignsLoading } = useV2Campaigns({
+    projectId: draft.projectId || undefined,
+  });
 
   const projectOptions = useMemo(
     () => [
@@ -275,6 +284,21 @@ export default function V2AdminSalesStatsPage() {
     [campaigns],
   );
 
+  const tabRows = useMemo(() => {
+    if (activeTab === 'orders') {
+      return data?.by_order || [];
+    }
+    if (activeTab === 'products') {
+      return data?.by_product || [];
+    }
+    return data?.daily || [];
+  }, [activeTab, data]);
+  const totalPages = Math.max(1, Math.ceil(tabRows.length / statsPageSize));
+  const visibleRows = useMemo(
+    () => tabRows.slice((page - 1) * statsPageSize, page * statsPageSize),
+    [page, tabRows],
+  );
+
   const currencyCode = data?.summary.currency_code || 'KRW';
 
   const handlePresetApply = (preset: V2AdminSalesStatsPreset) => {
@@ -296,10 +320,21 @@ export default function V2AdminSalesStatsPage() {
     };
     setDraft(next);
     setApplied(next);
+    setPage(1);
   };
 
   const handleSearch = () => {
     setApplied(draft);
+    setPage(1);
+  };
+
+  const handleTabChange = (nextTab: StatsTab) => {
+    setActiveTab(nextTab);
+    setPage(1);
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    setPage(Math.min(Math.max(nextPage, 1), totalPages));
   };
 
   const handleDownload = () => {
@@ -378,7 +413,11 @@ export default function V2AdminSalesStatsPage() {
             options={projectOptions}
             disabled={projectsLoading}
             onChange={(event) =>
-              setDraft((prev) => ({ ...prev, projectId: event.target.value }))
+              setDraft((prev) => ({
+                ...prev,
+                projectId: event.target.value,
+                campaignId: '',
+              }))
             }
             className={adminSelectClass}
           />
@@ -465,112 +504,150 @@ export default function V2AdminSalesStatsPage() {
           </section>
 
           <section className={tableSectionClassName}>
-            <h2 className="text-lg font-black text-[#1a1a2e]">일별 추이</h2>
-            <div className={`mt-3 ${adminTableContainerClass}`}>
-              <table className="min-w-full text-sm">
-                <thead className={adminTableHeadClass}>
-                  <tr>
-                    <th className={adminTableHeadCellClass}>날짜</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>주문수</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>판매수량</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>주문매출</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>결제매출</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>환불</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>순매출</th>
-                  </tr>
-                </thead>
-                <tbody className={adminTableBodyClass}>
-                  {data.daily.map((row) => (
-                    <tr key={row.date}>
-                      <td className={tableCellClassName}>{row.date}</td>
-                      <td className={tableCellRightClassName}>{formatNumber(row.orders_count)}</td>
-                      <td className={tableCellRightClassName}>{formatNumber(row.units_sold)}</td>
-                      <td className={tableCellRightClassName}>{formatCurrency(row.order_gross_amount, currencyCode)}</td>
-                      <td className={tableCellRightClassName}>{formatCurrency(row.captured_amount, currencyCode)}</td>
-                      <td className="px-3 py-2 text-right text-[#ca2a30]">
-                        {formatCurrency(row.refund_amount, currencyCode)}
-                      </td>
-                      <td className="px-3 py-2 text-right font-bold text-[#1a1a2e]">
-                        {formatCurrency(row.net_settlement_amount, currencyCode)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label="통계 상세 탭">
+                {([
+                  ['daily', '일별 추이'],
+                  ['orders', '주문별'],
+                  ['products', '상품별'],
+                ] as const).map(([tab, label]) => (
+                  <Button
+                    key={tab}
+                    type="button"
+                    intent={activeTab === tab ? 'primary' : 'secondary'}
+                    size="sm"
+                    className={activeTab === tab ? adminPrimaryButtonClass : adminButtonClass}
+                    role="tab"
+                    aria-selected={activeTab === tab}
+                    onClick={() => handleTabChange(tab)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              <span className="text-xs font-bold text-[#1a1a2e]/50">
+                총 {formatNumber(tabRows.length)}건 · {page} / {totalPages}페이지
+              </span>
             </div>
-          </section>
 
-          <section className={tableSectionClassName}>
-            <h2 className="text-lg font-black text-[#1a1a2e]">프로젝트별</h2>
-            <div className={`mt-3 ${adminTableContainerClass}`}>
-              <table className="min-w-full text-sm">
-                <thead className={adminTableHeadClass}>
-                  <tr>
-                    <th className={adminTableHeadCellClass}>프로젝트</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>주문수</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>판매수량</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>주문매출</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>결제매출</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>환불</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>순매출</th>
-                  </tr>
-                </thead>
-                <tbody className={adminTableBodyClass}>
-                  {data.by_project.map((row) => (
-                    <tr key={row.project_id || row.project_name}>
-                      <td className={tableCellClassName}>{row.project_name}</td>
-                      <td className={tableCellRightClassName}>{formatNumber(row.order_count)}</td>
-                      <td className={tableCellRightClassName}>{formatNumber(row.units_sold)}</td>
-                      <td className={tableCellRightClassName}>{formatCurrency(row.order_gross_amount, currencyCode)}</td>
-                      <td className={tableCellRightClassName}>{formatCurrency(row.captured_amount, currencyCode)}</td>
-                      <td className="px-3 py-2 text-right text-[#ca2a30]">
-                        {formatCurrency(row.refund_amount, currencyCode)}
-                      </td>
-                      <td className="px-3 py-2 text-right font-bold text-[#1a1a2e]">
-                        {formatCurrency(row.net_settlement_amount, currencyCode)}
-                      </td>
+            {activeTab === 'daily' ? (
+              <div className={`mt-3 ${adminTableContainerClass}`}>
+                <table className="min-w-full text-sm">
+                  <thead className={adminTableHeadClass}>
+                    <tr>
+                      <th className={adminTableHeadCellClass}>날짜</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>주문수</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>판매수량</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>주문매출</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>결제매출</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>환불</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>순매출</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                  </thead>
+                  <tbody className={adminTableBodyClass}>
+                    {(visibleRows as V2AdminSalesStatsDailyRow[]).map((row) => (
+                      <tr key={row.date}>
+                        <td className={tableCellClassName}>{row.date}</td>
+                        <td className={tableCellRightClassName}>{formatNumber(row.orders_count)}</td>
+                        <td className={tableCellRightClassName}>{formatNumber(row.units_sold)}</td>
+                        <td className={tableCellRightClassName}>{formatCurrency(row.order_gross_amount, currencyCode)}</td>
+                        <td className={tableCellRightClassName}>{formatCurrency(row.captured_amount, currencyCode)}</td>
+                        <td className="px-3 py-2 text-right text-[#ca2a30]">{formatCurrency(row.refund_amount, currencyCode)}</td>
+                        <td className="px-3 py-2 text-right font-bold text-[#1a1a2e]">{formatCurrency(row.net_settlement_amount, currencyCode)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
 
-          <section className={tableSectionClassName}>
-            <h2 className="text-lg font-black text-[#1a1a2e]">캠페인별</h2>
-            <div className={`mt-3 ${adminTableContainerClass}`}>
-              <table className="min-w-full text-sm">
-                <thead className={adminTableHeadClass}>
-                  <tr>
-                    <th className={adminTableHeadCellClass}>캠페인</th>
-                    <th className={adminTableHeadCellClass}>유형</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>주문수</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>판매수량</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>주문매출</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>결제매출</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>환불</th>
-                    <th className={`${adminTableHeadCellClass} text-right`}>순매출</th>
-                  </tr>
-                </thead>
-                <tbody className={adminTableBodyClass}>
-                  {data.by_campaign.map((row) => (
-                    <tr key={row.campaign_id || row.campaign_name}>
-                      <td className={tableCellClassName}>{row.campaign_name}</td>
-                      <td className={tableCellClassName}>{row.campaign_type || '-'}</td>
-                      <td className={tableCellRightClassName}>{formatNumber(row.order_count)}</td>
-                      <td className={tableCellRightClassName}>{formatNumber(row.units_sold)}</td>
-                      <td className={tableCellRightClassName}>{formatCurrency(row.order_gross_amount, currencyCode)}</td>
-                      <td className={tableCellRightClassName}>{formatCurrency(row.captured_amount, currencyCode)}</td>
-                      <td className="px-3 py-2 text-right text-[#ca2a30]">
-                        {formatCurrency(row.refund_amount, currencyCode)}
-                      </td>
-                      <td className="px-3 py-2 text-right font-bold text-[#1a1a2e]">
-                        {formatCurrency(row.net_settlement_amount, currencyCode)}
-                      </td>
+            {activeTab === 'orders' ? (
+              <div className={`mt-3 ${adminTableContainerClass}`}>
+                <table className="min-w-full text-sm">
+                  <thead className={adminTableHeadClass}>
+                    <tr>
+                      <th className={adminTableHeadCellClass}>주문번호</th>
+                      <th className={adminTableHeadCellClass}>주문일시</th>
+                      <th className={adminTableHeadCellClass}>상태</th>
+                      <th className={adminTableHeadCellClass}>상품</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>수량</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>주문금액</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className={adminTableBodyClass}>
+                    {(visibleRows as V2AdminSalesStatsByOrderRow[]).map((row) => (
+                      <tr key={row.order_id}>
+                        <td className={`${tableCellClassName} font-bold`}>{row.order_no || row.order_id}</td>
+                        <td className={tableCellClassName}>{row.placed_at ? new Date(row.placed_at).toLocaleString('ko-KR') : '-'}</td>
+                        <td className={tableCellClassName}>{row.payment_status || row.order_status || '-'}</td>
+                        <td className={tableCellClassName}>
+                          <div className="max-w-[28rem] space-y-1">
+                            {row.items.map((item) => (
+                              <div key={item.order_item_id || `${item.product_name}-${item.variant_name || ''}`}>
+                                {item.product_name}{item.variant_name ? ` · ${item.variant_name}` : ''} × {formatNumber(item.quantity)}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                        <td className={tableCellRightClassName}>{formatNumber(row.units_sold)}</td>
+                        <td className={tableCellRightClassName}>{formatCurrency(row.order_gross_amount, currencyCode)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+
+            {activeTab === 'products' ? (
+              <div className={`mt-3 ${adminTableContainerClass}`}>
+                <table className="min-w-full text-sm">
+                  <thead className={adminTableHeadClass}>
+                    <tr>
+                      <th className={adminTableHeadCellClass}>상품</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>주문수</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>판매수량</th>
+                      <th className={`${adminTableHeadCellClass} text-right`}>상품매출</th>
+                    </tr>
+                  </thead>
+                  <tbody className={adminTableBodyClass}>
+                    {(visibleRows as V2AdminSalesStatsByProductRow[]).map((row) => (
+                      <tr key={row.product_id || row.product_name}>
+                        <td className={`${tableCellClassName} font-bold`}>{row.product_name}</td>
+                        <td className={tableCellRightClassName}>{formatNumber(row.order_count)}</td>
+                        <td className={tableCellRightClassName}>{formatNumber(row.units_sold)}</td>
+                        <td className={tableCellRightClassName}>{formatCurrency(row.item_gross_amount, currencyCode)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+
+            {visibleRows.length === 0 ? (
+              <p className="mt-6 text-center text-sm font-medium text-[#1a1a2e]/50">표시할 데이터가 없습니다.</p>
+            ) : null}
+
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <Button
+                type="button"
+                intent="secondary"
+                size="sm"
+                className={adminButtonClass}
+                disabled={page <= 1}
+                onClick={() => handlePageChange(page - 1)}
+              >
+                이전
+              </Button>
+              <Button
+                type="button"
+                intent="secondary"
+                size="sm"
+                className={adminButtonClass}
+                disabled={page >= totalPages}
+                onClick={() => handlePageChange(page + 1)}
+              >
+                다음
+              </Button>
             </div>
           </section>
 

@@ -767,29 +767,37 @@ export interface V2AdminSalesStatsDailyRow {
   net_settlement_amount: number;
 }
 
-export interface V2AdminSalesStatsByProjectRow {
-  project_id: string | null;
-  project_name: string;
-  currency_code: string;
-  order_count: number;
-  units_sold: number;
-  order_gross_amount: number;
-  captured_amount: number;
-  refund_amount: number;
-  net_settlement_amount: number;
+export interface V2AdminSalesStatsOrderItem {
+  order_item_id: string | null;
+  product_id: string | null;
+  product_name: string;
+  variant_name: string | null;
+  quantity: number;
+  line_type: string | null;
+  final_line_total: number;
 }
 
-export interface V2AdminSalesStatsByCampaignRow {
-  campaign_id: string | null;
-  campaign_name: string;
-  campaign_type: string | null;
+export interface V2AdminSalesStatsByOrderRow {
+  order_id: string;
+  order_no: string | null;
+  placed_at: string | null;
+  order_status: string | null;
+  payment_status: string | null;
+  sales_channel_id: string | null;
   currency_code: string;
+  item_line_count: number;
+  units_sold: number;
+  item_gross_amount: number;
+  order_gross_amount: number;
+  items: V2AdminSalesStatsOrderItem[];
+}
+
+export interface V2AdminSalesStatsByProductRow {
+  product_id: string | null;
+  product_name: string;
   order_count: number;
   units_sold: number;
-  order_gross_amount: number;
-  captured_amount: number;
-  refund_amount: number;
-  net_settlement_amount: number;
+  item_gross_amount: number;
 }
 
 export interface V2AdminSalesStats {
@@ -808,8 +816,8 @@ export interface V2AdminSalesStats {
   };
   summary: V2AdminSalesStatsSummary;
   daily: V2AdminSalesStatsDailyRow[];
-  by_project: V2AdminSalesStatsByProjectRow[];
-  by_campaign: V2AdminSalesStatsByCampaignRow[];
+  by_order: V2AdminSalesStatsByOrderRow[];
+  by_product: V2AdminSalesStatsByProductRow[];
   metadata: {
     sales_basis: string;
     settlement_basis: string;

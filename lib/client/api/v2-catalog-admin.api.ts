@@ -944,6 +944,7 @@ export interface GetV2BundleDefinitionsParams {
 export interface GetV2CampaignsParams {
   status?: V2CampaignStatus;
   campaignType?: V2CampaignType;
+  projectId?: string;
 }
 
 export interface GetV2PriceListsParams {
@@ -2540,6 +2541,7 @@ export const V2CatalogAdminAPI = {
       `/api/v2/catalog/admin/campaigns${buildSearchParams({
         status: params.status,
         campaignType: params.campaignType,
+        projectId: params.projectId,
       })}`,
     );
   },
