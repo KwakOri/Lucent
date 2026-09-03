@@ -68,6 +68,29 @@ function resolvePresetRange(preset: V2AdminSalesStatsPreset): { from: string; to
   };
 }
 
+function resolveCampaignRange(campaign: {
+  starts_at: string | null;
+  ends_at: string | null;
+}): { from: string; to: string } | null {
+  if (!campaign.starts_at) {
+    return null;
+  }
+
+  const startsAt = new Date(campaign.starts_at);
+  if (Number.isNaN(startsAt.getTime())) {
+    return null;
+  }
+
+  const endsAt = campaign.ends_at ? new Date(campaign.ends_at) : null;
+  if (endsAt && Number.isNaN(endsAt.getTime())) {
+    return null;
+  }
+
+  const from = toIsoDate(startsAt);
+  const to = endsAt ? toIsoDate(endsAt) : toIsoDate(new Date());
+  return from <= to ? { from, to } : null;
+}
+
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
     const maybeError = error as {
@@ -268,6 +291,14 @@ export default function V2AdminSalesStatsPage() {
   const { data: campaigns = [], isLoading: campaignsLoading } = useV2Campaigns({
     projectId: draft.projectId || undefined,
   });
+  const selectedCampaign = useMemo(
+    () => campaigns.find((campaign) => campaign.id === draft.campaignId) || null,
+    [campaigns, draft.campaignId],
+  );
+  const campaignRange = useMemo(
+    () => (selectedCampaign ? resolveCampaignRange(selectedCampaign) : null),
+    [selectedCampaign],
+  );
 
   const projectOptions = useMemo(
     () => [
@@ -336,6 +367,22 @@ export default function V2AdminSalesStatsPage() {
     setPage(1);
   };
 
+  const handleCampaignRangeApply = () => {
+    if (!campaignRange) {
+      return;
+    }
+
+    const next = {
+      ...draft,
+      preset: 'CUSTOM' as const,
+      from: campaignRange.from,
+      to: campaignRange.to,
+    };
+    setDraft(next);
+    setApplied(next);
+    setPage(1);
+  };
+
   const handleSearch = () => {
     setApplied(draft);
     setPage(1);
@@ -380,6 +427,16 @@ export default function V2AdminSalesStatsPage() {
           </Button>
           <Button type="button" intent="secondary" size="sm" className={adminButtonClass} onClick={() => handlePresetApply('CUSTOM')}>
             기간 직접 선택
+          </Button>
+          <Button
+            type="button"
+            intent="secondary"
+            size="sm"
+            className={adminButtonClass}
+            disabled={!campaignRange || campaignsLoading}
+            onClick={handleCampaignRangeApply}
+          >
+            캠페인 전체
           </Button>
         </div>
 
