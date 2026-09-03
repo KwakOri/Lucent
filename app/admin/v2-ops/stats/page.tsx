@@ -110,13 +110,17 @@ const statsPageSize = 10;
 
 type StatsTab = 'daily' | 'orders' | 'products';
 
-function toSalesStatsParams(filters: FilterState): ListV2AdminSalesStatsParams {
+function toSalesStatsParams(
+  filters: FilterState,
+  expandBundleComponents: boolean,
+): ListV2AdminSalesStatsParams {
   const params: ListV2AdminSalesStatsParams = {
     preset: filters.preset,
     project_id: filters.projectId || undefined,
     campaign_id: filters.campaignId || undefined,
     sales_channel_id: filters.salesChannelId || undefined,
     campaign_type: filters.campaignType || undefined,
+    expand_bundle_components: expandBundleComponents || undefined,
   };
 
   if (filters.preset === 'CUSTOM') {
@@ -247,9 +251,17 @@ export default function V2AdminSalesStatsPage() {
     campaignType: '',
   });
   const [activeTab, setActiveTab] = useState<StatsTab>('daily');
+  const [expandBundleComponents, setExpandBundleComponents] = useState(false);
   const [page, setPage] = useState(1);
 
-  const params = useMemo(() => toSalesStatsParams(applied), [applied]);
+  const params = useMemo(
+    () =>
+      toSalesStatsParams(
+        applied,
+        activeTab === 'products' && expandBundleComponents,
+      ),
+    [activeTab, applied, expandBundleComponents],
+  );
   const { data, isLoading, isFetching, error: statsError } = useV2AdminSalesStats(params);
   const { data: projects = [], isLoading: projectsLoading } = useV2AdminProjects();
   const { data: campaigns = [], isLoading: campaignsLoading } = useV2Campaigns({
@@ -525,10 +537,37 @@ export default function V2AdminSalesStatsPage() {
                   </Button>
                 ))}
               </div>
-              <span className="text-xs font-bold text-[#1a1a2e]/50">
-                총 {formatNumber(tabRows.length)}건 · {page} / {totalPages}페이지
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {activeTab === 'products' ? (
+                  <Button
+                    type="button"
+                    intent={expandBundleComponents ? 'primary' : 'secondary'}
+                    size="sm"
+                    className={
+                      expandBundleComponents
+                        ? adminPrimaryButtonClass
+                        : adminButtonClass
+                    }
+                    aria-pressed={expandBundleComponents}
+                    onClick={() => {
+                      setExpandBundleComponents((previous) => !previous);
+                      setPage(1);
+                    }}
+                  >
+                    번들 내부 상품으로 조회
+                  </Button>
+                ) : null}
+                <span className="text-xs font-bold text-[#1a1a2e]/50">
+                  총 {formatNumber(tabRows.length)}건 · {page} / {totalPages}페이지
+                </span>
+              </div>
             </div>
+
+            {activeTab === 'products' && expandBundleComponents ? (
+              <p className="mt-3 text-xs font-medium text-[#1a1a2e]/55">
+                번들 상품은 구성품으로 펼쳐 집계됩니다. 구성품 판매수량은 번들에 포함된 실제 구성품 수량입니다.
+              </p>
+            ) : null}
 
             {activeTab === 'daily' ? (
               <div className={`mt-3 ${adminTableContainerClass}`}>

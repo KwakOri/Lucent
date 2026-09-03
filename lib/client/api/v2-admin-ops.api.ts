@@ -729,6 +729,7 @@ export interface ListV2AdminSalesStatsParams {
   campaign_id?: string;
   sales_channel_id?: string;
   campaign_type?: string;
+  expand_bundle_components?: boolean;
 }
 
 export interface ListV2AdminDashboardOverviewParams {
