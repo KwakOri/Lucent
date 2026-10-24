@@ -113,7 +113,7 @@ const PROJECT_DISPLAY_CONFIG: Record<
   miruru: {
     bgColor: "#A8D5E2",
     artist: "시로우미 미루루",
-    image: "/profilemiruru.png",
+    image: "/profilemiruru.webp",
     detailPath: "/projects/miruru",
     socials: {
       chzzk: "https://chzzk.naver.com/3e4cec21aa539da475b12e6f294ee766",
@@ -125,7 +125,7 @@ const PROJECT_DISPLAY_CONFIG: Record<
   leafy: {
     bgColor: "#D8F0D7",
     artist: "리피",
-    image: "/profile_leafy.png",
+    image: "/profile_leafy.webp",
     detailPath: "/projects/leafy",
     socials: {
       chzzk: "https://chzzk.naver.com/c0087678584dde072491be66f0662e40",
@@ -137,7 +137,7 @@ const PROJECT_DISPLAY_CONFIG: Record<
   pukong: {
     bgColor: "#BBDCF8",
     artist: "푸콩",
-    image: "/profile_pukong.png",
+    image: "/profile_pukong.webp",
     detailPath: "/projects/pukong",
     socials: {
       chzzk: "https://chzzk.naver.com/43341c5abdd1fb6b3645d195977a1c10",
@@ -257,6 +257,8 @@ export function ProjectsSection() {
                         <img
                           src={displayConfig.image}
                           alt={displayConfig.artist || project.name}
+                          loading="lazy"
+                          decoding="async"
                           className="absolute inset-0 w-full h-full object-contain object-top"
                         />
                       </div>

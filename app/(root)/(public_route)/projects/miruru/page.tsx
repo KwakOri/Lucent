@@ -68,7 +68,7 @@ export default function MiruruProjectPage() {
                 *
               </span>
               <img
-                src="/profilemiruru.png"
+                src="/profilemiruru.webp"
                 alt="시로우미 미루루"
                 className="absolute bottom-0 left-1/2 w-[25rem] max-w-none -translate-x-1/2 sm:w-[27rem]"
               />
