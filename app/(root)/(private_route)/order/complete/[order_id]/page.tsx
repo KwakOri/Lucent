@@ -11,6 +11,7 @@ import { useV2CheckoutOrder } from '@/lib/client/hooks/useV2Checkout';
 import { useV2ShopProductThumbnails } from '@/lib/client/hooks/useV2Shop';
 import { groupV2OrderItems } from '@/lib/client/utils/v2-order-item-groups';
 import { ApiError } from '@/lib/client/utils/api-error';
+import { resolveV2OrderPaymentNotice } from '@/lib/client/utils/v2-order-payment-notice';
 import {
   buildDistinctOptionCountByProduct,
   normalizeDisplayTitle,
@@ -202,6 +203,16 @@ export default function OrderCompletePage() {
   );
   const snapshotGrandTotal = readNumber(pricingSummary.total_payable_amount);
   const payableAmount = Math.max(order.grand_total, snapshotGrandTotal, calculatedGrandTotal);
+  // 결제가 확인됐거나 낼 금액이 0원이면 무통장 입금 안내 대신 완료 안내를 보여 준다.
+  const paymentNotice = resolveV2OrderPaymentNotice({
+    paymentStatus: order.payment_status,
+    payableAmount,
+  });
+  const hasDigitalItem = itemGroups.some((group) =>
+    group.components.length > 0
+      ? group.components.some((component) => !component.requiresShipping)
+      : !group.requiresShipping,
+  );
   const shippingSnapshot = asObject(order.shipping_address_snapshot);
   const customerSnapshot = asObject(order.customer_snapshot);
   const shippingLine1 = readString(shippingSnapshot.line1);
@@ -228,7 +239,27 @@ export default function OrderCompletePage() {
           </p>
         </section>
 
-        <BankAccountInfo depositorName={depositorName} totalAmount={payableAmount} />
+        {paymentNotice === 'BANK_TRANSFER' ? (
+          <BankAccountInfo depositorName={depositorName} totalAmount={payableAmount} />
+        ) : (
+          <section className="rounded-2xl border border-neutral-200 bg-white p-6">
+            <h2 className="text-lg font-semibold text-text-primary">결제가 완료되었습니다</h2>
+            {hasDigitalItem && (
+              <p className="mt-2 text-sm text-text-secondary">
+                디지털 상품은{' '}
+                {paymentNotice === 'NO_PAYMENT_DUE' ? '처리 완료 후 ' : ''}
+                마이페이지의{' '}
+                <Link
+                  href="/mypage/digital-products"
+                  className="font-semibold text-primary-700 underline"
+                >
+                  내 디지털 상품
+                </Link>
+                에서 받을 수 있습니다.
+              </p>
+            )}
+          </section>
+        )}
 
         <section className="rounded-2xl border border-neutral-200 bg-white p-6">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
