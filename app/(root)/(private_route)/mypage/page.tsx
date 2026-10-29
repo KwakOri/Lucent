@@ -22,6 +22,7 @@ import {
   shouldShowOptionTitle,
 } from '@/lib/client/utils/v2-item-display';
 import { groupV2OrderItems } from '@/lib/client/utils/v2-order-item-groups';
+import { resolveV2OrderPaymentNotice } from '@/lib/client/utils/v2-order-payment-notice';
 import { useToast } from '@/src/components/toast';
 
 interface UnifiedOrderItem {
@@ -583,7 +584,11 @@ export default function MyPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {linearStatus === 'PAYMENT_PENDING' && (
+                        {linearStatus === 'PAYMENT_PENDING' &&
+                          resolveV2OrderPaymentNotice({
+                            paymentStatus: order.paymentStatus,
+                            payableAmount: order.displayTotal,
+                          }) === 'BANK_TRANSFER' && (
                           <Button
                             intent="secondary"
                             size="sm"
