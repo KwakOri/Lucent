@@ -17,7 +17,7 @@ export default function LeafyProjectPage() {
       romanName="Leafy"
       backgroundNameLines={['LEA', 'FY']}
       roleLabel="Lucent Artist"
-      profileImage="/profile_leafy.png"
+      profileImage="/profile_leafy.webp"
       imageAlt="리피"
       footerName="LEAFY"
       profileItems={PROFILE_ITEMS}

@@ -87,11 +87,13 @@ export const config = {
   matcher: [
     /*
      * 다음을 제외한 모든 요청 경로에 대해 실행:
+     * - api/ (BFF route: 토큰을 backend에 그대로 넘기고 backend가 검증한다.
+     *   Authorization 없이 쿠키만 오면 BFF가 세션을 읽으면서 갱신한다)
      * - _next/static (정적 파일)
      * - _next/image (이미지 최적화 파일)
      * - favicon.ico (파비콘 파일)
      * - public 폴더의 파일들
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

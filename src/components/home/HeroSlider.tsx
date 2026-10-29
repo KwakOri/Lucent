@@ -33,7 +33,7 @@ const HERO_SLIDES = [
       text: "루센트에 대해 더 알아보기",
       link: "/about",
     },
-    image: "/slogun.png",
+    image: "/slogun.webp",
   },
   {
     id: "shop",
@@ -47,7 +47,7 @@ const HERO_SLIDES = [
       text: "굿즈샵 둘러보기",
       link: "/shop",
     },
-    image: "/goods.png",
+    image: "/goods.webp",
   },
 ];
 
