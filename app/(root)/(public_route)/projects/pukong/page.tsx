@@ -17,7 +17,7 @@ export default function PukongProjectPage() {
       romanName="Pukong"
       backgroundNameLines={['PU', 'KONG']}
       roleLabel="Lucent Artist"
-      profileImage="/profile_pukong.png"
+      profileImage="/profile_pukong.webp"
       imageAlt="푸콩"
       footerName="PUKONG"
       profileItems={PROFILE_ITEMS}
