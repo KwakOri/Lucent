@@ -160,6 +160,13 @@ export interface V2CheckoutOrder {
   items: Array<Record<string, unknown>>;
   adjustments: Array<Record<string, unknown>>;
   payments: Array<Record<string, unknown>>;
+  // 주문 목록 응답에만 있다(상세 응답에는 없음). backend 권한 조회가 실패하면 null.
+  digital_entitlement_summary?: V2OrderDigitalEntitlementSummary | null;
+}
+
+export interface V2OrderDigitalEntitlementSummary {
+  total: number;
+  granted: number;
 }
 
 export interface V2CreateOrderResult {
