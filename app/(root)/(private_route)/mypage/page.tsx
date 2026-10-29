@@ -10,7 +10,10 @@ import { DepositInfoModal } from '@/components/order';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Loading } from '@/components/ui/loading';
-import type { V2CheckoutOrder } from '@/lib/client/api/v2-checkout.api';
+import type {
+  V2CheckoutOrder,
+  V2OrderDigitalEntitlementSummary,
+} from '@/lib/client/api/v2-checkout.api';
 import {
   useSession,
   useV2CancelOrder,
@@ -21,6 +24,10 @@ import {
   normalizeDisplayTitle,
   shouldShowOptionTitle,
 } from '@/lib/client/utils/v2-item-display';
+import {
+  resolveMyPageLinearStatus,
+  type MyPageLinearStatus,
+} from '@/lib/client/utils/v2-mypage-order-status';
 import { groupV2OrderItems } from '@/lib/client/utils/v2-order-item-groups';
 import { resolveV2OrderPaymentNotice } from '@/lib/client/utils/v2-order-payment-notice';
 import { useToast } from '@/src/components/toast';
@@ -58,20 +65,9 @@ interface UnifiedOrder {
   orderStatus: string;
   paymentStatus?: string;
   fulfillmentStatus?: string;
+  digitalEntitlementSummary: V2OrderDigitalEntitlementSummary | null;
   items: UnifiedOrderItem[];
 }
-
-type MyPageLinearStatus =
-  | 'PAYMENT_PENDING'
-  | 'PAYMENT_CONFIRMED'
-  | 'PRODUCTION'
-  | 'READY_TO_SHIP'
-  | 'IN_TRANSIT'
-  | 'COMPLETED'
-  | 'CANCELED'
-  | 'FAILED'
-  | 'PARTIALLY_REFUNDED'
-  | 'REFUNDED';
 
 const ORDERS_PER_PAGE = 10;
 
@@ -240,6 +236,7 @@ function mapV2Order(order: V2CheckoutOrder): UnifiedOrder {
     orderStatus: order.order_status,
     paymentStatus: order.payment_status,
     fulfillmentStatus: order.fulfillment_status,
+    digitalEntitlementSummary: order.digital_entitlement_summary ?? null,
     items,
   };
 }
@@ -265,59 +262,6 @@ function getStatusLabel(status: string) {
     FULFILLED: '이행완료',
   };
   return labels[status] || status;
-}
-
-function includesCanceledStatus(status: string | undefined): boolean {
-  return String(status || '').toUpperCase().includes('CANCEL');
-}
-
-function resolveMyPageLinearStatus(order: UnifiedOrder): MyPageLinearStatus {
-  const orderStatus = String(order.orderStatus || '').toUpperCase();
-  const paymentStatus = String(order.paymentStatus || '').toUpperCase();
-  const fulfillmentStatus = String(order.fulfillmentStatus || '').toUpperCase();
-  const hasPhysicalItem = order.items.some((item) => !item.isDigital);
-
-  if (
-    includesCanceledStatus(orderStatus) ||
-    includesCanceledStatus(paymentStatus) ||
-    includesCanceledStatus(fulfillmentStatus)
-  ) {
-    return 'CANCELED';
-  }
-
-  if (paymentStatus === 'FAILED') {
-    return 'FAILED';
-  }
-
-  if (paymentStatus === 'REFUNDED') {
-    return 'REFUNDED';
-  }
-
-  if (paymentStatus === 'PARTIALLY_REFUNDED') {
-    return 'PARTIALLY_REFUNDED';
-  }
-
-  if (!paymentStatus || paymentStatus === 'PENDING') {
-    return 'PAYMENT_PENDING';
-  }
-
-  if (paymentStatus === 'AUTHORIZED') {
-    return 'PAYMENT_CONFIRMED';
-  }
-
-  if (orderStatus === 'COMPLETED' || fulfillmentStatus === 'FULFILLED') {
-    return 'COMPLETED';
-  }
-
-  if (fulfillmentStatus === 'PARTIAL') {
-    return hasPhysicalItem ? 'IN_TRANSIT' : 'PRODUCTION';
-  }
-
-  if (fulfillmentStatus === 'UNFULFILLED') {
-    return hasPhysicalItem ? 'READY_TO_SHIP' : 'PRODUCTION';
-  }
-
-  return hasPhysicalItem ? 'READY_TO_SHIP' : 'PRODUCTION';
 }
 
 function myPageLinearStatusLabel(status: MyPageLinearStatus): string {
